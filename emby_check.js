@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      4.8.2
+// @version      4.8.3
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -1010,7 +1010,8 @@
             /([A-Z]{2,15})-(\d{2,10})(?:-(\d+))?/i,
             /([A-Z]{2,15})-([A-Z]{0,2}\d{2,10})/i,
             /FC2[-\s_]?(?:PPV)?[-\s_]?(\d{6,9})/i,
-            /(\d{6})[-_ ]?(\d{2,3})/,
+            /(\d{6})[-_ ]?(\d{2,3})[-_ ]?([A-Z0-9]+)/i,
+            /(\d{6})[-_](\d{2,3})/i,
             /([A-Z]{1,2})(\d{3,4})/i
         ];
 
@@ -1019,13 +1020,15 @@
             if (match) {
                 if (i === 0) { // 标准格式
                     return match[3] ? `${match[1]}-${match[2]}-${match[3]}` : `${match[1]}-${match[2]}`;
-                } else if (i === 1) { // 字母-字母数字格式，保持原始格式
-                    return match[0]; // 返回完整字符串，如 MKBD-S118
-                } else if (i === 2) { // FC2
+                } else if (i === 1) {
+                    return match[0];
+                } else if (i === 2) {
                     return `FC2-PPV-${match[1]}`;
-                } else if (i === 3) { // 纯数字格式
-                    return `${match[1]}-${match[2]}`;
-                } else if (i === 4) { // 无分隔符字母+数字
+                } else if (i === 3) {
+                    return match[0];
+                } else if (i === 4) {
+                    return match[0];
+                } else if (i === 5) {
                     return match[0];
                 }
             }
@@ -1599,7 +1602,7 @@
 
             let tryCodes = [clean];
 
-            // 处理 FC2 的两种变体
+            // 处理 FC2 变体
             const fc2PPVMatch = clean.match(/^FC2-PPV-(\d+)$/i);
             const fc2Match = clean.match(/^FC2-(\d+)$/i);
             if (fc2PPVMatch) {
@@ -1608,10 +1611,22 @@
                 tryCodes.push(`FC2-PPV-${fc2Match[1]}`);
             }
 
-            // 原有的降级逻辑（如 IPZZ-777-2 降级为 IPZZ-777）
+            // 标准番号降级（如 IPZZ-777-2 -> IPZZ-777）
             const mainMatch = clean.match(/^([A-Z]+-\d+)/);
             if (mainMatch && mainMatch[1] !== clean) {
                 tryCodes.push(mainMatch[1]);
+            }
+
+            // 纯数字番号处理
+            const pureDigitMatch = clean.match(/^(\d{6})[-_](\d{2,3})$/);
+            if (pureDigitMatch) {
+            }
+
+            const suffixDigitMatch = clean.match(/^(\d{6}[-_]\d{2,3})[-_][A-Z0-9]+$/i);
+            if (suffixDigitMatch) {
+                const pure = suffixDigitMatch[1];
+                tryCodes.push(pure);
+                tryCodes.push(pure.replace(/[-_]/, ''));
             }
 
             // 去重
@@ -1646,7 +1661,7 @@
                     const items = data.Items || [];
 
                     if (items.length) {
-                        const best = this.findBestMatch(items, c);
+                        const best = this.findBestMatch(items, c, code);
                         if (best) {
                             EmbyCache.set(c, best);
                             return best;
@@ -1767,16 +1782,22 @@
             return el;
         }
 
-        findBestMatch(items, code) {
+        findBestMatch(items, queryCode, originalCode) {
             if (!items || items.length === 0) return null;
 
-            const target = code.trim().toUpperCase();
+            const target = queryCode.trim().toUpperCase();
             const targetClean = target.replace(/[-_]/g, '');
             const mainTarget = target.replace(/-\d+$/, '');
             const cleanStr = s => (s || '').toUpperCase().replace(/[-_]/g, '');
-
-            // 提取target的字母前缀（连字符前的部分）
+            const targetAlphaNum = target.replace(/[^A-Z0-9]/g, '');
             const targetPrefix = target.split('-')[0];
+
+            // 判断原始番号是否带厂商后缀
+            const hasSuffix = /^\d{6}[-_]\d{2,3}[-_][A-Z0-9]+$/i.test(originalCode);
+            let originalSuffix = null;
+            if (hasSuffix) {
+                originalSuffix = originalCode.replace(/^\d{6}[-_]\d{2,3}[-_]/, '').toUpperCase();
+            }
 
             let best = null;
             let bestScore = 0;
@@ -1784,7 +1805,13 @@
             for (const it of items) {
                 const name = (it.Name || '').toUpperCase();
                 const nameClean = cleanStr(name);
+                const nameAlphaNum = name.replace(/[^A-Z0-9]/g, '');
                 const namePrefix = name.split('-')[0];
+
+                let nameSuffix = null;
+                if (/^\d{6}[-_]\d{2,3}[-_][A-Z0-9]+$/i.test(name)) {
+                    nameSuffix = name.replace(/^\d{6}[-_]\d{2,3}[-_]/, '').toUpperCase();
+                }
 
                 let score = 0;
 
@@ -1792,9 +1819,23 @@
                 else if (nameClean === targetClean) score = 95;
                 else if (name === mainTarget) score = 92;
                 else if (nameClean === cleanStr(mainTarget)) score = 90;
-                // 只有在字母前缀相同时，才考虑包含匹配
                 else if (name.includes(mainTarget) && targetPrefix === namePrefix) score = 85;
                 else if (nameClean.includes(cleanStr(mainTarget)) && targetPrefix === namePrefix) score = 80;
+                else if (nameAlphaNum === targetAlphaNum) score = 75;
+
+                // 如果分数为75（宽松匹配），检查分隔符是否一致，若不一致则降分
+                if (score === 75) {
+                    const targetHasUnderscore = target.includes('_');
+                    const nameHasUnderscore = name.includes('_');
+                    if (targetHasUnderscore !== nameHasUnderscore) {
+                        score = 60; // 低于75阈值，避免误匹配
+                    }
+                }
+
+                // 如果原始番号带后缀，且名称中也包含一个不同的后缀，则降分
+                if (hasSuffix && score > 0 && nameSuffix && nameSuffix !== originalSuffix) {
+                    score = 50;
+                }
 
                 if (score > bestScore) {
                     bestScore = score;
@@ -1802,7 +1843,7 @@
                 }
             }
 
-            return bestScore >= 80 ? best : null;
+            return bestScore >= 75 ? best : null;
         }
     }
 
