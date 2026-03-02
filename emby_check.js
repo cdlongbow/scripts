@@ -1010,8 +1010,9 @@
             /([A-Z]{2,15})-(\d{2,10})(?:-(\d+))?/i,
             /([A-Z]{2,15})-([A-Z]{0,2}\d{2,10})/i,
             /FC2[-\s_]?(?:PPV)?[-\s_]?(\d{6,9})/i,
-            /(\d{6})[-_ ]?(\d{2,3})[-_ ]?([A-Z0-9]+)/i,
-            /(\d{6})[-_](\d{2,3})/i,
+            /^[A-Z0-9]+[-_](\d{6}[-_]\d{2,3})/i,
+            /(\d{6}[-_]\d{2,3})[-_][A-Z0-9]+$/i,
+            /(\d{6}[-_]\d{2,3})/,
             /([A-Z]{1,2})(\d{3,4})/i
         ];
 
@@ -1024,11 +1025,11 @@
                     return match[0];
                 } else if (i === 2) {
                     return `FC2-PPV-${match[1]}`;
-                } else if (i === 3) {
-                    return match[0];
-                } else if (i === 4) {
-                    return match[0];
+                } else if (i === 3 || i === 4) {
+                    return match[1];
                 } else if (i === 5) {
+                    return match[1];
+                } else if (i === 6) {
                     return match[0];
                 }
             }
@@ -1617,16 +1618,19 @@
                 tryCodes.push(mainMatch[1]);
             }
 
-            // 纯数字番号处理
-            const pureDigitMatch = clean.match(/^(\d{6})[-_](\d{2,3})$/);
+            // 如果原始番号是纯数字核心（即提取后的结果），只生成无分隔符版本作为备选（保留原始分隔符）
+            const pureDigitMatch = clean.match(/^\d{6}[-_]\d{2,3}$/);
             if (pureDigitMatch) {
+                // 原始格式已在 tryCodes 中，只需添加无分隔符版本
+                tryCodes.push(clean.replace(/[-_]/, ''));
             }
 
-            const suffixDigitMatch = clean.match(/^(\d{6}[-_]\d{2,3})[-_][A-Z0-9]+$/i);
+            // 如果原始番号带厂商后缀，提取纯数字核心（使用原始分隔符）作为备选
+            const suffixDigitMatch = clean.match(/^(\d{6})([-_])(\d{2,3})[-_][A-Z0-9]+$/i);
             if (suffixDigitMatch) {
-                const pure = suffixDigitMatch[1];
-                tryCodes.push(pure);
-                tryCodes.push(pure.replace(/[-_]/, ''));
+                const base = `${suffixDigitMatch[1]}${suffixDigitMatch[2]}${suffixDigitMatch[3]}`; // 保留原始分隔符
+                tryCodes.push(base);
+                tryCodes.push(base.replace(/[-_]/, '')); // 无分隔符版本
             }
 
             // 去重
@@ -1824,7 +1828,7 @@
                 else if (nameAlphaNum === targetAlphaNum) score = 75;
 
                 // 如果分数为75（宽松匹配），检查分隔符是否一致，若不一致则降分
-                if (score === 75) {
+                if (score === 75 && queryCode === originalCode) {
                     const targetHasUnderscore = target.includes('_');
                     const nameHasUnderscore = name.includes('_');
                     if (targetHasUnderscore !== nameHasUnderscore) {
