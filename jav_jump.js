@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         番号跳转加预览图
 // @namespace    https://github.com/ZiPenOk
-// @version      4.7.0
+// @version      4.7.1
 // @icon         https://javdb.com/favicon.ico
 // @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB 支持。增加javstore预览图来源, 并添加缓存控制选择
 // @author       ZiPenOk
@@ -196,8 +196,72 @@
             filter: brightness(1.1);
         }
         
-        .preview-toolbar button:hover {
-            transform: scale(1.05);
+        /* 预览图工具栏 */
+        .preview-toolbar {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 8px;
+            z-index: 2147483648;
+            background: rgba(30, 30, 30, 0.75);
+            backdrop-filter: blur(10px);
+            padding: 6px 12px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+        }
+
+        .preview-btn {
+            border: none;
+            color: #eee;
+            font-size: 13px;
+            font-weight: 450;
+            cursor: pointer;
+            padding: 6px 14px;
+            border-radius: 24px;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(100, 100, 120, 0.3); /* 统一灰色默认背景 */
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            letter-spacing: 0.2px;
+        }
+
+        .preview-btn:hover {
+            background: rgba(140, 140, 160, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .preview-btn.javfree.active {
+            background: #2ecc71;
+            color: white;
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 16px rgba(46, 204, 113, 0.6);
+            font-weight: 500;
+        }
+
+        .preview-btn.javstore.active {
+            background: #e74c3c;
+            color: white;
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 16px rgba(231, 76, 60, 0.6);
+            font-weight: 500;
+        }
+
+        .preview-btn.action {
+            background: rgba(100, 100, 120, 0.3);
+        }
+        .preview-btn.action:hover {
+            background: rgba(140, 140, 160, 0.5);
+        }
+
+        .preview-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
         }
     `);
 
@@ -273,11 +337,10 @@
             });
         },
 
-        showOverlay(imgUrl, code) {
+        showOverlay(imgUrl, code, source = null) {
             const container = document.createElement('div');
             container.className = 'preview-overlay';
             
-            // 创建图片元素
             const img = document.createElement('img');
             img.className = 'preview-img';
             img.src = imgUrl;
@@ -286,90 +349,70 @@
                 img.classList.toggle('zoomed');
             };
             
-            // 创建右上角工具栏
             const toolbar = document.createElement('div');
             toolbar.className = 'preview-toolbar';
+            // 保留定位，其他样式由 CSS 控制
             toolbar.style.cssText = `
                 position: fixed;
                 top: 20px;
                 right: 20px;
                 display: flex;
-                gap: 10px;
-                background: rgba(0,0,0,0.6);
-                padding: 8px 12px;
-                border-radius: 30px;
-                backdrop-filter: blur(5px);
+                gap: 12px;
                 z-index: 2147483648;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             `;
 
-            // 工具按钮样式
-            const btnStyle = `
-                background: transparent;
-                border: none;
-                color: white;
-                font-size: 14px;
-                cursor: pointer;
-                padding: 4px 8px;
-                border-radius: 16px;
-                transition: all 0.2s;
-                font-family: Arial, sans-serif;
-            `;
+            const createButton = (text, icon, className, onClick) => {
+                const btn = document.createElement('button');
+                btn.className = `preview-btn ${className}`;
+                btn.innerHTML = `${icon} ${text}`;
+                btn.onclick = onClick;
+                return btn;
+            };
 
-            // 切换 javfree 源
-            const javfreeBtn = document.createElement('button');
-            javfreeBtn.textContent = 'javfree';
-            javfreeBtn.style.cssText = btnStyle + 'background: #28a745;';
-            javfreeBtn.onmouseover = () => javfreeBtn.style.background = '#218838';
-            javfreeBtn.onmouseout = () => javfreeBtn.style.background = '#28a745';
-            javfreeBtn.onclick = async (e) => {
+            const setActiveSource = (activeSource) => {
+                if (activeSource === 'javfree') {
+                    javfreeBtn.classList.add('active');
+                    javstoreBtn.classList.remove('active');
+                } else if (activeSource === 'javstore') {
+                    javstoreBtn.classList.add('active');
+                    javfreeBtn.classList.remove('active');
+                }
+            };
+
+            const javfreeBtn = createButton('javfree', '🟢', 'javfree', async (e) => {
                 e.stopPropagation();
                 const newUrl = await Thumbnail.javfree(code);
                 if (newUrl) {
                     img.src = newUrl;
+                    setActiveSource('javfree');
                 } else {
                     alert('javfree 未找到预览图');
                 }
-            };
+            });
 
-            // 切换 javstore 源
-            const javstoreBtn = document.createElement('button');
-            javstoreBtn.textContent = 'javstore';
-            javstoreBtn.style.cssText = btnStyle + 'background: #dc3545;';
-            javstoreBtn.onmouseover = () => javstoreBtn.style.background = '#c82333';
-            javstoreBtn.onmouseout = () => javstoreBtn.style.background = '#dc3545';
-            javstoreBtn.onclick = async (e) => {
+            const javstoreBtn = createButton('javstore', '🔴', 'javstore', async (e) => {
                 e.stopPropagation();
                 const newUrl = await Thumbnail.javstore(code);
                 if (newUrl) {
                     img.src = newUrl;
+                    setActiveSource('javstore');
                 } else {
                     alert('javstore 未找到预览图');
                 }
-            };
+            });
 
-            // 新窗口打开
-            const newWindowBtn = document.createElement('button');
-            newWindowBtn.textContent = '新窗口';
-            newWindowBtn.style.cssText = btnStyle + 'background: #17a2b8;';
-            newWindowBtn.onmouseover = () => newWindowBtn.style.background = '#138496';
-            newWindowBtn.onmouseout = () => newWindowBtn.style.background = '#17a2b8';
-            newWindowBtn.onclick = (e) => {
+            const newWindowBtn = createButton('新窗口', '🌐', 'action', (e) => {
                 e.stopPropagation();
                 window.open(img.src);
-            };
+            });
 
-            // 下载图片
-            const downloadBtn = document.createElement('button');
-            downloadBtn.textContent = '下载';
-            downloadBtn.style.cssText = btnStyle + 'background: #ffc107; color: #333;';
-            downloadBtn.onmouseover = () => downloadBtn.style.background = '#e0a800';
-            downloadBtn.onmouseout = () => downloadBtn.style.background = '#ffc107';
-            downloadBtn.onclick = (e) => {
+            const downloadBtn = createButton('下载', '⬇️', 'action', (e) => {
                 e.stopPropagation();
-                const filename = `${code}.jpg`;
-                GM_download(img.src, filename);
-            };
+                GM_download(img.src, `${code}.jpg`);
+            });
+
+            if (source === 'javfree') javfreeBtn.classList.add('active');
+            else if (source === 'javstore') javstoreBtn.classList.add('active');
 
             toolbar.appendChild(javfreeBtn);
             toolbar.appendChild(javstoreBtn);
@@ -378,10 +421,9 @@
 
             container.appendChild(img);
             container.appendChild(toolbar);
-            
             container.onclick = () => container.remove();
             document.body.appendChild(container);
-        },
+        }, 
 
         getJavBusUrl(code) {
             const isUncensored = /^\d{6}[-_\s]\d{3}$/.test(code) || code.toLowerCase().startsWith('n') || code.toLowerCase().startsWith('k');
@@ -506,35 +548,41 @@
             if (cacheEnabled) {
                 cacheKey = `thumb_cache_${code}`;
                 const cached = sessionStorage.getItem(cacheKey);
-                if (cached) return cached;
+                if (cached) {
+                    return { url: cached, source: null };
+                }
             }
 
             console.log('尝试获取预览图：优先 javfree');
             let url = null;
+            let source = null;
 
             try {
                 // 先尝试 javfree
                 url = await this.javfree(code);
-                if (!url) {
+                if (url) {
+                    source = 'javfree';
+                } else {
                     console.log('javfree 失败，尝试 javstore');
                     url = await this.javstore(code);
+                    if (url) source = 'javstore';
                 }
 
                 console.log('最终结果:', url ? '有图' : '无图');
                 if (url && cacheEnabled) {
                     sessionStorage.setItem(cacheKey, url);
                 }
-                return url;
+                return { url, source };
             } catch (error) {
                 console.error('Error in Thumbnail.get:', error);
-                return null;
+                return { url: null, source: null };
             }
-        },
+        }, 
 
         async show(code) {
-            const url = await this.get(code);
-            if (url) {
-                Utils.showOverlay(url, code);
+            const result = await this.get(code);
+            if (result.url) {
+                Utils.showOverlay(result.url, code, result.source);
             } else {
                 alert('未找到预览图');
             }
