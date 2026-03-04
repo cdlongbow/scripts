@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         番号跳转加预览图
 // @namespace    https://github.com/ZiPenOk
-// @version      4.6
+// @version      4.7.0
 // @icon         https://javdb.com/favicon.ico
-// @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB 支持。增加javstore预览图来源, 并添加来源控制和缓存控制选择
+// @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB 支持。增加javstore预览图来源, 并添加缓存控制选择
 // @author       ZiPenOk
 // @match        *://sukebei.nyaa.si/*
 // @match        *://169bbs.com/*
@@ -195,7 +195,7 @@
             transform: translateX(5px) scale(1.02);
             filter: brightness(1.1);
         }
-
+        
         .preview-toolbar button:hover {
             transform: scale(1.05);
         }
@@ -206,21 +206,14 @@
         extractCode(text) {
             if (!text) return null;
 
-            // 增强的正则表达式，优先级调整：优先匹配第二组带字母的格式（如 MKBD-S118）
             const patterns = [
-                // 模式1: 字母-字母数字，第二组至少一个字母（防止误匹配纯数字）
                 { regex: /([A-Z]{2,15})[-_\s]([A-Z]{1,2}\d{2,10})/i, type: 'alphanum' },
-                // 模式2: 标准格式: 字母-纯数字，可带额外后缀（如 ABC-123 或 ABC-123-456）
                 { regex: /([A-Z]{2,15})[-_\s](\d{2,10})(?:[-_\s](\d+))?/i, type: 'standard' },
-                // 模式3: FC2 格式
                 { regex: /FC2[-\s_]?(?:PPV)?[-\s_]?(\d{6,9})/i, type: 'fc2' },
-                // 模式4: 纯数字格式，如 123456-789
                 { regex: /(\d{6})[-_\s]?(\d{2,3})/, type: 'numeric' },
-                // 模式5: 无分隔符字母+数字，如 AB123
                 { regex: /([A-Z]{1,2})(\d{3,4})/i, type: 'compact' }
             ];
 
-            // 忽略列表，仅用于模式2（标准格式），过滤掉干扰词
             const ignoreList = ['FULLHD', 'H264', 'H265', '1080P', '720P', 'PART', 'DISC', '10BIT'];
 
             for (let i = 0; i < patterns.length; i++) {
@@ -229,20 +222,16 @@
                 if (!match) continue;
 
                 if (type === 'alphanum') {
-                    // 返回完整匹配字符串（如 MKBD-S118），保持原样
                     return match[0].trim();
                 } else if (type === 'standard') {
                     const prefix = match[1].toUpperCase();
-                    // 如果前缀是干扰词，跳过并继续匹配下一个模式
                     if (ignoreList.includes(prefix)) continue;
-                    // 如果有第三组（如 ABC-123-456），则返回带后缀的格式
                     return match[3] ? `${prefix}-${match[2]}-${match[3]}` : `${prefix}-${match[2]}`;
                 } else if (type === 'fc2') {
                     return `FC2-PPV-${match[1]}`;
                 } else if (type === 'numeric') {
                     return `${match[1]}-${match[2]}`;
                 } else if (type === 'compact') {
-                    // 无分隔符格式，转为大写返回（如 AB123）
                     return match[0].toUpperCase();
                 }
             }
@@ -287,7 +276,7 @@
         showOverlay(imgUrl, code) {
             const container = document.createElement('div');
             container.className = 'preview-overlay';
-
+            
             // 创建图片元素
             const img = document.createElement('img');
             img.className = 'preview-img';
@@ -296,7 +285,7 @@
                 e.stopPropagation();
                 img.classList.toggle('zoomed');
             };
-
+            
             // 创建右上角工具栏
             const toolbar = document.createElement('div');
             toolbar.className = 'preview-toolbar';
@@ -389,7 +378,7 @@
 
             container.appendChild(img);
             container.appendChild(toolbar);
-
+            
             container.onclick = () => container.remove();
             document.body.appendChild(container);
         },
@@ -434,7 +423,6 @@
         // ========== 来源2：javstore.net ==========
         async javstore(code) {
             try {
-                // 标准化番号：移除 FC2- 前缀、PPV 后缀及所有连字符，用于模糊匹配
                 const normalizedCode = code.replace(/^fc2-?/i, '').replace(/-/g, '').toLowerCase();
                 console.log(`javstore: searching for code=${code}, normalized=${normalizedCode}`);
 
@@ -443,19 +431,16 @@
                 const searchHtml = await Utils.request(searchUrl);
                 const searchDoc = new DOMParser().parseFromString(searchHtml, 'text/html');
 
-                // 2. 提取详情页链接：选择所有可能链接，并过滤掉外部链接
+                // 2. 提取详情页链接
                 const candidateLinks = searchDoc.querySelectorAll('a[href*="/"]');
                 let detailUrl = null;
                 for (let link of candidateLinks) {
                     const href = link.getAttribute('href');
                     if (!href) continue;
-                    // 只考虑 javstore.net 域内的链接：相对路径或以 javstore.net 开头的绝对路径
                     if (href.startsWith('http') && !href.includes('javstore.net')) {
                         continue;
                     }
-                    // 构建完整 URL
                     const fullUrl = href.startsWith('http') ? href : new URL(href, searchUrl).href;
-                    // 提取 URL 路径的最后部分（通常是标题部分），用于匹配
                     const pathLastPart = fullUrl.split('/').pop() || '';
                     const normalizedPath = pathLastPart.toLowerCase().replace(/-/g, '');
                     if (normalizedPath.includes(normalizedCode)) {
@@ -475,7 +460,6 @@
                 const detailDoc = new DOMParser().parseFromString(detailHtml, 'text/html');
 
                 // 4. 查找预览图链接
-                // 优先寻找包含 "CLICK HERE" 文本的 a 标签
                 const allLinks = detailDoc.querySelectorAll('a');
                 let previewLink = null;
                 for (let link of allLinks) {
@@ -488,7 +472,6 @@
                 if (previewLink) {
                     let imgUrl = previewLink.href;
                     console.log('javstore: found CLICK HERE link:', imgUrl);
-                    // 如果 URL 是 http 协议，尝试转为 https
                     if (imgUrl.startsWith('http:')) {
                         imgUrl = imgUrl.replace(/^http:/, 'https:');
                     }
@@ -502,7 +485,6 @@
                     if (!src.startsWith('http')) {
                         src = new URL(src, detailUrl).href;
                     }
-                    // 尝试转换为大图：_s.jpg -> _l.jpg 或 移除 _s
                     const highRes = src.replace(/_s\.jpg$/, '_l.jpg') || src.replace('_s.jpg', '.jpg');
                     const secureUrl = highRes.replace(/^http:/, 'https:');
                     console.log('javstore: fallback to img src:', secureUrl);
@@ -517,7 +499,7 @@
             }
         },
 
-        // ========== 主入口：按顺序尝试各来源 ==========
+        // ========== 主入口：固定逻辑（优先 javfree，失败后 javstore） ==========
         async get(code) {
             const cacheEnabled = Settings.getPreviewCacheEnabled();
             let cacheKey;
@@ -527,36 +509,18 @@
                 if (cached) return cached;
             }
 
-            const sourceMode = Settings.getPreviewSource();
-            console.log('sourceMode:', sourceMode);
+            console.log('尝试获取预览图：优先 javfree');
             let url = null;
 
             try {
-                if (sourceMode === 'javfree_only') {
-                    console.log('Using javfree_only');
-                    url = await this.javfree(code);
-                } else if (sourceMode === 'javstore_only') {
-                    console.log('Using javstore_only');
+                // 先尝试 javfree
+                url = await this.javfree(code);
+                if (!url) {
+                    console.log('javfree 失败，尝试 javstore');
                     url = await this.javstore(code);
-                } else if (sourceMode === 'javfree_first') {
-                    console.log('Using javfree_first');
-                    url = await this.javfree(code);
-                    if (!url) {
-                        console.log('javfree returned null, trying javstore');
-                        url = await this.javstore(code);
-                    }
-                } else if (sourceMode === 'javstore_first') {
-                    console.log('Using javstore_first');
-                    url = await this.javstore(code);
-                    if (!url) {
-                        console.log('javstore returned null, trying javfree');
-                        url = await this.javfree(code);
-                    }
-                } else {
-                    console.error('Invalid sourceMode:', sourceMode);
                 }
 
-                console.log('Final url:', url);
+                console.log('最终结果:', url ? '有图' : '无图');
                 if (url && cacheEnabled) {
                     sessionStorage.setItem(cacheKey, url);
                 }
@@ -570,7 +534,7 @@
         async show(code) {
             const url = await this.get(code);
             if (url) {
-                Utils.showOverlay(url, code);  // 传入 code
+                Utils.showOverlay(url, code);
             } else {
                 alert('未找到预览图');
             }
@@ -579,12 +543,7 @@
 
     // ============================ 设置管理模块 ============================
     const Settings = {
-        getPreviewSource() {
-            return GM_getValue('preview_source', 'javfree_first');
-        },
-        setPreviewSource(value) {
-            GM_setValue('preview_source', value);
-        },
+        // 移除了 getPreviewSource 和 setPreviewSource
         getPreviewCacheEnabled() {
             return GM_getValue('preview_cache_enabled', true);
         },
@@ -642,11 +601,10 @@
         { name: 'Google', color: '#4285F4', url: (code) => `https://www.google.com/search?q=${code}` },
         { name: 'Bing', color: '#008373', url: (code) => `https://www.bing.com/search?q=${code}` },
         { name: 'DuckGo', color: '#DE5833', url: (code) => `https://duckduckgo.com/?q=${code}` }
-
     ];
 
     // 默认搜索引擎索引（可配置）
-    const DEFAULT_SEARCH_ENGINE_INDEX = 0; // Google
+    const DEFAULT_SEARCH_ENGINE_INDEX = 0; // BTDigg (根据您定义的顺序)
 
     // ============================ 按钮创建辅助函数 ============================
     function addNyaaBtn(code, container) {
@@ -929,7 +887,7 @@
 
         panel.innerHTML = '<h2 style="margin-top:0; text-align:center;">⚙️ 番号跳转设置</h2>';
 
-        // ----- 预览图设置行（合并来源与缓存开关）-----
+        // ----- 预览图设置行（只保留缓存开关）-----
         const rowDiv = document.createElement('div');
         rowDiv.style.cssText = `
             margin-bottom: 15px;
@@ -945,24 +903,6 @@
             padding: 2px 5px;
         `;
 
-        // 来源选择块
-        const sourceDiv = document.createElement('div');
-        sourceDiv.style.cssText = 'display: flex; align-items: center; gap: 10px; flex-shrink: 0;';
-        const sourceLabel = document.createElement('span');
-        sourceLabel.style.fontWeight = 'bold';
-        sourceLabel.textContent = '预览图来源:';
-        const sourceSelect = document.createElement('select');
-        sourceSelect.id = 'preview-source-select';
-        sourceSelect.style.cssText = 'padding: 5px; border-radius: 4px;';
-        sourceSelect.innerHTML = `
-            <option value="javfree_first">优先 javfree，失败后 javstore</option>
-            <option value="javstore_first">优先 javstore，失败后 javfree</option>
-            <option value="javfree_only">仅 javfree</option>
-            <option value="javstore_only">仅 javstore</option>
-        `;
-        sourceDiv.appendChild(sourceLabel);
-        sourceDiv.appendChild(sourceSelect);
-
         // 缓存开关块
         const cacheDiv = document.createElement('div');
         cacheDiv.style.cssText = 'display: flex; align-items: center; gap: 10px; flex-shrink: 0;';
@@ -976,12 +916,10 @@
         cacheDiv.appendChild(cacheLabel);
         cacheDiv.appendChild(cacheCheckbox);
 
-        rowDiv.appendChild(sourceDiv);
         rowDiv.appendChild(cacheDiv);
         panel.appendChild(rowDiv);
 
         // 设置当前值
-        sourceSelect.value = Settings.getPreviewSource();
         cacheCheckbox.checked = Settings.getPreviewCacheEnabled();
 
         //默认搜索引擎
@@ -1015,7 +953,7 @@
 
         searchEngineRow.appendChild(engineLabel);
         searchEngineRow.appendChild(engineSelect);
-        panel.insertBefore(searchEngineRow, panel.querySelector('style')); // 插入到表格样式之前
+        panel.insertBefore(searchEngineRow, panel.querySelector('style'));
 
         // ----- 表格样式 -----
         const style = document.createElement('style');
@@ -1158,15 +1096,13 @@
                 newSettingsMap[siteId][feature] = cb.checked;
             });
 
-            // 保存预览图设置
-            const selectedSource = document.getElementById('preview-source-select').value;
-            Settings.setPreviewSource(selectedSource);
+            // 保存预览图缓存设置
             const cacheEnabled = document.getElementById('preview-cache-checkbox').checked;
             Settings.setPreviewCacheEnabled(cacheEnabled);
 
             // 保存默认搜索引擎
             const selectedEngine = document.getElementById('default-search-engine').value;
-            GM_setValue('default_search_engine', parseInt(selectedEngine));
+            Settings.setDefaultSearchEngine(parseInt(selectedEngine));
 
             Object.keys(newSettingsMap).forEach(siteId => {
                 Settings.set(siteId, newSettingsMap[siteId]);
