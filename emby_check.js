@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      4.8.5
+// @version      4.8.6
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -1819,11 +1819,17 @@
 
                 let score = 0;
 
+                // 统一分隔符后的版本，用于包容性匹配（需配合分隔符检查）
+                const normalizedName = name.replace(/_/g, '-');
+                const normalizedTarget = target.replace(/_/g, '-');
+
                 if (name === target) score = 100;
                 else if (nameClean === targetClean) score = 95;
-                else if (name === mainTarget) score = 92;
-                else if (nameClean === cleanStr(mainTarget)) score = 90;
-                else if (name.includes(mainTarget) && targetPrefix === namePrefix) score = 85;
+                // 只有当分隔符相同时，才允许忽略分隔符差异的包含匹配
+                else if (normalizedName.includes(normalizedTarget) && target.includes('_') === name.includes('_')) score = 92;
+                else if (name === mainTarget) score = 90;
+                else if (nameClean === cleanStr(mainTarget)) score = 88;
+                else if (normalizedName.includes(mainTarget) && targetPrefix === namePrefix) score = 85;
                 else if (nameClean.includes(cleanStr(mainTarget)) && targetPrefix === namePrefix) score = 80;
                 else if (nameAlphaNum === targetAlphaNum) score = 75;
 
@@ -1832,7 +1838,7 @@
                     const targetHasUnderscore = target.includes('_');
                     const nameHasUnderscore = name.includes('_');
                     if (targetHasUnderscore !== nameHasUnderscore) {
-                        score = 60; // 低于75阈值，避免误匹配
+                        score = 60;
                     }
                 }
 
