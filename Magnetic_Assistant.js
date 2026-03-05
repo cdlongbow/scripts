@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         磁力&电驴链接助手
 // @namespace    https://github.com/ZiPenOk
-// @version      3.2.4
-// @description  点击按钮显示绿色勾（验车按钮除外），支持复制（自动精简链接，仅保留xt和dn，并尝试提取标准番号）、推送到qB/115，新增磁力信息验车功能，截图支持轮播（点击遮罩关闭）。完美整合 laosiji.js，仅在操作列插入一次。
+// @version      3.3.0
+// @description  点击按钮显示绿色勾（验车按钮除外），支持复制（自动精简链接，保留xt和dn并提取番号）、推送到qB/115，新增磁力信息验车功能，截图轮播。现增强：支持FTP链接、纯哈希值转磁力、文本链接着色。
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setClipboard
@@ -12,7 +12,6 @@
 // @connect      *
 // @connect      whatslink.info
 // @require      https://cdn.jsdelivr.net/npm/vue@3.5.27/dist/vue.global.prod.js
-// @icon         https://cdn-icons-png.freepik.com/512/234/234746.png
 // @updateURL    https://raw.githubusercontent.com/ZiPenOk/scripts/main/Magnetic_Assistant.js
 // @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/Magnetic_Assistant.js
 // ==/UserScript==
@@ -43,7 +42,7 @@
         checkActive: `<svg viewBox="0 0 24 24" width="14" height="14" fill="#28a745"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`
     };
 
-    // ================= 2. 注入CSS =================
+    // ================= 2. 注入CSS（新增链接样式）=================
     const style = document.createElement('style');
     style.innerHTML = `
         .mag-btn-group {
@@ -258,6 +257,39 @@
         .gallery-next {
             right: 10px;
         }
+        /* 链接样式 */
+        .magnet-link {
+            color: #1b6ad0;
+            word-break: break-all;
+        }
+        .magnet-link:hover {
+            color: #155a8a;
+            text-decoration: underline;
+        }
+        .ed2k-link {
+            color: #d63384;
+            word-break: break-all;
+        }
+        .ed2k-link:hover {
+            color: #b32a69;
+            text-decoration: underline;
+        }
+        .ftp-link {
+            color: #ffc107;
+            word-break: break-all;
+        }
+        .ftp-link:hover {
+            color: #e0a800;
+            text-decoration: underline;
+        }
+        .http-link {
+            color: #28a745;
+            word-break: break-all;
+        }
+        .http-link:hover {
+            color: #218838;
+            text-decoration: underline;
+        }
         @media (max-width: 768px) {
             .check-car-panel { padding: 12px; }
             .info div { font-size: 0.95rem; padding: 6px 10px; }
@@ -288,6 +320,10 @@
                 background: #3a3a3a;
                 color: #e0e0e0;
             }
+            .magnet-link { color: #66b0ff; }
+            .ed2k-link { color: #ff79b0; }
+            .ftp-link { color: #ffd966; }
+            .http-link { color: #6fcf97; }
         }
     `;
     document.head.appendChild(style);
@@ -331,7 +367,7 @@
         return otherSelectors.some(sel => parent.querySelector(sel));
     }
 
-    // ================= 4. 番号提取（用户提供的完整规则）=================
+    // ================= 4. 番号提取 =================
     function extractCodeFromText(text) {
         if (!text) return null;
 
@@ -346,15 +382,15 @@
         for (let i = 0; i < patterns.length; i++) {
             const match = text.match(patterns[i]);
             if (match) {
-                if (i === 0) { // 标准格式
+                if (i === 0) {
                     return match[3] ? `${match[1]}-${match[2]}-${match[3]}` : `${match[1]}-${match[2]}`;
-                } else if (i === 1) { // 字母-字母数字格式，保持原始格式
-                    return match[0]; // 返回完整字符串，如 MKBD-S118
-                } else if (i === 2) { // FC2
+                } else if (i === 1) {
+                    return match[0];
+                } else if (i === 2) {
                     return `FC2-PPV-${match[1]}`;
-                } else if (i === 3) { // 纯数字格式
+                } else if (i === 3) {
                     return `${match[1]}-${match[2]}`;
-                } else if (i === 4) { // 无分隔符字母+数字
+                } else if (i === 4) {
                     return match[0];
                 }
             }
@@ -412,7 +448,7 @@
         document.body.appendChild(mask);
     }
 
-    // ================= 6. 验车功能（使用 Vue 组件）=================
+    // ================= 6. 验车功能 =================
     const MagnetPanel = {
         name: 'MagnetPanel',
         props: {
@@ -553,7 +589,7 @@
         app.mount(mountPoint);
     }
 
-    // ================= 7. 精简磁力链接（使用用户提供的番号提取规则）=================
+    // ================= 7. 精简磁力链接 =================
     function simplifyMagnetLink(link) {
         if (!link.startsWith('magnet:?')) return link;
         try {
@@ -707,10 +743,84 @@
         });
     }
 
-    // ================= 11. 页面扫描 =================
-    function processPage() {
-        const regex = /(magnet:\?xt=urn:btih:[a-zA-Z0-9]{32,40}|ed2k:\/\/\|file\|[^|]+\|\d+\|[a-fA-F0-9]{32}\|)/gi;
+    // ================= 11. 文本链接处理（支持磁力、ed2k、ftp、纯哈希）=================
+    const linkRegexes = {
+        magnet: /magnet:\?xt=urn:btih:[a-zA-Z0-9]{32,40}[^\s<>"]*/g,
+        ed2k: /ed2k:\/\/\|file\|[^|]+\|[^|]+\|[^|]+\|/g,
+        ftp: /ftp:\/\/[^\s]+/g
+    };
 
+    function createStyledLink(url, type) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.className = `${type}-link`;
+        a.textContent = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        return a;
+    }
+
+    /**
+     * 将文本中的纯哈希值（32-40位十六进制）转换为磁力链接
+     */
+    function replacePureHashesInText(text) {
+        const hashRegex = /\b(?:hash:)?([a-f0-9]{32,40})\b/gi;
+        return text.replace(hashRegex, (_, hash) => `magnet:?xt=urn:btih:${hash.toUpperCase()}`);
+    }
+
+    function processTextNode(node) {
+        const parent = node.parentElement;
+        if (!parent) return null;
+        let content = node.nodeValue;
+        let hasLink = false;
+
+        // 先替换纯哈希值
+        const newContent = replacePureHashesInText(content);
+        if (newContent !== content) {
+            content = newContent;
+            hasLink = true;
+        }
+
+        // 检查是否包含任何支持的链接
+        for (const regex of Object.values(linkRegexes)) {
+            if (regex.test(content)) {
+                hasLink = true;
+                regex.lastIndex = 0;
+                break;
+            }
+        }
+
+        if (!hasLink) return null;
+
+        const fragment = document.createDocumentFragment();
+        let lastIndex = 0;
+        let match;
+
+        // 同时匹配所有类型，按顺序处理
+        const combinedRegex = /(magnet:\?xt=urn:btih:[a-zA-Z0-9]{32,40}[^\s<>"]*|ed2k:\/\/\|file\|[^|]+\|[^|]+\|[^|]+\||ftp:\/\/[^\s]+)/gi;
+
+        while ((match = combinedRegex.exec(content)) !== null) {
+            if (match.index > lastIndex) {
+                fragment.appendChild(document.createTextNode(content.slice(lastIndex, match.index)));
+            }
+            const url = match[0];
+            let type = 'http';
+            if (url.startsWith('magnet:')) type = 'magnet';
+            else if (url.startsWith('ed2k:')) type = 'ed2k';
+            else if (url.startsWith('ftp:')) type = 'ftp';
+            fragment.appendChild(createStyledLink(url, type));
+            lastIndex = combinedRegex.lastIndex;
+        }
+        if (lastIndex < content.length) {
+            fragment.appendChild(document.createTextNode(content.slice(lastIndex)));
+        }
+
+        return fragment;
+    }
+
+    // ================= 12. 页面扫描（增强版）=================
+    function processPage() {
+        // 先处理 laosiji 表格
         handleLaosijiTable();
 
         const processedHrefs = new Set();
@@ -718,13 +828,32 @@
             if (a.href) processedHrefs.add(a.href);
         });
 
+        // 处理文本节点（包括纯哈希转换和样式化链接）
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+        const textNodes = [];
+        while (node = walker.nextNode()) {
+            const parent = node.parentElement;
+            if (!parent || parent.closest('#nong-table-new') || parent.closest('.check-car-panel') || parent.closest('.mag-btn-group') || parent.closest('[data-mag-processed]') ||
+                ['SCRIPT', 'STYLE', 'A', 'TEXTAREA', 'INPUT'].includes(parent.tagName)) continue;
+            textNodes.push(node);
+        }
+
+        textNodes.forEach(node => {
+            const fragment = processTextNode(node);
+            if (fragment) {
+                node.parentNode.replaceChild(fragment, node);
+            }
+        });
+
+        // 处理 <a> 标签（排除 laosiji 表格内的链接）
         document.querySelectorAll('a').forEach(a => {
             if (a.closest('#nong-table-new')) return;
             if (a.closest('.check-car-panel')) return;
             if (a.dataset.magProcessed) return;
-            if (a.classList.contains('magnet-link')) return;
             const href = a.href || '';
-            if (href.match(regex)) {
+            // 支持 magnet, ed2k, ftp
+            if (href.startsWith('magnet:?xt=urn:btih:') || href.startsWith('ed2k://') || href.startsWith('ftp://')) {
                 if (a.nextElementSibling?.classList?.contains('mag-btn-group')) return;
                 if (hasOtherMagnetButtons(a)) return;
                 a.after(createBtnGroup(href));
@@ -733,43 +862,9 @@
             }
         });
 
-        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
-        let node;
-        const textNodes = [];
-        while (node = walker.nextNode()) {
-            const parent = node.parentElement;
-            if (!parent || parent.closest('#nong-table-new') || parent.closest('.check-car-panel') || parent.closest('.mag-btn-group') || parent.closest('[data-mag-processed]') ||
-                ['SCRIPT', 'STYLE', 'A', 'TEXTAREA', 'INPUT'].includes(parent.tagName)) continue;
-            if (node.nodeValue.match(regex)) textNodes.push(node);
-        }
-
-        textNodes.forEach(node => {
-            const parent = node.parentElement;
-            if (!parent) return;
-            const content = node.nodeValue;
-            const fragment = document.createDocumentFragment();
-            let lastIndex = 0, match;
-
-            while ((match = regex.exec(content)) !== null) {
-                fragment.appendChild(document.createTextNode(content.substring(lastIndex, match.index)));
-                const link = match[0];
-                const span = document.createElement('span');
-                span.textContent = link;
-                span.dataset.magProcessed = 'true';
-                fragment.appendChild(span);
-
-                const yancheLinkExists = Array.from(document.querySelectorAll('a.magnet-link[href="' + link.replace(/"/g, '\\"') + '"]')).length > 0;
-                if (!processedHrefs.has(link) && !yancheLinkExists && !hasOtherMagnetButtons(parent)) {
-                    fragment.appendChild(createBtnGroup(link));
-                }
-                lastIndex = regex.lastIndex;
-            }
-            fragment.appendChild(document.createTextNode(content.substring(lastIndex)));
-            try { parent.replaceChild(fragment, node); } catch (e) {}
-        });
     }
 
-    // ================= 12. 设置面板 =================
+    // ================= 13. 设置面板 =================
     function showSettingsModal() {
         const mask = document.createElement('div');
         mask.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;font-family:sans-serif;';
@@ -985,7 +1080,7 @@
         modal.querySelector('#btn_cancel').onclick = () => mask.remove();
     }
 
-    // ================= 13. 启动监听 =================
+    // ================= 14. 启动监听 =================
     let timer = null;
     function lazyRun() { if (timer) clearTimeout(timer); timer = setTimeout(processPage, 500); }
     processPage();
