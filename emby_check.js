@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      4.8.6
+// @version      4.9.0
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -10,8 +10,8 @@
 // @match        *://www.javdb.com/*
 // @match        *://javdb.com/*
 // @match        *://supjav.com/*
-// @match        *://*.nyaa.si/view/*
-// @match        *://*.nyaa.si/*
+// @match        *://sukebei.nyaa.si/view/*
+// @match        *://sukebei.nyaa.si/*
 // @match        *://www.javlibrary.com/*/*
 // @match        *://madou.com/archives/*
 // @match        *://*.madou.com/archives/*
@@ -1066,6 +1066,9 @@
                 enabledSites: Config.enabledSites,
                 darkMode: Config.darkMode
             };
+            const initialServers = JSON.parse(JSON.stringify(Config.embyServers));
+            const initialActiveIndex = Config.activeServerIndex;
+            const initialSites = JSON.parse(JSON.stringify(Config.enabledSites));
 
             // 生成服务器列表HTML
             function generateServersHTML() {
@@ -1225,6 +1228,7 @@
                         <button class="btn save">保存</button>
                     </div>
                 </div>
+                <div id="save-message" style="display:none; position:absolute; bottom:20px; left:50%; transform:translateX(-50%); background:#52b54b; color:white; padding:8px 16px; border-radius:4px; z-index:10001; font-size:14px; box-shadow:0 2px 8px rgba(0,0,0,0.2);"></div>
             `;
 
             document.body.appendChild(panel);
@@ -1411,12 +1415,14 @@
 
             // 保存设置
             panel.querySelector('.btn.save').addEventListener('click', () => {
+                // 保存外观设置
                 Config.highlightColor = document.getElementById('highlight-color').value;
                 Config.maxConcurrentRequests = parseInt(document.getElementById('max-requests').value, 10);
                 Config.badgeSize = document.getElementById('badge-size').value;
                 Config.badgeColor = document.getElementById('badge-color').value;
                 Config.badgeTextColor = document.getElementById('badge-text-color').value;
 
+                // 收集站点开关新状态
                 const updatedSites = { ...Config.enabledSites };
                 panel.querySelectorAll('[data-site]').forEach(input => {
                     const site = input.dataset.site;
@@ -1428,8 +1434,32 @@
                 });
                 Config.enabledSites = updatedSites;
 
-                closePanel();
-                alert('设置已保存！请刷新页面以应用更改。');
+                // 显示保存成功消息
+                const msgEl = document.getElementById('save-message');
+                if (msgEl) {
+                    msgEl.textContent = '✅ 设置已保存';
+                    msgEl.style.display = 'block';
+                }
+
+                // 判断是否需要刷新
+                const serversChanged = JSON.stringify(initialServers) !== JSON.stringify(Config.embyServers) ||
+                                       initialActiveIndex !== Config.activeServerIndex;
+                const currentSite = detectSite();
+                const siteChanged = currentSite && (
+                    (initialSites[currentSite]?.list !== updatedSites[currentSite]?.list) ||
+                    (initialSites[currentSite]?.detail !== updatedSites[currentSite]?.detail)
+                );
+
+                if (serversChanged || siteChanged) {
+                    // 有相关变化，刷新页面
+                    setTimeout(() => location.reload(), 300);
+                } else {
+                    // 无变化，仅显示消息后关闭面板
+                    setTimeout(() => {
+                        if (msgEl) msgEl.style.display = 'none';
+                        panel.style.display = 'none'; // 关闭面板
+                    }, 1500);
+                }
             });
 
             panel.style.display = 'block';
