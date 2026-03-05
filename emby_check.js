@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      4.8.4
+// @version      4.8.5
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -1794,7 +1794,7 @@
             const mainTarget = target.replace(/-\d+$/, '');
             const cleanStr = s => (s || '').toUpperCase().replace(/[-_]/g, '');
             const targetAlphaNum = target.replace(/[^A-Z0-9]/g, '');
-            const targetPrefix = target.split('-')[0];
+            const targetPrefix = target.split(/[-_\s]/)[0];
 
             // 判断原始番号是否带厂商后缀
             const hasSuffix = /^\d{6}[-_]\d{2,3}[-_][A-Z0-9]+$/i.test(originalCode);
@@ -1810,7 +1810,7 @@
                 const name = (it.Name || '').toUpperCase();
                 const nameClean = cleanStr(name);
                 const nameAlphaNum = name.replace(/[^A-Z0-9]/g, '');
-                const namePrefix = name.split('-')[0];
+                const namePrefix = name.split(/[-_\s]/)[0];
 
                 let nameSuffix = null;
                 if (/^\d{6}[-_]\d{2,3}[-_][A-Z0-9]+$/i.test(name)) {
