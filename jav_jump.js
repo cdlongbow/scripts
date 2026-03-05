@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         番号跳转加预览图
 // @namespace    https://github.com/ZiPenOk
-// @version      4.7.1
+// @version      4.8.0
 // @icon         https://javdb.com/favicon.ico
 // @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB 支持。增加javstore预览图来源, 并添加缓存控制选择
 // @author       ZiPenOk
@@ -338,6 +338,9 @@
         },
 
         showOverlay(imgUrl, code, source = null) {
+            // 隐藏页面滚动条
+            document.body.style.overflow = 'hidden';
+            
             const container = document.createElement('div');
             container.className = 'preview-overlay';
             
@@ -351,7 +354,6 @@
             
             const toolbar = document.createElement('div');
             toolbar.className = 'preview-toolbar';
-            // 保留定位，其他样式由 CSS 控制
             toolbar.style.cssText = `
                 position: fixed;
                 top: 20px;
@@ -421,9 +423,28 @@
 
             container.appendChild(img);
             container.appendChild(toolbar);
-            container.onclick = () => container.remove();
+
+            // 定义关闭并恢复滚动条的函数
+            const closeOverlay = () => {
+                if (container.parentNode) {
+                    container.remove();
+                    document.body.style.overflow = '';
+                }
+            };
+
+            container.onclick = closeOverlay;
+
+            // ESC键关闭
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    closeOverlay();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+
             document.body.appendChild(container);
-        }, 
+        },
 
         getJavBusUrl(code) {
             const isUncensored = /^\d{6}[-_\s]\d{3}$/.test(code) || code.toLowerCase().startsWith('n') || code.toLowerCase().startsWith('k');
