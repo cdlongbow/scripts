@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      4.9.0
+// @version      4.9.1
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -1007,9 +1007,9 @@
         if (!text) return null;
 
         const patterns = [
+            /FC2[-\s_]?(?:PPV)?[-\s_]?(\d{6,9})/i,
             /([A-Z]{2,15})-(\d{2,10})(?:-(\d+))?/i,
             /([A-Z]{2,15})-([A-Z]{0,2}\d{2,10})/i,
-            /FC2[-\s_]?(?:PPV)?[-\s_]?(\d{6,9})/i,
             /^[A-Z0-9]+[-_](\d{6}[-_]\d{2,3})/i,
             /(\d{6}[-_]\d{2,3})[-_][A-Z0-9]+$/i,
             /(\d{6}[-_]\d{2,3})/,
@@ -1019,12 +1019,12 @@
         for (let i = 0; i < patterns.length; i++) {
             const match = text.match(patterns[i]);
             if (match) {
-                if (i === 0) { // 标准格式
-                    return match[3] ? `${match[1]}-${match[2]}-${match[3]}` : `${match[1]}-${match[2]}`;
-                } else if (i === 1) {
-                    return match[0];
-                } else if (i === 2) {
+                if (i === 0) { // FC2
                     return `FC2-PPV-${match[1]}`;
+                } else if (i === 1) {
+                    return match[3] ? `${match[1]}-${match[2]}-${match[3]}` : `${match[1]}-${match[2]}`;
+                } else if (i === 2) {
+                    return match[0];
                 } else if (i === 3 || i === 4) {
                     return match[1];
                 } else if (i === 5) {
