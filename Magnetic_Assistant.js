@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         磁力&电驴链接助手
 // @namespace    https://github.com/ZiPenOk
-// @version      3.3.0
+// @version      3.3.1
 // @description  点击按钮显示绿色勾（验车按钮除外），支持复制（自动精简链接，保留xt和dn并提取番号）、推送到qB/115，新增磁力信息验车功能，截图轮播。现增强：支持FTP链接、纯哈希值转磁力、文本链接着色。
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
@@ -760,44 +760,18 @@
         return a;
     }
 
-    /**
-     * 将文本中的纯哈希值（32-40位十六进制）转换为磁力链接
-     */
-    function replacePureHashesInText(text) {
-        const hashRegex = /\b(?:hash:)?([a-f0-9]{32,40})\b/gi;
-        return text.replace(hashRegex, (_, hash) => `magnet:?xt=urn:btih:${hash.toUpperCase()}`);
-    }
-
     function processTextNode(node) {
         const parent = node.parentElement;
         if (!parent) return null;
-        let content = node.nodeValue;
-        let hasLink = false;
+        const content = node.nodeValue;
 
-        // 先替换纯哈希值
-        const newContent = replacePureHashesInText(content);
-        if (newContent !== content) {
-            content = newContent;
-            hasLink = true;
-        }
-
-        // 检查是否包含任何支持的链接
-        for (const regex of Object.values(linkRegexes)) {
-            if (regex.test(content)) {
-                hasLink = true;
-                regex.lastIndex = 0;
-                break;
-            }
-        }
-
-        if (!hasLink) return null;
+        const combinedRegex = /(magnet:\?xt=urn:btih:[a-zA-Z0-9]{32,40}[^\s<>"]*|ed2k:\/\/\|file\|[^|]+\|[^|]+\|[^|]+\||ftp:\/\/[^\s]+)/gi;
+        if (!combinedRegex.test(content)) return null;
+        combinedRegex.lastIndex = 0;
 
         const fragment = document.createDocumentFragment();
         let lastIndex = 0;
-        let match;
-
-        // 同时匹配所有类型，按顺序处理
-        const combinedRegex = /(magnet:\?xt=urn:btih:[a-zA-Z0-9]{32,40}[^\s<>"]*|ed2k:\/\/\|file\|[^|]+\|[^|]+\|[^|]+\||ftp:\/\/[^\s]+)/gi;
+        let match; // 声明变量
 
         while ((match = combinedRegex.exec(content)) !== null) {
             if (match.index > lastIndex) {
@@ -808,9 +782,17 @@
             if (url.startsWith('magnet:')) type = 'magnet';
             else if (url.startsWith('ed2k:')) type = 'ed2k';
             else if (url.startsWith('ftp:')) type = 'ftp';
-            fragment.appendChild(createStyledLink(url, type));
+            const link = createStyledLink(url, type);
+            link.dataset.magProcessed = 'true'; // 标记已处理
+            fragment.appendChild(link);
+
+            // 立即添加按钮组
+            const btnGroup = createBtnGroup(url);
+            fragment.appendChild(btnGroup);
+
             lastIndex = combinedRegex.lastIndex;
         }
+
         if (lastIndex < content.length) {
             fragment.appendChild(document.createTextNode(content.slice(lastIndex)));
         }
