@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         番号跳转加预览图
 // @namespace    https://github.com/ZiPenOk
-// @version      4.8.0
+// @version      4.9.0
 // @icon         https://javdb.com/favicon.ico
-// @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB 支持。增加javstore预览图来源, 并添加缓存控制选择
+// @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择
 // @author       ZiPenOk
 // @match        *://sukebei.nyaa.si/*
 // @match        *://169bbs.com/*
@@ -15,6 +15,8 @@
 // @match        *://javdb.com/v/*
 // @match        *://www.javlibrary.com/*
 // @match        *://javlibrary.com/*
+// @match        *://javrate.com/*
+// @match        *://www.javrate.com/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_download
 // @grant        GM_setValue
@@ -846,6 +848,12 @@
             name: 'JAVLibrary',
             match: (url) => /javlibrary\.com/.test(url) && /\/cn\/jav\w+\.html/.test(url),
             titleSelector: '.post-title'
+        }, 
+        {
+            id: 'javrate',
+            name: 'Javrate',
+            match: (url) => /javrate\.com/.test(url) && /\/movie\/detail\//i.test(url),
+            titleSelector: 'h1'
         }
     ];
 

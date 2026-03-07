@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      4.9.1
-// @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
+// @version      5.0.0
+// @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
 // @match        *://javdb*.com/v/*
@@ -15,10 +15,8 @@
 // @match        *://www.javlibrary.com/*/*
 // @match        *://madou.com/archives/*
 // @match        *://*.madou.com/archives/*
-// @match        *://javrate.com/movie/*
-// @match        *://*.javrate.com/movie/*
-// @match        *://javrate.com/Movie/*
-// @match        *://*.javrate.com/Movie/*
+// @match        *://javrate.com/*
+// @match        *://*.javrate.com/*
 // @match        *://169bbs.com/*
 // @match        *://*169bbs*.*/*
 // @grant        GM_xmlhttpRequest
@@ -2762,57 +2760,96 @@
         }),
 
         javrate: Object.assign(Object.create(BaseProcessor), {
-            listSelector: '',
+            listSelector: '.mgn-item',
+
+            extractCode: item => {
+                const strong = item.querySelector('strong.fg-main');
+                return strong ? extractCodeFromText(strong.textContent) : null;
+            },
+
+            findImgContainer: item => {
+                // 返回相对定位的容器，用于放置徽章
+                return item.querySelector('.mgn-box') || item;
+            },
 
             async process() {
                 const siteConfig = this.__siteConfig;
-                if (!siteConfig || !siteConfig.detail) return;
+                if (!siteConfig) return;
 
-                await this.processDetailPage();
+                // 列表页处理
+                if (siteConfig.list && this.listSelector) {
+                    const items = document.querySelectorAll(this.listSelector);
+                    if (items.length > 0) {
+                        await this.processItemsWithBadge(items);
+                    }
+                }
+
+                // 详情页处理
+                if (siteConfig.detail) {
+                    await this.processDetailPage();
+                }
+
+                this.setupObserver();
             },
 
             async processDetailPage() {
                 if (document.querySelector('.emby-jump-link, .emby-badge, .emby-copy-btn')) return;
 
-                const keywords = document.querySelector('meta[name="keywords"]')?.content || "";
-                const code = extractCodeFromText(keywords);
-                if (code) code = code.toUpperCase();
+                let code = null;
+                const h1Strong = document.querySelector('h1 strong.fg-main');
+                if (h1Strong) {
+                    code = extractCodeFromText(h1Strong.textContent);
+                }
 
-                if (code) {
-                    Prompt.queryStart(code);
-                    const bestItem = await this.api.checkExists(code);
-                    const link = bestItem ? this.api.createLink(bestItem) : null;
-                    const copyBtn = this.api.createCopyButton(code);
+                if (!code) {
+                    const keywords = document.querySelector('meta[name="keywords"]')?.content || "";
+                    code = extractCodeFromText(keywords);
+                }
 
-                    if (link || copyBtn) {
-                        const titleElement = document.querySelector('h1');
-                        if (titleElement) {
-                            const btnGroup = document.querySelector('.jav-jump-btn-group');
-                            if (btnGroup) {
-                                if (link) {
-                                    link.style.marginLeft = '0';
-                                    btnGroup.appendChild(link);
-                                }
-                                if (copyBtn) btnGroup.appendChild(copyBtn);
-                            } else {
-                                const container = document.createElement('span');
-                                container.className = 'emby-button-group';
-                                container.style.cssText = 'display: inline-block; margin-left: 8px;';
-                                if (link) container.appendChild(link);
-                                if (copyBtn) container.appendChild(copyBtn);
-                                titleElement.parentNode.insertBefore(container, titleElement.nextSibling);
-                            }
-                        }
-                    }
+                if (!code) {
+                    console.log('[Emby] 未找到番号');
+                    return;
+                }
 
-                    if (bestItem) {
-                        Prompt.querySuccess(code);
-                    } else {
-                        Prompt.queryNotFound(code);
-                    }
+                code = code.toUpperCase();
+                Prompt.queryStart(code);
+                const bestItem = await this.api.checkExists(code);
+                const link = bestItem ? this.api.createLink(bestItem) : null;
+                const copyBtn = this.api.createCopyButton(code);
+
+                if (!link && !copyBtn) {
+                    if (!bestItem) Prompt.queryNotFound(code);
+                    return;
+                }
+
+                const titleElement = document.querySelector('h1');
+                if (!titleElement) return;
+
+                const btnGroup = document.querySelector('.jav-jump-btn-group');
+                const container = document.createElement('span');
+                container.className = 'emby-button-group';
+                container.style.cssText = 'display: inline-block; margin-left: 8px; vertical-align: middle;';
+
+                if (link) {
+                    link.style.marginLeft = '0';
+                    container.appendChild(link);
+                }
+                if (copyBtn) container.appendChild(copyBtn);
+
+                if (btnGroup) {
+                    if (link) btnGroup.appendChild(link);
+                    if (copyBtn) btnGroup.appendChild(copyBtn);
+                } else {
+                    titleElement.parentNode.insertBefore(container, titleElement.nextSibling);
+                }
+
+                if (bestItem) {
+                    Prompt.querySuccess(code);
+                } else {
+                    Prompt.queryNotFound(code);
                 }
             }
-        }),
+        }), 
 
         '169bbs': Object.assign(Object.create(BaseProcessor), {
             listSelector: 'tbody[id^="normalthread_"]',
