@@ -1,0 +1,15 @@
+services:
+  mdc:
+    image: mdcng/mdc:latest
+    container_name: mdc
+    environment:
+      - PGID=100 # 可选，设置组ID
+      - PUID=1024 # 可选，设置用户ID
+      - MDC_USERNAME= # 用户名密码可选，配置后开启登录鉴权模块
+      - MDC_PASSWORD= 
+    volumes:
+      - /volume1/docker/mdc-ng/config:/config # 配置目录，必须
+      - /volume1/docker/DebianRoot/mnt/smartstrm/strm:/media # 媒体库，可映射多个
+    ports:
+      - 9208:9208
+    restart: unless-stopped
