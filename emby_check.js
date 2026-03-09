@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.0.0
+// @version      5.0.1
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -1358,7 +1358,7 @@
                         GM_xmlhttpRequest({
                             method: 'GET',
                             url: `${url}emby/System/Info?api_key=${apiKey}`,
-                            timeout: 10000,
+                            timeout: 5000,
                             onload: (res) => {
                                 if (res.status >= 200 && res.status < 300) {
                                     resolve(res);
@@ -1680,7 +1680,8 @@
             }
 
             // 执行搜索
-            for (const c of tryCodes) {
+            for (let i = 0; i < tryCodes.length; i++) {
+                const c = tryCodes[i];
                 try {
                     const url = `${Config.embyBaseUrl}emby/Users/${Config.embyAPI}/Items` +
                         `?api_key=${Config.embyAPI}` +
@@ -1701,6 +1702,10 @@
                     }
                 } catch (e) {
                     console.error(`Emby 查询失败 ${c}`, e);
+                    // 仅当这是第一个尝试的番号（原始番号）时，显示错误提示
+                    if (i === 0) {
+                        Prompt.queryError(code, e.message);
+                    }
                 }
             }
 
