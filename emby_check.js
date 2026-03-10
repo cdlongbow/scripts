@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.1.0
+// @version      5.2.0
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -114,7 +114,7 @@
                 javdb: { list: true, detail: true },
                 supjav: { list: true, detail: true },
                 sehuatang: { list: false, detail: true },
-                sukebeiNyaa: { list: true, detail: true },
+                sukebei: { list: true, detail: true },
                 javlibrary: { list: true, detail: true },
                 madou: { list: false, detail: true },
                 javrate: { list: false, detail: true },
@@ -181,6 +181,15 @@
     const badgeSize = getBadgeSizeStyle();
 
     GM_addStyle(`
+        :root {
+            --primary: #52b54b;
+            --success: #28a745;
+            --danger: #dc3545;
+            --border: #d9e1e8;
+            --bg-light: #eef2f5;
+            --text-dark: #1e2a3a;
+        }
+
         /* 设置面板基础定位 */
         .emby-jump-settings-panel {
             position: fixed;
@@ -191,596 +200,250 @@
             display: none;
         }
 
-        /* 状态提示器 */
+        /* 状态指示器 */
         .emby-jump-status-indicator {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 14px;
-            z-index: 9999;
-            transition: opacity 0.3s;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            max-width: 300px;
-            display: flex;
-            align-items: center;
-            opacity: 0;
+            position: fixed; bottom: 20px; right: 20px;
+            background: rgba(0,0,0,0.7); color: white;
+            padding: 8px 12px; border-radius: 4px; font-size: 14px;
+            z-index: 9999; transition: opacity 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2); max-width: 300px;
+            display: flex; align-items: center; opacity: 0;
         }
         .emby-jump-status-indicator .progress {
-            display: inline-block;
-            margin-left: 10px;
-            width: 100px;
-            height: 6px;
-            background: rgba(255,255,255,0.3);
+            display: inline-block; margin-left: 10px;
+            width: 100px; height: 6px; background: rgba(255,255,255,0.3);
             border-radius: 3px;
         }
         .emby-jump-status-indicator .progress-bar {
-            height: 100%;
-            background: #52b54b;
-            border-radius: 3px;
+            height: 100%; background: var(--primary); border-radius: 3px;
             transition: width 0.3s;
         }
-        .emby-jump-status-indicator.success {
-            background-color: rgba(40, 167, 69, 0.9) !important;
-        }
-        .emby-jump-status-indicator.error {
-            background-color: rgba(220, 53, 69, 0.9) !important;
-        }
-        .emby-jump-status-indicator .close-btn {
-            margin-left: 10px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-        }
+        .emby-jump-status-indicator.success { background-color: rgba(40,167,69,0.9) !important; }
+        .emby-jump-status-indicator.error { background-color: rgba(220,53,69,0.9) !important; }
+        .emby-jump-status-indicator .close-btn { margin-left: 10px; cursor: pointer; font-size: 16px; font-weight: bold; }
 
         /* 徽章样式 */
         .emby-badge {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            color: ${Config.badgeTextColor};
-            padding: ${badgeSize.padding};
-            font-size: ${badgeSize.fontSize};
-            font-weight: bold;
-            z-index: 10;
-            border: 2px solid transparent;
-            border-radius: 4px;
-            background-origin: border-box;
-            background-clip: padding-box, border-box;
-            background-image:
-                linear-gradient(${Config.badgeColor} 0 0),
-                linear-gradient(50deg,#ff0000,#ff7f00,#ffff00,#00ff00,#0000ff,#4b0082,#8b00ff);
+            position: absolute; top: 5px; right: 5px;
+            color: ${Config.badgeTextColor}; padding: ${badgeSize.padding}; font-size: ${badgeSize.fontSize};
+            font-weight: bold; z-index: 10; border: 2px solid transparent; border-radius: 4px;
+            background-origin: border-box; background-clip: padding-box, border-box;
+            background-image: linear-gradient(${Config.badgeColor} 0 0), linear-gradient(50deg,#ff0000,#ff7f00,#ffff00,#00ff00,#0000ff,#4b0082,#8b00ff);
         }
         .emby-badge:hover {
             color: #000;
-            background-clip: padding-box, border-box;
-            background-image:
-                linear-gradient(#fff 0 0),
-                linear-gradient(50deg,#ff0000,#ff7f00,#ffff00,#00ff00,#0000ff,#4b0082,#8b00ff);
+            background-image: linear-gradient(#fff 0 0), linear-gradient(50deg,#ff0000,#ff7f00,#ffff00,#00ff00,#0000ff,#4b0082,#8b00ff);
         }
-        .emby-highlight {
-            outline: 4px solid ${Config.highlightColor} !important;
-            position: relative;
-        }
+        .emby-highlight { outline: 4px solid ${Config.highlightColor} !important; position: relative; }
         .emby-exists {
-            color: #28a745 !important;
-            font-weight: bold !important;
-            border-left: 4px solid #28a745;
-            padding-left: 4px;
-            opacity: 0;
-            animation: embyFadeIn 0.2s ease forwards;
+            color: var(--success) !important; font-weight: bold !important;
+            border-left: 4px solid var(--success); padding-left: 4px;
+            opacity: 0; animation: embyFadeIn 0.2s ease forwards;
         }
-        @keyframes embyFadeIn {
-            to { opacity: 1; }
-        }
+        @keyframes embyFadeIn { to { opacity: 1; } }
 
         /* 现代化设置面板 */
         .emby-jump-settings-panel.modern {
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-            background: #eef2f5;
-            border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            padding: 0;
-            width: 900px;
-            max-width: 95vw;
-            overflow: hidden;
+            font-family: system-ui, sans-serif;
+            background: var(--bg-light); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 0; width: 900px; max-width: 95vw; overflow: hidden;
+        }
+        .modern .settings-header,
+        .modern .settings-footer {
+            background: #ffffffd9; backdrop-filter: blur(4px); border-bottom: 1px solid #d0d7dd;
         }
         .modern .settings-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            display: flex; justify-content: space-between; align-items: center;
             padding: 16px 20px;
-            background: #ffffffd9;
-            backdrop-filter: blur(4px);
-            border-bottom: 1px solid #d0d7dd;
         }
-        .modern .settings-header h3 {
-            margin: 0;
-            font-size: 22px;
-            font-weight: 600;
-            color: #1e2a3a;
-        }
+        .modern .settings-header h3 { margin: 0; font-size: 22px; font-weight: 600; color: var(--text-dark); }
         .modern .settings-header .close-btn {
-            background: none;
-            border: none;
-            font-size: 26px;
-            cursor: pointer;
-            color: #6c7a8a;
-            line-height: 1;
+            background: none; border: none; font-size: 26px; cursor: pointer; color: #6c7a8a; line-height: 1;
         }
         .modern .settings-content {
-            padding: 20px;
-            max-height: 70vh;
-            overflow-y: auto;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
+            padding: 20px; max-height: 70vh; overflow-y: auto;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
         }
-        .modern .left-column,
-        .modern .right-column {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
+        .modern .left-column, .modern .right-column { display: flex; flex-direction: column; gap: 16px; }
         .modern .settings-card {
-            background: #ffffffde;
-            backdrop-filter: blur(2px);
-            border-radius: 12px;
-            padding: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-            border: 1px solid #d9e1e8;
+            background: #ffffffde; backdrop-filter: blur(2px); border-radius: 12px; padding: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04); border: 1px solid var(--border);
         }
         .modern .card-title {
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: #2c3e50;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 18px;
+            font-weight: 600; margin-bottom: 12px; color: #2c3e50;
+            display: flex; align-items: center; gap: 6px; font-size: 18px;
         }
         .modern .card-title.collapsible {
-            cursor: pointer;
-            user-select: none;
-            justify-content: space-between;
-            margin-bottom: 0;
+            cursor: pointer; user-select: none; justify-content: space-between; margin-bottom: 0;
         }
-        .modern .card-body.two-columns {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
+        .modern .card-body.two-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .modern .field { display: flex; flex-direction: column; gap: 4px; }
+        .modern .field label { font-size: 16px; font-weight: 500; color: #4a5a6e; }
+        .modern .field input, .modern .field select {
+            padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px;
+            font-size: 16px; transition: border-color 0.15s; box-sizing: border-box; background: #fff;
         }
-        .modern .field {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
+        .modern .field input:focus, .modern .field select:focus {
+            outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(82,181,75,0.15);
         }
-        .modern .field label {
-            font-size: 16px;
-            font-weight: 500;
-            color: #4a5a6e;
-        }
-        .modern .field input,
-        .modern .field select {
-            padding: 10px 12px;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.15s;
-            box-sizing: border-box;
-            background-color: #ffffff;
-        }
-        .modern .field input:focus,
-        .modern .field select:focus {
-            outline: none;
-            border-color: #52b54b;
-            box-shadow: 0 0 0 3px rgba(82,181,75,0.15);
-        }
-        .modern .field small {
-            font-size: 14px;
-            color: #7c8b9c;
-        }
-        .modern .color-field {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            gap: 10px;
-        }
-        .modern .color-field label {
-            width: 70px;
-            flex-shrink: 0;
-            font-size: 16px;
-        }
+        .modern .field small { font-size: 14px; color: #7c8b9c; }
+        .modern .color-field { display: flex; flex-direction: row; align-items: center; gap: 10px; }
+        .modern .color-field label { width: 70px; flex-shrink: 0; font-size: 16px; }
         .modern .color-field input[type="color"] {
-            width: 60px;
-            height: 36px;
-            padding: 2px;
-            border-radius: 6px;
-            border: 1px solid #cbd5e1;
+            width: 60px; height: 36px; padding: 2px; border-radius: 6px; border: 1px solid #cbd5e1;
         }
         .modern .test-btn {
-            background: #e2e8f0;
-            border: 1px solid #b9c7d9;
-            border-radius: 30px;
-            padding: 8px 16px;
-            font-size: 15px;
-            cursor: pointer;
-            color: #1e293b;
+            background: #e2e8f0; border: 1px solid #b9c7d9; border-radius: 30px;
+            padding: 8px 16px; font-size: 15px; cursor: pointer; color: #1e293b;
         }
-        .modern .test-btn:hover {
-            background: #d1dbe8;
-        }
+        .modern .test-btn:hover { background: #d1dbe8; }
 
         /* 服务器管理表格 */
-        .modern .servers-table {
-            width: 100%;
-            margin-top: 8px;
-        }
+        .modern .servers-table { width: 100%; margin-top: 8px; }
+        .modern .servers-table-header,
+        .modern .server-row { display: flex; padding: 8px 12px; border-bottom: 1px solid var(--border); }
         .modern .servers-table-header {
-            display: flex;
-            font-weight: 600;
-            background-color: #e6edf5;
-            border-bottom: 2px solid #b9c7d9;
-            padding: 8px 12px;
+            font-weight: 600; background-color: #e6edf5; border-bottom-width: 2px; border-bottom-color: #b9c7d9;
         }
-        .modern .servers-table-header > div:first-child {
-            flex: 2;
-        }
-        .modern .servers-table-header > div:last-child {
-            flex: 1;
-            text-align: center;
-        }
-        .modern .server-row {
-            display: flex;
-            align-items: center;
-            padding: 8px 12px;
-            border-bottom: 1px solid #d9e1e8;
-        }
-        .modern .server-info {
-            flex: 2;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .modern .server-name {
-            font-weight: 500;
-            color: #1e293b;
-            font-size: 16px;
-        }
-        .modern .server-url {
-            font-size: 14px;
-            color: #5a6f88;
-            word-break: break-all;
-        }
-        .modern .server-api {
-            font-size: 14px;
-            color: #5a6f88;
-            font-family: monospace;
-        }
-        .modern .server-actions {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-        }
+        .modern .servers-table-header > div:first-child { flex: 2; }
+        .modern .servers-table-header > div:last-child { flex: 1; text-align: center; }
+        .modern .server-row { align-items: center; }
+        .modern .server-info { flex: 2; display: flex; flex-direction: column; gap: 4px; }
+        .modern .server-name { font-weight: 500; color: #1e293b; font-size: 16px; }
+        .modern .server-url { font-size: 14px; color: #5a6f88; word-break: break-all; }
+        .modern .server-api { font-size: 14px; color: #5a6f88; font-family: monospace; }
+        .modern .server-actions { flex: 1; display: flex; justify-content: center; gap: 8px; }
         .modern .server-btn {
-            background: none;
-            border: none;
-            font-size: 1.2rem;
-            cursor: pointer;
-            padding: 4px;
-            border-radius: 4px;
-            line-height: 1;
+            background: none; border: none; font-size: 1.2rem; cursor: pointer;
+            padding: 4px; border-radius: 4px; line-height: 1;
         }
-        .modern .server-btn:hover:not(:disabled) {
-            background-color: #d9e1e8;
-        }
-        .modern .server-btn:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-        .modern .active-badge {
-            font-size: 1.2rem;
-            color: #52b54b;
-            padding: 4px;
-        }
+        .modern .server-btn:hover:not(:disabled) { background-color: #d9e1e8; }
+        .modern .server-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .modern .active-badge { font-size: 1.2rem; color: var(--primary); padding: 4px; }
         .modern .btn.secondary {
-            background: #e2e8f0;
-            color: #1e293b;
-            border: 1px solid #b9c7d9;
-            padding: 8px 16px;
-            border-radius: 30px;
-            font-weight: 500;
-            cursor: pointer;
-            font-size: 15px;
+            background: #e2e8f0; color: #1e293b; border: 1px solid #b9c7d9;
+            padding: 8px 16px; border-radius: 30px; font-weight: 500; cursor: pointer; font-size: 15px;
         }
-        .modern .btn.secondary:hover {
-            background: #d1dbe8;
-        }
+        .modern .btn.secondary:hover { background: #d1dbe8; }
 
         /* 滑动开关 */
-        .modern .switch {
-            position: relative;
-            display: inline-block;
-            width: 44px;
-            height: 24px;
-        }
-        .modern .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
+        .modern .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .modern .switch input { opacity: 0; width: 0; height: 0; }
         .modern .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #b9c7d9;
-            transition: .2s;
-            border-radius: 24px;
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #b9c7d9; transition: .2s; border-radius: 24px;
         }
         .modern .slider:before {
-            position: absolute;
-            content: "";
-            height: 20px;
-            width: 20px;
-            left: 2px;
-            bottom: 2px;
-            background-color: white;
-            transition: .2s;
-            border-radius: 50%;
+            content: ""; position: absolute; height: 20px; width: 20px; left: 2px; bottom: 2px;
+            background-color: white; transition: .2s; border-radius: 50%;
         }
-        .modern input:checked + .slider {
-            background-color: #52b54b;
-        }
-        .modern input:checked + .slider:before {
-            transform: translateX(20px);
-        }
+        .modern input:checked + .slider { background-color: var(--primary); }
+        .modern input:checked + .slider:before { transform: translateX(20px); }
 
-        /* 站点开关固定表头 */
+        /* 站点开关表头 */
+        .modern .sites-header-fixed,
+        .modern .sites-row-flex { display: flex; padding: 8px 12px; border-bottom: 1px solid var(--border); align-items: center; }
         .modern .sites-header-fixed {
-            display: flex;
-            padding: 8px 12px;
-            background-color: #e6edf5;
-            border-bottom: 2px solid #b9c7d9;
-            font-weight: 600;
+            background-color: #e6edf5; border-bottom-width: 2px; border-bottom-color: #b9c7d9; font-weight: 600;
         }
-        .modern .sites-header-fixed > div {
-            flex: 1;
-        }
+        .modern .sites-header-fixed > div,
+        .modern .sites-row-flex > div { flex: 1; }
         .modern .sites-header-fixed > div:nth-child(2),
-        .modern .sites-header-fixed > div:nth-child(3) {
-            text-align: center;
-        }
-        .modern .sites-row-flex {
-            display: flex;
-            padding: 10px 12px;
-            border-bottom: 1px solid #d9e1e8;
-            align-items: center;
-        }
-        .modern .sites-row-flex > div {
-            flex: 1;
-        }
+        .modern .sites-header-fixed > div:nth-child(3),
         .modern .sites-row-flex > div:nth-child(2),
-        .modern .sites-row-flex > div:nth-child(3) {
-            text-align: center;
-        }
+        .modern .sites-row-flex > div:nth-child(3) { text-align: center; }
+        .modern .sites-row-flex { padding: 10px 12px; }
+
         .modern .settings-footer {
-            padding: 16px 20px;
-            background: #ffffffd9;
-            backdrop-filter: blur(4px);
-            border-top: 1px solid #d0d7dd;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
+            padding: 16px 20px; background: #ffffffd9; backdrop-filter: blur(4px);
+            border-top: 1px solid #d0d7dd; display: flex; justify-content: space-between;
+            align-items: center; gap: 12px;
         }
         .modern .btn {
-            padding: 8px 20px;
-            border-radius: 30px;
-            border: none;
-            font-weight: 500;
-            cursor: pointer;
-            font-size: 15px;
+            padding: 8px 20px; border-radius: 30px; border: none;
+            font-weight: 500; cursor: pointer; font-size: 15px;
         }
-        .modern .btn.cancel {
-            background: #e2e8f0;
-            color: #1e293b;
-            border: 1px solid #b9c7d9;
-        }
-        .modern .btn.save {
-            background: #52b54b;
-            color: white;
-        }
-        .modern .btn.save:hover {
-            background: #3e9e37;
-        }
+        .modern .btn.cancel { background: #e2e8f0; color: #1e293b; border: 1px solid #b9c7d9; }
+        .modern .btn.save { background: var(--primary); color: white; }
+        .modern .btn.save:hover { background: #3e9e37; }
 
         /* 深色模式切换 */
-        .modern .dark-mode-toggle {
-            font-size: 26px;
-            cursor: pointer;
-            line-height: 1;
-            padding: 0 4px;
-            user-select: none;
-            transition: transform 0.2s;
-        }
-        .modern .dark-mode-toggle:hover {
-            transform: scale(1.1);
-        }
+        .modern .dark-mode-toggle { font-size: 26px; cursor: pointer; line-height: 1; padding: 0 4px; user-select: none; transition: transform 0.2s; }
+        .modern .dark-mode-toggle:hover { transform: scale(1.1); }
 
-        /* 深色模式样式 */
-        .emby-jump-settings-panel.modern.dark-mode {
-            background: #1a1a2a;
-            color: #c0c0d0;
-        }
-        .modern.dark-mode .settings-header {
-            background: #242435;
-            border-bottom-color: #3a3a50;
-        }
-        .modern.dark-mode .settings-header h3 {
-            color: #fff;
-        }
-        .modern.dark-mode .settings-card {
-            background: #242435;
-            border-color: #3a3a50;
-        }
-        .modern.dark-mode .card-title {
-            color: #d0d0e0;
-        }
-        .modern.dark-mode .field label {
-            color: #b0b0c0;
-        }
-        .modern.dark-mode .field input,
-        .modern.dark-mode .field select {
-            background-color: #1e1e30;
-            border-color: #4a4a60;
-            color: #e0e0f0;
-        }
-        .modern.dark-mode .field input:focus,
-        .modern.dark-mode .field select:focus {
-            border-color: #52b54b;
-        }
-        .modern.dark-mode .servers-table-header {
-            background-color: #2a2a40;
-            border-bottom-color: #4a4a60;
-            color: #ccc;
-        }
-        .modern.dark-mode .server-row {
-            border-bottom-color: #3a3a50;
-        }
-        .modern.dark-mode .server-name {
-            color: #d0d0e0;
-        }
-        .modern.dark-mode .server-url,
-        .modern.dark-mode .server-api {
-            color: #a0a0b8;
-        }
-        .modern.dark-mode .server-btn:hover:not(:disabled) {
-            background-color: #3a3a50;
-        }
-        .modern.dark-mode .btn.secondary {
-            background: #2e2e42;
-            border-color: #5a5a78;
-            color: #ddd;
-        }
-        .modern.dark-mode .btn.secondary:hover {
-            background: #3e3e58;
-        }
-        .modern.dark-mode .test-btn {
-            background: #2e2e42;
-            border-color: #5a5a78;
-            color: #ddd;
-        }
-        .modern.dark-mode .test-btn:hover {
-            background: #3e3e58;
-        }
-        .modern.dark-mode .settings-footer {
-            background: #242435;
-            border-top-color: #3a3a50;
-        }
-        .modern.dark-mode .btn.cancel {
-            background: #3a3a50;
-            color: #ddd;
-            border-color: #5a5a78;
-        }
-        .modern.dark-mode .btn.save {
-            background: #3e9e37;
-        }
-        .modern.dark-mode .close-btn {
-            color: #aaa;
-        }
-        .modern.dark-mode .sites-header-fixed {
-            background-color: #2a2a40;
-            border-bottom-color: #4a4a60;
-            color: #ccc;
-        }
+        /* 深色模式（仅覆盖颜色） */
+        .emby-jump-settings-panel.modern.dark-mode,
+        .modern.dark-mode .settings-header,
+        .modern.dark-mode .settings-footer,
+        .modern.dark-mode .settings-card,
+        .modern.dark-mode .servers-table-header,
+        .modern.dark-mode .server-row,
+        .modern.dark-mode .sites-header-fixed,
         .modern.dark-mode .sites-row-flex {
-            border-bottom-color: #3a3a50;
+            background: #242435; border-color: #3a3a50; color: #c0c0d0;
         }
-        .modern.dark-mode .sites-row-flex .site-name {
-            color: #d0d0e0;
-        }
+        .modern.dark-mode .settings-header h3 { color: #fff; }
+        .modern.dark-mode .card-title { color: #d0d0e0; }
+        .modern.dark-mode .field label { color: #b0b0c0; }
+        .modern.dark-mode .field input,
+        .modern.dark-mode .field select { background: #1e1e30; border-color: #4a4a60; color: #e0e0f0; }
+        .modern.dark-mode .field input:focus { border-color: var(--primary); }
+        .modern.dark-mode .server-url,
+        .modern.dark-mode .server-api { color: #a0a0b8; }
+        .modern.dark-mode .server-btn:hover:not(:disabled) { background: #3a3a50; }
+        .modern.dark-mode .btn.secondary,
+        .modern.dark-mode .test-btn { background: #2e2e42; border-color: #5a5a78; color: #ddd; }
+        .modern.dark-mode .btn.secondary:hover,
+        .modern.dark-mode .test-btn:hover { background: #3e3e58; }
+        .modern.dark-mode .btn.cancel { background: #3a3a50; color: #ddd; border-color: #5a5a78; }
+        .modern.dark-mode .btn.save { background: #3e9e37; }
+        .modern.dark-mode .close-btn { color: #aaa; }
 
         /* JAVLibrary 特殊高亮 */
-        .emby-title-exists {
-            color: #28a745 !important;
-            font-weight: bold !important;
-        }
-        .emby-id-exists {
-            color: #28a745 !important;
-            font-weight: bold !important;
-        }
+        .emby-title-exists, .emby-id-exists { color: var(--success) !important; font-weight: bold !important; }
 
         /* 统一按钮系统 */
         .emby-btn {
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            border-radius: 6px !important;
-            font-weight: 600 !important;
-            cursor: pointer !important;
-            line-height: 1 !important;
-            box-sizing: border-box !important;
-            white-space: nowrap !important;
-            transition: all .18s ease !important;
-            vertical-align: middle !important;
+            display: inline-flex; align-items: center; justify-content: center;
+            border-radius: 6px; font-weight: 600; cursor: pointer;
+            line-height: 1; box-sizing: border-box; white-space: nowrap;
+            transition: all .18s ease; vertical-align: middle;
             text-decoration: none !important;
-            border: none !important;
-            user-select: none !important;
+            border: none; user-select: none;
         }
         .emby-btn:hover {
-            transform: scale(1.05) !important;
-            box-shadow: 0 4px 10px rgba(0,0,0,.25) !important;
+            transform: scale(1.05);
+            box-shadow: 0 4px 10px rgba(0,0,0,.25);
+            text-decoration: none !important;
         }
-        .emby-btn-small {
-            font-size: 11px !important;
-            padding: 3px 8px !important;
+        .emby-btn:visited {
+            color: inherit !important;
+            background: inherit !important;
         }
-        .emby-btn-medium {
-            font-size: 13px !important;
-            padding: 6px 10px !important;
-        }
-        .emby-btn-large {
-            font-size: 15px !important;
-            padding: 6px 14px !important;
-        }
-        .emby-btn-jump {
-            background: ${Config.highlightColor} !important;
-            color: #fff !important;
-        }
-        .emby-btn-copy {
-            background: linear-gradient(135deg,#667eea,#764ba2) !important;
-            color: #fff !important;
-        }
-        .emby-button-group {
-            display: inline-flex !important;
-            align-items: center !important;
-            gap: 6px !important;
-            margin-left: 8px !important;
-        }
+        .emby-btn-small { font-size: 11px; padding: 3px 8px; }
+        .emby-btn-medium { font-size: 13px; padding: 6px 10px; }
+        .emby-btn-large { font-size: 15px; padding: 6px 14px; }
+        .emby-btn-jump { background: ${Config.highlightColor}; color: #fff; }
+        .emby-btn-jump:visited { background: ${Config.highlightColor} !important; color: #fff !important; }
+        .emby-btn-copy { background: linear-gradient(135deg,#667eea,#764ba2); color: #fff; }
+        .emby-btn-copy:visited { background: linear-gradient(135deg,#667eea,#764ba2) !important; color: #fff !important; }
+        .emby-button-group { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; }
 
-        /* Sukebei 列表页按钮专用样式（仅定位，内边距由尺寸类控制） */
-        .emby-list-btn-td {
-            position: relative !important;
-            padding-right: 110px !important;
-        }
+        /* Sukebei 列表页专用 */
+        .emby-list-btn-td { position: relative; padding-right: 110px; }
         .emby-list-abs-btn {
-            position: absolute !important;
-            right: 2px !important;
-            top: 50% !important;
-            transform: translateY(-50%) !important;
-            z-index: 10 !important;
-            margin: 0 !important;
+            position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+            z-index: 10; margin: 0;
+            text-decoration: none !important;
         }
         .emby-list-abs-btn:hover {
-            transform: translateY(-50%) scale(1.05) !important;
-            box-shadow: 0 4px 10px rgba(0,0,0,.25) !important;
+            transform: translateY(-50%) scale(1.05);
+            box-shadow: 0 4px 10px rgba(0,0,0,.25);
+            text-decoration: none !important;
+        }
+        .emby-list-abs-btn:visited {
+            background: ${Config.highlightColor} !important;
+            color: #fff !important;
         }
     `);
 
@@ -2199,7 +1862,7 @@
             }
         }),
 
-        sukebeiNyaa: Object.assign(Object.create(BaseProcessor), {
+        sukebei: Object.assign(Object.create(BaseProcessor), {
             listSelector: 'table tbody tr',
 
             extractCode(item) {
@@ -2854,7 +2517,7 @@
         if (host.includes('javdb')) return 'javdb';
         if (host.includes('supjav')) return 'supjav';
         if (host.includes('sehuatang')) return 'sehuatang';
-        if (host.includes('nyaa.si')) return 'sukebeiNyaa';
+        if (host.includes('nyaa.si')) return 'sukebei';
         if (host.includes('javlibrary')) return 'javlibrary';
         if (host.includes('madou')) return 'madou';
         if (host.includes('javrate')) return 'javrate';
