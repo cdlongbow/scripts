@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.0.1
+// @version      5.1.0
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -181,70 +181,17 @@
     const badgeSize = getBadgeSizeStyle();
 
     GM_addStyle(`
+        /* 设置面板基础定位 */
         .emby-jump-settings-panel {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%,-50%);
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.3);
-            padding: 20px;
             z-index: 10000;
-            width: 400px;
-            max-width: 90%;
             display: none;
         }
-        .emby-jump-settings-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eee;
-        }
-        .emby-jump-settings-close {
-            cursor: pointer;
-            font-size: 18px;
-            color: #999;
-        }
-        .emby-jump-settings-field {
-            margin-bottom: 15px;
-        }
-        .emby-jump-settings-field label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        .emby-jump-settings-field input,
-        .emby-jump-settings-field select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        .emby-jump-settings-buttons {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 15px;
-        }
-        .emby-jump-settings-buttons button {
-            padding: 8px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .emby-jump-settings-save {
-            background-color: #52b54b;
-            color: white;
-        }
-        .emby-jump-settings-cancel {
-            background-color: #f0f0f0;
-            color: #333;
-        }
 
+        /* 状态提示器 */
         .emby-jump-status-indicator {
             position: fixed;
             bottom: 20px;
@@ -318,7 +265,6 @@
             outline: 4px solid ${Config.highlightColor} !important;
             position: relative;
         }
-        /* 列表页已存在样式 */
         .emby-exists {
             color: #28a745 !important;
             font-weight: bold !important;
@@ -327,7 +273,6 @@
             opacity: 0;
             animation: embyFadeIn 0.2s ease forwards;
         }
-
         @keyframes embyFadeIn {
             to { opacity: 1; }
         }
@@ -343,7 +288,6 @@
             max-width: 95vw;
             overflow: hidden;
         }
-
         .modern .settings-header {
             display: flex;
             justify-content: space-between;
@@ -353,14 +297,12 @@
             backdrop-filter: blur(4px);
             border-bottom: 1px solid #d0d7dd;
         }
-
         .modern .settings-header h3 {
             margin: 0;
             font-size: 22px;
             font-weight: 600;
             color: #1e2a3a;
         }
-
         .modern .settings-header .close-btn {
             background: none;
             border: none;
@@ -369,7 +311,6 @@
             color: #6c7a8a;
             line-height: 1;
         }
-
         .modern .settings-content {
             padding: 20px;
             max-height: 70vh;
@@ -378,14 +319,12 @@
             grid-template-columns: 1fr 1fr;
             gap: 16px;
         }
-
         .modern .left-column,
         .modern .right-column {
             display: flex;
             flex-direction: column;
             gap: 16px;
         }
-
         .modern .settings-card {
             background: #ffffffde;
             backdrop-filter: blur(2px);
@@ -394,7 +333,6 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.04);
             border: 1px solid #d9e1e8;
         }
-
         .modern .card-title {
             font-weight: 600;
             margin-bottom: 12px;
@@ -404,32 +342,27 @@
             gap: 6px;
             font-size: 18px;
         }
-
         .modern .card-title.collapsible {
             cursor: pointer;
             user-select: none;
             justify-content: space-between;
             margin-bottom: 0;
         }
-
         .modern .card-body.two-columns {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 16px;
         }
-
         .modern .field {
             display: flex;
             flex-direction: column;
             gap: 4px;
         }
-
         .modern .field label {
             font-size: 16px;
             font-weight: 500;
             color: #4a5a6e;
         }
-
         .modern .field input,
         .modern .field select {
             padding: 10px 12px;
@@ -440,32 +373,27 @@
             box-sizing: border-box;
             background-color: #ffffff;
         }
-
         .modern .field input:focus,
         .modern .field select:focus {
             outline: none;
             border-color: #52b54b;
             box-shadow: 0 0 0 3px rgba(82,181,75,0.15);
         }
-
         .modern .field small {
             font-size: 14px;
             color: #7c8b9c;
         }
-
         .modern .color-field {
             display: flex;
             flex-direction: row;
             align-items: center;
             gap: 10px;
         }
-
         .modern .color-field label {
             width: 70px;
             flex-shrink: 0;
             font-size: 16px;
         }
-
         .modern .color-field input[type="color"] {
             width: 60px;
             height: 36px;
@@ -473,7 +401,6 @@
             border-radius: 6px;
             border: 1px solid #cbd5e1;
         }
-
         .modern .test-btn {
             background: #e2e8f0;
             border: 1px solid #b9c7d9;
@@ -483,7 +410,6 @@
             cursor: pointer;
             color: #1e293b;
         }
-
         .modern .test-btn:hover {
             background: #d1dbe8;
         }
@@ -493,7 +419,6 @@
             width: 100%;
             margin-top: 8px;
         }
-
         .modern .servers-table-header {
             display: flex;
             font-weight: 600;
@@ -501,7 +426,6 @@
             border-bottom: 2px solid #b9c7d9;
             padding: 8px 12px;
         }
-
         .modern .servers-table-header > div:first-child {
             flex: 2;
         }
@@ -509,46 +433,39 @@
             flex: 1;
             text-align: center;
         }
-
         .modern .server-row {
             display: flex;
             align-items: center;
             padding: 8px 12px;
             border-bottom: 1px solid #d9e1e8;
         }
-
         .modern .server-info {
             flex: 2;
             display: flex;
             flex-direction: column;
             gap: 4px;
         }
-
         .modern .server-name {
             font-weight: 500;
             color: #1e293b;
             font-size: 16px;
         }
-
         .modern .server-url {
             font-size: 14px;
             color: #5a6f88;
             word-break: break-all;
         }
-
         .modern .server-api {
             font-size: 14px;
             color: #5a6f88;
             font-family: monospace;
         }
-
         .modern .server-actions {
             flex: 1;
             display: flex;
             justify-content: center;
             gap: 8px;
         }
-
         .modern .server-btn {
             background: none;
             border: none;
@@ -558,22 +475,18 @@
             border-radius: 4px;
             line-height: 1;
         }
-
         .modern .server-btn:hover:not(:disabled) {
             background-color: #d9e1e8;
         }
-
         .modern .server-btn:disabled {
             opacity: 0.3;
             cursor: not-allowed;
         }
-
         .modern .active-badge {
             font-size: 1.2rem;
             color: #52b54b;
             padding: 4px;
         }
-
         .modern .btn.secondary {
             background: #e2e8f0;
             color: #1e293b;
@@ -584,7 +497,6 @@
             cursor: pointer;
             font-size: 15px;
         }
-
         .modern .btn.secondary:hover {
             background: #d1dbe8;
         }
@@ -596,13 +508,11 @@
             width: 44px;
             height: 24px;
         }
-
         .modern .switch input {
             opacity: 0;
             width: 0;
             height: 0;
         }
-
         .modern .slider {
             position: absolute;
             cursor: pointer;
@@ -614,7 +524,6 @@
             transition: .2s;
             border-radius: 24px;
         }
-
         .modern .slider:before {
             position: absolute;
             content: "";
@@ -626,67 +535,51 @@
             transition: .2s;
             border-radius: 50%;
         }
-
         .modern input:checked + .slider {
             background-color: #52b54b;
         }
-
         .modern input:checked + .slider:before {
             transform: translateX(20px);
         }
 
-        /* 站点表格 */
-        .modern .sites-table {
-            display: table;
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .modern .sites-table-header {
-            display: table-row;
-            font-weight: 600;
+        /* 站点开关固定表头 */
+        .modern .sites-header-fixed {
+            display: flex;
+            padding: 8px 12px;
             background-color: #e6edf5;
             border-bottom: 2px solid #b9c7d9;
+            font-weight: 600;
         }
-
-        .modern .sites-table-header > div {
-            display: table-cell;
-            padding: 8px 12px;
-            font-size: 16px;
+        .modern .sites-header-fixed > div {
+            flex: 1;
         }
-
-        .modern .sites-row {
-            display: table-row;
-            border-bottom: 1px solid #d9e1e8;
-        }
-
-        .modern .sites-row > div {
-            display: table-cell;
-            padding: 10px 12px;
-            vertical-align: middle;
-        }
-
-        .modern .site-name {
-            font-weight: 500;
-            color: #2c3e50;
-            font-size: 16px;
-        }
-
-        .modern .site-toggle {
+        .modern .sites-header-fixed > div:nth-child(2),
+        .modern .sites-header-fixed > div:nth-child(3) {
             text-align: center;
         }
-
+        .modern .sites-row-flex {
+            display: flex;
+            padding: 10px 12px;
+            border-bottom: 1px solid #d9e1e8;
+            align-items: center;
+        }
+        .modern .sites-row-flex > div {
+            flex: 1;
+        }
+        .modern .sites-row-flex > div:nth-child(2),
+        .modern .sites-row-flex > div:nth-child(3) {
+            text-align: center;
+        }
         .modern .settings-footer {
             padding: 16px 20px;
             background: #ffffffd9;
             backdrop-filter: blur(4px);
             border-top: 1px solid #d0d7dd;
             display: flex;
-            justify-content: space-between;  /* 改为 space-between 使左右分离 */
+            justify-content: space-between;
             align-items: center;
             gap: 12px;
         }
-
         .modern .btn {
             padding: 8px 20px;
             border-radius: 30px;
@@ -695,23 +588,20 @@
             cursor: pointer;
             font-size: 15px;
         }
-
         .modern .btn.cancel {
             background: #e2e8f0;
             color: #1e293b;
             border: 1px solid #b9c7d9;
         }
-
         .modern .btn.save {
             background: #52b54b;
             color: white;
         }
-
         .modern .btn.save:hover {
             background: #3e9e37;
         }
 
-        /* ===== 新增深色模式切换图标样式 ===== */
+        /* 深色模式切换 */
         .modern .dark-mode-toggle {
             font-size: 26px;
             cursor: pointer;
@@ -724,7 +614,7 @@
             transform: scale(1.1);
         }
 
-        /* ===== 深色模式样式定义 ===== */
+        /* 深色模式样式 */
         .emby-jump-settings-panel.modern.dark-mode {
             background: #1a1a2a;
             color: #c0c0d0;
@@ -805,55 +695,6 @@
         .modern.dark-mode .close-btn {
             color: #aaa;
         }
-        .modern.dark-mode .sites-table-header {
-            background-color: #2a2a40;
-        }
-        .modern.dark-mode .sites-row {
-            border-bottom-color: #3a3a50;
-        }
-        .modern.dark-mode .site-name {
-            color: #d0d0e0;
-        }
-
-        /* JAVLibrary特殊处理 */
-        .emby-title-exists {
-            color: #28a745 !important;
-            font-weight: bold !important;
-        }
-        .emby-id-exists {
-            color: #28a745 !important;
-            font-weight: bold !important;
-        }
-
-        /* 站点开关固定表头样式 */
-        .modern .sites-header-fixed {
-            display: flex;
-            padding: 8px 12px;
-            background-color: #e6edf5;
-            border-bottom: 2px solid #b9c7d9;
-            font-weight: 600;
-        }
-        .modern .sites-header-fixed > div {
-            flex: 1;
-        }
-        .modern .sites-header-fixed > div:nth-child(2),
-        .modern .sites-header-fixed > div:nth-child(3) {
-            text-align: center;
-        }
-        .modern .sites-row-flex {
-            display: flex;
-            padding: 10px 12px;
-            border-bottom: 1px solid #d9e1e8;
-            align-items: center;
-        }
-        .modern .sites-row-flex > div {
-            flex: 1;
-        }
-        .modern .sites-row-flex > div:nth-child(2),
-        .modern .sites-row-flex > div:nth-child(3) {
-            text-align: center;
-        }
-        /* 深色模式适配 */
         .modern.dark-mode .sites-header-fixed {
             background-color: #2a2a40;
             border-bottom-color: #4a4a60;
@@ -866,63 +707,80 @@
             color: #d0d0e0;
         }
 
-        /* ===== 统一按钮系统 ===== */
+        /* JAVLibrary 特殊高亮 */
+        .emby-title-exists {
+            color: #28a745 !important;
+            font-weight: bold !important;
+        }
+        .emby-id-exists {
+            color: #28a745 !important;
+            font-weight: bold !important;
+        }
+
+        /* 统一按钮系统 */
         .emby-btn {
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
-
             border-radius: 6px !important;
             font-weight: 600 !important;
             cursor: pointer !important;
-
             line-height: 1 !important;
             box-sizing: border-box !important;
             white-space: nowrap !important;
-
             transition: all .18s ease !important;
             vertical-align: middle !important;
-
             text-decoration: none !important;
             border: none !important;
             user-select: none !important;
         }
-
         .emby-btn:hover {
             transform: scale(1.05) !important;
             box-shadow: 0 4px 10px rgba(0,0,0,.25) !important;
         }
-
         .emby-btn-small {
             font-size: 11px !important;
             padding: 3px 8px !important;
         }
-
         .emby-btn-medium {
             font-size: 13px !important;
             padding: 6px 10px !important;
         }
-
         .emby-btn-large {
             font-size: 15px !important;
             padding: 6px 14px !important;
         }
-
         .emby-btn-jump {
             background: ${Config.highlightColor} !important;
             color: #fff !important;
         }
-
         .emby-btn-copy {
             background: linear-gradient(135deg,#667eea,#764ba2) !important;
             color: #fff !important;
         }
-
         .emby-button-group {
             display: inline-flex !important;
             align-items: center !important;
             gap: 6px !important;
             margin-left: 8px !important;
+        }
+
+        /* Sukebei 列表页按钮专用样式（仅定位，内边距由尺寸类控制） */
+        .emby-list-btn-td {
+            position: relative !important;
+            padding-right: 110px !important;
+        }
+        .emby-list-abs-btn {
+            position: absolute !important;
+            right: 2px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            z-index: 10 !important;
+            margin: 0 !important;
+        }
+        .emby-list-abs-btn:hover {
+            transform: translateY(-50%) scale(1.05) !important;
+            box-shadow: 0 4px 10px rgba(0,0,0,.25) !important;
         }
     `);
 
@@ -2342,30 +2200,23 @@
         }),
 
         sukebeiNyaa: Object.assign(Object.create(BaseProcessor), {
-
             listSelector: 'table tbody tr',
 
             extractCode(item) {
                 const linkEl = item.querySelector('td:nth-child(2) a');
-                if (!linkEl) return null;
-                return extractCodeFromText(linkEl.textContent);
+                return linkEl ? extractCodeFromText(linkEl.textContent) : null;
             },
 
             async process() {
-
                 const siteConfig = this.__siteConfig;
                 if (!siteConfig) return;
 
                 if (location.pathname.startsWith('/view/')) {
-                    if (siteConfig.detail) {
-                        await this.processDetailPage();
-                    }
+                    if (siteConfig.detail) await this.processDetailPage();
                     return;
                 }
 
-                if (siteConfig.list) {
-                    await this.processListPage();
-                }
+                if (siteConfig.list) await this.processListPage();
             },
 
             async processDetailPage() {
@@ -2408,60 +2259,53 @@
             },
 
             async processListPage() {
-
                 const rows = document.querySelectorAll(this.listSelector);
-
-                let foundCount = 0;
-                let totalChecked = 0;
-                let completed = 0;
-
-                const pendingHighlight = [];
+                const items = [];
 
                 for (const row of rows) {
-
                     const linkEl = row.querySelector('td:nth-child(2) a');
-                    if (!linkEl) continue;
-
-                    if (linkEl.dataset.embyChecked) continue;
+                    if (!linkEl || linkEl.dataset.embyChecked) continue;
                     linkEl.dataset.embyChecked = "1";
 
-                    const text = linkEl.textContent;
-                    const code = extractCodeFromText(text);
+                    const code = extractCodeFromText(linkEl.textContent);
                     if (!code) continue;
 
-                    totalChecked++;
-
-                    const upperCode = code.toUpperCase();
-
-                    this.api.checkExists(code).then(bestItem => {
-                        if (bestItem) {
-                            foundCount++;
-                            pendingHighlight.push(linkEl);
-                        }
-                    }).catch(() => {}).finally(() => {
-                        completed++;
-                    });
+                    const td = linkEl.parentNode;
+                    if (!td) continue;
+                    items.push({ linkEl, td, code });
                 }
 
-                const startTime = Date.now();
-                const checker = setInterval(() => {
+                if (items.length === 0) return;
 
-                    const timeoutReached = Date.now() - startTime > 5000;
+                const codes = items.map(item => item.code);
+                const bestItems = await this.api.batchQuery(codes);
 
-                    if (completed >= totalChecked || timeoutReached) {
+                let foundCount = 0;
+                for (let i = 0; i < bestItems.length; i++) {
+                    const bestItem = bestItems[i];
+                    if (!bestItem) continue;
 
-                        clearInterval(checker);
+                    foundCount++;
+                    const { linkEl, td } = items[i];
+                    if (td.dataset.embyBtnAdded) continue;
+                    td.dataset.embyBtnAdded = '1';
 
-                        requestAnimationFrame(() => {
-                            for (const el of pendingHighlight) {
-                                el.classList.add('emby-exists');
-                                el.title = "Emby 已存在";
-                            }
-                        });
+                    linkEl.classList.add('emby-exists');
+                    linkEl.title = "Emby 已存在";
 
-                        Prompt.batchComplete(foundCount);
-                    }
-                }, 300);
+                    td.classList.add('emby-list-btn-td');
+
+                    const embyUrl = `${Config.embyBaseUrl}web/index.html#!/item?id=${bestItem.Id}&serverId=${bestItem.ServerId}`;
+                    const btn = document.createElement('a');
+                    btn.href = embyUrl;
+                    btn.target = '_blank';
+                    btn.className = `emby-btn emby-btn-jump ${this.api.getBtnSizeClass()} emby-list-abs-btn`;
+                    btn.textContent = '🎬跳转到Emby';
+
+                    td.appendChild(btn);
+                }
+
+                Prompt.batchComplete(foundCount);
             }
         }),
 
