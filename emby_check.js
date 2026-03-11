@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.2.0
+// @version      5.2.1
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -428,22 +428,24 @@
         .emby-btn-copy { background: linear-gradient(135deg,#667eea,#764ba2); color: #fff; }
         .emby-btn-copy:visited { background: linear-gradient(135deg,#667eea,#764ba2) !important; color: #fff !important; }
         .emby-button-group { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; }
-
-        /* Sukebei 列表页专用 */
-        .emby-list-btn-td { position: relative; padding-right: 110px; }
-        .emby-list-abs-btn {
-            position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
-            z-index: 10; margin: 0;
-            text-decoration: none !important;
         }
-        .emby-list-abs-btn:hover {
-            transform: translateY(-50%) scale(1.05);
-            box-shadow: 0 4px 10px rgba(0,0,0,.25);
-            text-decoration: none !important;
+        
+        /* Sukebei 列表页标题栏按钮布局 */
+        .sukebei-list-td {
+            display: flex !important;
+            align-items: center !important;
+            white-space: nowrap !important;
+            overflow: visible !important;
         }
-        .emby-list-abs-btn:visited {
-            background: ${Config.highlightColor} !important;
-            color: #fff !important;
+        .sukebei-list-td a:first-child {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+        .sukebei-list-td .emby-btn-jump {
+            flex-shrink: 0;
+            margin-left: 8px;
         }
     `);
 
@@ -1954,18 +1956,43 @@
                     td.dataset.embyBtnAdded = '1';
 
                     linkEl.classList.add('emby-exists');
-                    linkEl.title = "Emby 已存在";
 
-                    td.classList.add('emby-list-btn-td');
+                    const icon = td.querySelector('[data-lmt]');
+
+                    const wrapper = document.createElement('span');
+                    wrapper.style.display = 'flex';
+                    wrapper.style.alignItems = 'center';
+                    wrapper.style.width = '100%';
+                    wrapper.style.minWidth = '0';
+
+                    if (icon) {
+                        icon.parentNode.removeChild(icon);
+                        wrapper.appendChild(icon);
+                        icon.style.flexShrink = '0';
+                        icon.style.marginRight = '4px';
+                    }
+
+                    linkEl.parentNode.removeChild(linkEl);
+                    wrapper.appendChild(linkEl);
+
+                    linkEl.style.flex = '1';
+                    linkEl.style.minWidth = '0';
+                    linkEl.style.overflow = 'hidden';
+                    linkEl.style.textOverflow = 'ellipsis';
+                    linkEl.style.whiteSpace = 'nowrap';
 
                     const embyUrl = `${Config.embyBaseUrl}web/index.html#!/item?id=${bestItem.Id}&serverId=${bestItem.ServerId}`;
                     const btn = document.createElement('a');
                     btn.href = embyUrl;
                     btn.target = '_blank';
-                    btn.className = `emby-btn emby-btn-jump ${this.api.getBtnSizeClass()} emby-list-abs-btn`;
+                    btn.className = `emby-btn emby-btn-jump ${this.api.getBtnSizeClass()}`;
                     btn.textContent = '🎬跳转到Emby';
+                    btn.style.flexShrink = '0';
+                    btn.style.marginLeft = '8px';
+                    wrapper.appendChild(btn);
 
-                    td.appendChild(btn);
+                    td.innerHTML = '';
+                    td.appendChild(wrapper);
                 }
 
                 Prompt.batchComplete(foundCount);
