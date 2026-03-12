@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.2.2
+// @version      5.3.0
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -399,8 +399,17 @@
         .modern.dark-mode .btn.save { background: #3e9e37; }
         .modern.dark-mode .close-btn { color: #aaa; }
 
-        /* JAVLibrary 特殊高亮 */
-        .emby-title-exists, .emby-id-exists { color: var(--success) !important; font-weight: bold !important; }
+        /* JAVLibrary 列表页高亮 */
+        .video.emby-highlight { position: relative !important; background: linear-gradient(to bottom, rgba(82,181,75,0.12) 0%, rgba(82,181,75,0.04) 100%) !important; transition: background 0.25s ease !important; }
+        /* 伪元素负责内光晕，不画边框线 */
+        .video.emby-highlight::before { content: ''; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 6px 2px rgba(82,181,75,0.5); border-radius: 4px; z-index: 1; opacity: 0.7; }
+        /* 悬停加强（光晕更明显） */
+        .video.emby-highlight:hover::before { box-shadow: inset 0 0 12px 4px rgba(82,181,75,0.8); }
+        .video.emby-highlight:hover { background: linear-gradient(to bottom, rgba(82,181,75,0.18) 0%, rgba(82,181,75,0.08) 100%) !important; }
+        /* 防偏移 */
+        .videothumblist .videos .video:first-child.emby-highlight { transform: translateY(0) !important; margin-top: 0 !important; }
+        /* 标题和 ID 变色 */
+        .emby-title-exists, .emby-id-exists { color: #4CAF50 !important; font-weight: 700 !important; text-shadow: 0 0 3px rgba(76,175,80,0.6) !important; }
 
         /* 统一按钮系统 */
         .emby-btn {
@@ -2000,31 +2009,32 @@
         }),
 
         javlibrary: (function() {
-            // 存储已查询成功的番号映射 { code: itemData }
             const embyItemMap = new Map();
 
-            // 列表页：高亮标题和番号
-            function applyTitleHighlight(video) {
+            function applyHighlight(video) {
+                if (!video) return;
+
                 const titleEl = video.querySelector('.title') || video.querySelector('a');
-                if (!titleEl) return;
-
                 const idEl = video.querySelector('div.id');
-                if (!idEl) return;
-                const code = idEl.textContent.trim();
-                if (!code) return;
 
-                const item = embyItemMap.get(code);
-                if (!item) return;
+                if (titleEl) titleEl.classList.add('emby-title-exists');
+                if (idEl) idEl.classList.add('emby-id-exists');
 
-                titleEl.classList.add('emby-title-exists');
-                idEl.classList.add('emby-id-exists');
+                video.classList.add('emby-highlight');
             }
 
             function scanAndRepair() {
-                document.querySelectorAll('.video').forEach(video => applyTitleHighlight(video));
+                document.querySelectorAll('.video').forEach(video => {
+                    const idEl = video.querySelector('div.id');
+                    if (!idEl) return;
+                    const code = idEl.textContent.trim();
+                    if (embyItemMap.has(code)) {
+                        applyHighlight(video);
+                    }
+                });
             }
 
-            // 详情页维护函数（带状态提示，并支持插入到另一个脚本的按钮组）
+            // 详情页维护函数
             function maintainDetailPage(api) {
                 const siteConfig = typeof GM_getValue !== 'undefined' ? Config.enabledSites.javlibrary : { detail: true };
                 if (!siteConfig || !siteConfig.detail) return;
@@ -2036,18 +2046,13 @@
                 const code = extractCodeFromText(idCodeElement.textContent);
                 if (!code) return;
 
-                // 如果已经为该番号处理过，跳过
+                // 已处理过，跳过
                 if (idContainer.dataset.embyCode === code) return;
-
-                // 如果正在处理中，跳过
                 if (idContainer.dataset.embyProcessing === 'true') return;
 
-                // 标记正在处理
                 idContainer.dataset.embyProcessing = 'true';
-
                 const copyBtn = api.createCopyButton(code);
 
-                // 尝试从缓存获取
                 let item = embyItemMap.get(code);
                 if (item) {
                     const link = api.createLink(item);
@@ -2066,13 +2071,13 @@
                         }
                     }
                     if (link) Prompt.querySuccess(code);
-                    // 设置已处理标记
+
                     idContainer.dataset.embyCode = code;
                     delete idContainer.dataset.embyProcessing;
                     return;
                 }
 
-                // 缓存中没有，查询一次
+                // 查询 Emby
                 Prompt.queryStart(code);
                 api.checkExists(code).then(bestItem => {
                     if (bestItem) {
@@ -2096,7 +2101,6 @@
                             Status.error('❌ 创建链接失败', true);
                         }
                     } else {
-                        // 即使没有 Emby 资源，也显示复制按钮
                         if (copyBtn) {
                             const btnGroup = document.querySelector('.jav-jump-btn-group');
                             if (btnGroup) {
@@ -2115,7 +2119,6 @@
                     console.error('Emby查询失败', e);
                     Prompt.queryError(code, e.message);
                 }).finally(() => {
-                    // 无论成功失败，设置已处理标记（避免重复尝试），并清除处理中标记
                     if (idContainer && idContainer.dataset) {
                         idContainer.dataset.embyCode = code;
                         delete idContainer.dataset.embyProcessing;
@@ -2135,7 +2138,7 @@
                     const siteConfig = this.__siteConfig;
                     if (!siteConfig) return;
 
-                    // ----- 列表页处理 -----
+                    // 列表页处理
                     if (siteConfig.list) {
                         const items = document.querySelectorAll(this.listSelector);
                         if (items.length > 0) {
@@ -2157,21 +2160,20 @@
                                         const video = videos[i];
                                         const code = codes[i];
                                         embyItemMap.set(code, bestItems[i]);
-                                        applyTitleHighlight(video);
+                                        applyHighlight(video);
                                     }
                                 }
                             }
                         }
 
                         this.setupContainerObserver();
-                        // 启动列表页维护定时器，每隔3秒扫描并修复丢失的高亮
                         this.startListMaintenance();
                     }
 
-                    // ----- 详情页处理（定时器）-----
+                    // 详情页处理
                     if (siteConfig.detail) {
                         this.startDetailMaintenance();
-                        maintainDetailPage(this.api); // 立即执行一次
+                        maintainDetailPage(this.api);
                     }
 
                     this.setupObserver();
@@ -2208,16 +2210,14 @@
                     observer.observe(container, { childList: true, subtree: true });
                 },
 
-                // 新增：列表页维护定时器
                 startListMaintenance() {
                     if (this._listMaintenanceStarted) return;
                     this._listMaintenanceStarted = true;
-
                     setInterval(() => {
                         const siteConfig = this.__siteConfig;
                         if (!siteConfig || !siteConfig.list) return;
                         scanAndRepair();
-                    }, 3000); // 每3秒检查一次
+                    }, 3000);
                 },
 
                 startDetailMaintenance() {
