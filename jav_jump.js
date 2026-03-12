@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         番号跳转加预览图
 // @namespace    https://github.com/ZiPenOk
-// @version      4.9.0
+// @version      4.9.1
 // @icon         https://javdb.com/favicon.ico
 // @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择
 // @author       ZiPenOk
@@ -197,7 +197,7 @@
             transform: translateX(5px) scale(1.02);
             filter: brightness(1.1);
         }
-        
+
         /* 预览图工具栏 */
         .preview-toolbar {
             position: fixed;
@@ -342,10 +342,10 @@
         showOverlay(imgUrl, code, source = null) {
             // 隐藏页面滚动条
             document.body.style.overflow = 'hidden';
-            
+
             const container = document.createElement('div');
             container.className = 'preview-overlay';
-            
+
             const img = document.createElement('img');
             img.className = 'preview-img';
             img.src = imgUrl;
@@ -353,7 +353,7 @@
                 e.stopPropagation();
                 img.classList.toggle('zoomed');
             };
-            
+
             const toolbar = document.createElement('div');
             toolbar.className = 'preview-toolbar';
             toolbar.style.cssText = `
@@ -449,7 +449,28 @@
         },
 
         getJavBusUrl(code) {
-            const isUncensored = /^\d{6}[-_\s]\d{3}$/.test(code) || code.toLowerCase().startsWith('n') || code.toLowerCase().startsWith('k');
+            const codeLower = code.toLowerCase();
+
+            const isUncensored = 
+                /^\d{6}[-_\s]\d{3}$/.test(code) || 
+                codeLower.startsWith('heyzo') ||
+                codeLower.startsWith('carib') ||
+                codeLower.startsWith('1pondo') ||
+                codeLower.startsWith('tokyo') ||
+                codeLower.startsWith('cat') ||
+                codeLower.startsWith('paco') ||
+                codeLower.startsWith('10mu') ||
+                codeLower.startsWith('muram') ||
+                codeLower.startsWith('gach') ||
+                codeLower.startsWith('real') ||
+                codeLower.startsWith('juku') ||
+                codeLower.startsWith('aka') ||
+                codeLower.startsWith('s-cute') ||
+                codeLower.startsWith('n_') ||
+                /^n\d{4}$/.test(codeLower) ||
+                codeLower.startsWith('k_') ||
+                /^k\d{4}$/.test(codeLower);
+
             if (isUncensored) {
                 return `https://www.javbus.com/uncensored/search/${encodeURIComponent(code)}&type=1`;
             }
@@ -600,7 +621,7 @@
                 console.error('Error in Thumbnail.get:', error);
                 return { url: null, source: null };
             }
-        }, 
+        },
 
         async show(code) {
             const result = await this.get(code);
@@ -848,7 +869,7 @@
             name: 'JAVLibrary',
             match: (url) => /javlibrary\.com/.test(url) && /\/cn\/jav\w+\.html/.test(url),
             titleSelector: '.post-title'
-        }, 
+        },
         {
             id: 'javrate',
             name: 'Javrate',
