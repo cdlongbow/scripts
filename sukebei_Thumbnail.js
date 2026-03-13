@@ -4,7 +4,7 @@
 // @description  Load image from cover/screenshot links.
 // @description:zh-CN  从封面/截图链接加载图片并显示。基于York Wang 0.9.8版本自用修改, 添加更多站点支持
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=sukebei.nyaa.si
-// @version      1.0.2
+// @version      1.0.4
 // @license      MIT
 // @author       ZiPenOk
 // @match        https://sukebei.nyaa.si/*
@@ -379,121 +379,108 @@
         }
     })
     
+    //新增站点支持
     addHandler(
-        /^https?:\/\/(hentai-manga\.org)\/upload\/[^\/]+(?:\.(jpg|png|gif))?$/,
+        /^https?:\/\/(hentai-manga\.org)\/upload(\/[a-z]{2})?\/[\w-]+\.(jpg|jpeg|png|gif|webp)?$/i,
         function (callback) {
-            const img = document.querySelector('img');
-            if (img && img.src) callback(img.src);
+            setTimeout(() => {
+                const img = document.querySelector('.fileviewer-file img') || 
+                            document.querySelector('#fileOriginalModal img') ||
+                            document.querySelector('img[src*="/uploads/users/"]');
+                if (img && img.src) callback(img.src);
+            }, 500);
         },
         async function (url, callback) {
-            GM_xmlhttpRequest({
-                method: 'GET',
-                url: url,
-                onload: function (res) {
-                    const match = res.responseText.match(
-                        /src="(https?:\/\/hentai-manga\.org\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/
-                    );
-                    if (match && match[1]) callback(match[1]);
-                }
-            });
+            try {
+                const absolute = await doGet(url, /<img[^>]+src="(https?:\/\/hentai-manga\.org\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
+                if (absolute) { callback(absolute); return; }
+                const relative = await doGet(url, /src="(\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
+                if (relative) callback('https://hentai-manga.org' + relative);
+            } catch (e) {}
         }
     );
-    
     addHandler(
         /^https?:\/\/1minx\.com\/upload(\/[a-z]{2})?\/[\w-]+\.(jpg|jpeg|png|gif|webp)$/i,
-        null,
+        function (callback) {
+            const img = document.querySelector('.fileviewer-file img') || 
+                        document.querySelector('#fileOriginalModal img');
+            if (img && img.src) callback(img.src);
+        },
         async (url, callback) => {
             try {
                 const absolute = await doGet(url, /<img src="(https?:\/\/1minx\.com\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"[^>]*>/i);
-                if (absolute) {
-                    callback(absolute);
-                    return;
-                }
+                if (absolute) { callback(absolute); return; }
                 const relative = await doGet(url, /src="(\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
-                if (relative) {
-                    callback("https://1minx.com" + relative);
-                }
-            } catch (e) {
-            }
+                if (relative) callback("https://1minx.com" + relative);
+            } catch (e) {}
         }
     );
-    
     addHandler(
         /^https?:\/\/cnxxx\.org\/upload(\/[a-z]{2})?\/[\w-]+\.(jpg|jpeg|png|gif|webp)$/i,
-        null,
+        function (callback) {
+            const img = document.querySelector('.fileviewer-file img') || 
+                        document.querySelector('#fileOriginalModal img');
+            if (img && img.src) callback(img.src);
+        },
         async (url, callback) => {
             try {
                 const absolute = await doGet(url, /<img[^>]+src="(https?:\/\/cnxxx\.org\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
-                if (absolute) {
-                    callback(absolute);
-                    return;
-                }
+                if (absolute) { callback(absolute); return; }
                 const relative = await doGet(url, /src="(\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
-                if (relative) {
-                    callback('https://cnxxx.org' + relative);
-                }
-            } catch (e) {
-            }
+                if (relative) callback('https://cnxxx.org' + relative);
+            } catch (e) {}
         }
     );
-    
     addHandler(
         /^https?:\/\/cosplaytele\.vip\/upload(\/[a-z]{2})?\/[\w-]+\.(jpg|jpeg|png|gif|webp)$/i,
-        null,
+        function (callback) {
+            const img = document.querySelector('.fileviewer-file img') || 
+                        document.querySelector('#fileOriginalModal img');
+            if (img && img.src) callback(img.src);
+        },
         async (url, callback) => {
             try {
                 const absolute = await doGet(url, /<img[^>]+src="(https?:\/\/cosplaytele\.vip\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
-                if (absolute) {
-                    callback(absolute);
-                    return;
-                }
+                if (absolute) { callback(absolute); return; }
                 const relative = await doGet(url, /src="(\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
-                if (relative) {
-                    callback('https://cosplaytele.vip' + relative);
-                }
-            } catch (e) {
-            }
+                if (relative) callback('https://cosplaytele.vip' + relative);
+            } catch (e) {}
         }
     );
-    
     addHandler(
         /^https?:\/\/fc2ppv\.me\/upload(\/[a-z]{2})?\/[\w-]+\.(jpg|jpeg|png|gif|webp)$/i,
-        null,
+        function (callback) {
+            const img = document.querySelector('.fileviewer-file img') || 
+                        document.querySelector('#fileOriginalModal img');
+            if (img && img.src) callback(img.src);
+        },
         async (url, callback) => {
             try {
                 const absolute = await doGet(url, /<img[^>]+src="(https?:\/\/fc2ppv\.me\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
-                if (absolute) {
-                    callback(absolute);
-                    return;
-                }
+                if (absolute) { callback(absolute); return; }
                 const relative = await doGet(url, /src="(\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
-                if (relative) {
-                    callback('https://fc2ppv.me' + relative);
-                }
-            } catch (e) {
-            }
+                if (relative) callback('https://fc2ppv.me' + relative);
+            } catch (e) {}
         }
     );
-    
     addHandler(
         /^https?:\/\/javbee\.co\/upload(\/[a-z]{2})?\/[\w-]+\.(jpg|jpeg|png|gif|webp)$/i,
-        null,
+        function (callback) {
+            const img = document.querySelector('.fileviewer-file img') || 
+                        document.querySelector('#fileOriginalModal img');
+            if (img && img.src) callback(img.src);
+        },
         async (url, callback) => {
             try {
                 const absolute = await doGet(url, /<img[^>]+src="(https?:\/\/javbee\.co\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
-                if (absolute) {
-                    callback(absolute);
-                    return;
-                }
+                if (absolute) { callback(absolute); return; }
                 const relative = await doGet(url, /src="(\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
-                if (relative) {
-                    callback('https://javbee.co' + relative);
-                }
-            } catch (e) {
-            }
+                if (relative) callback('https://javbee.co' + relative);
+            } catch (e) {}
         }
     );
-
+    //新增站点结束位置
+    
     const href = document.location.href
     if(/^https?:\/\/(sukebei\.nyaa\.si).+/g.test(href)) {
 
