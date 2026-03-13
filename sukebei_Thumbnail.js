@@ -4,7 +4,7 @@
 // @description  Load image from cover/screenshot links.
 // @description:zh-CN  从封面/截图链接加载图片并显示。基于York Wang 0.9.8版本自用修改, 添加更多站点支持
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=sukebei.nyaa.si
-// @version      1.0.3
+// @version      1.0.2
 // @license      MIT
 // @author       ZiPenOk
 // @match        https://sukebei.nyaa.si/*
@@ -95,7 +95,7 @@
 // @match        https://cosplaytele.vip/*
 // @match        https://fc2ppv.me/*
 // @match        https://javbee.co/*
-// @match        https://javtele.net/*
+
 // @run-at       document-end
 // @grant        unsafeWindow
 // @grant        GM_xmlhttpRequest
@@ -488,25 +488,6 @@
                 const relative = await doGet(url, /src="(\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
                 if (relative) {
                     callback('https://javbee.co' + relative);
-                }
-            } catch (e) {
-            }
-        }
-    );
-    
-    addHandler(
-        /^https?:\/\/javtele\.net\/upload(\/[a-z]{2})?\/[\w-]+\.(jpg|jpeg|png|gif|webp)$/i,
-        null,
-        async (url, callback) => {
-            try {
-                const absolute = await doGet(url, /<img[^>]+src="(https?:\/\/javtele\.net\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
-                if (absolute) {
-                    callback(absolute);
-                    return;
-                }
-                const relative = await doGet(url, /src="(\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
-                if (relative) {
-                    callback('https://javtele.net' + relative);
                 }
             } catch (e) {
             }
