@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         磁力&电驴链接助手
 // @namespace    https://github.com/ZiPenOk
-// @version      3.3.2
+// @version      3.3.3
 // @description  点击按钮显示绿色勾（验车按钮除外），支持复制（自动精简链接，保留xt和dn并提取番号）、推送到qB/115，新增磁力信息验车功能，截图轮播。现增强：支持FTP链接、纯哈希值转磁力、文本链接着色。
 // @icon         https://uxwing.com/wp-content/themes/uxwing/download/seo-marketing/magnet-magnetic-icon.png
 // @match        *://*/*
@@ -687,21 +687,30 @@
             data: `username=${config.qbtUser}&password=${config.qbtPass}`,
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             onload: (res) => {
-                if (res.status === 200) {
+                // 登录成功应返回 "Ok."（忽略前后空白）
+                if (res.status === 200 && res.responseText && res.responseText.trim() === "Ok.") {
                     GM_xmlhttpRequest({
                         method: "POST",
                         url: `${config.qbtHost}/api/v2/torrents/add`,
                         data: `urls=${encodeURIComponent(link)}`,
                         headers: { "Content-Type": "application/x-www-form-urlencoded" },
                         onload: (r) => {
-                            if (r.status === 200) showToast('✅ 已推送到 qB');
-                            else showToast('❌ 推送失败', false);
+                            // 添加任务成功返回 "Ok."，失败返回错误信息
+                            if (r.status === 200 && r.responseText && r.responseText.trim() === "Ok.") {
+                                showToast('✅ 已推送到 qB');
+                            } else {
+                                let errorMsg = r.responseText || '未知错误';
+                                if (errorMsg.length > 50) errorMsg = errorMsg.substring(0, 50) + '...';
+                                showToast(`❌ 推送失败: ${errorMsg}`, false);
+                            }
                         },
                         onerror: () => showToast('❌ 推送请求失败', false)
                     });
-                } else showToast('🚫 qB 登录失败', false);
+                } else {
+                    showToast('🚫 qB 登录失败，请检查地址或用户名密码', false);
+                }
             },
-            onerror: () => showToast('❌ 无法连接到 qB', false)
+            onerror: () => showToast('❌ 无法连接到 qB，请检查地址', false)
         });
     }
 
