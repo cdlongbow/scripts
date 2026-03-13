@@ -1,8 +1,7 @@
 // ==UserScript==
 // @name         Nyaa.si - 自动加载预览图 (改)
 // @namespace    https://github.com/ZiPenOk
-// @description  Load image from cover/screenshot links.
-// @description:zh-CN  从封面/截图链接加载图片并显示。基于York Wang 0.9.8版本自用修改, 添加更多站点支持
+// @description  从封面/截图链接加载图片并显示。基于York Wang 0.9.8版本自用修改, 添加更多站点支持
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=sukebei.nyaa.si
 // @version      1.0.4
 // @license      MIT
@@ -95,7 +94,6 @@
 // @match        https://cosplaytele.vip/*
 // @match        https://fc2ppv.me/*
 // @match        https://javbee.co/*
-
 // @run-at       document-end
 // @grant        unsafeWindow
 // @grant        GM_xmlhttpRequest
