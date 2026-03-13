@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.3.0
+// @version      5.3.1
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -10,6 +10,7 @@
 // @match        *://www.javdb.com/*
 // @match        *://javdb.com/*
 // @match        *://supjav.com/*
+// @match        *://sehuatang.net/*
 // @match        *://sukebei.nyaa.si/view/*
 // @match        *://sukebei.nyaa.si/*
 // @match        *://www.javlibrary.com/*/*
@@ -1797,70 +1798,140 @@
         }),
 
         sehuatang: Object.assign(Object.create(BaseProcessor), {
-            listSelector: '',
+            listSelector: 'tbody[id^="normalthread_"]',
+
+            extractCode: function(item) {
+                const link = item.querySelector('a.xst');
+                return link ? extractCodeFromText(link.textContent) : null;
+            },
+
+            getElement: item => item.querySelector('a.xst'),
+
+            async processListPage() {
+                const items = document.querySelectorAll(this.listSelector);
+                if (!items.length) return;
+
+                Status.show(`正在收集番号: 共${items.length}个项目`);
+
+                const toProcess = [];
+                const codes = [];
+
+                for (const item of items) {
+                    if (this.processed.has(item)) continue;
+                    this.processed.add(item);
+
+                    const code = this.extractCode(item);
+                    const element = this.getElement(item);
+
+                    if (code && element) {
+                        toProcess.push({ element, code, item });
+                        codes.push(code);
+                    }
+                }
+
+                if (codes.length === 0) {
+                    Status.hide();
+                    return;
+                }
+
+                const bestItems = await this.api.batchQuery(codes);
+                const operations = [];
+
+                for (let i = 0; i < bestItems.length; i++) {
+                    const { element, item } = toProcess[i];
+                    const bestItem = bestItems[i];
+
+                    if (bestItem) {
+                        // 标题变色
+                        element.classList.add('emby-exists');
+                        if (item) item.classList.add('emby-processed');
+
+                        // 创建跳转按钮（仅当存在时）
+                        const jumpBtn = this.api.createLink(bestItem);
+                        if (jumpBtn) {
+                            jumpBtn.style.marginLeft = '8px';
+                            operations.push(() => {
+                                element.parentNode.insertBefore(jumpBtn, element.nextSibling);
+                            });
+                        }
+                    }
+                }
+
+                if (operations.length > 0) {
+                    requestAnimationFrame(() => {
+                        operations.forEach(op => op());
+                    });
+                }
+            },
 
             async process() {
                 const siteConfig = this.__siteConfig;
-                if (!siteConfig || !siteConfig.detail) return;
-                if (document.querySelector('.emby-jump-link, .emby-badge, .emby-copy-btn')) return;
+                if (!siteConfig) return;
 
-                const title = document.title.trim();
-                const codes = this.extractCodes(title);
+                // 列表页处理
+                if (siteConfig.list) {
+                    await this.processListPage();
+                }
 
-                if (codes.length > 0) {
-                    Prompt.batchStart(codes.length);
+                // 详情页处理（保持不变）
+                if (siteConfig.detail) {
+                    if (document.querySelector('.emby-jump-link, .emby-badge, .emby-copy-btn')) return;
 
-                    const bestItems = await this.api.batchQuery(codes);
-                    let foundAny = false;
+                    const title = document.title.trim();
+                    const codes = this.extractCodes(title);
 
-                    const container = document.querySelector('#thread_subject') ||
-                                      document.querySelector('h1.ts') ||
-                                      document.querySelector('h1');
-                    if (!container) return;
+                    if (codes.length > 0) {
+                        Prompt.batchStart(codes.length);
 
-                    // 创建一个按钮组容器
-                    let btnGroup = document.querySelector('.jav-jump-btn-group');
-                    if (!btnGroup) {
-                        btnGroup = document.createElement('span');
-                        btnGroup.className = 'jav-jump-btn-group';
-                        btnGroup.style.cssText = 'display: inline-block; margin-left: 8px; vertical-align: middle;';
-                        container.parentNode.insertBefore(btnGroup, container.nextSibling);
-                    }
+                        const bestItems = await this.api.batchQuery(codes);
+                        let foundAny = false;
 
-                    for (let i = 0; i < codes.length; i++) {
-                        const code = codes[i];
-                        const bestItem = bestItems[i];
-                        if (bestItem) {
-                            const link = this.api.createLink(bestItem);
-                            if (link) {
-                                link.style.marginLeft = '0';
-                                btnGroup.appendChild(link);
-                                foundAny = true;
-                            }
+                        const container = document.querySelector('#thread_subject') ||
+                                          document.querySelector('h1.ts') ||
+                                          document.querySelector('h1');
+                        if (!container) return;
+
+                        let btnGroup = document.querySelector('.jav-jump-btn-group');
+                        if (!btnGroup) {
+                            btnGroup = document.createElement('span');
+                            btnGroup.className = 'jav-jump-btn-group';
+                            btnGroup.style.cssText = 'display: inline-block; margin-left: 8px; vertical-align: middle;';
+                            container.parentNode.insertBefore(btnGroup, container.nextSibling);
                         }
-                        // 为每个番号创建复制按钮（无论是否找到）
-                        const copyBtn = this.api.createCopyButton(code);
-                        if (copyBtn) btnGroup.appendChild(copyBtn);
-                    }
 
-                    if (foundAny) {
-                        Prompt.batchComplete(bestItems.filter(Boolean).length);
-                    } else {
-                        Prompt.batchComplete(0);
+                        for (let i = 0; i < codes.length; i++) {
+                            const code = codes[i];
+                            const bestItem = bestItems[i];
+                            if (bestItem) {
+                                const link = this.api.createLink(bestItem);
+                                if (link) {
+                                    link.style.marginLeft = '0';
+                                    btnGroup.appendChild(link);
+                                    foundAny = true;
+                                }
+                            }
+                            const copyBtn = this.api.createCopyButton(code);
+                            if (copyBtn) btnGroup.appendChild(copyBtn);
+                        }
+
+                        if (foundAny) {
+                            Prompt.batchComplete(bestItems.filter(Boolean).length);
+                        } else {
+                            Prompt.batchComplete(0);
+                        }
                     }
                 }
+
+                this.setupObserver();
             },
 
             extractCodes(title) {
                 if (!title) return [];
-
                 const patterns = [
                     /([a-zA-Z]{2,15})[-\s]?(\d{2,15})/i,
                     /FC2[-\s]?PPV[-\s]?(\d{6,7})/i
                 ];
-
                 const results = [];
-
                 for (const pattern of patterns) {
                     const match = title.match(pattern);
                     if (match) {
@@ -1868,7 +1939,6 @@
                         else if (match[1]) results.push(match[0]);
                     }
                 }
-
                 return results;
             }
         }),
@@ -2402,7 +2472,6 @@
 
             getElement: item => item.querySelector('a.xst'),
 
-            // 重写 processItemsWithLink 方法，为按钮添加左边距
             async processItemsWithLink(items) {
                 if (!items?.length) return;
 
@@ -2419,7 +2488,7 @@
                     const element = this.getElement(item);
 
                     if (code && element) {
-                        toProcess.push({ element, code });
+                        toProcess.push({ element, code, item });
                         codes.push(code);
                     }
                 }
@@ -2430,28 +2499,19 @@
 
                     for (let i = 0; i < bestItems.length; i++) {
                         if (bestItems[i]) {
-                            const { element } = toProcess[i];
-                            const item = items[i];
+                            const { element, item } = toProcess[i];
 
+                            // 为标题添加高亮类（变色）
+                            element.classList.add('emby-exists');
                             if (item) item.classList.add('emby-processed');
 
                             const link = this.api.createLink(bestItems[i]);
-
                             if (link) {
-                                // 为列表页按钮添加左边距
                                 link.style.marginLeft = '8px';
 
-                                const target = element.parentNode || element;
+                                // 可选：为父容器添加边框高亮（如需要）
                                 let current = element;
-
-                                const containerClasses = [
-                                    'item',
-                                    'masonry-brick',
-                                    'grid-item',
-                                    'movie-list',
-                                    'post'
-                                ];
-
+                                const containerClasses = ['item', 'masonry-brick', 'grid-item', 'movie-list', 'post'];
                                 while (current && current !== document.body) {
                                     for (const className of containerClasses) {
                                         if (current.classList?.contains(className)) {
@@ -2466,7 +2526,7 @@
                                 }
 
                                 processedElements.push({
-                                    target,
+                                    target: element.parentNode || element,
                                     link,
                                     position: element.nextSibling
                                 });
@@ -2482,7 +2542,7 @@
                 } else {
                     Status.hide();
                 }
-            },
+            }, 
 
             async process() {
                 const siteConfig = this.__siteConfig;
