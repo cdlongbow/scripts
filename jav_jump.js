@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         番号跳转加预览图
 // @namespace    https://github.com/ZiPenOk
-// @version      4.9.1
+// @version      4.9.2
 // @icon         https://javdb.com/favicon.ico
 // @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择
 // @author       ZiPenOk
@@ -340,7 +340,12 @@
         },
 
         showOverlay(imgUrl, code, source = null) {
-            // 隐藏页面滚动条
+            // 保存原始 overflow 值
+            const originalHtmlOverflow = document.documentElement.style.overflow;
+            const originalBodyOverflow = document.body.style.overflow;
+
+            // 隐藏 html 和 body 的滚动条
+            document.documentElement.style.overflow = 'hidden';
             document.body.style.overflow = 'hidden';
 
             const container = document.createElement('div');
@@ -430,7 +435,9 @@
             const closeOverlay = () => {
                 if (container.parentNode) {
                     container.remove();
-                    document.body.style.overflow = '';
+                    // 恢复原始 overflow 值
+                    document.documentElement.style.overflow = originalHtmlOverflow;
+                    document.body.style.overflow = originalBodyOverflow;
                 }
             };
 
