@@ -351,7 +351,7 @@
             }
         })
     })
-    const jav_hosts = 'pig69\\.com|ai18\\.pics|porn4f\\.com|porn4f\\.org|hentai4f\\.com|javball\\.com|ovabee\\.com|image.javbee\\.me|image.javbee\\.vip|idol69\\.net|sweetie-fox\\.com|javsunday\\.com|cnpics\\.org|fikfok\\.net|cnxx\\.me|cosplay18\\.pics|kin8\\-av\\.com|555fap\\.com|4fuk\\.me|hentaipig\\.com|3minx\\.com|fc2ppv\\.stream|xcamcovid\\.com|hentaicovid\\.org|chinese\\-pics\\.com|kr\\-av\\.com|cn\\-av\\.com|anime\\-jav\\.com|hentai\\-sub\\.com|cosplay\\-xxx\\.com|porn\\-pig\\.com|javtele\\.net|gofile\\.download|xxpics\\.org|hentaixnx\\.com|blackwidof\\.org'
+    const jav_hosts = 'pig69\\.com|ai18\\.pics|porn4f\\.com|porn4f\\.org|hentai4f\\.com|javball\\.com|ovabee\\.com|image.javbee\\.me|image.javbee\\.vip|idol69\\.net|sweetie-fox\\.com|javsunday\\.com|cnpics\\.org|fikfok\\.net|cnxx\\.me|cosplay18\\.pics|kin8\\-av\\.com|555fap\\.com|4fuk\\.me|hentaipig\\.com|3minx\\.com|fc2ppv\\.stream|xcamcovid\\.com|hentaicovid\\.org|kr\\-av\\.com|cn\\-av\\.com|anime\\-jav\\.com|hentai\\-sub\\.com|cosplay\\-xxx\\.com|porn\\-pig\\.com|gofile\\.download|xxpics\\.org|hentaixnx\\.com|blackwidof\\.org'
     const jav_exp1 = new RegExp(`^https?:\/\/(${jav_hosts})(\/\\w+)+`)
     const jav_exp2 = new RegExp(`"https?:\/\/((${jav_hosts})(\/upload)?\/Application\/storage\/app\/public\/uploads\/users\/\.\*)"`)
     addHandler(jav_exp1, callback => {
