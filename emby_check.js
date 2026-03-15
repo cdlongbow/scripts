@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.3.1
+// @version      5.3.2
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -237,9 +237,14 @@
         }
         .emby-highlight { outline: 4px solid ${Config.highlightColor} !important; position: relative; }
         .emby-exists {
-            color: var(--success) !important; font-weight: bold !important;
-            border-left: 4px solid var(--success); padding-left: 4px;
-            opacity: 0; animation: embyFadeIn 0.2s ease forwards;
+            font-weight: bold !important;
+            border-left: 4px solid var(--success);
+            padding-left: 4px;
+            opacity: 0;
+            animation: embyFadeIn 0.2s ease forwards;
+        }
+        .emby-exists:link {
+            color: var(--success) !important;
         }
         @keyframes embyFadeIn { to { opacity: 1; } }
 
@@ -439,7 +444,7 @@
         .emby-btn-copy:visited { background: linear-gradient(135deg,#667eea,#764ba2) !important; color: #fff !important; }
         .emby-button-group { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; }
         }
-        
+
         /* Sukebei 列表页标题栏按钮布局 */
         .sukebei-list-td {
             display: flex !important;
@@ -2458,7 +2463,7 @@
                     Prompt.queryNotFound(code);
                 }
             }
-        }), 
+        }),
 
         '169bbs': Object.assign(Object.create(BaseProcessor), {
             listSelector: 'tbody[id^="normalthread_"]',
@@ -2542,7 +2547,7 @@
                 } else {
                     Status.hide();
                 }
-            }, 
+            },
 
             async process() {
                 const siteConfig = this.__siteConfig;
