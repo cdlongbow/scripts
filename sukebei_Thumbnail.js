@@ -4,7 +4,7 @@
 // @description  Load image from cover/screenshot links.
 // @description:zh-CN  从封面/截图链接加载图片并显示。基于York Wang 0.9.8版本自用修改, 添加更多站点支持
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=sukebei.nyaa.si
-// @version      1.1.1
+// @version      1.1.2
 // @license      MIT
 // @author       ZiPenOk
 // @match        https://sukebei.nyaa.si/*
@@ -96,6 +96,7 @@
 // @match        https://fc2ppv.me/*
 // @match        https://javbee.co/*
 // @match        https://chinese-pics.vip/*
+// @match        https://hentai-manga.org/*
 
 // @run-at       document-end
 // @grant        unsafeWindow
@@ -389,7 +390,8 @@
         'fc2ppv\\.me',
         'javbee\\.co',
         'javtele\\.net',
-        'chinese-pics\\.vip'
+        'chinese-pics\\.vip',
+        'hentai-manga\\.org'
     ];
 
     // 构建正则表达式，匹配所有列出的域名
@@ -398,7 +400,7 @@
     addHandler(
         genericPattern,
         function (callback) {
-            const img = document.querySelector('.fileviewer-file img') || 
+            const img = document.querySelector('.fileviewer-file img') ||
                         document.querySelector('#fileOriginalModal img');
             if (img && img.src) callback(img.src);
         },
