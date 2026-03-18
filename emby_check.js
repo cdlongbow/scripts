@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.3.2
+// @version      5.4.0
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -20,6 +20,7 @@
 // @match        *://*.javrate.com/*
 // @match        *://169bbs.com/*
 // @match        *://*169bbs*.*/*
+// @match        *://hjd2048.com/2048/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -110,7 +111,8 @@
             return GM_getValue('badgeSize', 'medium');
         },
         get enabledSites() {
-            return GM_getValue('enabledSites', {
+            const saved = GM_getValue('enabledSites', {});
+            const defaults = {
                 javbus: { list: true, detail: true },
                 javdb: { list: true, detail: true },
                 supjav: { list: true, detail: true },
@@ -119,9 +121,20 @@
                 javlibrary: { list: true, detail: true },
                 madou: { list: false, detail: true },
                 javrate: { list: false, detail: true },
-                '169bbs': { list: true, detail: true }
-            });
+                '169bbs': { list: true, detail: true },
+                'hjd2048': { list: true, detail: true }
+            };
+            for (let site in defaults) {
+                if (!(site in saved)) {
+                    saved[site] = defaults[site];
+                }
+            }
+            return saved;
         },
+        set enabledSites(val) {
+            GM_setValue('enabledSites', val);
+        }, 
+        
         // ===== 新增深色模式配置 =====
         get darkMode() {
             return GM_getValue('darkMode', false);
@@ -2599,7 +2612,136 @@
 
                 this.setupObserver();
             }
-        })
+        }), 
+        
+        'hjd2048': Object.assign(Object.create(BaseProcessor), {
+            listSelector: 'tr.tr3.t_one',   // 每个帖子所在的行
+
+            extractCode: function(item) {
+                const link = item.querySelector('a.subject');
+                return link ? extractCodeFromText(link.textContent) : null;
+            },
+
+            getElement: item => item.querySelector('a.subject'),
+
+            // 列表页处理：标题变色 + 插入跳转按钮（仅当存在时）
+            async processItemsWithLink(items) {
+                if (!items?.length) return;
+
+                Status.show(`正在收集番号: 共${items.length}个项目`);
+
+                const toProcess = [];
+                const codes = [];
+
+                for (const item of items) {
+                    if (this.processed.has(item)) continue;
+                    this.processed.add(item);
+
+                    const code = this.extractCode(item);
+                    const element = this.getElement(item);
+
+                    if (code && element) {
+                        toProcess.push({ element, code, item });
+                        codes.push(code);
+                    }
+                }
+
+                if (codes.length === 0) {
+                    Status.hide();
+                    return;
+                }
+
+                const bestItems = await this.api.batchQuery(codes);
+                const operations = [];
+
+                for (let i = 0; i < bestItems.length; i++) {
+                    const { element, item } = toProcess[i];
+                    const bestItem = bestItems[i];
+
+                    if (bestItem) {
+                        // 标题变色（左边框 + 加粗，颜色由浏览器控制）
+                        element.classList.add('emby-exists');
+                        if (item) item.classList.add('emby-processed');
+
+                        const jumpBtn = this.api.createLink(bestItem);
+                        if (jumpBtn) {
+                            jumpBtn.style.marginLeft = '8px';
+                            operations.push(() => {
+                                element.parentNode.insertBefore(jumpBtn, element.nextSibling);
+                            });
+                        }
+                    }
+                }
+
+                if (operations.length > 0) {
+                    requestAnimationFrame(() => {
+                        operations.forEach(op => op());
+                    });
+                }
+            },
+
+            async processListPage() {
+                const items = document.querySelectorAll(this.listSelector);
+                if (items.length) {
+                    await this.processItemsWithLink(items);
+                }
+            },
+
+            async processDetailPage() {
+                if (document.querySelector('.emby-jump-link, .emby-badge, .emby-copy-btn')) return;
+
+                const titleEl = document.querySelector('h1#subject_tpc');
+                if (!titleEl) return;
+
+                const titleText = titleEl.textContent;
+                const code = extractCodeFromText(titleText);
+                if (!code) return;
+
+                Prompt.queryStart(code);
+                const bestItem = await this.api.checkExists(code);
+                const link = bestItem ? this.api.createLink(bestItem) : null;
+                const copyBtn = this.api.createCopyButton(code);
+
+                if (link || copyBtn) {
+                    const btnGroup = document.querySelector('.jav-jump-btn-group');
+                    if (btnGroup) {
+                        if (link) {
+                            link.style.marginLeft = '0';
+                            btnGroup.appendChild(link);
+                        }
+                        if (copyBtn) btnGroup.appendChild(copyBtn);
+                    } else {
+                        const container = document.createElement('span');
+                        container.className = 'emby-button-group';
+                        container.style.cssText = 'display: inline-block; margin-left: 8px;';
+                        if (link) container.appendChild(link);
+                        if (copyBtn) container.appendChild(copyBtn);
+                        titleEl.after(container);
+                    }
+                }
+
+                if (bestItem) {
+                    Prompt.querySuccess(code);
+                } else {
+                    Prompt.queryNotFound(code);
+                }
+            },
+
+            async process() {
+                const siteConfig = this.__siteConfig;
+                if (!siteConfig) return;
+
+                if (siteConfig.list) {
+                    await this.processListPage();
+                }
+
+                if (siteConfig.detail) {
+                    await this.processDetailPage();
+                }
+
+                this.setupObserver();
+            }
+        }), 
     };
 
     // 站点自动识别
@@ -2616,6 +2758,7 @@
         if (host.includes('madou')) return 'madou';
         if (host.includes('javrate')) return 'javrate';
         if (host.includes('169bbs')) return '169bbs';
+        if (host.includes('hjd2048.com')) return 'hjd2048';
 
         return null;
     }
