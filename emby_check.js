@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.4.0
+// @version      5.4.1
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -561,7 +561,7 @@
             /([A-Z]{2,15})-([A-Z]{0,2}\d{2,10})/i,
             /^[A-Z0-9]+[-_](\d{6}[-_]\d{2,3})/i,
             /(\d{6}[-_]\d{2,3})[-_][A-Z0-9]+$/i,
-            /(\d{6}[-_]\d{2,3})/,
+            /(?<!\w)(\d{6}[-_]\d{2,3})(?!\w)/,
             /([A-Z]{1,2})(\d{3,4})/i
         ];
 
@@ -1964,9 +1964,14 @@
         sukebei: Object.assign(Object.create(BaseProcessor), {
             listSelector: 'table tbody tr',
 
+            // ✅ 关键修复：明确选中标题链接（排除评论链接）
             extractCode(item) {
-                const linkEl = item.querySelector('td:nth-child(2) a');
+                const linkEl = item.querySelector('td:nth-child(2) a:not(.comments)');
                 return linkEl ? extractCodeFromText(linkEl.textContent) : null;
+            },
+
+            getElement(item) {
+                return item.querySelector('td:nth-child(2) a:not(.comments)');
             },
 
             async process() {
@@ -2021,80 +2026,83 @@
             },
 
             async processListPage() {
-                const rows = document.querySelectorAll(this.listSelector);
-                const items = [];
+                    const rows = document.querySelectorAll(this.listSelector);
+                    const items = [];
 
-                for (const row of rows) {
-                    const linkEl = row.querySelector('td:nth-child(2) a');
-                    if (!linkEl || linkEl.dataset.embyChecked) continue;
-                    linkEl.dataset.embyChecked = "1";
+                    for (const row of rows) {
+                        // ✅ 这里也改成同一个选择器，保证一致
+                        const linkEl = row.querySelector('td:nth-child(2) a:not(.comments)');
+                        if (!linkEl || linkEl.dataset.embyChecked) continue;
 
-                    const code = extractCodeFromText(linkEl.textContent);
-                    if (!code) continue;
+                        linkEl.dataset.embyChecked = "1";
 
-                    const td = linkEl.parentNode;
-                    if (!td) continue;
-                    items.push({ linkEl, td, code });
-                }
+                        const code = extractCodeFromText(linkEl.textContent);   // 现在一定能拿到 SNOS-xxx
+                        if (!code) continue;
 
-                if (items.length === 0) return;
+                        const td = linkEl.parentNode;
+                        if (!td) continue;
 
-                const codes = items.map(item => item.code);
-                const bestItems = await this.api.batchQuery(codes);
-
-                let foundCount = 0;
-                for (let i = 0; i < bestItems.length; i++) {
-                    const bestItem = bestItems[i];
-                    if (!bestItem) continue;
-
-                    foundCount++;
-                    const { linkEl, td } = items[i];
-                    if (td.dataset.embyBtnAdded) continue;
-                    td.dataset.embyBtnAdded = '1';
-
-                    linkEl.classList.add('emby-exists');
-
-                    const icon = td.querySelector('[data-lmt]');
-
-                    const wrapper = document.createElement('span');
-                    wrapper.style.display = 'flex';
-                    wrapper.style.alignItems = 'center';
-                    wrapper.style.width = '100%';
-                    wrapper.style.minWidth = '0';
-
-                    if (icon) {
-                        icon.parentNode.removeChild(icon);
-                        wrapper.appendChild(icon);
-                        icon.style.flexShrink = '0';
-                        icon.style.marginRight = '4px';
+                        items.push({ linkEl, td, code });
                     }
 
-                    linkEl.parentNode.removeChild(linkEl);
-                    wrapper.appendChild(linkEl);
+                    if (items.length === 0) return;
 
-                    linkEl.style.flex = '1';
-                    linkEl.style.minWidth = '0';
-                    linkEl.style.overflow = 'hidden';
-                    linkEl.style.textOverflow = 'ellipsis';
-                    linkEl.style.whiteSpace = 'nowrap';
+                    const codes = items.map(item => item.code);
+                    const bestItems = await this.api.batchQuery(codes);
 
-                    const embyUrl = `${Config.embyBaseUrl}web/index.html#!/item?id=${bestItem.Id}&serverId=${bestItem.ServerId}`;
-                    const btn = document.createElement('a');
-                    btn.href = embyUrl;
-                    btn.target = '_blank';
-                    btn.className = `emby-btn emby-btn-jump ${this.api.getBtnSizeClass()}`;
-                    btn.textContent = '🎬跳转到Emby';
-                    btn.style.flexShrink = '0';
-                    btn.style.marginLeft = '8px';
-                    wrapper.appendChild(btn);
+                    let foundCount = 0;
+                    for (let i = 0; i < bestItems.length; i++) {
+                        const bestItem = bestItems[i];
+                        if (!bestItem) continue;
 
-                    td.innerHTML = '';
-                    td.appendChild(wrapper);
+                        foundCount++;
+                        const { linkEl, td } = items[i];
+                        if (td.dataset.embyBtnAdded) continue;
+                        td.dataset.embyBtnAdded = '1';
+
+                        linkEl.classList.add('emby-exists');
+
+                        const icon = td.querySelector('[data-lmt]');
+
+                        const wrapper = document.createElement('span');
+                        wrapper.style.display = 'flex';
+                        wrapper.style.alignItems = 'center';
+                        wrapper.style.width = '100%';
+                        wrapper.style.minWidth = '0';
+
+                        if (icon) {
+                            icon.parentNode.removeChild(icon);
+                            wrapper.appendChild(icon);
+                            icon.style.flexShrink = '0';
+                            icon.style.marginRight = '4px';
+                        }
+
+                        linkEl.parentNode.removeChild(linkEl);
+                        wrapper.appendChild(linkEl);
+
+                        linkEl.style.flex = '1';
+                        linkEl.style.minWidth = '0';
+                        linkEl.style.overflow = 'hidden';
+                        linkEl.style.textOverflow = 'ellipsis';
+                        linkEl.style.whiteSpace = 'nowrap';
+
+                        const embyUrl = `${Config.embyBaseUrl}web/index.html#!/item?id=${bestItem.Id}&serverId=${bestItem.ServerId}`;
+                        const btn = document.createElement('a');
+                        btn.href = embyUrl;
+                        btn.target = '_blank';
+                        btn.className = `emby-btn emby-btn-jump ${this.api.getBtnSizeClass()}`;
+                        btn.textContent = '🎬跳转到Emby';
+                        btn.style.flexShrink = '0';
+                        btn.style.marginLeft = '8px';
+                        wrapper.appendChild(btn);
+
+                        td.innerHTML = '';
+                        td.appendChild(wrapper);
+                    }
+
+                    Prompt.batchComplete(foundCount);
                 }
-
-                Prompt.batchComplete(foundCount);
-            }
-        }),
+            }),
 
         javlibrary: (function() {
             const embyItemMap = new Map();
