@@ -84,7 +84,7 @@ validate_cron() {
 
 show_menu() {
     echo -e "\n=========================================="
-    echo -e "       Debian 计划任务 自动化管理 V8"
+    echo -e "       Debian 计划任务 自动化管理 V9"
     echo -e "=========================================="
     get_cron_data
     TASK_MAPPING=()
@@ -114,7 +114,13 @@ show_menu() {
                 note_content=$(echo "${ALL_LINES[$prev_idx]}" | sed 's/^[[:space:]]*#//')
                 echo -e "      \033[90m(备注: $note_content)\033[0m"
             fi
-            
+
+            next_idx=$((i+1))
+            if [ $next_idx -lt ${#ALL_LINES[@]} ] && ! is_real_task "${ALL_LINES[$next_idx]}" && [[ -n "${ALL_LINES[$next_idx]}" ]]; then
+                note_content=$(echo "${ALL_LINES[$next_idx]}" | sed 's/^[[:space:]]*#//')
+                echo -e "      \033[90m(备注: $note_content)\033[0m"
+            fi
+
             printf "[\033[1;34m%2d\033[0m]  %-10b \033[36m%-15s\033[0m %s\n" "$display_idx" "$status" "$time_part" "$cmd_part"
             ((display_idx++))
         fi
