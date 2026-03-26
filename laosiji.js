@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name         JAV老司机-改
 // @namespace    https://sleazyfork.org/zh-CN/users/25794
-// @version      3.9
+// @version      4.0
 // @supportURL   https://sleazyfork.org/zh-CN/scripts/25781/feedback
 // @source       https://github.com/hobbyfang/javOldDriver
-// @description  基于老司机最后一版修改自用,修复预览图来源,添加预览图开关
-// @author       Hobby
+// @description  基于老司机最后一版修改自用,修复预览图来源,添加预览图开关, 修复javdb插入
+// @author       Hobby (qbt feature integrated by Gemini)
 // @require      https://raw.githubusercontent.com/Tampermonkey/utils/refs/heads/main/requires/gh_2215_make_GM_xhr_more_parallel_again.js
 // @require      https://lib.baomitu.com/jquery/2.2.4/jquery.min.js
 // @require      https://lib.baomitu.com/lovefield/2.1.12/lovefield.min.js
@@ -2967,90 +2967,141 @@ if (!b) {
             return waterfall;
         })(),
  // 挊
- nong: {
-     main: {
-         //av信息查询类
-         //avsox|avmoo
-         jav: {
-             type: 0,
-             re: /.*movie.*/,
-             vid: () => {
-                 return $('.header_hobby')[0].nextElementSibling.getAttribute('avid');
-             },
-             proc: (main) => {
-                 var divE = $("div[class='col-md-3 info']")[0];
-                 $(divE).after(main.cur_tab);
-             },
-         },
-         javbus: {
-             type: 0,
-             re: /(jav|bus|dmm|see|cdn|fan){2}\./g,
- vid: () => {
-     var a = $('.header_hobby')[0].nextElementSibling;
-     return a ? a.getAttribute('avid') : '';
- },
- proc: (main) => {
-     var divE = $("div[class='col-md-3 info']")[0];
-     $(divE).after(main.cur_tab);
- },
-         },
-         javlibrary: {
-             type: 0,
-             re: /.*\?v=jav.*/,
-             re: /.*\jav.*/,
-             vid: () => {
-                 let avid = $('#video_id')[0].getElementsByClassName('text')[0].getAttribute('avid');
-                 return Common.getAvCode(avid);
-             },
-             proc: (main) => {
-                 //去十八岁警告
-                 Common.setCookie('over18', 18);
-                 $('.socialmedia').remove();
-                 GM_addStyle(`
-                 #video_info {text-align: left;font: 14px Arial;min-width: 230px;max-width: 260px;padding: 0px 0px 0px 0px;}
-                 #video_jacket_info {overflow: hidden;} //table-layout: fixed;
-                 #coverimg {vertical-align: top;overflow: hidden;max-width: 50%;}
-                 #javtext {vertical-align: top;width: 260px;}
-                 #video_info td.header {width: 75px;}
-                 #video_info td.icon {width: 0px;}
-                 #content {padding-top: 0px;}
-                 #video_info table {margin-top: 6px;border-bottom: 1px solid #ffffff;}
-                 `);
+nong: {
+    main: {
+        // 原有站点保持不变
+        jav: {
+            type: 0,
+            re: /.*movie.*/,
+            vid: () => $('.header_hobby')[0]?.nextElementSibling?.getAttribute('avid'),
+            proc: (main) => $("div[class='col-md-3 info']")[0]?.after(main.cur_tab)
+        },
+        javbus: {
+            type: 0,
+            re: /(jav|bus|dmm|see|cdn|fan){2}\./g,
+            vid: () => $('.header_hobby')[0]?.nextElementSibling?.getAttribute('avid'),
+            proc: (main) => $("div[class='col-md-3 info']")[0]?.after(main.cur_tab)
+        },
+        javlibrary: {
+            type: 0,
+            re: /.*\?v=jav.*/i,
+            vid: () => Common.getAvCode($('#video_id .text').attr('avid')),
+            proc: (main) => {
+                Common.setCookie('over18', 18);
+                $('.socialmedia').remove();
+                // ... 你原来的 javlibrary proc 样式代码保持不变 ...
+                var tdE = $("td[style='vertical-align: top;']")[0];
+                tdE.id = 'coverimg';
+                $("td[style='vertical-align: top;']")[1].id = 'javtext';
+                $('#leftmenu').remove();
+                $('#rightcolumn').attr('style', 'margin: 0px 0px 0px 0px;width: 100%;padding: initial;');
+                $(tdE.parentElement).append('<td id="hobby" style="vertical-align: top;"></td>');
+                $('#hobby').append(main.cur_tab);
+            }
+        },
+        javstore: {
+            type: 0,
+            re: /.*javstore.*/,
+            vid: () => {
+                if (GM_getValue(document.URL, false)) {
+                    let avid = GM_getValue(document.URL);
+                    GM_deleteValue(document.URL);
+                    return avid;
+                }
+                return $('.boxoleft .box_left_news.news_2n').attr('avid');
+            },
+            proc: (main) => $('.boxoleft .box_left_news.news_2n').append(main.cur_tab)
+        },
 
-                 var tdE = $("td[style='vertical-align: top;']")[0];
-                 tdE.id = 'coverimg';
-                 $("td[style='vertical-align: top;']")[1].id = 'javtext';
-                 $('#leftmenu').remove();
-                 $('#rightcolumn').attr('style', 'margin: 0px 0px 0px 0px;width: 100%;padding: initial;');
-                 $(tdE.parentElement).append('<td id="hobby" style="vertical-align: top;"></td>');
-                 $('#hobby').append(main.cur_tab);
-             },
-         },
-         javstore: {
-             type: 0,
-             re: /.*javstore.*/,
-             vid: () => {
-                 if (GM_getValue(document.URL, false)) {
-                     let avid = GM_getValue(document.URL);
-                     GM_deleteValue(document.URL);
-                     $('.boxoleft .box_left_news.news_2n').attr('avid', avid);
-                     return avid;
-                 } else {
-                     let $ele = $('.boxoleft .box_left_news.news_2n').attr(
-                         'avid',
-                         $('.name')
-                         .text()
-                         .match(/[a-z|A-Z|0-9| _-]+/)[0]
-                         .trim(),
-                     );
-                     return $ele.attr('avid');
-                 }
-             },
-             proc: (main) => {
-                 $('.boxoleft .box_left_news.news_2n').append(main.cur_tab);
-             },
-         },
-     },
+        // ==================== JAVDB 详情页适配 ====================
+        javdb: {
+            type: 0,
+            re: /javdb.*\.com\/v\//i,
+            vid: () => {
+                let codeEl = document.querySelector('.panel-block .value');
+                if (codeEl) {
+                    return codeEl.textContent.trim().replace(/\s+/g, '');
+                }
+                const titleMatch = document.title.match(/([A-Z0-9]+-\d+)/i);
+                return titleMatch ? titleMatch[1].toUpperCase() : '';
+            },
+            proc: (main) => {
+                const coverColumn = document.querySelector('.column-video-cover');   // 左侧封面
+                const infoPanel = document.querySelector('.movie-panel-info');       // 中间信息栏
+                const videoDetail = document.querySelector('.video-detail');
+
+                if (coverColumn && infoPanel && videoDetail) {
+
+                    // 1. 封面图设置为 800px（适合你2K屏幕）
+                    coverColumn.style.flex = '0 0 800px';
+                    coverColumn.style.maxWidth = '800px';
+
+                    // 2. 创建并排容器（封面 | 信息 + 挊表格）
+                    const flexContainer = document.createElement('div');
+                    flexContainer.style.cssText = `
+                        display: flex;
+                        gap: 20px;
+                        margin-top: 15px;
+                        align-items: flex-start;
+                    `;
+
+                    // 3. 挊表格包装器 - **不固定宽度，让它自适应剩余空间**
+                    const wrapper = document.createElement('div');
+                    wrapper.style.cssText = `
+                        flex: 1;                    /* 关键：自适应剩余空间 */
+                        min-width: 420px;           /* 最小宽度保护 */
+                        padding: 16px;
+                        background: #f8f9fa;
+                        border: 1px solid #e0e0e0;
+                        border-radius: 8px;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+                    `;
+
+                    wrapper.innerHTML = `
+                        <h3 style="margin:0 0 14px 0;color:#0066cc;font-size:17px;">
+                            🔥 老司机挊 - 多引擎磁链搜索 + 115离线
+                        </h3>
+                    `;
+                    wrapper.appendChild(main.cur_tab);
+
+                    // 4. 磁力标题强制单行，防止拉长表格
+                    const style = document.createElement('style');
+                    style.textContent = `
+                        #nong-table-new .magnet-name {
+                            max-width: 100% !important;
+                            white-space: nowrap !important;
+                            overflow: hidden !important;
+                            text-overflow: ellipsis !important;
+                        }
+                        #nong-table-new td {
+                            vertical-align: middle !important;
+                        }
+                    `;
+                    document.head.appendChild(style);
+
+                    // 5. 重组布局
+                    const parent = infoPanel.parentElement;
+                    parent.style.display = 'flex';
+                    parent.style.gap = '20px';
+
+                    flexContainer.appendChild(infoPanel);
+                    flexContainer.appendChild(wrapper);
+
+                    parent.appendChild(flexContainer);
+
+                } else {
+                    // 兜底方案
+                    const magnets = document.getElementById('magnets-content');
+                    if (magnets) {
+                        const wrapper = document.createElement('div');
+                        wrapper.style.margin = '25px 0';
+                        wrapper.appendChild(main.cur_tab);
+                        magnets.parentNode.insertBefore(wrapper, magnets);
+                    }
+                }
+            }
+        }
+    },
      resource_sites: {
          [GM_getValue('javdb_url')]: (kw, callback) => {
              let promise = Common.request(
@@ -3626,7 +3677,9 @@ if (!b) {
 
         Jav.javStoreScript();
         // 判断是否指定页面
-        if (/(JAVLibrary|JavBus|AVMOO|AVSOX)/g.test(document.title) || $("footer:contains('JavBus')").length) {
+        if (/(JAVLibrary|JavBus|AVMOO|AVSOX|JavDB)/i.test(document.title) || 
+            $("footer:contains('JavBus')").length || 
+            location.pathname.match(/^\/v\//)) {
             Common.addAvImgCSS();
             GM_addStyle(`
             .container {width: 100%;float: left;}
@@ -3646,6 +3699,12 @@ if (!b) {
         Jav.javDBScript();
         Jav.quarkScript();
         thirdparty.login115Run();
+        // JAVDB 详情页强制启用挊功能
+        if (location.pathname.match(/^\/v\//)) {
+            setTimeout(() => {
+                thirdparty.nong.searchMagnetRun();
+            }, 800);
+        }
     }
 
     mainRun();
