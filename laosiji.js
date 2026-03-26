@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name         JAV老司机-改
 // @namespace    https://sleazyfork.org/zh-CN/users/25794
-// @version      4.0
+// @version      4.1
 // @supportURL   https://sleazyfork.org/zh-CN/scripts/25781/feedback
 // @source       https://github.com/hobbyfang/javOldDriver
 // @description  基于老司机最后一版修改自用,修复预览图来源,添加预览图开关, 修复javdb插入
-// @author       Hobby (qbt feature integrated by Gemini)
+// @author       Hobby (ZiPenOK fix)
 // @require      https://raw.githubusercontent.com/Tampermonkey/utils/refs/heads/main/requires/gh_2215_make_GM_xhr_more_parallel_again.js
 // @require      https://lib.baomitu.com/jquery/2.2.4/jquery.min.js
 // @require      https://lib.baomitu.com/lovefield/2.1.12/lovefield.min.js
