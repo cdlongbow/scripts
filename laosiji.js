@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-改
 // @namespace    https://sleazyfork.org/zh-CN/users/25794
-// @version      4.1
+// @version      4.2
 // @supportURL   https://sleazyfork.org/zh-CN/scripts/25781/feedback
 // @source       https://github.com/hobbyfang/javOldDriver
 // @description  基于老司机最后一版修改自用,修复预览图来源,添加预览图开关, 修复javdb插入
@@ -3019,24 +3019,21 @@ nong: {
             re: /javdb.*\.com\/v\//i,
             vid: () => {
                 let codeEl = document.querySelector('.panel-block .value');
-                if (codeEl) {
-                    return codeEl.textContent.trim().replace(/\s+/g, '');
-                }
+                if (codeEl) return codeEl.textContent.trim().replace(/\s+/g, '');
                 const titleMatch = document.title.match(/([A-Z0-9]+-\d+)/i);
                 return titleMatch ? titleMatch[1].toUpperCase() : '';
             },
             proc: (main) => {
-                const coverColumn = document.querySelector('.column-video-cover');   // 左侧封面
-                const infoPanel = document.querySelector('.movie-panel-info');       // 中间信息栏
-                const videoDetail = document.querySelector('.video-detail');
+                const coverColumn = document.querySelector('.column-video-cover');
+                const infoPanel = document.querySelector('.movie-panel-info');
 
-                if (coverColumn && infoPanel && videoDetail) {
+                document.querySelectorAll('.nong-javdb-wrapper').forEach(el => el.remove());
 
-                    // 1. 封面图设置为 800px（适合你2K屏幕）
+                if (coverColumn && infoPanel) {
+
                     coverColumn.style.flex = '0 0 800px';
                     coverColumn.style.maxWidth = '800px';
 
-                    // 2. 创建并排容器（封面 | 信息 + 挊表格）
                     const flexContainer = document.createElement('div');
                     flexContainer.style.cssText = `
                         display: flex;
@@ -3045,26 +3042,24 @@ nong: {
                         align-items: flex-start;
                     `;
 
-                    // 3. 挊表格包装器 - **不固定宽度，让它自适应剩余空间**
                     const wrapper = document.createElement('div');
+                    wrapper.className = 'nong-javdb-wrapper';
                     wrapper.style.cssText = `
-                        flex: 1;                    /* 关键：自适应剩余空间 */
-                        min-width: 420px;           /* 最小宽度保护 */
-                        padding: 16px;
-                        background: #f8f9fa;
-                        border: 1px solid #e0e0e0;
-                        border-radius: 8px;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+                        flex: 1;
+                        min-width: 420px;
+                        padding: 14px 16px;
+                        background: #fafafa;
+                        border: 1px solid #ebebeb;
+                        border-radius: 6px;
                     `;
 
                     wrapper.innerHTML = `
-                        <h3 style="margin:0 0 14px 0;color:#0066cc;font-size:17px;">
+                        <h3 style="margin:0 0 12px 0;color:#0066cc;font-size:16.5px;">
                             🔥 老司机挊 - 多引擎磁链搜索 + 115离线
                         </h3>
                     `;
                     wrapper.appendChild(main.cur_tab);
 
-                    // 4. 磁力标题强制单行，防止拉长表格
                     const style = document.createElement('style');
                     style.textContent = `
                         #nong-table-new .magnet-name {
@@ -3073,24 +3068,19 @@ nong: {
                             overflow: hidden !important;
                             text-overflow: ellipsis !important;
                         }
-                        #nong-table-new td {
-                            vertical-align: middle !important;
-                        }
+                        #nong-table-new td { vertical-align: middle !important; }
                     `;
                     document.head.appendChild(style);
 
-                    // 5. 重组布局
                     const parent = infoPanel.parentElement;
                     parent.style.display = 'flex';
                     parent.style.gap = '20px';
 
                     flexContainer.appendChild(infoPanel);
                     flexContainer.appendChild(wrapper);
-
                     parent.appendChild(flexContainer);
 
                 } else {
-                    // 兜底方案
                     const magnets = document.getElementById('magnets-content');
                     if (magnets) {
                         const wrapper = document.createElement('div');
@@ -3631,14 +3621,18 @@ nong: {
                          main.cur_tab = thirdparty.nong.magnet_table.full();
                          v.proc(main);
 
-                         let t = $('#jav-nong-head')[0].firstChild;
-                         t.firstChild.addEventListener('change', (e) => {
-                             console.log('url: http://' + e.target.value);
-                             GM_setValue('search_index', e.target.value);
-                             let s = $('#nong-table-new')[0];
-                             s.parentElement.removeChild(s);
-                             thirdparty.nong.searchMagnetRun();
-                         });
+                        // 切换搜索引擎时，先清理旧的挊表格
+                        let t = $('#jav-nong-head')[0].firstChild;
+                        t.firstChild.addEventListener('change', (e) => {
+                            console.log('切换搜索引擎: ' + e.target.value);
+                            GM_setValue('search_index', e.target.value);
+
+                            // 清理所有已存在的挊表格（包括 JAVDB 专用的 wrapper）
+                            document.querySelectorAll('#nong-table-new, .nong-javdb-wrapper').forEach(el => el.remove());
+
+                            // 重新运行挊
+                            thirdparty.nong.searchMagnetRun();
+                        });
 
                          if (GM_getValue('search_index', null) === null) {
                              GM_setValue('search_index', Object.keys(thirdparty.nong.resource_sites)[0]);
@@ -3677,8 +3671,8 @@ nong: {
 
         Jav.javStoreScript();
         // 判断是否指定页面
-        if (/(JAVLibrary|JavBus|AVMOO|AVSOX|JavDB)/i.test(document.title) || 
-            $("footer:contains('JavBus')").length || 
+        if (/(JAVLibrary|JavBus|AVMOO|AVSOX|JavDB)/i.test(document.title) ||
+            $("footer:contains('JavBus')").length ||
             location.pathname.match(/^\/v\//)) {
             Common.addAvImgCSS();
             GM_addStyle(`
