@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         JAV老司机-改
 // @namespace    https://sleazyfork.org/zh-CN/users/25794
-// @version      4.2
+// @version      4.3
 // @supportURL   https://sleazyfork.org/zh-CN/scripts/25781/feedback
 // @source       https://github.com/hobbyfang/javOldDriver
-// @description  基于老司机最后一版修改自用,修复预览图来源,添加预览图开关, 修复javdb插入
+// @description  基于老司机最后一版修改自用,修复预览图来源,添加预览图开关, 修复javdb,javlibrary挊表格的插入
 // @author       Hobby (ZiPenOK fix)
 // @require      https://raw.githubusercontent.com/Tampermonkey/utils/refs/heads/main/requires/gh_2215_make_GM_xhr_more_parallel_again.js
 // @require      https://lib.baomitu.com/jquery/2.2.4/jquery.min.js
@@ -2984,21 +2984,90 @@ nong: {
         },
         javlibrary: {
             type: 0,
-            re: /.*\?v=jav.*/i,
-            vid: () => Common.getAvCode($('#video_id .text').attr('avid')),
+            re: /javlibrary\.com\/.*(v=|\.html)/i,
+            vid: () => {
+                let codeText = $('#video_id .text').text().trim();
+                if (codeText) return Common.getAvCode(codeText);
+                const titleMatch = document.title.match(/([A-Z0-9]+-\d+)/i);
+                return titleMatch ? titleMatch[1].toUpperCase() : '';
+            },
             proc: (main) => {
                 Common.setCookie('over18', 18);
                 $('.socialmedia').remove();
-                // ... 你原来的 javlibrary proc 样式代码保持不变 ...
-                var tdE = $("td[style='vertical-align: top;']")[0];
-                tdE.id = 'coverimg';
-                $("td[style='vertical-align: top;']")[1].id = 'javtext';
-                $('#leftmenu').remove();
-                $('#rightcolumn').attr('style', 'margin: 0px 0px 0px 0px;width: 100%;padding: initial;');
-                $(tdE.parentElement).append('<td id="hobby" style="vertical-align: top;"></td>');
-                $('#hobby').append(main.cur_tab);
+
+                GM_addStyle(`
+                    #video_info {text-align: left; font: 14px Arial; min-width: 230px; max-width: 260px; padding: 0px;}
+                    #video_jacket_info {overflow: hidden;}
+                    #coverimg {vertical-align: top; overflow: hidden; max-width: 50%;}
+                    #javtext {vertical-align: top; width: 260px;}
+                    #video_info td.header {width: 75px;}
+                    #video_info td.icon {width: 0px;}
+                    #content {padding-top: 0px;}
+                    #video_info table {margin-top: 6px; border-bottom: 1px solid #ffffff;}
+
+                    /* 新布局样式 */
+                    .info-nong-flex {
+                        display: flex;
+                        gap: 20px;
+                        align-items: flex-start;
+                        width: 100%;
+                    }
+                    .info-nong-left {
+                        flex: 0 0 auto;   /* 左侧根据内容自然宽度，不伸缩 */
+                        min-width: 0;
+                    }
+                    .info-nong-right {
+                        flex: 1;          /* 占据剩余所有宽度 */
+                        min-width: 360px; /* 保证最小宽度，过窄时换行 */
+                        padding: 14px 16px;
+                        background: #fafafa;
+                        border: 1px solid #ebebeb;
+                        border-radius: 6px;
+                    }
+                    @media (max-width: 1000px) {
+                        .info-nong-flex {
+                            flex-wrap: wrap;
+                        }
+                        .info-nong-right {
+                            flex-basis: 100%;  /* 小屏幕时占满一行 */
+                        }
+                    }
+                `);
+
+                // 找到 #video_info 所在的父级 <td>
+                const $infoTd = $('#video_info').closest('td');
+                if (!$infoTd.length) return;
+
+                // 创建 Flex 容器
+                const flexContainer = document.createElement('div');
+                flexContainer.className = 'info-nong-flex';
+
+                // 左侧：原始 #video_info 区域（包含所有信息）
+                const leftDiv = document.createElement('div');
+                leftDiv.className = 'info-nong-left';
+                // 将原 #video_info 移动到左侧容器
+                const videoInfo = document.getElementById('video_info');
+                if (videoInfo) {
+                    leftDiv.appendChild(videoInfo);
+                }
+
+                // 右侧：挊功能 wrapper
+                const rightWrapper = document.createElement('div');
+                rightWrapper.className = 'info-nong-right';
+                rightWrapper.innerHTML = `
+                    <h3 style="margin:0 0 12px 0; color:#0066cc; font-size:16.5px;">
+                        🔥 老司机挊 - 多引擎磁链搜索 + 115离线
+                    </h3>
+                `;
+                rightWrapper.appendChild(main.cur_tab);
+
+                flexContainer.appendChild(leftDiv);
+                flexContainer.appendChild(rightWrapper);
+
+                // 将 Flex 容器放入原先的 <td> 中，清空原 td 内容
+                $infoTd.empty().append(flexContainer);
             }
-        },
+        }, 
         javstore: {
             type: 0,
             re: /.*javstore.*/,
