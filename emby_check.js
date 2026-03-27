@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.5.0
+// @version      5.5.1
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -2860,9 +2860,9 @@
                 const copyBtn = this.api.createCopyButton(code);
 
                 if (link || copyBtn) {
-                    const container = document.createElement('span');
-                    container.className = 'emby-button-group';
-                    container.style.cssText = 'display: inline-block; margin-left: 12px; margin-top: 8px;';
+                const container = document.createElement('span');
+                container.className = 'emby-button-group';
+                container.style.cssText = 'display: inline-flex; align-items: center; margin-left: 12px; margin-top: 8px; gap: 8px;';
 
                     if (link) container.appendChild(link);
                     if (copyBtn) container.appendChild(copyBtn);
