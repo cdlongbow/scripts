@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.4.1
+// @version      5.5.0
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -21,6 +21,7 @@
 // @match        *://169bbs.com/*
 // @match        *://*169bbs*.*/*
 // @match        *://hjd2048.com/2048/*
+// @match        *://missav.ws/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -122,7 +123,8 @@
                 madou: { list: false, detail: true },
                 javrate: { list: false, detail: true },
                 '169bbs': { list: true, detail: true },
-                'hjd2048': { list: true, detail: true }
+                'hjd2048': { list: true, detail: true }, 
+                'missav': { list: true, detail: true }
             };
             for (let site in defaults) {
                 if (!(site in saved)) {
@@ -474,6 +476,14 @@
         .sukebei-list-td .emby-btn-jump {
             flex-shrink: 0;
             margin-left: 8px;
+        }
+        
+        /* MissAV 列表页高亮 */
+        .missav .thumbnail.group.emby-highlight {
+            outline: 4px solid ${Config.highlightColor} !important;
+            outline-offset: -4px !important;
+            border-radius: 12px !important;
+            background: rgba(82,181,75,0.08) !important;
         }
     `);
 
@@ -2750,6 +2760,123 @@
                 this.setupObserver();
             }
         }), 
+        
+        missav: Object.assign(Object.create(BaseProcessor), {
+            listSelector: '.thumbnail.group',
+
+            extractCode: item => {
+                const titleEl = item.querySelector('.my-2 a') || 
+                               item.querySelector('a[alt]') ||
+                               item.querySelector('a');
+                return titleEl ? extractCodeFromText(titleEl.textContent || titleEl.getAttribute('alt') || '') : null;
+            },
+
+            getElement: item => item.querySelector('.my-2 a') || item.querySelector('a'),
+
+            // 列表页使用标题旁按钮 + 卡片高亮（不再依赖图片上的徽章）
+            async processItemsWithBadge(items) {
+                if (!items?.length) return;
+
+                Status.show(`正在收集番号: 共${items.length}个项目`);
+
+                const toProcess = [];
+                const codes = [];
+
+                for (const item of items) {
+                    if (this.processed.has(item)) continue;
+                    this.processed.add(item);
+
+                    const code = this.extractCode(item);
+                    if (!code) continue;
+
+                    const titleEl = this.getElement(item);
+                    if (!titleEl) continue;
+
+                    toProcess.push({ item, code, titleEl });
+                    codes.push(code);
+                }
+
+                if (codes.length === 0) return;
+
+                const bestItems = await this.api.batchQuery(codes);
+
+                const operations = [];
+                for (let i = 0; i < bestItems.length; i++) {
+                    if (bestItems[i]) {
+                        const { item, titleEl } = toProcess[i];
+                        item.classList.add('emby-highlight');
+
+                        const badge = this.api.createBadge(bestItems[i]);
+                        if (badge) {
+                            badge.style.marginLeft = '8px';
+                            badge.style.fontSize = '11px';
+                            operations.push(() => {
+                                // 把徽章插入到标题链接旁边
+                                if (titleEl.parentNode) {
+                                    titleEl.parentNode.insertBefore(badge, titleEl.nextSibling);
+                                }
+                            });
+                        }
+                    }
+                }
+
+                if (operations.length > 0) {
+                    requestAnimationFrame(() => operations.forEach(op => op()));
+                }
+            },
+
+            async process() {
+                const siteConfig = this.__siteConfig;
+                if (!siteConfig) return;
+
+                if (siteConfig.list && this.listSelector) {
+                    const items = document.querySelectorAll(this.listSelector);
+                    if (items.length > 0) {
+                        await this.processItemsWithBadge(items);
+                    }
+                }
+
+                if (siteConfig.detail) {
+                    await this.processDetailPage();
+                }
+
+                this.setupObserver();
+            },
+
+            async processDetailPage() {
+                // 详情页保持原来逻辑（标题下方按钮）
+                if (document.querySelector('.emby-jump-link, .emby-badge, .emby-copy-btn')) return;
+
+                const titleElement = document.querySelector('h1') || document.querySelector('title');
+                if (!titleElement) return;
+
+                const titleText = typeof titleElement === 'string' ? document.title : titleElement.textContent || document.title;
+                const code = extractCodeFromText(titleText);
+                if (!code) return;
+
+                Prompt.queryStart(code);
+                const bestItem = await this.api.checkExists(code);
+                const link = bestItem ? this.api.createLink(bestItem) : null;
+                const copyBtn = this.api.createCopyButton(code);
+
+                if (link || copyBtn) {
+                    const container = document.createElement('span');
+                    container.className = 'emby-button-group';
+                    container.style.cssText = 'display: inline-block; margin-left: 12px; margin-top: 8px;';
+
+                    if (link) container.appendChild(link);
+                    if (copyBtn) container.appendChild(copyBtn);
+
+                    const h1 = document.querySelector('h1');
+                    if (h1) {
+                        h1.parentNode.insertBefore(container, h1.nextSibling);
+                    }
+                }
+
+                if (bestItem) Prompt.querySuccess(code);
+                else Prompt.queryNotFound(code);
+            }
+        }),
     };
 
     // 站点自动识别
@@ -2767,6 +2894,7 @@
         if (host.includes('javrate')) return 'javrate';
         if (host.includes('169bbs')) return '169bbs';
         if (host.includes('hjd2048.com')) return 'hjd2048';
+        if (host.includes('missav.ws')) return 'missav';
 
         return null;
     }
