@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         番号跳转加预览图
 // @namespace    https://github.com/ZiPenOk
-// @version      4.9.2
+// @version      4.9.4
 // @icon         https://javdb.com/favicon.ico
-// @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择
+// @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择。新增 MissAV 站点适配
 // @author       ZiPenOk
 // @match        *://sukebei.nyaa.si/*
 // @match        *://169bbs.com/*
@@ -17,6 +17,8 @@
 // @match        *://javlibrary.com/*
 // @match        *://javrate.com/*
 // @match        *://www.javrate.com/*
+// @match        *://missav.ws/*
+// @match        *://missav.com/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_download
 // @grant        GM_setValue
@@ -304,7 +306,31 @@
             return null;
         },
 
-        createBtn(text, color, handler) {
+        // 专为 MissAV 等站点：直接用 <a href target=_blank>，浏览器天然认可为用户手势，不拦截弹窗
+        createLinkBtn(text, color, url) {
+            const btn = document.createElement('a');
+            btn.textContent = text;
+            btn.href = url || '#';
+            if (url) btn.target = '_blank';
+            btn.rel = 'noopener noreferrer';
+            btn.style.cssText = `
+                padding:4px 8px;
+                background: ${color};
+                color: white;
+                border-radius: 4px;
+                font-size: 13px;
+                font-weight: bold;
+                cursor: pointer;
+                text-decoration: none;
+                display: inline-block;
+                border: none;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+                box-sizing: border-box;
+            `;
+            return btn;
+        },
+
+        createBtn(text, color, handler, useCapture = false) {
             const btn = document.createElement('a');
             btn.textContent = text;
             btn.style.cssText = `
@@ -321,10 +347,18 @@
                 box-shadow: 0 1px 3px rgba(0,0,0,0.2);
                 box-sizing: border-box;
             `;
-            btn.onclick = (e) => {
-                e.preventDefault();
-                handler();
-            };
+            if (useCapture) {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handler();
+                }, true);
+            } else {
+                btn.onclick = (e) => {
+                    e.preventDefault();
+                    handler();
+                };
+            }
             return btn;
         },
 
@@ -458,8 +492,8 @@
         getJavBusUrl(code) {
             const codeLower = code.toLowerCase();
 
-            const isUncensored = 
-                /^\d{6}[-_\s]\d{3}$/.test(code) || 
+            const isUncensored =
+                /^\d{6}[-_\s]\d{3}$/.test(code) ||
                 codeLower.startsWith('heyzo') ||
                 codeLower.startsWith('carib') ||
                 codeLower.startsWith('1pondo') ||
@@ -656,7 +690,8 @@
             'emby':       { enabled: true },
             'javbus':     { enabled: true },
             'javdb':      { enabled: true },
-            'javlibrary': { enabled: true }
+            'javlibrary': { enabled: true },
+            'missav':     { enabled: true }
         },
 
         get(siteId) {
@@ -706,45 +741,45 @@
     const DEFAULT_SEARCH_ENGINE_INDEX = 0; // BTDigg (根据您定义的顺序)
 
     // ============================ 按钮创建辅助函数 ============================
-    function addNyaaBtn(code, container) {
+    function addNyaaBtn(code, container, useCapture = false) {
         const btn = Utils.createBtn('🔍 Sukebei', '#17a2b8', () => {
             window.open(`https://sukebei.nyaa.si/?f=0&c=0_0&q=${code}`);
-        });
+        }, useCapture);
         container.appendChild(btn);
     }
 
-    function addJavbusBtn(code, container) {
+    function addJavbusBtn(code, container, useCapture = false) {
         const url = Utils.getJavBusUrl(code);
         const btn = Utils.createBtn('🎬 JavBus', '#007bff', () => {
             window.open(url);
-        });
+        }, useCapture);
         container.appendChild(btn);
     }
 
-    function addJavdbBtn(code, container) {
+    function addJavdbBtn(code, container, useCapture = false) {
         const btn = Utils.createBtn('📀 JavDB', '#6f42c1', () => {
             window.open(`https://javdb.com/search?q=${code}`);
-        });
+        }, useCapture);
         container.appendChild(btn);
     }
 
-    function addMissAVBtn(code, container) {
+    function addMissAVBtn(code, container, useCapture = false) {
         const codeLower = code.toLowerCase();
         const directUrl = `https://missav.ws/${codeLower}`;
         const btn = Utils.createBtn('🎬 MissAV', '#ec4899', () => {
             window.open(directUrl);
-        });
+        }, useCapture);
         container.appendChild(btn);
     }
 
-    function addPreviewBtn(code, container) {
+    function addPreviewBtn(code, container, useCapture = false) {
         const btn = Utils.createBtn('🖼️ 预览图', '#28a745', async () => {
             await Thumbnail.show(code);
-        });
+        }, useCapture);
         container.appendChild(btn);
     }
 
-    function addSearchMenu(code, container) {
+    function addSearchMenu(code, container, useCapture = false) {
         // 获取默认搜索引擎
         const defaultEngine = Settings.getDefaultSearchEngine();
 
@@ -759,7 +794,7 @@
         // 主按钮（默认搜索引擎）
         const mainBtn = Utils.createBtn(`🔍 ${defaultEngine.name}`, defaultEngine.color, () => {
             window.open(defaultEngine.url(code));
-        });
+        }, useCapture);
         mainBtn.classList.add('search-main-btn');
         menuDiv.appendChild(mainBtn);
 
@@ -789,7 +824,7 @@
 
             const subBtn = Utils.createBtn(`🔍 ${engine.name}`, engine.color, () => {
                 window.open(engine.url(code));
-            });
+            }, useCapture);
             subBtn.style.margin = '2px 0';
             subBtn.style.width = '100%';
             subBtn.style.textAlign = 'left';
@@ -882,6 +917,13 @@
             name: 'Javrate',
             match: (url) => /javrate\.com/.test(url) && /\/movie\/detail\//i.test(url),
             titleSelector: 'h1'
+        },
+        {
+            id: 'missav',
+            name: 'MissAV',
+            // 匹配番号详情页，如 /dm47/ipzz-385 或 /cn/ipzz-385 或直接 /ipzz-385
+            match: (url) => /missav\.(ws|com)/.test(url) && /\/[a-z0-9-]+\/[a-z]{2,10}-\d+$|\/[a-z]{2,10}-\d+$/i.test(new URL(url).pathname),
+            titleSelector: 'h1.text-nord6'
         }
     ];
 
@@ -932,6 +974,76 @@
             if (rightColumn) {
                 rightColumn.prepend(btnGroup);
             } else {
+                titleElem.insertAdjacentElement('afterend', btnGroup);
+            }
+        } else if (site.id === 'missav') {
+            // MissAV 核心问题：window.open() 会被浏览器弹窗拦截器拦截。
+            // 解决方案：直接用 <a href target=_blank>，这是浏览器唯一不拦截的方式。
+            const missavBtns = [
+                { text: '🔍 Sukebei', color: '#17a2b8', url: `https://sukebei.nyaa.si/?f=0&c=0_0&q=${code}` },
+                { text: '🎬 JavBus',  color: '#007bff',  url: Utils.getJavBusUrl(code) },
+                { text: '📀 JavDB',   color: '#6f42c1',  url: `https://javdb.com/search?q=${code}` },
+            ];
+            missavBtns.forEach(({ text, color, url }) => {
+                btnGroup.appendChild(Utils.createLinkBtn(text, color, url));
+            });
+
+            // 搜索菜单：主按钮也改为 <a>，子菜单同理
+            const defaultEngine = Settings.getDefaultSearchEngine();
+            const searchMenuDiv = document.createElement('div');
+            searchMenuDiv.style.cssText = 'position: relative; display: inline-block;';
+
+            const mainSearchBtn = Utils.createLinkBtn(`🔍 ${defaultEngine.name}`, defaultEngine.color, defaultEngine.url(code));
+            searchMenuDiv.appendChild(mainSearchBtn);
+
+            const subMenu = document.createElement('div');
+            subMenu.style.cssText = `
+                position: absolute; top: 100%; left: 0; display: none;
+                flex-direction: column; gap: 4px; margin-top: 4px; padding: 4px;
+                background: rgba(30,30,30,0.95); border-radius: 6px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 10000; min-width: 120px;
+            `;
+            SearchEngines.forEach(engine => {
+                if (engine.name === defaultEngine.name) return;
+                const subBtn = Utils.createLinkBtn(`🔍 ${engine.name}`, engine.color, engine.url(code));
+                subBtn.style.margin = '2px 0';
+                subMenu.appendChild(subBtn);
+            });
+            searchMenuDiv.appendChild(subMenu);
+
+            let hoverTimer;
+            searchMenuDiv.addEventListener('mouseenter', () => {
+                clearTimeout(hoverTimer);
+                hoverTimer = setTimeout(() => { subMenu.style.display = 'flex'; }, 800);
+            });
+            searchMenuDiv.addEventListener('mouseleave', () => {
+                clearTimeout(hoverTimer);
+                setTimeout(() => { if (!subMenu.matches(':hover')) subMenu.style.display = 'none'; }, 300);
+            });
+            subMenu.addEventListener('mouseleave', () => { subMenu.style.display = 'none'; });
+            btnGroup.appendChild(searchMenuDiv);
+
+            // 预览图按钮：不涉及 window.open，用普通 handler 即可
+            addPreviewBtn(code, btnGroup);
+
+            // 适配 MissAV 深色主题
+            btnGroup.style.cssText = `
+                margin: 10px 0 6px 0;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                align-items: center;
+                position: relative;
+                z-index: 9999;
+            `;
+
+            // 与 emby.js 共行：若 emby 按钮组已存在则追加进去，否则插入自己的容器
+            const existingEmbyGroup = document.querySelector('.emby-button-group');
+            if (existingEmbyGroup) {
+                // 将本组所有子元素移入 emby 容器
+                [...btnGroup.children].forEach(el => existingEmbyGroup.appendChild(el));
+            } else {
+                // emby 还未渲染，先插入自己；emby 稍后会检测到 .jav-jump-btn-group 并追加
                 titleElem.insertAdjacentElement('afterend', btnGroup);
             }
         } else {

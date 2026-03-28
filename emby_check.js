@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.5.1
+// @version      5.5.2
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -2860,16 +2860,31 @@
                 const copyBtn = this.api.createCopyButton(code);
 
                 if (link || copyBtn) {
-                const container = document.createElement('span');
-                container.className = 'emby-button-group';
-                container.style.cssText = 'display: inline-flex; align-items: center; margin-left: 12px; margin-top: 8px; gap: 8px;';
+                    // 等 jump.js 渲染完毕（最多等 2s），再决定追加还是独立插入
+                    const insertEmbyBtns = () => {
+                        const jumpGroup = document.querySelector('.jav-jump-btn-group');
+                        if (jumpGroup) {
+                            const sep = document.createElement('span');
+                            sep.style.cssText = 'display:inline-block; width:1px; height:16px; background:rgba(255,255,255,0.2); margin: 0 4px; align-self:center;';
+                            jumpGroup.appendChild(sep);
+                            if (link) jumpGroup.appendChild(link);
+                            if (copyBtn) jumpGroup.appendChild(copyBtn);
+                        } else {
+                            const container = document.createElement('span');
+                            container.className = 'emby-button-group';
+                            container.style.cssText = 'display: inline-flex; align-items: center; margin-top: 8px; gap: 8px;';
+                            if (link) container.appendChild(link);
+                            if (copyBtn) container.appendChild(copyBtn);
+                            const h1 = document.querySelector('h1');
+                            if (h1) h1.parentNode.insertBefore(container, h1.nextSibling);
+                        }
+                    };
 
-                    if (link) container.appendChild(link);
-                    if (copyBtn) container.appendChild(copyBtn);
-
-                    const h1 = document.querySelector('h1');
-                    if (h1) {
-                        h1.parentNode.insertBefore(container, h1.nextSibling);
+                    // jump.js 同步渲染，若已存在直接追加；否则等 300ms 再试一次
+                    if (document.querySelector('.jav-jump-btn-group')) {
+                        insertEmbyBtns();
+                    } else {
+                        setTimeout(insertEmbyBtns, 300);
                     }
                 }
 
