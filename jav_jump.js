@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         番号跳转加预览图
 // @namespace    https://github.com/ZiPenOk
-// @version      4.9.4
+// @version      4.9.5
 // @icon         https://javdb.com/favicon.ico
-// @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择。新增 MissAV 站点适配
+// @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择。新增 MissAV 站点适配（兼容 Alpine.js 事件系统）
 // @author       ZiPenOk
 // @match        *://sukebei.nyaa.si/*
 // @match        *://169bbs.com/*
@@ -1037,15 +1037,8 @@
                 z-index: 9999;
             `;
 
-            // 与 emby.js 共行：若 emby 按钮组已存在则追加进去，否则插入自己的容器
-            const existingEmbyGroup = document.querySelector('.emby-button-group');
-            if (existingEmbyGroup) {
-                // 将本组所有子元素移入 emby 容器
-                [...btnGroup.children].forEach(el => existingEmbyGroup.appendChild(el));
-            } else {
-                // emby 还未渲染，先插入自己；emby 稍后会检测到 .jav-jump-btn-group 并追加
-                titleElem.insertAdjacentElement('afterend', btnGroup);
-            }
+            // 与 emby.js 共行由公共层统一处理，这里只负责插入自己的容器
+            titleElem.insertAdjacentElement('afterend', btnGroup);
         } else {
             // 其他站点添加所有按钮（不再按单个功能判断）
             addNyaaBtn(code, btnGroup);
@@ -1067,6 +1060,24 @@
             } else {
                 titleElem.insertAdjacentElement('afterend', btnGroup);
             }
+        }
+
+        // ── 公共层：与 emby.js 共行 ──────────────────────────────────────
+        // 无论哪个站点分支，按钮组插入 DOM 后统一处理与 emby.js 的合并。
+        // emby.js 侧已在 BaseProcessor.appendToSharedRow 里做了相同的镜像处理：
+        //   • emby 先到 → emby 独立插入 .emby-button-group，jump 后到时检测并合并进去
+        //   • jump 先到 → jump 插入 .jav-jump-btn-group，emby 后到时检测并追加进来
+        // 这里处理"emby 比 jump 更早插入"的情况：
+        const embyGroup = document.querySelector('.emby-button-group');
+        if (embyGroup && btnGroup.isConnected) {
+            // emby 已独立插入，把 jump 的所有按钮搬进 emby 容器前面
+            [...btnGroup.children].forEach(el => embyGroup.insertBefore(el, embyGroup.firstChild));
+            // 在 jump 按钮与 emby 按钮之间加分隔线
+            const sep = document.createElement('span');
+            sep.style.cssText = 'display:inline-block;width:1px;height:16px;background:rgba(128,128,128,0.35);margin:0 4px;align-self:center;flex-shrink:0;';
+            embyGroup.insertBefore(sep, embyGroup.children[btnGroup.childElementCount] || embyGroup.firstChild);
+            // 移除已清空的 jump 容器
+            btnGroup.remove();
         }
     }
 
