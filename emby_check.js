@@ -1456,7 +1456,8 @@
 
         // 公共方法：将 Emby 按钮插入到与 jump.js 共享的行容器。
         // 若 .jav-jump-btn-group 已存在则追加（加分隔线），
-        // 否则等 300ms 重试，还是没有才在 fallbackAnchor 后独立插入。
+        // 否则等 600ms 重试（给 jump.js 足够时间先插入按钮行），
+        // 还是没有才在 fallbackAnchor 后独立插入 .emby-button-group。
         appendToSharedRow(link, copyBtn, fallbackAnchor) {
             if (!link && !copyBtn) return;
 
@@ -1475,6 +1476,7 @@
 
             if (doAppend()) return;
 
+            // 600ms 给 jump.js 更充裕的时间插入 .jav-jump-btn-group
             setTimeout(() => {
                 if (doAppend()) return;
                 const container = document.createElement('span');
@@ -1485,7 +1487,7 @@
                 if (fallbackAnchor && fallbackAnchor.parentNode) {
                     fallbackAnchor.parentNode.insertBefore(container, fallbackAnchor.nextSibling);
                 }
-            }, 300);
+            }, 600);
         },
 
         async processItemsWithBadge(items) {
@@ -1867,52 +1869,34 @@
                     await this.processListPage();
                 }
 
-                // 详情页处理（保持不变）
+                // 详情页处理：统一使用 appendToSharedRow，与 jump.js 共享按钮行
                 if (siteConfig.detail) {
                     if (document.querySelector('.emby-jump-link, .emby-badge, .emby-copy-btn')) return;
+
+                    const titleEl = document.querySelector('#thread_subject') ||
+                                    document.querySelector('h1.ts') ||
+                                    document.querySelector('h1');
+                    if (!titleEl) return;
 
                     const title = document.title.trim();
                     const codes = this.extractCodes(title);
 
                     if (codes.length > 0) {
                         Prompt.batchStart(codes.length);
-
                         const bestItems = await this.api.batchQuery(codes);
                         let foundAny = false;
-
-                        const container = document.querySelector('#thread_subject') ||
-                                          document.querySelector('h1.ts') ||
-                                          document.querySelector('h1');
-                        if (!container) return;
-
-                        let btnGroup = document.querySelector('.jav-jump-btn-group');
-                        if (!btnGroup) {
-                            btnGroup = document.createElement('span');
-                            btnGroup.className = 'jav-jump-btn-group';
-                            btnGroup.style.cssText = 'display: inline-block; margin-left: 8px; vertical-align: middle;';
-                            container.parentNode.insertBefore(btnGroup, container.nextSibling);
-                        }
 
                         for (let i = 0; i < codes.length; i++) {
                             const code = codes[i];
                             const bestItem = bestItems[i];
-                            if (bestItem) {
-                                const link = this.api.createLink(bestItem);
-                                if (link) {
-                                    link.style.marginLeft = '0';
-                                    btnGroup.appendChild(link);
-                                    foundAny = true;
-                                }
-                            }
+                            const link = bestItem ? this.api.createLink(bestItem) : null;
                             const copyBtn = this.api.createCopyButton(code);
-                            if (copyBtn) btnGroup.appendChild(copyBtn);
+                            // 第一个番号追加到共享行，后续番号也追加进去
+                            this.appendToSharedRow(link, copyBtn, titleEl);
+                            if (bestItem) foundAny = true;
                         }
 
-                        if (foundAny) {
-                            Prompt.batchComplete(bestItems.filter(Boolean).length);
-                        } else {
-                            Prompt.batchComplete(0);
-                        }
+                        Prompt.batchComplete(foundAny ? bestItems.filter(Boolean).length : 0);
                     }
                 }
 

@@ -17,6 +17,8 @@
 // @match        *://javlibrary.com/*
 // @match        *://javrate.com/*
 // @match        *://www.javrate.com/*
+// @match        *://sehuatang.net/*
+// @match        *://hjd2048.com/2048/*
 // @match        *://missav.ws/*
 // @match        *://missav.com/*
 // @grant        GM_xmlhttpRequest
@@ -691,6 +693,9 @@
             'javbus':     { enabled: true },
             'javdb':      { enabled: true },
             'javlibrary': { enabled: true },
+            'javrate':    { enabled: true },
+            'sehuatang':  { enabled: true },
+            'hjd2048':    { enabled: true },
             'missav':     { enabled: true }
         },
 
@@ -919,6 +924,18 @@
             titleSelector: 'h1'
         },
         {
+            id: 'sehuatang',
+            name: 'Sehuatang',
+            match: (url) => /sehuatang\.(net|org|com)/.test(url) && url.includes('mod=viewthread'),
+            titleSelector: '#thread_subject, h1'
+        },
+        {
+            id: 'hjd2048',
+            name: 'HJD2048',
+            match: (url) => /hjd2048\.com/.test(url) && /\/2048\//.test(url),
+            titleSelector: 'h1#subject_tpc, h1'
+        },
+        {
             id: 'missav',
             name: 'MissAV',
             // 匹配番号详情页，如 /dm47/ipzz-385 或 /cn/ipzz-385 或直接 /ipzz-385
@@ -1070,12 +1087,15 @@
         // 这里处理"emby 比 jump 更早插入"的情况：
         const embyGroup = document.querySelector('.emby-button-group');
         if (embyGroup && btnGroup.isConnected) {
+            // 先记录 jump 按钮数量，搬移后 childElementCount 会归零
+            const jumpBtnCount = btnGroup.childElementCount;
             // emby 已独立插入，把 jump 的所有按钮搬进 emby 容器前面
             [...btnGroup.children].forEach(el => embyGroup.insertBefore(el, embyGroup.firstChild));
-            // 在 jump 按钮与 emby 按钮之间加分隔线
+            // 在 jump 按钮（前 jumpBtnCount 个）与 emby 按钮之间加分隔线
             const sep = document.createElement('span');
             sep.style.cssText = 'display:inline-block;width:1px;height:16px;background:rgba(128,128,128,0.35);margin:0 4px;align-self:center;flex-shrink:0;';
-            embyGroup.insertBefore(sep, embyGroup.children[btnGroup.childElementCount] || embyGroup.firstChild);
+            // children[jumpBtnCount] 正好是第一个 emby 按钮（或 null 表示末尾）
+            embyGroup.insertBefore(sep, embyGroup.children[jumpBtnCount] || null);
             // 移除已清空的 jump 容器
             btnGroup.remove();
         }
