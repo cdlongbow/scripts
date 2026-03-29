@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.5.2
+// @version      5.5.3
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -133,10 +133,6 @@
             }
             return saved;
         },
-        set enabledSites(val) {
-            GM_setValue('enabledSites', val);
-        }, 
-        
         // ===== 新增深色模式配置 =====
         get darkMode() {
             return GM_getValue('darkMode', false);
@@ -1458,6 +1454,40 @@
             return this;
         },
 
+        // 公共方法：将 Emby 按钮插入到与 jump.js 共享的行容器。
+        // 若 .jav-jump-btn-group 已存在则追加（加分隔线），
+        // 否则等 300ms 重试，还是没有才在 fallbackAnchor 后独立插入。
+        appendToSharedRow(link, copyBtn, fallbackAnchor) {
+            if (!link && !copyBtn) return;
+
+            const doAppend = () => {
+                const jumpGroup = document.querySelector('.jav-jump-btn-group');
+                if (jumpGroup) {
+                    const sep = document.createElement('span');
+                    sep.style.cssText = 'display:inline-block;width:1px;height:16px;background:rgba(128,128,128,0.35);margin:0 4px;align-self:center;flex-shrink:0;';
+                    jumpGroup.appendChild(sep);
+                    if (link) jumpGroup.appendChild(link);
+                    if (copyBtn) jumpGroup.appendChild(copyBtn);
+                    return true;
+                }
+                return false;
+            };
+
+            if (doAppend()) return;
+
+            setTimeout(() => {
+                if (doAppend()) return;
+                const container = document.createElement('span');
+                container.className = 'emby-button-group';
+                container.style.cssText = 'display:inline-flex;align-items:center;gap:6px;margin-left:8px;';
+                if (link) container.appendChild(link);
+                if (copyBtn) container.appendChild(copyBtn);
+                if (fallbackAnchor && fallbackAnchor.parentNode) {
+                    fallbackAnchor.parentNode.insertBefore(container, fallbackAnchor.nextSibling);
+                }
+            }, 300);
+        },
+
         async processItemsWithBadge(items) {
             if (!items?.length) return;
 
@@ -1687,30 +1717,9 @@
                         const bestItem = await this.api.checkExists(code);
                         const link = bestItem ? this.api.createLink(bestItem) : null;
                         const copyBtn = this.api.createCopyButton(code);
-
-                        if (link || copyBtn) {
-                            const btnGroup = document.querySelector('.jav-jump-btn-group');
-                            if (btnGroup) {
-                                if (link) {
-                                    btnGroup.appendChild(link);
-                                }
-                                if (copyBtn) btnGroup.appendChild(copyBtn);
-                            } else {
-                                // 创建一个容器来放置按钮
-                                const container = document.createElement('span');
-                                container.className = 'emby-button-group';
-                                container.style.cssText = 'display: inline-block; margin-left: 8px;';
-                                if (link) container.appendChild(link);
-                                if (copyBtn) container.appendChild(copyBtn);
-                                spans[1].parentNode.insertBefore(container, spans[1].nextSibling);
-                            }
-                        }
-
-                        if (bestItem) {
-                            Prompt.querySuccess(code);
-                        } else {
-                            Prompt.queryNotFound(code);
-                        }
+                        this.appendToSharedRow(link, copyBtn, spans[1]);
+                        if (bestItem) Prompt.querySuccess(code);
+                        else Prompt.queryNotFound(code);
                     }
                 }
             }
@@ -1737,36 +1746,14 @@
                 if (!detailElement) return;
 
                 const code = extractCodeFromText(detailElement.textContent);
-
                 if (code) {
                     Prompt.queryStart(code);
                     const bestItem = await this.api.checkExists(code);
                     const link = bestItem ? this.api.createLink(bestItem) : null;
                     const copyBtn = this.api.createCopyButton(code);
-
-                    if (link || copyBtn) {
-                        const btnGroup = document.querySelector('.jav-jump-btn-group');
-                        if (btnGroup) {
-                            if (link) {
-                                link.style.marginLeft = '0';
-                                btnGroup.appendChild(link);
-                            }
-                            if (copyBtn) btnGroup.appendChild(copyBtn);
-                        } else {
-                            const container = document.createElement('span');
-                            container.className = 'emby-button-group';
-                            container.style.cssText = 'display: inline-block; margin-left: 8px;';
-                            if (link) container.appendChild(link);
-                            if (copyBtn) container.appendChild(copyBtn);
-                            detailElement.parentNode.insertBefore(container, detailElement.nextSibling);
-                        }
-                    }
-
-                    if (bestItem) {
-                        Prompt.querySuccess(code);
-                    } else {
-                        Prompt.queryNotFound(code);
-                    }
+                    this.appendToSharedRow(link, copyBtn, detailElement.parentNode);
+                    if (bestItem) Prompt.querySuccess(code);
+                    else Prompt.queryNotFound(code);
                 }
             }
         }),
@@ -1798,30 +1785,9 @@
                 const bestItem = await this.api.checkExists(code);
                 const link = bestItem ? this.api.createLink(bestItem) : null;
                 const copyBtn = this.api.createCopyButton(code);
-
-                if (link || copyBtn) {
-                    const btnGroup = document.querySelector('.jav-jump-btn-group');
-                    if (btnGroup) {
-                        if (link) {
-                            link.style.marginLeft = '0';
-                            btnGroup.appendChild(link);
-                        }
-                        if (copyBtn) btnGroup.appendChild(copyBtn);
-                    } else {
-                        const container = document.createElement('span');
-                        container.className = 'emby-button-group';
-                        container.style.cssText = 'display: inline-block; margin-left: 8px;';
-                        if (link) container.appendChild(link);
-                        if (copyBtn) container.appendChild(copyBtn);
-                        titleElement.parentNode.insertBefore(container, titleElement.nextSibling);
-                    }
-                }
-
-                if (bestItem) {
-                    Prompt.querySuccess(code);
-                } else {
-                    Prompt.queryNotFound(code);
-                }
+                this.appendToSharedRow(link, copyBtn, titleElement);
+                if (bestItem) Prompt.querySuccess(code);
+                else Prompt.queryNotFound(code);
             }
         }),
 
@@ -2002,37 +1968,16 @@
                 const titleElement = document.querySelector('.panel-heading .panel-title');
                 if (!titleElement) return;
 
-                const titleText = titleElement.textContent;
-                const code = extractCodeFromText(titleText);
+                const code = extractCodeFromText(titleElement.textContent);
                 if (!code) return;
 
                 Prompt.queryStart(code);
                 const bestItem = await this.api.checkExists(code);
                 const link = bestItem ? this.api.createLink(bestItem) : null;
                 const copyBtn = this.api.createCopyButton(code);
-
-                if (link || copyBtn) {
-                    const btnGroup = document.querySelector('.jav-jump-btn-group');
-                    if (btnGroup) {
-                        if (link) {
-                            link.style.marginLeft = '0';
-                            btnGroup.appendChild(link);
-                        }
-                        if (copyBtn) btnGroup.appendChild(copyBtn);
-                    } else {
-                        const container = document.createElement('span');
-                        container.style.marginLeft = '10px';
-                        if (link) container.appendChild(link);
-                        if (copyBtn) container.appendChild(copyBtn);
-                        titleElement.appendChild(container);
-                    }
-                }
-
-                if (bestItem) {
-                    Prompt.querySuccess(code);
-                } else {
-                    Prompt.queryNotFound(code);
-                }
+                this.appendToSharedRow(link, copyBtn, titleElement);
+                if (bestItem) Prompt.querySuccess(code);
+                else Prompt.queryNotFound(code);
             },
 
             async processListPage() {
@@ -2152,7 +2097,6 @@
                 const code = extractCodeFromText(idCodeElement.textContent);
                 if (!code) return;
 
-                // 已处理过，跳过
                 if (idContainer.dataset.embyCode === code) return;
                 if (idContainer.dataset.embyProcessing === 'true') return;
 
@@ -2162,63 +2106,23 @@
                 let item = embyItemMap.get(code);
                 if (item) {
                     const link = api.createLink(item);
-                    if (link || copyBtn) {
-                        const btnGroup = document.querySelector('.jav-jump-btn-group');
-                        if (btnGroup) {
-                            if (link) btnGroup.appendChild(link);
-                            if (copyBtn) btnGroup.appendChild(copyBtn);
-                        } else {
-                            const container = document.createElement('span');
-                            container.className = 'emby-button-group';
-                            container.style.cssText = 'display: inline-block; margin-left: 8px;';
-                            if (link) container.appendChild(link);
-                            if (copyBtn) container.appendChild(copyBtn);
-                            idContainer.insertAdjacentElement('afterend', container);
-                        }
-                    }
+                    BaseProcessor.appendToSharedRow(link, copyBtn, idContainer);
                     if (link) Prompt.querySuccess(code);
-
                     idContainer.dataset.embyCode = code;
                     delete idContainer.dataset.embyProcessing;
                     return;
                 }
 
-                // 查询 Emby
                 Prompt.queryStart(code);
                 api.checkExists(code).then(bestItem => {
                     if (bestItem) {
                         embyItemMap.set(code, bestItem);
                         const link = api.createLink(bestItem);
-                        if (link || copyBtn) {
-                            const btnGroup = document.querySelector('.jav-jump-btn-group');
-                            if (btnGroup) {
-                                if (link) btnGroup.appendChild(link);
-                                if (copyBtn) btnGroup.appendChild(copyBtn);
-                            } else {
-                                const container = document.createElement('span');
-                                container.className = 'emby-button-group';
-                                container.style.cssText = 'display: inline-block; margin-left: 8px;';
-                                if (link) container.appendChild(link);
-                                if (copyBtn) container.appendChild(copyBtn);
-                                idContainer.insertAdjacentElement('afterend', container);
-                            }
-                            Prompt.querySuccess(code);
-                        } else {
-                            Status.error('❌ 创建链接失败', true);
-                        }
+                        BaseProcessor.appendToSharedRow(link, copyBtn, idContainer);
+                        if (link) Prompt.querySuccess(code);
+                        else Status.error('❌ 创建链接失败', true);
                     } else {
-                        if (copyBtn) {
-                            const btnGroup = document.querySelector('.jav-jump-btn-group');
-                            if (btnGroup) {
-                                btnGroup.appendChild(copyBtn);
-                            } else {
-                                const container = document.createElement('span');
-                                container.className = 'emby-button-group';
-                                container.style.cssText = 'display: inline-block; margin-left: 8px;';
-                                container.appendChild(copyBtn);
-                                idContainer.insertAdjacentElement('afterend', container);
-                            }
-                        }
+                        BaseProcessor.appendToSharedRow(null, copyBtn, idContainer);
                         Prompt.queryNotFound(code);
                     }
                 }).catch(e => {
@@ -2373,33 +2277,10 @@
                     const bestItem = await this.api.checkExists(code);
                     const link = bestItem ? this.api.createLink(bestItem) : null;
                     const copyBtn = this.api.createCopyButton(code);
-
-                    if (link || copyBtn) {
-                        const titleElement = document.querySelector('h1');
-                        if (titleElement) {
-                            const btnGroup = document.querySelector('.jav-jump-btn-group');
-                            if (btnGroup) {
-                                if (link) {
-                                    link.style.marginLeft = '0';
-                                    btnGroup.appendChild(link);
-                                }
-                                if (copyBtn) btnGroup.appendChild(copyBtn);
-                            } else {
-                                const container = document.createElement('span');
-                                container.className = 'emby-button-group';
-                                container.style.cssText = 'display: inline-block; margin-left: 8px;';
-                                if (link) container.appendChild(link);
-                                if (copyBtn) container.appendChild(copyBtn);
-                                titleElement.parentNode.insertBefore(container, titleElement.nextSibling);
-                            }
-                        }
-                    }
-
-                    if (bestItem) {
-                        Prompt.querySuccess(code);
-                    } else {
-                        Prompt.queryNotFound(code);
-                    }
+                    const titleElement = document.querySelector('h1');
+                    this.appendToSharedRow(link, copyBtn, titleElement || document.body);
+                    if (bestItem) Prompt.querySuccess(code);
+                    else Prompt.queryNotFound(code);
                 }
             }
         }),
@@ -2442,57 +2323,22 @@
 
                 let code = null;
                 const h1Strong = document.querySelector('h1 strong.fg-main');
-                if (h1Strong) {
-                    code = extractCodeFromText(h1Strong.textContent);
-                }
-
+                if (h1Strong) code = extractCodeFromText(h1Strong.textContent);
                 if (!code) {
                     const keywords = document.querySelector('meta[name="keywords"]')?.content || "";
                     code = extractCodeFromText(keywords);
                 }
-
-                if (!code) {
-                    console.log('[Emby] 未找到番号');
-                    return;
-                }
+                if (!code) { console.log('[Emby] 未找到番号'); return; }
 
                 code = code.toUpperCase();
                 Prompt.queryStart(code);
                 const bestItem = await this.api.checkExists(code);
                 const link = bestItem ? this.api.createLink(bestItem) : null;
                 const copyBtn = this.api.createCopyButton(code);
-
-                if (!link && !copyBtn) {
-                    if (!bestItem) Prompt.queryNotFound(code);
-                    return;
-                }
-
                 const titleElement = document.querySelector('h1');
-                if (!titleElement) return;
-
-                const btnGroup = document.querySelector('.jav-jump-btn-group');
-                const container = document.createElement('span');
-                container.className = 'emby-button-group';
-                container.style.cssText = 'display: inline-block; margin-left: 8px; vertical-align: middle;';
-
-                if (link) {
-                    link.style.marginLeft = '0';
-                    container.appendChild(link);
-                }
-                if (copyBtn) container.appendChild(copyBtn);
-
-                if (btnGroup) {
-                    if (link) btnGroup.appendChild(link);
-                    if (copyBtn) btnGroup.appendChild(copyBtn);
-                } else {
-                    titleElement.parentNode.insertBefore(container, titleElement.nextSibling);
-                }
-
-                if (bestItem) {
-                    Prompt.querySuccess(code);
-                } else {
-                    Prompt.queryNotFound(code);
-                }
+                this.appendToSharedRow(link, copyBtn, titleElement || document.body);
+                if (bestItem) Prompt.querySuccess(code);
+                else Prompt.queryNotFound(code);
             }
         }),
 
@@ -2600,30 +2446,9 @@
                             const bestItem = await this.api.checkExists(code);
                             const link = bestItem ? this.api.createLink(bestItem) : null;
                             const copyBtn = this.api.createCopyButton(code);
-
-                            if (link || copyBtn) {
-                                const btnGroup = document.querySelector('.jav-jump-btn-group');
-                                if (btnGroup) {
-                                    if (link) {
-                                        link.style.marginLeft = '0';
-                                        btnGroup.appendChild(link);
-                                    }
-                                    if (copyBtn) btnGroup.appendChild(copyBtn);
-                                } else {
-                                    const container = document.createElement('span');
-                                    container.className = 'emby-button-group';
-                                    container.style.cssText = 'display: inline-block; margin-left: 8px;';
-                                    if (link) container.appendChild(link);
-                                    if (copyBtn) container.appendChild(copyBtn);
-                                    titleEl.after(container);
-                                }
-                            }
-
-                            if (bestItem) {
-                                Prompt.querySuccess(code);
-                            } else {
-                                Prompt.queryNotFound(code);
-                            }
+                            this.appendToSharedRow(link, copyBtn, titleEl);
+                            if (bestItem) Prompt.querySuccess(code);
+                            else Prompt.queryNotFound(code);
                         }
                     }
                 }
@@ -2711,38 +2536,16 @@
                 const titleEl = document.querySelector('h1#subject_tpc');
                 if (!titleEl) return;
 
-                const titleText = titleEl.textContent;
-                const code = extractCodeFromText(titleText);
+                const code = extractCodeFromText(titleEl.textContent);
                 if (!code) return;
 
                 Prompt.queryStart(code);
                 const bestItem = await this.api.checkExists(code);
                 const link = bestItem ? this.api.createLink(bestItem) : null;
                 const copyBtn = this.api.createCopyButton(code);
-
-                if (link || copyBtn) {
-                    const btnGroup = document.querySelector('.jav-jump-btn-group');
-                    if (btnGroup) {
-                        if (link) {
-                            link.style.marginLeft = '0';
-                            btnGroup.appendChild(link);
-                        }
-                        if (copyBtn) btnGroup.appendChild(copyBtn);
-                    } else {
-                        const container = document.createElement('span');
-                        container.className = 'emby-button-group';
-                        container.style.cssText = 'display: inline-block; margin-left: 8px;';
-                        if (link) container.appendChild(link);
-                        if (copyBtn) container.appendChild(copyBtn);
-                        titleEl.after(container);
-                    }
-                }
-
-                if (bestItem) {
-                    Prompt.querySuccess(code);
-                } else {
-                    Prompt.queryNotFound(code);
-                }
+                this.appendToSharedRow(link, copyBtn, titleEl);
+                if (bestItem) Prompt.querySuccess(code);
+                else Prompt.queryNotFound(code);
             },
 
             async process() {
@@ -2858,36 +2661,7 @@
                 const bestItem = await this.api.checkExists(code);
                 const link = bestItem ? this.api.createLink(bestItem) : null;
                 const copyBtn = this.api.createCopyButton(code);
-
-                if (link || copyBtn) {
-                    // 等 jump.js 渲染完毕（最多等 2s），再决定追加还是独立插入
-                    const insertEmbyBtns = () => {
-                        const jumpGroup = document.querySelector('.jav-jump-btn-group');
-                        if (jumpGroup) {
-                            const sep = document.createElement('span');
-                            sep.style.cssText = 'display:inline-block; width:1px; height:16px; background:rgba(255,255,255,0.2); margin: 0 4px; align-self:center;';
-                            jumpGroup.appendChild(sep);
-                            if (link) jumpGroup.appendChild(link);
-                            if (copyBtn) jumpGroup.appendChild(copyBtn);
-                        } else {
-                            const container = document.createElement('span');
-                            container.className = 'emby-button-group';
-                            container.style.cssText = 'display: inline-flex; align-items: center; margin-top: 8px; gap: 8px;';
-                            if (link) container.appendChild(link);
-                            if (copyBtn) container.appendChild(copyBtn);
-                            const h1 = document.querySelector('h1');
-                            if (h1) h1.parentNode.insertBefore(container, h1.nextSibling);
-                        }
-                    };
-
-                    // jump.js 同步渲染，若已存在直接追加；否则等 300ms 再试一次
-                    if (document.querySelector('.jav-jump-btn-group')) {
-                        insertEmbyBtns();
-                    } else {
-                        setTimeout(insertEmbyBtns, 300);
-                    }
-                }
-
+                this.appendToSharedRow(link, copyBtn, titleElement);
                 if (bestItem) Prompt.querySuccess(code);
                 else Prompt.queryNotFound(code);
             }
