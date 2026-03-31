@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         番号跳转加预览图
 // @namespace    https://github.com/ZiPenOk
-// @version      4.9.5
+// @version      4.9.6
 // @icon         https://javdb.com/favicon.ico
 // @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择。新增 MissAV 站点适配（兼容 Alpine.js 事件系统）
 // @author       ZiPenOk
@@ -938,9 +938,20 @@
         {
             id: 'missav',
             name: 'MissAV',
-            // 匹配番号详情页，如 /dm47/ipzz-385 或 /cn/ipzz-385 或直接 /ipzz-385
-            match: (url) => /missav\.(ws|com)/.test(url) && /\/[a-z0-9-]+\/[a-z]{2,10}-\d+$|\/[a-z]{2,10}-\d+$/i.test(new URL(url).pathname),
-            titleSelector: 'h1.text-nord6'
+            // 兼容各种路径结构的详情页，包括：
+            //   /ipzz-385
+            //   /dm47/ipzz-385
+            //   /dm32/cn/pppe-166
+            //   /dm32/cn/pppe-166-uncensored-leak （带 -uncensored-leak 等后缀）
+            // 只要 pathname 含 /字母-数字 片段即视为详情页，并排除列表类页面。
+            match: (url) => {
+                if (!/missav\.(ws|com)/.test(url)) return false;
+                const pathname = new URL(url).pathname;
+                if (/^\/$|\/search|\/tags|\/actresses|\/genres/.test(pathname)) return false;
+                return /\/[a-z]{2,10}-\d+/i.test(pathname);
+            },
+            // h1 带多个 class，用属性含匹配更稳健；fallback 任意 h1
+            titleSelector: 'h1[class*="text-nord6"], h1'
         }
     ];
 
