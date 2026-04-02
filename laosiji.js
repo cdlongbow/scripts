@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-改
 // @namespace    https://sleazyfork.org/zh-CN/users/25794
-// @version      4.3
+// @version      4.4
 // @supportURL   https://sleazyfork.org/zh-CN/scripts/25781/feedback
 // @source       https://github.com/hobbyfang/javOldDriver
 // @description  基于老司机最后一版修改自用,修复预览图来源,添加预览图开关, 修复javdb,javlibrary挊表格的插入
@@ -3067,7 +3067,7 @@ nong: {
                 // 将 Flex 容器放入原先的 <td> 中，清空原 td 内容
                 $infoTd.empty().append(flexContainer);
             }
-        }, 
+        },
         javstore: {
             type: 0,
             re: /.*javstore.*/,
@@ -3456,6 +3456,50 @@ nong: {
                  var p = document.createElement('p');
                  p.textContent = 'Loading';
                  p.id = 'notice';
+                 var btn = document.createElement('a');
+                 btn.id = 'nong-refresh-btn';
+                 btn.textContent = '🔄 刷新';
+                 btn.href = '#';
+                 btn.style.cssText = 'display:none;margin-left:8px;color:#e74c3c;font-weight:bold;cursor:pointer;';
+                 btn.title = '网络加载失败，点击重试当前站点';
+                 btn.addEventListener('click', (e) => {
+                     e.preventDefault();
+                     // 只替换表格本身，不删除外层容器，避免 proc 重复插入导致布局下移
+                     var oldTab = document.getElementById('nong-table-new');
+                     if (oldTab) {
+                         var newTab = thirdparty.nong.magnet_table.full();
+                         oldTab.parentNode.replaceChild(newTab, oldTab);
+                         var nong_refresh_timer2 = null;
+                         thirdparty.nong.search_engines.cur_engine(thirdparty.nong.main.cur_vid, (src, data) => {
+                             if (nong_refresh_timer2) { clearTimeout(nong_refresh_timer2); nong_refresh_timer2 = null; }
+                             if (data.length === 0) {
+                                 let url = thirdparty.nong.search_engines.full_url;
+                                 var noticeEl2 = document.getElementById('notice');
+                                 if (noticeEl2 && noticeEl2.firstChild) { noticeEl2.firstChild.textContent = 'No search result! '; }
+                                 $('#nong-table-new #notice').append('<a href="' + url + '" target="_blank" style="color:red;">&nbsp;Go</a>');
+                                 var rb2 = document.getElementById('nong-refresh-btn');
+                                 if (rb2) { rb2.style.display = 'inline'; }
+                             } else {
+                                 thirdparty.nong.magnet_table.updata_table(src, data, 'full');
+                                 var y2 = $('#jav-nong-head th')[1].firstChild;
+                                 y2.href = thirdparty.nong.search_engines.full_url;
+                             }
+                         });
+                         nong_refresh_timer2 = setTimeout(() => {
+                             var rb2 = document.getElementById('nong-refresh-btn');
+                             if (rb2 && rb2.style.display === 'none') {
+                                 var noticeEl2 = document.getElementById('notice');
+                                 if (noticeEl2) { noticeEl2.firstChild.textContent = '加载超时，请检查网络或 '; }
+                                 rb2.style.display = 'inline';
+                             }
+                         }, 15000);
+                     } else {
+                         // 找不到旧表格时才走完整流程
+                         document.querySelectorAll('#nong-table-new, .nong-javdb-wrapper').forEach(el => el.remove());
+                         thirdparty.nong.searchMagnetRun();
+                     }
+                 });
+                 p.appendChild(btn);
                  a.appendChild(p);
                  return a;
              },
@@ -3706,14 +3750,21 @@ nong: {
                          if (GM_getValue('search_index', null) === null) {
                              GM_setValue('search_index', Object.keys(thirdparty.nong.resource_sites)[0]);
                          }
+                         var nong_refresh_timer = null;
                          thirdparty.nong.search_engines.cur_engine(main.cur_vid, (src, data) => {
                              //callback
+                             if (nong_refresh_timer) { clearTimeout(nong_refresh_timer); nong_refresh_timer = null; }
                              if (data.length === 0) {
                                  let url = thirdparty.nong.search_engines.full_url;
-                                 $('#nong-table-new #notice').text('No search result! '); //todo 181224
+                                 // 注意：不能用 .text() 会清除子节点（包括刷新按钮），改用 firstChild 操作文字节点
+                                 var noticeEl0 = document.getElementById('notice');
+                                 if (noticeEl0 && noticeEl0.firstChild) { noticeEl0.firstChild.textContent = 'No search result! '; }
                                  $('#nong-table-new #notice').append(
                                      `<a href="${url}" target="_blank" style="color: red;">&nbsp;Go</a>`,
                                  ); //todo 190630
+                                 // 无结果时也显示刷新按钮（可能是网络波动导致）
+                                 var refreshBtn = document.getElementById('nong-refresh-btn');
+                                 if (refreshBtn) { refreshBtn.style.display = 'inline'; }
                              } else {
                                  thirdparty.nong.magnet_table.updata_table(src, data, 'full');
                                  /*display search url*/
@@ -3721,6 +3772,15 @@ nong: {
                                  y.href = thirdparty.nong.search_engines.full_url;
                              }
                          });
+                         // 超时检测：若15秒内回调未触发，说明网络异常，显示刷新按钮
+                         nong_refresh_timer = setTimeout(() => {
+                             var refreshBtn = document.getElementById('nong-refresh-btn');
+                             if (refreshBtn && refreshBtn.style.display === 'none') {
+                                 var noticeEl = document.getElementById('notice');
+                                 if (noticeEl) { noticeEl.firstChild.textContent = '加载超时，请检查网络或 '; }
+                                 refreshBtn.style.display = 'inline';
+                             }
+                         }, 15000);
                      }
                  }
                  break;
