@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         磁力&电驴链接助手
 // @namespace    https://github.com/ZiPenOk
-// @version      3.3.3
+// @version      3.4.0
 // @description  点击按钮显示绿色勾（验车按钮除外），支持复制（自动精简链接，保留xt和dn并提取番号）、推送到qB/115，新增磁力信息验车功能，截图轮播。现增强：支持FTP链接、纯哈希值转磁力、文本链接着色。
 // @icon         https://uxwing.com/wp-content/themes/uxwing/download/seo-marketing/magnet-magnetic-icon.png
 // @match        *://*/*
@@ -181,7 +181,7 @@
         .check-car-close:hover {
             color: #ff4080;
         }
-        .info div {
+        .check-car-panel .info div {
             background: #fff;
             padding: 8px 12px;
             border-radius: 8px;
@@ -317,7 +317,7 @@
                 background-color: #2d2d2d;
                 color: #e0e0e0;
             }
-            .info div {
+            .check-car-panel .info div {
                 background: #3a3a3a;
                 color: #e0e0e0;
             }
