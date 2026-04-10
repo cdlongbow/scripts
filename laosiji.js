@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         JAV老司机-改
-// @namespace    https://sleazyfork.org/zh-CN/users/25794
-// @version      4.4
-// @supportURL   https://sleazyfork.org/zh-CN/scripts/25781/feedback
-// @source       https://github.com/hobbyfang/javOldDriver
+// @namespace    https://github.com/ZiPenOk/scripts
+// @version      4.5
+// @supportURL   https://github.com/ZiPenOk/scripts/issues
+// @source       https://github.com/ZiPenOk/scripts
 // @description  基于老司机最后一版修改自用,修复预览图来源,添加预览图开关, 修复javdb,javlibrary挊表格的插入
 // @author       Hobby (ZiPenOK fix)
 // @require      https://raw.githubusercontent.com/Tampermonkey/utils/refs/heads/main/requires/gh_2215_make_GM_xhr_more_parallel_again.js
@@ -3100,35 +3100,6 @@ nong: {
 
                 if (coverColumn && infoPanel) {
 
-                    coverColumn.style.flex = '0 0 800px';
-                    coverColumn.style.maxWidth = '800px';
-
-                    const flexContainer = document.createElement('div');
-                    flexContainer.style.cssText = `
-                        display: flex;
-                        gap: 20px;
-                        margin-top: 15px;
-                        align-items: flex-start;
-                    `;
-
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'nong-javdb-wrapper';
-                    wrapper.style.cssText = `
-                        flex: 1;
-                        min-width: 420px;
-                        padding: 14px 16px;
-                        background: #fafafa;
-                        border: 1px solid #ebebeb;
-                        border-radius: 6px;
-                    `;
-
-                    wrapper.innerHTML = `
-                        <h3 style="margin:0 0 12px 0;color:#0066cc;font-size:16.5px;">
-                            🔥 老司机挊 - 多引擎磁链搜索 + 115离线
-                        </h3>
-                    `;
-                    wrapper.appendChild(main.cur_tab);
-
                     const style = document.createElement('style');
                     style.textContent = `
                         #nong-table-new .magnet-name {
@@ -3138,15 +3109,62 @@ nong: {
                             text-overflow: ellipsis !important;
                         }
                         #nong-table-new td { vertical-align: middle !important; }
+                        /* 防止介绍列标签过多撑宽挤压磁力表格 */
+                        .movie-panel-info { overflow: hidden; word-break: break-word; }
+                        .movie-panel-info .panel-block { flex-wrap: wrap; }
+                        .movie-panel-info .value { overflow: hidden; word-break: break-word; }
                     `;
                     document.head.appendChild(style);
 
-                    const parent = infoPanel.parentElement;
-                    parent.style.display = 'flex';
-                    parent.style.gap = '20px';
+                    // 外层占位容器：参与 flex 均分，本身不显示边框
+                    const wrapperSlot = document.createElement('div');
+                    wrapperSlot.style.cssText = `
+                        flex: 1 1 0;
+                        min-width: 0;
+                        align-self: flex-start;
+                    `;
 
+                    // 内层 wrapper：只跟随内容宽度，不被 flex 撑开
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'nong-javdb-wrapper';
+                    wrapper.style.cssText = `
+                        display: inline-block;
+                        padding: 14px 16px;
+                        background: #fafafa;
+                        border: 1px solid #ebebeb;
+                        border-radius: 6px;
+                    `;
+                    wrapper.innerHTML = `
+                        <h3 style="margin:0 0 12px 0;color:#0066cc;font-size:16.5px;">
+                            🔥 老司机挊 - 多引擎磁链搜索 + 115离线
+                        </h3>
+                    `;
+                    wrapper.appendChild(main.cur_tab);
+                    wrapperSlot.appendChild(wrapper);
+
+                    // 三列统一放入同一个 flexContainer，各自 flex:1 均分屏幕宽度
+                    coverColumn.style.flex = '1 1 0';
+                    coverColumn.style.minWidth = '0';
+                    coverColumn.style.maxWidth = '';
+
+                    infoPanel.style.flex = '1 1 0';
+                    infoPanel.style.minWidth = '0';
+                    infoPanel.style.overflow = 'hidden';
+                    infoPanel.style.wordBreak = 'break-word';
+
+                    const parent = coverColumn.parentElement;
+                    const flexContainer = document.createElement('div');
+                    flexContainer.style.cssText = `
+                        display: flex;
+                        gap: 20px;
+                        align-items: flex-start;
+                        width: 100%;
+                    `;
+
+                    // 将封面、介绍、磁力表格全部移入同一层 flexContainer
+                    flexContainer.appendChild(coverColumn);
                     flexContainer.appendChild(infoPanel);
-                    flexContainer.appendChild(wrapper);
+                    flexContainer.appendChild(wrapperSlot);
                     parent.appendChild(flexContainer);
 
                 } else {
