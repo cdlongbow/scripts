@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.5.3
+// @version      5.5.4
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -123,7 +123,7 @@
                 madou: { list: false, detail: true },
                 javrate: { list: false, detail: true },
                 '169bbs': { list: true, detail: true },
-                'hjd2048': { list: true, detail: true }, 
+                'hjd2048': { list: true, detail: true },
                 'missav': { list: true, detail: true }
             };
             for (let site in defaults) {
@@ -280,8 +280,13 @@
         .modern .settings-content {
             padding: 20px; max-height: 70vh; overflow-y: auto;
             display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+            align-items: stretch;
         }
         .modern .left-column, .modern .right-column { display: flex; flex-direction: column; gap: 16px; }
+        .modern .left-column .settings-card:last-child { flex: 1; }
+        .modern .right-column { flex: 1; }
+        .modern .right-column .settings-card { flex: 1; display: flex; flex-direction: column; }
+        .modern .right-column .settings-card .card-body { flex: 1; }
         .modern .settings-card {
             background: #ffffffde; backdrop-filter: blur(2px); border-radius: 12px; padding: 16px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.04); border: 1px solid var(--border);
@@ -473,7 +478,7 @@
             flex-shrink: 0;
             margin-left: 8px;
         }
-        
+
         /* MissAV 列表页高亮 */
         .missav .thumbnail.group.emby-highlight {
             outline: 4px solid ${Config.highlightColor} !important;
@@ -2439,8 +2444,8 @@
 
                 this.setupObserver();
             }
-        }), 
-        
+        }),
+
         'hjd2048': Object.assign(Object.create(BaseProcessor), {
             listSelector: 'tr.tr3.t_one',   // 每个帖子所在的行
 
@@ -2546,13 +2551,13 @@
 
                 this.setupObserver();
             }
-        }), 
-        
+        }),
+
         missav: Object.assign(Object.create(BaseProcessor), {
             listSelector: '.thumbnail.group',
 
             extractCode: item => {
-                const titleEl = item.querySelector('.my-2 a') || 
+                const titleEl = item.querySelector('.my-2 a') ||
                                item.querySelector('a[alt]') ||
                                item.querySelector('a');
                 return titleEl ? extractCodeFromText(titleEl.textContent || titleEl.getAttribute('alt') || '') : null;
