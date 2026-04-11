@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         番号跳转加预览图
 // @namespace    https://github.com/ZiPenOk
-// @version      5.0.0
+// @version      5.1.0
 // @icon         https://javdb.com/favicon.ico
 // @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择。新增 MissAV 站点适配。增加ProjectJav预览图来源。
 // @author       ZiPenOk
@@ -1242,270 +1242,369 @@
         const existing = document.getElementById('jav-jump-settings-panel');
         if (existing) existing.remove();
 
+        // ── 数据准备 ──────────────────────────────────────────────────────
+        const currentCacheEnabled  = Settings.getPreviewCacheEnabled();
+        const currentSearchEngine  = GM_getValue('default_search_engine', 0);
+
+        const siteIcons = {
+            sukebei: '🔵', '169bbs': '🟠', supjav: '🟣', emby: '🎬',
+            javbus: '🚌', javdb: '💿', javlibrary: '📚', javrate: '⭐',
+            sehuatang: '🌺', hjd2048: '🔢', missav: '🌸', jable: '📺'
+        };
+
+        // ── 遮罩 ──────────────────────────────────────────────────────────
         const overlay = document.createElement('div');
         overlay.id = 'jav-jump-settings-overlay';
         overlay.style.cssText = `
-            position:fixed;
-            top:0; left:0; width:100%; height:100%;
-            background:rgba(0,0,0,0.5);
+            position:fixed; inset:0;
+            background:rgba(15,15,20,0.65);
+            backdrop-filter:blur(6px);
             z-index:10000001;
-            display:flex;
-            justify-content:center;
-            align-items:center;
+            display:flex; justify-content:center; align-items:center;
+            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
         `;
+        overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 
+        // ── 面板容器 ──────────────────────────────────────────────────────
         const panel = document.createElement('div');
         panel.id = 'jav-jump-settings-panel';
         panel.style.cssText = `
-            background:#fff;
-            color:#333;
-            border-radius:8px;
-            padding:20px 30px;
-            max-width:950px;
-            width:90%;
-            max-height:80vh;
-            overflow:auto;
-            box-shadow:0 4px 20px rgba(0,0,0,0.3);
-            font-family:Arial,sans-serif;
+            background:#ffffff;
+            border-radius:16px;
+            width:min(720px,94vw);
+            max-height:88vh;
+            display:flex; flex-direction:column;
+            box-shadow:0 24px 64px rgba(0,0,0,0.28);
+            overflow:hidden;
         `;
 
-        panel.innerHTML = '<h2 style="margin-top:0; text-align:center;">⚙️ 番号跳转设置</h2>';
-
-        // ----- 预览图设置行（只保留缓存开关）-----
-        const rowDiv = document.createElement('div');
-        rowDiv.style.cssText = `
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 30px;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            white-space: nowrap;
-            width: 100%;
-            box-sizing: border-box;
-            padding: 2px 5px;
-        `;
-
-        // 缓存开关块
-        const cacheDiv = document.createElement('div');
-        cacheDiv.style.cssText = 'display: flex; align-items: center; gap: 10px; flex-shrink: 0;';
-        const cacheLabel = document.createElement('span');
-        cacheLabel.style.fontWeight = 'bold';
-        cacheLabel.textContent = '启用预览图缓存:';
-        const cacheCheckbox = document.createElement('input');
-        cacheCheckbox.type = 'checkbox';
-        cacheCheckbox.id = 'preview-cache-checkbox';
-        cacheCheckbox.className = 'mini-switch';
-        cacheDiv.appendChild(cacheLabel);
-        cacheDiv.appendChild(cacheCheckbox);
-
-        rowDiv.appendChild(cacheDiv);
-        panel.appendChild(rowDiv);
-
-        // 设置当前值
-        cacheCheckbox.checked = Settings.getPreviewCacheEnabled();
-
-        //默认搜索引擎
-        const searchEngineRow = document.createElement('div');
-        searchEngineRow.style.cssText = `
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-        `;
-
-        const engineLabel = document.createElement('span');
-        engineLabel.style.fontWeight = 'bold';
-        engineLabel.textContent = '默认搜索引擎:';
-
-        const engineSelect = document.createElement('select');
-        engineSelect.id = 'default-search-engine';
-        engineSelect.style.cssText = 'padding: 5px; border-radius: 4px; min-width: 200px;';
-
-        SearchEngines.forEach((engine, index) => {
-            const option = document.createElement('option');
-            option.value = index;
-            option.textContent = engine.name;
-            engineSelect.appendChild(option);
-        });
-
-        // 设置当前值
-        const currentDefault = GM_getValue('default_search_engine', 0);
-        engineSelect.value = currentDefault;
-
-        searchEngineRow.appendChild(engineLabel);
-        searchEngineRow.appendChild(engineSelect);
-        panel.insertBefore(searchEngineRow, panel.querySelector('style'));
-
-        // ----- 表格样式 -----
+        // ── 内联样式 ──────────────────────────────────────────────────────
         const style = document.createElement('style');
         style.textContent = `
-            .toggle-switch {
-                position: relative;
-                display: inline-block;
-                width: 50px;
-                height: 24px;
+            #jav-jump-settings-panel * { box-sizing:border-box; }
+
+            /* Header */
+            .jjs-header {
+                display:flex; align-items:center; justify-content:space-between;
+                padding:18px 24px 16px;
+                border-bottom:1px solid #f0f0f0;
+                flex-shrink:0;
             }
-            .toggle-switch input {
-                opacity: 0;
-                width: 0;
-                height: 0;
+            .jjs-title {
+                font-size:17px; font-weight:700; color:#1a1a2e;
+                display:flex; align-items:center; gap:8px;
             }
-            .toggle-slider {
-                position: absolute;
-                cursor: pointer;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background-color: #ccc;
-                transition: .4s;
-                border-radius: 24px;
+            .jjs-title span { font-size:20px; }
+            .jjs-close {
+                width:30px; height:30px; border-radius:50%; border:none;
+                background:#f0f0f0; color:#666; font-size:16px;
+                cursor:pointer; display:flex; align-items:center; justify-content:center;
+                transition:background .15s;
             }
-            .toggle-slider:before {
-                position: absolute;
-                content: "";
-                height: 18px;
-                width: 18px;
-                left: 3px;
-                bottom: 3px;
-                background-color: white;
-                transition: .4s;
-                border-radius: 50%;
+            .jjs-close:hover { background:#e0e0e0; color:#333; }
+
+            /* 滚动内容区 */
+            .jjs-body { padding:20px 24px; overflow-y:auto; flex:1; }
+
+            /* 分区标题 */
+            .jjs-section-title {
+                font-size:11px; font-weight:700; color:#9ca3af;
+                letter-spacing:1px; text-transform:uppercase;
+                margin:0 0 10px; padding-left:2px;
             }
-            input:checked + .toggle-slider {
-                background-color: #2196F3;
+
+            /* 通用卡片 */
+            .jjs-card {
+                background:#fafafa;
+                border:1px solid #ebebeb;
+                border-radius:12px;
+                padding:16px;
+                margin-bottom:16px;
             }
-            input:checked + .toggle-slider:before {
-                transform: translateX(26px);
+
+            /* 配置行 */
+            .jjs-row {
+                display:flex; align-items:center; justify-content:space-between;
+                gap:16px; padding:10px 0;
+                border-bottom:1px solid #f3f3f3;
             }
-            .settings-table {
-                width: 100%;
-                border-collapse: collapse;
-                margin: 20px 0;
+            .jjs-row:last-child { border-bottom:none; padding-bottom:0; }
+            .jjs-row:first-child { padding-top:0; }
+            .jjs-row-label {
+                font-size:14px; color:#374151; font-weight:500;
             }
-            .settings-table th {
-                background-color: #f2f2f2;
-                padding: 12px 8px;
-                text-align: center;
-                font-weight: bold;
-                border: 1px solid #ddd;
+            .jjs-row-desc {
+                font-size:12px; color:#9ca3af; margin-top:2px;
             }
-            .settings-table td {
-                padding: 10px 8px;
-                text-align: center;
-                border: 1px solid #ddd;
+
+            /* select 样式 */
+            .jjs-select {
+                padding:6px 10px; border-radius:8px;
+                border:1px solid #d1d5db; background:#fff;
+                font-size:13px; color:#374151; cursor:pointer;
+                min-width:130px; outline:none;
+                transition:border-color .15s;
             }
-            .settings-table td:first-child {
-                font-weight: bold;
-                background-color: #f9f9f9;
+            .jjs-select:hover { border-color:#6366f1; }
+            .jjs-select:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.12); }
+
+            /* toggle 开关 */
+            .jjs-toggle { position:relative; display:inline-block; width:40px; height:22px; flex-shrink:0; }
+            .jjs-toggle input { opacity:0; width:0; height:0; }
+            .jjs-toggle-track {
+                position:absolute; inset:0; border-radius:11px;
+                background:#d1d5db; cursor:pointer; transition:background .2s;
             }
+            .jjs-toggle input:checked + .jjs-toggle-track { background:#6366f1; }
+            .jjs-toggle-track::before {
+                content:''; position:absolute;
+                width:16px; height:16px; border-radius:50%;
+                background:#fff; top:3px; left:3px;
+                transition:transform .2s;
+                box-shadow:0 1px 3px rgba(0,0,0,.2);
+            }
+            .jjs-toggle input:checked + .jjs-toggle-track::before { transform:translateX(18px); }
+
+            /* 站点表格 */
+            .jjs-sites-table {
+                width:100%; border-collapse:separate; border-spacing:0;
+                font-size:13px;
+            }
+            .jjs-sites-table thead th {
+                padding:8px 12px; text-align:left;
+                font-size:11px; font-weight:700; color:#9ca3af;
+                letter-spacing:.8px; text-transform:uppercase;
+                border-bottom:1px solid #ebebeb;
+                background:transparent;
+            }
+            .jjs-sites-table thead th:last-child { text-align:center; }
+            .jjs-sites-table tbody tr { transition:background .12s; }
+            .jjs-sites-table tbody tr:hover { background:#f5f3ff; }
+            .jjs-sites-table tbody td {
+                padding:9px 12px;
+                border-bottom:1px solid #f3f3f3;
+                vertical-align:middle;
+            }
+            .jjs-sites-table tbody tr:last-child td { border-bottom:none; }
+            .jjs-site-icon { font-size:16px; margin-right:7px; line-height:1; }
+            .jjs-site-name { font-weight:500; color:#374151; }
+            .jjs-site-toggle-cell { text-align:center; }
+            .jjs-badge-on {
+                display:inline-flex; align-items:center; gap:4px;
+                padding:2px 8px; border-radius:20px;
+                background:#eef2ff; color:#4f46e5;
+                font-size:11px; font-weight:600;
+            }
+            .jjs-badge-off {
+                display:inline-flex; align-items:center; gap:4px;
+                padding:2px 8px; border-radius:20px;
+                background:#f3f4f6; color:#9ca3af;
+                font-size:11px; font-weight:600;
+            }
+            .jjs-badge-dot {
+                width:6px; height:6px; border-radius:50%;
+                background:currentColor; flex-shrink:0;
+            }
+
+            /* Footer */
+            .jjs-footer {
+                display:flex; align-items:center; justify-content:flex-end;
+                gap:10px; padding:14px 24px;
+                border-top:1px solid #f0f0f0;
+                flex-shrink:0;
+            }
+            .jjs-btn {
+                padding:8px 20px; border-radius:8px; border:none;
+                font-size:14px; font-weight:600; cursor:pointer;
+                transition:all .15s;
+            }
+            .jjs-btn-cancel {
+                background:#f3f4f6; color:#6b7280;
+            }
+            .jjs-btn-cancel:hover { background:#e5e7eb; }
+            .jjs-btn-save {
+                background:linear-gradient(135deg,#6366f1,#4f46e5);
+                color:#fff; box-shadow:0 2px 8px rgba(99,102,241,.35);
+            }
+            .jjs-btn-save:hover { box-shadow:0 4px 14px rgba(99,102,241,.45); transform:translateY(-1px); }
         `;
         panel.appendChild(style);
 
-        // ----- 站点表格 -----
-        const table = document.createElement('table');
-        table.className = 'settings-table';
+        // ── Header ────────────────────────────────────────────────────────
+        const header = document.createElement('div');
+        header.className = 'jjs-header';
+        header.innerHTML = `
+            <div class="jjs-title"><span>⚙️</span> 番号跳转设置</div>
+            <button class="jjs-close" id="jjs-close-btn">✕</button>
+        `;
+        panel.appendChild(header);
+        header.querySelector('#jjs-close-btn').onclick = () => overlay.remove();
 
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        const siteTh = document.createElement('th'); siteTh.textContent = '站点'; headerRow.appendChild(siteTh);
-        const features = Settings.getAllFeatures();
-        features.forEach(feature => {
-            const th = document.createElement('th');
-            th.textContent = Settings.getFeatureName(feature);
-            headerRow.appendChild(th);
+        // ── Body ──────────────────────────────────────────────────────────
+        const body = document.createElement('div');
+        body.className = 'jjs-body';
+
+        // —— 通用配置卡片 ——
+        body.insertAdjacentHTML('beforeend', '<div class="jjs-section-title">通用配置</div>');
+
+        const configCard = document.createElement('div');
+        configCard.className = 'jjs-card';
+
+        // 预览图缓存行
+        const cacheRow = document.createElement('div');
+        cacheRow.className = 'jjs-row';
+        cacheRow.innerHTML = `
+            <div>
+                <div class="jjs-row-label">预览图缓存</div>
+                <div class="jjs-row-desc">会话内缓存图片地址，减少重复请求</div>
+            </div>
+        `;
+        const cacheToggleWrap = document.createElement('label');
+        cacheToggleWrap.className = 'jjs-toggle';
+        const cacheCheckbox = document.createElement('input');
+        cacheCheckbox.type = 'checkbox';
+        cacheCheckbox.id = 'preview-cache-checkbox';
+        cacheCheckbox.checked = currentCacheEnabled;
+        const cacheTrack = document.createElement('span');
+        cacheTrack.className = 'jjs-toggle-track';
+        cacheToggleWrap.appendChild(cacheCheckbox);
+        cacheToggleWrap.appendChild(cacheTrack);
+        cacheRow.appendChild(cacheToggleWrap);
+        configCard.appendChild(cacheRow);
+
+        // 默认搜索引擎行
+        const engineRow = document.createElement('div');
+        engineRow.className = 'jjs-row';
+        engineRow.innerHTML = `
+            <div>
+                <div class="jjs-row-label">默认搜索引擎</div>
+                <div class="jjs-row-desc">点击搜索按钮时默认使用的引擎</div>
+            </div>
+        `;
+        const engineSelect = document.createElement('select');
+        engineSelect.id = 'default-search-engine';
+        engineSelect.className = 'jjs-select';
+        SearchEngines.forEach((e, i) => {
+            const opt = document.createElement('option');
+            opt.value = i; opt.textContent = e.name;
+            engineSelect.appendChild(opt);
         });
-        thead.appendChild(headerRow);
-        table.appendChild(thead);
+        engineSelect.value = currentSearchEngine;
+        engineRow.appendChild(engineSelect);
+        configCard.appendChild(engineRow);
+
+        body.appendChild(configCard);
+
+        // —— 站点开关卡片 ——
+        body.insertAdjacentHTML('beforeend', '<div class="jjs-section-title">站点管理</div>');
+
+        const sitesCard = document.createElement('div');
+        sitesCard.className = 'jjs-card';
+        sitesCard.style.padding = '0';
+        sitesCard.style.overflow = 'hidden';
+
+        const table = document.createElement('table');
+        table.className = 'jjs-sites-table';
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th>站点</th>
+                    <th style="text-align:center;">状态</th>
+                    <th style="text-align:center;">开关</th>
+                </tr>
+            </thead>
+        `;
 
         const tbody = document.createElement('tbody');
         Sites.forEach(site => {
-            const row = document.createElement('tr');
-            const siteCell = document.createElement('td');
-            siteCell.textContent = site.name;
-            row.appendChild(siteCell);
-
             const settings = Settings.get(site.id);
+            const defaultVal = Settings.defaults[site.id]?.enabled ?? true;
+            const isEnabled = settings.hasOwnProperty('enabled') ? settings.enabled : defaultVal;
+            const icon = siteIcons[site.id] || '🌐';
 
-            features.forEach(feature => {
-                const cell = document.createElement('td');
-                const label = document.createElement('label');
-                label.className = 'toggle-switch';
+            const tr = document.createElement('tr');
 
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.dataset.site = site.id;
-                checkbox.dataset.feature = feature;
-                const defaultValue = Settings.defaults[site.id] ? Settings.defaults[site.id][feature] : true;
-                checkbox.checked = settings.hasOwnProperty(feature) ? settings[feature] : defaultValue;
+            // 站点名列
+            const nameTd = document.createElement('td');
+            nameTd.innerHTML = `<span class="jjs-site-icon">${icon}</span><span class="jjs-site-name">${site.name}</span>`;
+            tr.appendChild(nameTd);
 
-                const slider = document.createElement('span');
-                slider.className = 'toggle-slider';
+            // 状态徽章列
+            const badgeTd = document.createElement('td');
+            badgeTd.className = 'jjs-site-toggle-cell';
+            const badge = document.createElement('span');
+            badge.className = isEnabled ? 'jjs-badge-on' : 'jjs-badge-off';
+            badge.innerHTML = `<span class="jjs-badge-dot"></span>${isEnabled ? '启用' : '停用'}`;
+            badgeTd.appendChild(badge);
+            tr.appendChild(badgeTd);
 
-                label.appendChild(checkbox);
-                label.appendChild(slider);
-                cell.appendChild(label);
-                row.appendChild(cell);
+            // 开关列
+            const toggleTd = document.createElement('td');
+            toggleTd.className = 'jjs-site-toggle-cell';
+            const toggleLabel = document.createElement('label');
+            toggleLabel.className = 'jjs-toggle';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.dataset.site = site.id;
+            checkbox.dataset.feature = 'enabled';
+            checkbox.checked = isEnabled;
+            const track = document.createElement('span');
+            track.className = 'jjs-toggle-track';
+            toggleLabel.appendChild(checkbox);
+            toggleLabel.appendChild(track);
+            toggleTd.appendChild(toggleLabel);
+            tr.appendChild(toggleTd);
+
+            // 开关联动徽章
+            checkbox.addEventListener('change', () => {
+                badge.className = checkbox.checked ? 'jjs-badge-on' : 'jjs-badge-off';
+                badge.innerHTML = `<span class="jjs-badge-dot"></span>${checkbox.checked ? '启用' : '停用'}`;
             });
 
-            tbody.appendChild(row);
+            tbody.appendChild(tr);
         });
-        table.appendChild(tbody);
-        panel.appendChild(table);
 
-        // ----- 按钮 -----
-        const btnDiv = document.createElement('div');
-        btnDiv.style.display = 'flex';
-        btnDiv.style.justifyContent = 'center';
-        btnDiv.style.gap = '20px';
-        btnDiv.style.marginTop = '20px';
+        table.appendChild(tbody);
+        sitesCard.appendChild(table);
+        body.appendChild(sitesCard);
+        panel.appendChild(body);
+
+        // ── Footer ────────────────────────────────────────────────────────
+        const footer = document.createElement('div');
+        footer.className = 'jjs-footer';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'jjs-btn jjs-btn-cancel';
+        cancelBtn.textContent = '取消';
+        cancelBtn.onclick = () => overlay.remove();
 
         const saveBtn = document.createElement('button');
+        saveBtn.className = 'jjs-btn jjs-btn-save';
         saveBtn.textContent = '保存设置';
-        saveBtn.style.cssText = 'padding:8px 20px;background:#28a745;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:16px;';
-        saveBtn.onmouseover = () => saveBtn.style.background = '#218838';
-        saveBtn.onmouseout = () => saveBtn.style.background = '#28a745';
         saveBtn.onclick = () => {
-            // 保存每个站点的开关
-            const checkboxes = panel.querySelectorAll('input[type="checkbox"]');
+            // 站点开关
             const newSettingsMap = {};
-            checkboxes.forEach(cb => {
-                if (!cb.dataset.site) return; // 过滤掉预览图缓存开关
-                const siteId = cb.dataset.site;
-                const feature = cb.dataset.feature;
-                if (!newSettingsMap[siteId]) newSettingsMap[siteId] = {};
-                newSettingsMap[siteId][feature] = cb.checked;
+            panel.querySelectorAll('input[data-site]').forEach(cb => {
+                const sid = cb.dataset.site;
+                const feat = cb.dataset.feature;
+                if (!newSettingsMap[sid]) newSettingsMap[sid] = {};
+                newSettingsMap[sid][feat] = cb.checked;
             });
+            Object.keys(newSettingsMap).forEach(sid => Settings.set(sid, newSettingsMap[sid]));
 
-            // 保存预览图缓存设置
-            const cacheEnabled = document.getElementById('preview-cache-checkbox').checked;
-            Settings.setPreviewCacheEnabled(cacheEnabled);
+            // 预览图缓存
+            Settings.setPreviewCacheEnabled(document.getElementById('preview-cache-checkbox').checked);
 
-            // 保存默认搜索引擎
-            const selectedEngine = document.getElementById('default-search-engine').value;
-            Settings.setDefaultSearchEngine(parseInt(selectedEngine));
-
-            Object.keys(newSettingsMap).forEach(siteId => {
-                Settings.set(siteId, newSettingsMap[siteId]);
-            });
+            // 默认搜索引擎
+            Settings.setDefaultSearchEngine(parseInt(document.getElementById('default-search-engine').value));
 
             overlay.remove();
             location.reload();
         };
 
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = '取消';
-        cancelBtn.style.cssText = 'padding:8px 20px;background:#6c757d;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:16px;';
-        cancelBtn.onmouseover = () => cancelBtn.style.background = '#5a6268';
-        cancelBtn.onmouseout = () => cancelBtn.style.background = '#6c757d';
-        cancelBtn.onclick = () => overlay.remove();
-
-        btnDiv.appendChild(saveBtn);
-        btnDiv.appendChild(cancelBtn);
-        panel.appendChild(btnDiv);
+        footer.appendChild(cancelBtn);
+        footer.appendChild(saveBtn);
+        panel.appendChild(footer);
 
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
