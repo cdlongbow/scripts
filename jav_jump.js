@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         番号跳转加预览图
 // @namespace    https://github.com/ZiPenOk
-// @version      4.9.6
+// @version      5.0.0
 // @icon         https://javdb.com/favicon.ico
-// @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择。新增 MissAV 站点适配（兼容 Alpine.js 事件系统）
+// @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择。新增 MissAV 站点适配。增加ProjectJav预览图来源。
 // @author       ZiPenOk
 // @match        *://sukebei.nyaa.si/*
 // @match        *://169bbs.com/*
@@ -389,11 +389,44 @@
 
             const img = document.createElement('img');
             img.className = 'preview-img';
-            img.src = imgUrl;
             img.onclick = (e) => {
                 e.stopPropagation();
                 img.classList.toggle('zoomed');
             };
+
+            // 带防盗链绕过的图片加载：projectjav 需要 Referer，用 blob URL 规避跨域限制
+            let currentBlobUrl = null;
+            const loadImg = (url, src) => {
+                // 释放上一个 blob URL
+                if (currentBlobUrl) {
+                    URL.revokeObjectURL(currentBlobUrl);
+                    currentBlobUrl = null;
+                }
+                if (src === 'projectjav') {
+                    img.src = '';
+                    GM_xmlhttpRequest({
+                        method: 'GET',
+                        url,
+                        responseType: 'blob',
+                        headers: {
+                            'Referer': 'https://projectjav.com/',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                        },
+                        onload: r => {
+                            if (r.response) {
+                                currentBlobUrl = URL.createObjectURL(r.response);
+                                img.src = currentBlobUrl;
+                            }
+                        },
+                        onerror: () => { img.src = url; } // 降级直接加载
+                    });
+                } else {
+                    img.src = url;
+                }
+            };
+
+            // 初始加载
+            loadImg(imgUrl, source);
 
             const toolbar = document.createElement('div');
             toolbar.className = 'preview-toolbar';
@@ -415,35 +448,30 @@
             };
 
             const setActiveSource = (activeSource) => {
-                if (activeSource === 'javfree') {
-                    javfreeBtn.classList.add('active');
-                    javstoreBtn.classList.remove('active');
-                } else if (activeSource === 'javstore') {
-                    javstoreBtn.classList.add('active');
-                    javfreeBtn.classList.remove('active');
-                }
+                javfreeBtn.classList.toggle('active', activeSource === 'javfree');
+                projectjavBtn.classList.toggle('active', activeSource === 'projectjav');
+                javstoreBtn.classList.toggle('active', activeSource === 'javstore');
             };
 
             const javfreeBtn = createButton('javfree', '🟢', 'javfree', async (e) => {
                 e.stopPropagation();
                 const newUrl = await Thumbnail.javfree(code);
-                if (newUrl) {
-                    img.src = newUrl;
-                    setActiveSource('javfree');
-                } else {
-                    alert('javfree 未找到预览图');
-                }
+                if (newUrl) { loadImg(newUrl, 'javfree'); setActiveSource('javfree'); }
+                else alert('javfree 未找到预览图');
+            });
+
+            const projectjavBtn = createButton('projectjav', '🟡', 'javstore', async (e) => {
+                e.stopPropagation();
+                const newUrl = await Thumbnail.projectjav(code);
+                if (newUrl) { loadImg(newUrl, 'projectjav'); setActiveSource('projectjav'); }
+                else alert('projectjav 未找到预览图');
             });
 
             const javstoreBtn = createButton('javstore', '🔴', 'javstore', async (e) => {
                 e.stopPropagation();
                 const newUrl = await Thumbnail.javstore(code);
-                if (newUrl) {
-                    img.src = newUrl;
-                    setActiveSource('javstore');
-                } else {
-                    alert('javstore 未找到预览图');
-                }
+                if (newUrl) { loadImg(newUrl, 'javstore'); setActiveSource('javstore'); }
+                else alert('javstore 未找到预览图');
             });
 
             const newWindowBtn = createButton('新窗口', '🌐', 'action', (e) => {
@@ -457,23 +485,30 @@
             });
 
             if (source === 'javfree') javfreeBtn.classList.add('active');
+            else if (source === 'projectjav') projectjavBtn.classList.add('active');
             else if (source === 'javstore') javstoreBtn.classList.add('active');
 
             toolbar.appendChild(javfreeBtn);
+            toolbar.appendChild(projectjavBtn);
             toolbar.appendChild(javstoreBtn);
             toolbar.appendChild(newWindowBtn);
             toolbar.appendChild(downloadBtn);
 
             container.appendChild(img);
-            container.appendChild(toolbar);
+            // toolbar 直接挂到 body，脱离遮罩层级，确保 position:fixed 固定在右上角不随图片滚动
 
             // 定义关闭并恢复滚动条的函数
             const closeOverlay = () => {
                 if (container.parentNode) {
                     container.remove();
-                    // 恢复原始 overflow 值
+                    toolbar.remove();
                     document.documentElement.style.overflow = originalHtmlOverflow;
                     document.body.style.overflow = originalBodyOverflow;
+                    // 释放 blob URL 防止内存泄漏
+                    if (currentBlobUrl) {
+                        URL.revokeObjectURL(currentBlobUrl);
+                        currentBlobUrl = null;
+                    }
                 }
             };
 
@@ -489,6 +524,7 @@
             document.addEventListener('keydown', escHandler);
 
             document.body.appendChild(container);
+            document.body.appendChild(toolbar);
         },
 
         getJavBusUrl(code) {
@@ -628,7 +664,92 @@
             }
         },
 
-        // ========== 主入口：固定逻辑（优先 javfree，失败后 javstore） ==========
+        // ========== 来源3：projectjav.com ==========
+        // 搜索端点：/?searchTerm={code}
+        // GM_xmlhttpRequest 不执行 JS，搜索页返回列表，需两步：
+        //   1. 请求搜索列表页 → 提取第一个 /movie/ 链接
+        //   2. 请求详情页 → 取截图大图（优先）或封面图（备用）
+        async projectjav(code) {
+            try {
+                const request = (url) => new Promise((resolve, reject) => {
+                    GM_xmlhttpRequest({
+                        method: 'GET',
+                        url,
+                        timeout: 20000,
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
+                        },
+                        onload: r => {
+                            console.log(`[projectjav] ${url} → HTTP ${r.status}, 长度 ${r.responseText?.length}`);
+                            if (r.status >= 200 && r.status < 400) resolve(r.responseText);
+                            else reject(new Error(`HTTP ${r.status}`));
+                        },
+                        onerror: (e) => { console.warn('[projectjav] 网络错误', e); reject(new Error('请求失败')); },
+                        ontimeout: () => { console.warn('[projectjav] 请求超时'); reject(new Error('请求超时')); }
+                    });
+                });
+
+                // 步骤1：搜索列表页
+                const searchUrl = `https://projectjav.com/?searchTerm=${encodeURIComponent(code)}`;
+                console.log('[projectjav] 步骤1 搜索页:', searchUrl);
+                const searchHtml = await request(searchUrl);
+                const searchDoc = new DOMParser().parseFromString(searchHtml, 'text/html');
+
+                const allMovieLinks = [...searchDoc.querySelectorAll('a[href*="/movie/"]')];
+                console.log(`[projectjav] /movie/ 链接数: ${allMovieLinks.length}`);
+                allMovieLinks.slice(0, 5).forEach(a => console.log('  ', a.getAttribute('href')));
+
+                if (allMovieLinks.length === 0) {
+                    console.warn('[projectjav] 无结果，页面标题:', searchDoc.title);
+                    console.warn('[projectjav] 页面前800字符:', searchHtml.slice(0, 800));
+                    return null;
+                }
+
+                // 优先末尾是数字ID的链接，其次取第一个
+                let detailPath = allMovieLinks.find(a => /\/movie\/.+-\d+$/.test(a.getAttribute('href') || ''))?.getAttribute('href')
+                    || allMovieLinks[0].getAttribute('href');
+                console.log('[projectjav] 选中链接:', detailPath);
+
+                // 步骤2：详情页
+                const detailUrl = detailPath.startsWith('http') ? detailPath : `https://projectjav.com${detailPath}`;
+                console.log('[projectjav] 步骤2 详情页:', detailUrl);
+                const detailHtml = await request(detailUrl);
+                const detailDoc = new DOMParser().parseFromString(detailHtml, 'text/html');
+
+                // 优先截图（取 data-featherlight 属性值，不是 href）
+                const screenshotLink = detailDoc.querySelector('.thumbnail a[data-featherlight="image"]');
+                console.log('[projectjav] screenshotLink data-src:', screenshotLink?.getAttribute('data-src') , 'featherlight:', screenshotLink?.getAttribute('data-featherlight'));
+                if (screenshotLink) {
+                    // 图片 URL 在 <img src> 子元素上（去掉 ?width=300 参数取原图）
+                    const thumbImg = screenshotLink.querySelector('img');
+                    if (thumbImg) {
+                        const src = (thumbImg.getAttribute('src') || '').replace(/\?.*$/, '');
+                        if (src) return src.replace(/^http:/, 'https:');
+                    }
+                    // 备用：a 标签自身的 href（部分版本有）
+                    const href = screenshotLink.getAttribute('href') || '';
+                    if (href && href.startsWith('http')) return href.replace(/^http:/, 'https:');
+                }
+
+                // 备用封面
+                const coverImg = detailDoc.querySelector('.movie-detail .col-md-6 img');
+                console.log('[projectjav] coverImg src:', coverImg?.getAttribute('src'));
+                if (coverImg) {
+                    const src = coverImg.getAttribute('src') || '';
+                    if (src) return src.replace(/^http:/, 'https:');
+                }
+
+                console.warn('[projectjav] 详情页未找到图片，页面标题:', detailDoc.title);
+                return null;
+            } catch (e) {
+                console.warn('[projectjav] 异常:', e.message);
+                return null;
+            }
+        },
+
+        // ========== 主入口：javfree → projectjav → javstore ==========
         async get(code) {
             const cacheEnabled = Settings.getPreviewCacheEnabled();
             let cacheKey;
@@ -640,22 +761,26 @@
                 }
             }
 
-            console.log('尝试获取预览图：优先 javfree');
             let url = null;
             let source = null;
 
             try {
-                // 先尝试 javfree
                 url = await this.javfree(code);
                 if (url) {
                     source = 'javfree';
                 } else {
-                    console.log('javfree 失败，尝试 javstore');
-                    url = await this.javstore(code);
-                    if (url) source = 'javstore';
+                    console.log('javfree 失败，尝试 projectjav');
+                    url = await this.projectjav(code);
+                    if (url) {
+                        source = 'projectjav';
+                    } else {
+                        console.log('projectjav 失败，尝试 javstore');
+                        url = await this.javstore(code);
+                        if (url) source = 'javstore';
+                    }
                 }
 
-                console.log('最终结果:', url ? '有图' : '无图');
+                console.log('最终结果:', url ? `有图 (${source})` : '无图');
                 if (url && cacheEnabled) {
                     sessionStorage.setItem(cacheKey, url);
                 }
