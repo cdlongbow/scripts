@@ -100,6 +100,7 @@
 // @match        https://kin8-jav.com/*
 // @match        https://old-young.net/*
 // @match        https://hentaicovid.vip/*
+// @match        https://imgo.info/*
 
 // @run-at       document-end
 // @grant        unsafeWindow
@@ -397,7 +398,8 @@
         'hentai-manga\\.org',
         'kin8-jav\\.com',
         'old-young\\.net',
-        'hentaicovid\\.vip'
+        'hentaicovid\\.vip', 
+        'himgo\\.info'
     ];
 
     // 构建正则表达式，匹配所有列出的域名
