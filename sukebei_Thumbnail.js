@@ -399,7 +399,7 @@
         'kin8-jav\\.com',
         'old-young\\.net',
         'hentaicovid\\.vip', 
-        'himgo\\.info'
+        'imgo\\.info'
     ];
 
     // 构建正则表达式，匹配所有列出的域名
