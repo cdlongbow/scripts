@@ -1,8 +1,10 @@
+version: "3.8"
 services:
-    
-  subconverter:
-    image: asdlokj1qpi23/subconverter
-    container_name: subconverter
-    restart: unless-stopped
+  subconverter-extended:
+    container_name: "subconverter"
+    image: "aethersailor/subconverter-extended:latest"
     ports:
-      - 25500:25500
+      - "25500:25500/tcp"
+    restart: unless-stopped
+    volumes:
+      - /home/SubConverter-Extended/base/pref.toml:/base/pref.toml
