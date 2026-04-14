@@ -1,22 +1,16 @@
 services:
-    
   sub-store:
-    image: xream/sub-store:latest
+    image: xream/sub-store:http-meta
     container_name: sub-store
-    restart: always
-    networks:
-      - substore-net
-    ports:
-      - 3301:3001
+    restart: unless-stopped
+    network_mode: host
     environment:
-      - SUB_STORE_PRODUCE_CRON=30 5 * * *,col,all
-      - SUB_STORE_FRONTEND_BACKEND_PATH=/KYB2rrM8pJFG75EG01cn
-      - TZ=Asia/Shanghai
+      SUB_STORE_BACKEND_API_HOST: 0.0.0.0
+      SUB_STORE_BACKEND_API_PORT: 3301
+      SUB_STORE_BACKEND_MERGE: true
+      SUB_STORE_FRONTEND_BACKEND_PATH: /cD7wiTGitLyoBdEguAnFWmqCpHKwhLQh4opXfFhFCEpmY9K7YnPgFu9e2iiUoty2
+      # HTTP-META 的, 一般不用改
+      PORT: 9876
+      HOST: 0.0.0.0
     volumes:
       - /home/substore:/opt/app/data
-    labels:  
-      createdBy: "Apps"
-
-networks:
-  substore-net:
-    driver: bridge
