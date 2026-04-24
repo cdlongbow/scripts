@@ -1,12 +1,54 @@
 services:
-  nullbr115:
-    image: gravityle/hyperms:0.0.5
-    container_name: hyperms
+  # Redis 服务
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: unless-stopped
+    networks:
+      - hms_network
+    volumes:
+      - ./data/docker/redis/data:/data
     environment:
-      - HMS_TOKEN=
+      TZ: Asia/Shanghai
+
+  # PostgreSQL 主数据库
+  pgsql:
+    image: postgres:17-alpine
+    container_name: postgresql
+    restart: unless-stopped
+    networks:
+      - hms_network
+    volumes:
+      - ./docker/postgresql/data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: hyperms
+      POSTGRES_USER: hyperms
+      POSTGRES_PASSWORD: hyperms
+      TZ: Asia/Shanghai
+
+  # HyperMS主服务
+  hms:
+    image: gravityle/hyperms:latest
+    container_name: HyperMS
+    restart: unless-stopped
+    networks:
+      - hms_network
+    depends_on:
+      - redis
+      - pgsql
+    environment:
+      TZ: Asia/Shanghai
+      HMS_DB_URL: postgresql+asyncpg://hyperms:hyperms@pgsql:5432/hyperms
+      HMS_REDIS_URL: redis://redis:6379/0
+      HMS_REDIS_KEY_PREFIX: hyperms
+      #HMS_DISABLE_AUTH: true #关闭登录认证
+      HMS_ADMIN_KEY: 123456 #自定义字符串，用于重置密码
+    volumes:
+      - ./data/docker/hyperms/media:/media
     ports:
       - "8115:8115"
-    volumes:
-      - /volume1/docker/hyperms/config:/config
-      - /volume1/docker/hyperms/media:/media
-    restart: always
+      - "8196:8196"
+
+networks:
+  hms_network:
+    name: hms_network
