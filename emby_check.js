@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.5.4
+// @version      5.5.5
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -1385,11 +1385,14 @@
             if (!items || items.length === 0) return null;
 
             const target = queryCode.trim().toUpperCase();
-            const targetClean = target.replace(/[-_]/g, '');
-            const mainTarget = target.replace(/-\d+$/, '');
+            const targetClean = target.replace(/[-_]/g, '');           // SNOS180
+            const mainTarget = target.replace(/-\d+$/, '');            // SNOS（去掉末尾数字段，仅用于前缀判断）
             const cleanStr = s => (s || '').toUpperCase().replace(/[-_]/g, '');
-            const targetAlphaNum = target.replace(/[^A-Z0-9]/g, '');
-            const targetPrefix = target.split(/[-_\s]/)[0];
+            const targetAlphaNum = target.replace(/[^A-Z0-9]/g, '');   // SNOS180
+            const targetPrefix = target.split(/[-_\s]/)[0];            // SNOS
+
+            // 从番号中提取数字部分（SNOS-180 → 180），用于精确数字验证
+            const targetNumPart = target.match(/(\d+)$/)?.[1] || '';
 
             // 判断原始番号是否带厂商后缀
             const hasSuffix = /^\d{6}[-_]\d{2,3}[-_][A-Z0-9]+$/i.test(originalCode);
@@ -1403,7 +1406,7 @@
 
             for (const it of items) {
                 const name = (it.Name || '').toUpperCase();
-                const nameClean = cleanStr(name);
+                const nameClean = cleanStr(name);                       // 去掉所有 -_
                 const nameAlphaNum = name.replace(/[^A-Z0-9]/g, '');
                 const namePrefix = name.split(/[-_\s]/)[0];
 
@@ -1414,7 +1417,6 @@
 
                 let score = 0;
 
-                // 统一分隔符后的版本，用于包容性匹配（需配合分隔符检查）
                 const normalizedName = name.replace(/_/g, '-');
                 const normalizedTarget = target.replace(/_/g, '-');
 
@@ -1424,8 +1426,10 @@
                 else if (normalizedName.includes(normalizedTarget) && target.includes('_') === name.includes('_')) score = 92;
                 else if (name === mainTarget) score = 90;
                 else if (nameClean === cleanStr(mainTarget)) score = 88;
-                else if (normalizedName.includes(mainTarget) && targetPrefix === namePrefix) score = 85;
-                else if (nameClean.includes(cleanStr(mainTarget)) && targetPrefix === namePrefix) score = 80;
+                // score 85/80：必须包含完整的 targetClean（含数字部分），仅前缀相同不够
+                // 防止 SNOS-097 因标题含"180天"而误匹配 SNOS-180
+                else if (normalizedName.includes(normalizedTarget) && targetPrefix === namePrefix) score = 85;
+                else if (nameClean.includes(targetClean) && targetPrefix === namePrefix) score = 80;
                 else if (nameAlphaNum === targetAlphaNum) score = 75;
 
                 // 如果分数为75（宽松匹配），检查分隔符是否一致，若不一致则降分
@@ -1440,6 +1444,15 @@
                 // 如果原始番号带后缀，且名称中也包含一个不同的后缀，则降分
                 if (hasSuffix && score > 0 && nameSuffix && nameSuffix !== originalSuffix) {
                     score = 50;
+                }
+
+                // 额外保护：对于有数字部分的番号，验证 name 里确实含有该番号的完整字母+数字组合
+                // 防止标题内容中恰好包含番号数字的情况（如 SNOS-097 标题含"180天"误匹配 SNOS-180）
+                if (score >= 75 && score < 95 && targetNumPart) {
+                    // 要求 nameClean 中包含 targetClean（完整番号字母+数字），而不仅仅是前缀
+                    if (!nameClean.includes(targetClean)) {
+                        score = 0;
+                    }
                 }
 
                 if (score > bestScore) {
