@@ -1,0 +1,8 @@
+! PikPak Download Servers Rewrite List
+||dl-*.mypikpak.com^$dnsrewrite=47.79.2.7
+||dl-*.mypikpak.com^$dnsrewrite=47.79.2.59
+||dl-*.mypikpak.com^$dnsrewrite=47.79.1.121
+||dl-*.mypikpak.com^$dnsrewrite=101.47.13.65
+||dl-*.mypikpak.com^$dnsrewrite=101.47.15.101
+||dl-*.mypikpak.com^$dnsrewrite=101.47.15.125
+||dl-*.mypikpak.com^$dnsrewrite=101.47.20.248
