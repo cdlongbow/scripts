@@ -3,6 +3,12 @@
 # 支持 Alpine 3.18 ~ 3.24
 # 功能：网络配置、Docker安装、DPanel面板安装
 
+# 检查 bash 是否存在
+if ! command -v bash &>/dev/null; then
+    echo "[ERROR] 本脚本需要 bash，请运行: apk add bash"
+    exit 1
+fi
+
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -113,7 +119,7 @@ check_and_install_tools() {
         print_warn "nano 未安装，将自动安装"
         need_install=1
     fi
-    
+
     if [ $need_install -eq 1 ]; then
         print_info "安装必要工具 (curl, wget, nano)..."
         apk add --no-cache curl wget nano
