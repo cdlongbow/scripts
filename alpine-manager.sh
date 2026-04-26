@@ -50,26 +50,60 @@ fix_repositories() {
         NEED_FIX=1
     fi
 
-    # 检查 community 是否被注释
-    if grep -q "^#.*community" /etc/apk/repositories 2>/dev/null; then
-        print_warn "检测到 community 仓库被注释，正在启用..."
-        sed -i 's/^#\(.*community\)/\1/' /etc/apk/repositories
-        NEED_UPDATE=1
-    fi
+    # 处理原则（main 和 community 分别独立处理）：
+    # 1. 该类有清华有效行 → 注释掉同类所有非清华有效行（去重，清华优先）
+    # 2. 该类无清华有效行但有其他有效行 → 不动（已够用）
+    # 3. 该类完全没有有效行 → 解注释已有的清华注释行；没有则追加
 
-    # 检查 main 是否被注释
-    if grep -q "^#.*main" /etc/apk/repositories 2>/dev/null; then
-        print_warn "检测到 main 仓库被注释，正在启用..."
-        sed -i 's/^#\(.*main\)/\1/' /etc/apk/repositories
-        NEED_UPDATE=1
-    fi
+    # 辅助函数：处理单个类型（main 或 community）
+    fix_repo_type() {
+        local TYPE="$1"   # main 或 community
+        local REPO="/etc/apk/repositories"
 
-    # 检查是否缺少必要的仓库
-    if ! grep -q "main" /etc/apk/repositories 2>/dev/null || \
-       ! grep -q "community" /etc/apk/repositories 2>/dev/null; then
-        print_warn "仓库配置不完整，重新配置..."
-        NEED_FIX=1
-    fi
+        # 是否有清华有效行
+        local HAS_TUNA=0
+        grep -v "^#" "$REPO" 2>/dev/null | grep -q "tuna.*/$TYPE" && HAS_TUNA=1
+
+        # 是否有任意有效行（含非清华）
+        local HAS_ANY=0
+        grep -v "^#" "$REPO" 2>/dev/null | grep -q "/$TYPE" && HAS_ANY=1
+
+        if [ "$HAS_TUNA" = "1" ]; then
+            # 有清华有效行 → 注释掉同类所有非清华有效行
+            local NON_TUNA
+            NON_TUNA=$(grep -v "^#" "$REPO" | grep "/$TYPE" | grep -v "tuna")
+            if [ -n "$NON_TUNA" ]; then
+                print_warn "[$TYPE] 清华源已启用，注释掉其他同类有效行..."
+                # 对每个非清华有效行，精确在文件中加注释前缀
+                echo "$NON_TUNA" | while IFS= read -r line; do
+                    # 转义特殊字符用于 sed
+                    local escaped
+                    escaped=$(printf '%s
+' "$line" | sed 's|[[\.*^$()+?{|]|\&|g')
+                    sed -i "s|^${escaped}$|#${line}|" "$REPO"
+                done
+                NEED_UPDATE=1
+            fi
+        elif [ "$HAS_ANY" = "1" ]; then
+            # 有其他有效行但无清华 → 保持不动
+            print_info "[$TYPE] 有可用源（非清华），保持不变"
+        else
+            # 完全没有有效行
+            if grep -qE "^#[[:space:]]*.*tuna.*/$TYPE" "$REPO" 2>/dev/null; then
+                print_warn "[$TYPE] 均被注释，启用已有的清华行..."
+                sed -i "0,/^#[[:space:]]*.*tuna.*\/$TYPE/{s|^#[[:space:]]*\(.*tuna.*\/$TYPE\)|\1|}" "$REPO"
+            else
+                print_warn "[$TYPE] 无可用源，追加清华源..."
+                # 确保文件末尾有换行再追加
+                sed -i -e '$a\\' "$REPO" 2>/dev/null
+                echo "http://mirrors.tuna.tsinghua.edu.cn/alpine/v$ALPINE_VER/$TYPE" >> "$REPO"
+            fi
+            NEED_UPDATE=1
+        fi
+    }
+
+    fix_repo_type "main"
+    fix_repo_type "community"
 
     # 重新配置仓库
     if [ "$NEED_FIX" = "1" ]; then
@@ -233,7 +267,7 @@ configure_dns() {
 
     echo "请选择操作："
     echo "1. DHCP 自动获取"
-    echo "2. 手动设置 DNS（最多2个）"
+    echo "2. 手动设置 DNS"
     echo "3. 使用公共 DNS（阿里+腾讯）"
     echo "4. 使用公共 DNS（谷歌+Cloudflare）"
     echo "5. 清空 DNS"
