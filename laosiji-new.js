@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      1.1.0
+// @version      1.1.1
 // @description  JavBus / JavDB / JavLib 磁力搜索 + 115离线 + 多源预览图(可调序) + Overlay灯箱
 // @author       ZiPenOk
 // @require      https://lib.baomitu.com/jquery/2.2.4/jquery.min.js
@@ -31,8 +31,8 @@
 // @grant        GM_info
 // @connect      *
 // @license      GPL-3.0
-// @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/laosiji-new.js
-// @updateURL    https://raw.githubusercontent.com/ZiPenOk/scripts/main/laosiji-new.js
+// @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/laosiji-new.js
+// @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/laosiji-new.js
 // ==/UserScript==
 
 (function () {
@@ -465,7 +465,7 @@
     }
 
     // =========================================================================
-    // [区块4] 设置面板 UI（已增加预览图来源顺序拖拽排序）
+    // [区块4] 设置面板 UI（已修复预览图顺序区域的空白问题）
     // =========================================================================
 
     const SettingsPanel = (() => {
@@ -557,8 +557,20 @@
                 }
                 #jav-settings-panel .sp-saved-tip.show { opacity: 1; }
 
-                /* 拖拽排序样式 */
-                .jjs-order-list { display: flex; flex-direction: column; gap: 6px; margin: 4px 0; }
+                /* 预览图来源顺序专用样式 */
+                .sp-preview-order-block {
+                    margin-top: 4px;
+                }
+                .sp-preview-order-label {
+                    font-size: 14px; font-weight: 500; color: #555;
+                    margin-bottom: 2px;
+                }
+                .sp-preview-order-hint {
+                    font-size: 12px; color: #9ca3af;
+                    margin-bottom: 8px;
+                }
+                /* 拖拽列表 */
+                .jjs-order-list { display: flex; flex-direction: column; gap: 6px; }
                 .jjs-order-item {
                     display: flex; align-items: center; gap: 8px;
                     padding: 8px 10px; border-radius: 8px;
@@ -650,11 +662,11 @@
                             })()}
                         </select>
                     </div>
-                    <!-- 预览图来源顺序（搬运自 jump.js） -->
-                    <div class="sp-row" style="flex-direction: column; align-items: flex-start;">
-                        <span class="sp-label" style="margin-bottom: 4px;">预览图来源顺序</span>
-                        <div style="font-size: 12px; color: #9ca3af; margin-bottom: 6px;">拖拽 ⠿ 手柄调整顺序，依次尝试获取</div>
-                        <div id="jjs-order-list" class="jjs-order-list" style="width: 100%;"></div>
+                    <!-- 预览图来源顺序（修复空白） -->
+                    <div class="sp-preview-order-block">
+                        <div class="sp-preview-order-label">预览图来源顺序</div>
+                        <div class="sp-preview-order-hint">拖拽 ⠿ 手柄调整顺序，依次尝试获取</div>
+                        <div id="jjs-order-list" class="jjs-order-list"></div>
                     </div>
                 </div>
                 <div class="sp-footer">
@@ -1213,7 +1225,6 @@
                 .footer { padding: 20px 0; }
             `);
 
-            // 列表页无磁力插入
             if (document.querySelector('#waterfall div.item') && document.querySelector('.masonry')) return;
 
             this._insertMagnet(avid);
@@ -1300,7 +1311,7 @@
             return m ? m[1].toUpperCase() : '';
         },
         initPage(avid) {
-            if (!this.isDetailPage()) return; // 列表页不处理
+            if (!this.isDetailPage()) return;
             if (!avid) return;
 
             document.querySelector('.socialmedia')?.remove();
