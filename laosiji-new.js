@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      1.0.1
-// @description  JavBus / JavDB / JavLib 磁力搜索 + 115离线 + 瀑布流 + 灯箱预览
+// @version      1.1.0
+// @description  JavBus / JavDB / JavLib 磁力搜索 + 115离线 + 多源预览图(可调序) + Overlay灯箱
 // @author       ZiPenOk
 // @require      https://lib.baomitu.com/jquery/2.2.4/jquery.min.js
 
@@ -27,11 +27,12 @@
 // @grant        GM_notification
 // @grant        GM_setClipboard
 // @grant        GM_registerMenuCommand
+// @grant        GM_download
 // @grant        GM_info
 // @connect      *
 // @license      GPL-3.0
-// @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/laosiji-new.js
-// @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/laosiji-new.js
+// @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/laosiji-new.js
+// @updateURL    https://raw.githubusercontent.com/ZiPenOk/scripts/main/laosiji-new.js
 // ==/UserScript==
 
 (function () {
@@ -53,9 +54,11 @@
         get sukebeiUrl()          { return GM_getValue('cfg_sukebei_url',          'sukebei.nyaa.si'); },
         get torrentkittyUrl()  { return GM_getValue('cfg_torrentkitty_url',  'www.torrentkitty.tv'); },
 
-        // 功能开关
-        get waterfallEnabled() { return GM_getValue('cfg_waterfall', 1); },
+        // 默认磁力搜索引擎
         get defaultEngine()    { return GM_getValue('cfg_default_engine', 'javdb.com'); },
+
+        // 预览图来源顺序（搬运自 jump.js）
+        get thumbSourceOrder() { return GM_getValue('thumb_source_order', ['javfree', 'projectjav', 'javstore']); },
 
         set javbusUrl(v)        { GM_setValue('cfg_javbus_url', v); },
         set javdbUrl(v)         { GM_setValue('cfg_javdb_url', v); },
@@ -65,8 +68,8 @@
         set btdigUrl(v)         { GM_setValue('cfg_btdig_url', v); },
         set sukebeiUrl(v)          { GM_setValue('cfg_sukebei_url', v); },
         set torrentkittyUrl(v)  { GM_setValue('cfg_torrentkitty_url', v); },
-        set waterfallEnabled(v) { GM_setValue('cfg_waterfall', v); },
         set defaultEngine(v)    { GM_setValue('cfg_default_engine', v); },
+        set thumbSourceOrder(v) { GM_setValue('thumb_source_order', v); },
     };
 
     // =========================================================================
@@ -116,194 +119,331 @@
     function normalizeAvid(raw) {
         if (!raw) return '';
         raw = raw.trim().toUpperCase();
-        // 已有连字符且不是 -0 开头的数字段，直接返回
         if (raw.match(/-[^0]/)) return raw;
-        // 纯数字/下划线不处理
         if (raw.match(/^[0-9_-]+$/)) return raw;
-        // 字母+数字 => ABC-123
         const m = raw.match(/^([A-Z]+[-_]?)(\d+)$/);
         if (m) return m[1].replace(/[-_]$/, '') + '-' + m[2];
         return raw;
     }
 
-    // --- 番号解析（用于缩略图搜索匹配）---
-    function parseCode(code) {
-        const codes = code.split(/[-_]/);
-        const sep = '\\s?(0|-|_){0,2}\\s?';
-        let pattern = codes.join(sep);
-        if (/^fc2/i.test(code)) pattern = `${codes[0]}${sep}(ppv)?${sep}${codes.at(-1)}`;
-        return {
-            code,
-            codes,
-            prefix: codes[0],
-            regex: new RegExp(`(?<![a-z])${pattern}(?!\\d)`, 'i'),
-        };
-    }
-
     // =========================================================================
-    // [区块3] 缩略图获取
+    // [区块3] 预览图获取模块（完整搬运自 jump.js）
     // =========================================================================
 
-    // 静态缓存（内存级），避免同一页面重复请求
-    const _thumbCache = new Map();
-
-    async function fetchThumbnail(code) {
-        if (_thumbCache.has(code)) return _thumbCache.get(code);
-
-        // GM_getValue 磁盘缓存
-        const cached = GM_getValue(`thumb_${code}`);
-        if (cached) { _thumbCache.set(code, cached); return cached; }
-
-        const { regex } = parseCode(code);
-
-        // 尝试 javfree
-        try {
-            const url = await _thumbFromJavfree(code, regex);
-            if (url) { _cacheThumb(code, url); return url; }
-        } catch(e) { log('javfree fail:', e.message); }
-
-        // 降级 javstore
-        try {
-            const url = await _thumbFromJavstore(code, regex);
-            if (url) { _cacheThumb(code, url); return url; }
-        } catch(e) { log('javstore fail:', e.message); }
-
-        return null;
-    }
-
-    function _cacheThumb(code, url) {
-        _thumbCache.set(code, url);
-        GM_setValue(`thumb_${code}`, url);
-    }
-
-    async function _thumbFromJavfree(code, regex) {
-        const doc = await fetchDoc(`https://javfree.me/search/${code}`);
-        if (!doc) throw new Error('javfree no response');
-        const links = [...doc.querySelectorAll('.entry-title>a')];
-        const link = links.find(a => regex.test(a.textContent));
-        if (!link) throw new Error('javfree no match');
-        const detail = await fetchDoc(link.href);
-        if (!detail) throw new Error('javfree detail fail');
-        const imgs = detail.querySelectorAll('p>img');
-        const url = code.startsWith('n0') || code.startsWith('n1')
-            ? [...imgs].map(i => i.src).find(s => /[s]+\.(jpe?g|png)$/i.test(s))
-            : imgs?.[1]?.src;
-        if (!url) throw new Error('javfree no img');
-        return url;
-    }
-
-    async function _thumbFromJavstore(code, regex) {
-        const doc = await fetchDoc(`https://img.javstore.net/me/search/?q=${code}`);
-        if (!doc) throw new Error('javstore no response');
-        const imgs = [...doc.querySelectorAll('.image-container img')];
-        const url = imgs.find(i => regex.test(i.src))?.src?.replace('.md', '');
-        if (!url) throw new Error('javstore no match');
-        return url;
-    }
-
-    // =========================================================================
-    // [区块4] 灯箱 Lightbox
-    // =========================================================================
-
-    const Lightbox = (() => {
-        let overlay, img, _url;
-
-        function build() {
-            if (document.getElementById('jav-lightbox')) return;
-
-            GM_addStyle(`
-                #jav-lightbox {
-                    display: none;
-                    position: fixed;
-                    inset: 0;
-                    z-index: 999999;
-                    background: rgba(0,0,0,.88);
-                    overflow-y: auto;
-                    overflow-x: hidden;
-                    cursor: zoom-in;
-                }
-                #jav-lightbox.expanded { cursor: zoom-out; }
-                #jav-lightbox img {
-                    display: block;
-                    margin: 0 auto;
-                    max-width: 80%;
-                    transition: max-width .2s;
-                    cursor: inherit;
-                    /* 从顶部对齐，不居中，避免首尾裁剪 */
-                    position: relative;
-                    top: 0;
-                }
-                #jav-lightbox.expanded img { max-width: 100%; }
-                #jav-lightbox-close {
-                    position: fixed;
-                    top: 14px; right: 20px;
-                    color: #fff;
-                    font-size: 28px;
-                    cursor: pointer;
-                    z-index: 1000000;
-                    line-height: 1;
-                    user-select: none;
-                }
-            `);
-
-            overlay = document.createElement('div');
-            overlay.id = 'jav-lightbox';
-
-            const closeBtn = document.createElement('span');
-            closeBtn.id = 'jav-lightbox-close';
-            closeBtn.textContent = '✕';
-            closeBtn.addEventListener('click', e => { e.stopPropagation(); close(); });
-
-            img = document.createElement('img');
-            img.referrerPolicy = 'no-referrer';
-
-            // 点击图片切换缩放
-            img.addEventListener('click', e => {
-                e.stopPropagation();
-                overlay.classList.toggle('expanded');
-                if (!overlay.classList.contains('expanded')) {
-                    overlay.scrollTop = 0;
-                }
+    const Utils = {
+        request(url) {
+            return new Promise((resolve) => {
+                GM_xmlhttpRequest({
+                    method: 'GET',
+                    url: url,
+                    timeout: 30000,
+                    onload: (r) => resolve(r.responseText)
+                });
             });
+        },
 
-            // 点击空白区域关闭
-            overlay.addEventListener('click', () => close());
-
-            // 滚轮滚动（覆盖页面滚动）
-            overlay.addEventListener('wheel', e => {
-                e.preventDefault();
-                overlay.scrollTop += e.deltaY;
-            }, { passive: false });
-
-            overlay.appendChild(closeBtn);
-            overlay.appendChild(img);
-            document.body.appendChild(overlay);
-
-            document.addEventListener('keydown', e => {
-                if (e.key === 'Escape' && overlay.style.display !== 'none') close();
-            });
-        }
-
-        function open(url) {
-            build();
-            _url = url;
-            img.src = url;
-            overlay.classList.remove('expanded');
-            overlay.scrollTop = 0;
-            overlay.style.display = 'block';
+        showOverlay(imgUrl, code, source = null) {
+            const originalHtmlOverflow = document.documentElement.style.overflow;
+            const originalBodyOverflow = document.body.style.overflow;
+            document.documentElement.style.overflow = 'hidden';
             document.body.style.overflow = 'hidden';
+
+            const container = document.createElement('div');
+            container.className = 'preview-overlay';
+            container.style.cssText = `
+                position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+                z-index: 2147483647; display: flex; overflow: auto;
+                cursor: zoom-out; backdrop-filter: blur(5px);
+            `;
+
+            const img = document.createElement('img');
+            img.className = 'preview-img';
+            img.style.cssText = `
+                border-radius: 4px; margin: auto; cursor: zoom-in;
+                max-width: 95vw; max-height: 95vh; object-fit: contain;
+                display: block; box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            `;
+            img.onclick = (e) => {
+                e.stopPropagation();
+                img.classList.toggle('zoomed');
+                if (img.classList.contains('zoomed')) {
+                    img.style.maxWidth = 'none';
+                    img.style.maxHeight = 'none';
+                    img.style.cursor = 'zoom-out';
+                } else {
+                    img.style.maxWidth = '95vw';
+                    img.style.maxHeight = '95vh';
+                    img.style.cursor = 'zoom-in';
+                }
+            };
+
+            let currentBlobUrl = null;
+            const loadImg = (url, src) => {
+                if (currentBlobUrl) {
+                    URL.revokeObjectURL(currentBlobUrl);
+                    currentBlobUrl = null;
+                }
+                if (src === 'projectjav') {
+                    img.src = '';
+                    GM_xmlhttpRequest({
+                        method: 'GET',
+                        url,
+                        responseType: 'blob',
+                        headers: {
+                            'Referer': 'https://projectjav.com/',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                        },
+                        onload: r => {
+                            if (r.response) {
+                                currentBlobUrl = URL.createObjectURL(r.response);
+                                img.src = currentBlobUrl;
+                            }
+                        },
+                        onerror: () => { img.src = url; }
+                    });
+                } else {
+                    img.src = url;
+                }
+            };
+
+            loadImg(imgUrl, source);
+
+            const toolbar = document.createElement('div');
+            toolbar.className = 'preview-toolbar';
+            toolbar.style.cssText = `
+                position: fixed; top: 20px; right: 20px; display: flex; gap: 8px;
+                z-index: 2147483648; background: rgba(30,30,30,0.75);
+                backdrop-filter: blur(10px); padding: 6px 12px;
+                border-radius: 30px; border: 1px solid rgba(255,255,255,0.08);
+                box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+            `;
+
+            const createButton = (text, emoji, className, onClick) => {
+                const btn = document.createElement('button');
+                btn.className = `preview-btn ${className}`;
+                btn.innerHTML = `${emoji} ${text}`;
+                btn.style.cssText = `
+                    border: none; color: #eee; font-size: 13px; cursor: pointer;
+                    padding: 6px 14px; border-radius: 24px; transition: all 0.2s;
+                    background: rgba(100,100,120,0.3);
+                    border: 1px solid rgba(255,255,255,0.05);
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                `;
+                btn.onclick = onClick;
+                return btn;
+            };
+
+            const setActiveSource = (activeSource) => {
+                javfreeBtn.classList.toggle('active', activeSource === 'javfree');
+                projectjavBtn.classList.toggle('active', activeSource === 'projectjav');
+                javstoreBtn.classList.toggle('active', activeSource === 'javstore');
+                if (activeSource === 'javfree') javfreeBtn.style.background = '#2ecc71';
+                else javfreeBtn.style.background = '';
+                if (activeSource === 'projectjav') projectjavBtn.style.background = '#e74c3c';
+                else projectjavBtn.style.background = '';
+                if (activeSource === 'javstore') javstoreBtn.style.background = '#e74c3c';
+                else javstoreBtn.style.background = '';
+            };
+
+            const javfreeBtn = createButton('javfree', '🟢', 'javfree', async (e) => {
+                e.stopPropagation();
+                const newUrl = await Thumbnail.javfree(code);
+                if (newUrl) { loadImg(newUrl, 'javfree'); setActiveSource('javfree'); }
+                else alert('javfree 未找到预览图');
+            });
+            const projectjavBtn = createButton('projectjav', '🟡', 'javstore', async (e) => {
+                e.stopPropagation();
+                const newUrl = await Thumbnail.projectjav(code);
+                if (newUrl) { loadImg(newUrl, 'projectjav'); setActiveSource('projectjav'); }
+                else alert('projectjav 未找到预览图');
+            });
+            const javstoreBtn = createButton('javstore', '🔴', 'javstore', async (e) => {
+                e.stopPropagation();
+                const newUrl = await Thumbnail.javstore(code);
+                if (newUrl) { loadImg(newUrl, 'javstore'); setActiveSource('javstore'); }
+                else alert('javstore 未找到预览图');
+            });
+            const newWindowBtn = createButton('新窗口', '🌐', 'action', (e) => {
+                e.stopPropagation();
+                window.open(img.src);
+            });
+            const downloadBtn = createButton('下载', '⬇️', 'action', (e) => {
+                e.stopPropagation();
+                GM_download(img.src, `${code}.jpg`);
+            });
+
+            if (source === 'javfree') javfreeBtn.style.background = '#2ecc71';
+            else if (source === 'projectjav') projectjavBtn.style.background = '#e74c3c';
+            else if (source === 'javstore') javstoreBtn.style.background = '#e74c3c';
+
+            toolbar.appendChild(javfreeBtn);
+            toolbar.appendChild(projectjavBtn);
+            toolbar.appendChild(javstoreBtn);
+            toolbar.appendChild(newWindowBtn);
+            toolbar.appendChild(downloadBtn);
+
+            container.appendChild(img);
+            document.body.appendChild(container);
+            document.body.appendChild(toolbar);
+
+            const closeOverlay = () => {
+                if (container.parentNode) {
+                    container.remove();
+                    toolbar.remove();
+                    document.documentElement.style.overflow = originalHtmlOverflow;
+                    document.body.style.overflow = originalBodyOverflow;
+                    if (currentBlobUrl) {
+                        URL.revokeObjectURL(currentBlobUrl);
+                        currentBlobUrl = null;
+                    }
+                }
+            };
+
+            container.onclick = closeOverlay;
+
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    closeOverlay();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
         }
+    };
 
-        function close() {
-            if (!overlay) return;
-            overlay.style.display = 'none';
-            document.body.style.overflow = '';
+    const Thumbnail = {
+        async javfree(code) {
+            try {
+                const html = await Utils.request(`https://javfree.me/search/${code}`);
+                const doc = parseHTML(html);
+                const link = doc.querySelector('.entry-title>a')?.href;
+                if (!link) return null;
+                const dHtml = await Utils.request(link);
+                const dDoc = parseHTML(dHtml);
+                const url = dDoc.querySelectorAll('p>img')[1]?.src || dDoc.querySelectorAll('p>img')[0]?.src;
+                return url || null;
+            } catch { return null; }
+        },
+
+        async javstore(code) {
+            try {
+                const normalizedCode = code.replace(/^fc2-?/i, '').replace(/-/g, '').toLowerCase();
+                const searchUrl = `https://javstore.net/search?q=${encodeURIComponent(code)}`;
+                const searchHtml = await Utils.request(searchUrl);
+                const searchDoc = parseHTML(searchHtml);
+                const candidateLinks = searchDoc.querySelectorAll('a[href*="/"]');
+                const detailUrls = [];
+                for (const link of candidateLinks) {
+                    const href = link.getAttribute('href');
+                    if (!href) continue;
+                    if (href.startsWith('http') && !href.includes('javstore.net')) continue;
+                    const fullUrl = href.startsWith('http') ? href : new URL(href, searchUrl).href;
+                    const pathLastPart = fullUrl.split('/').pop() || '';
+                    const normalizedPath = pathLastPart.toLowerCase().replace(/-/g, '');
+                    if (normalizedPath.includes(normalizedCode) && !detailUrls.includes(fullUrl)) {
+                        detailUrls.push(fullUrl);
+                    }
+                }
+                if (detailUrls.length === 0) return null;
+                for (const detailUrl of detailUrls) {
+                    const imgUrl = await this._extractImgFromDetail(detailUrl);
+                    if (imgUrl) return imgUrl;
+                }
+                return null;
+            } catch { return null; }
+        },
+
+        async _extractImgFromDetail(detailUrl) {
+            try {
+                const detailHtml = await Utils.request(detailUrl);
+                const detailDoc = parseHTML(detailHtml);
+                for (const link of detailDoc.querySelectorAll('a')) {
+                    if (link.textContent.includes('CLICK HERE')) {
+                        const imgUrl = link.href || link.getAttribute('href') || '';
+                        if (imgUrl) return imgUrl.replace(/^http:/, 'https:');
+                    }
+                }
+                const img = detailDoc.querySelector('img[src*="_s.jpg"]');
+                if (img) {
+                    let src = img.getAttribute('src') || '';
+                    if (!src.startsWith('http')) src = new URL(src, detailUrl).href;
+                    return src.replace(/_s\.jpg$/, '_l.jpg').replace(/^http:/, 'https:');
+                }
+                return null;
+            } catch { return null; }
+        },
+
+        async projectjav(code) {
+            try {
+                const request = (url) => new Promise((resolve, reject) => {
+                    GM_xmlhttpRequest({
+                        method: 'GET',
+                        url,
+                        timeout: 20000,
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
+                        },
+                        onload: r => {
+                            if (r.status >= 200 && r.status < 400) resolve(r.responseText);
+                            else reject(new Error(`HTTP ${r.status}`));
+                        },
+                        onerror: e => reject(e),
+                        ontimeout: () => reject(new Error('请求超时'))
+                    });
+                });
+                const searchUrl = `https://projectjav.com/?searchTerm=${encodeURIComponent(code)}`;
+                const searchHtml = await request(searchUrl);
+                const searchDoc = parseHTML(searchHtml);
+                const allMovieLinks = [...searchDoc.querySelectorAll('a[href*="/movie/"]')];
+                if (allMovieLinks.length === 0) return null;
+                let detailPath = allMovieLinks.find(a => /\/movie\/.+-\d+$/.test(a.getAttribute('href') || ''))?.getAttribute('href')
+                    || allMovieLinks[0].getAttribute('href');
+                const detailUrl = detailPath.startsWith('http') ? detailPath : `https://projectjav.com${detailPath}`;
+                const detailHtml = await request(detailUrl);
+                const detailDoc = parseHTML(detailHtml);
+                const screenshotLink = detailDoc.querySelector('.thumbnail a[data-featherlight="image"]');
+                if (screenshotLink) {
+                    const thumbImg = screenshotLink.querySelector('img');
+                    if (thumbImg) {
+                        const src = (thumbImg.getAttribute('src') || '').replace(/\?.*$/, '');
+                        if (src) return src.replace(/^http:/, 'https:');
+                    }
+                    const href = screenshotLink.getAttribute('href') || '';
+                    if (href && href.startsWith('http')) return href.replace(/^http:/, 'https:');
+                }
+                const coverImg = detailDoc.querySelector('.movie-detail .col-md-6 img');
+                if (coverImg) {
+                    const src = coverImg.getAttribute('src') || '';
+                    if (src) return src.replace(/^http:/, 'https:');
+                }
+                return null;
+            } catch { return null; }
+        },
+
+        async get(code) {
+            const order = CFG.thumbSourceOrder;
+            let url = null, source = null;
+            for (const src of order) {
+                if (typeof this[src] !== 'function') continue;
+                try { url = await this[src](code); } catch (e) { url = null; }
+                if (url) { source = src; break; }
+            }
+            return { url, source };
+        },
+
+        async show(code) {
+            const result = await this.get(code);
+            if (result.url) {
+                Utils.showOverlay(result.url, code, result.source);
+            } else {
+                alert('未找到预览图');
+            }
         }
+    };
 
-        return { open, close };
-    })();
-
-    // 创建预览图按钮（插入到任意容器）
+    // 创建预览图按钮（替换原实现，直接使用 Thumbnail.show）
     function createPreviewBtn(avid) {
         const btn = document.createElement('button');
         btn.textContent = '🖼 预览图';
@@ -314,44 +454,21 @@
             border-radius: 4px; cursor: pointer; color: #1a6fa8;
             vertical-align: middle;
         `;
-        let loaded = false;
         btn.addEventListener('click', async () => {
             btn.textContent = '⏳';
             btn.disabled = true;
-            if (!loaded) {
-                const url = await fetchThumbnail(avid);
-                loaded = true;
-                btn.textContent = '🖼 预览图';
-                btn.disabled = false;
-                if (url) {
-                    Lightbox.open(url);
-                } else {
-                    btn.textContent = '🖼 无图';
-                    btn.style.color = '#999';
-                }
-            } else {
-                btn.textContent = '🖼 预览图';
-                btn.disabled = false;
-            }
+            await Thumbnail.show(avid);
+            btn.textContent = '🖼 预览图';
+            btn.disabled = false;
         });
         return btn;
     }
 
     // =========================================================================
-    // [区块5] 设置面板 UI（绑定到油猴菜单）
+    // [区块4] 设置面板 UI（已增加预览图来源顺序拖拽排序）
     // =========================================================================
 
     const SettingsPanel = (() => {
-        function getEngineNames() {
-            return {
-                [CFG.javdbSearchUrl]: 'JavDB',
-                [CFG.btsowUrl]:       'BtSow',
-                [CFG.btdigUrl]:       'BtDig',
-                [CFG.sukebeiUrl]:        'sukebei',
-                [CFG.torrentkittyUrl]:'TorrentKitty',
-            };
-        }
-
         function open() {
             if (document.getElementById('jav-settings-overlay')) {
                 document.getElementById('jav-settings-overlay').style.display = 'flex';
@@ -366,7 +483,7 @@
                 }
                 #jav-settings-panel {
                     background: #fff; border-radius: 12px;
-                    width: 480px; max-height: 80vh; overflow-y: auto;
+                    width: 520px; max-height: 90vh; overflow-y: auto;
                     padding: 0; box-shadow: 0 8px 40px rgba(0,0,0,.3);
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
                     font-size: 14px; color: #333;
@@ -414,24 +531,6 @@
                     border-radius: 6px; font-size: 13px;
                     background: #fff; outline: none;
                 }
-                #jav-settings-panel .sp-toggle {
-                    position: relative; width: 42px; height: 24px;
-                    flex: 0 0 42px; margin-left: 12px;
-                }
-                #jav-settings-panel .sp-toggle input { opacity: 0; width: 0; height: 0; }
-                #jav-settings-panel .sp-toggle-slider {
-                    position: absolute; inset: 0; cursor: pointer;
-                    background: #ccc; border-radius: 24px;
-                    transition: background .2s;
-                }
-                #jav-settings-panel .sp-toggle-slider::before {
-                    content: ''; position: absolute;
-                    width: 18px; height: 18px; border-radius: 50%;
-                    background: #fff; left: 3px; top: 3px;
-                    transition: transform .2s;
-                }
-                #jav-settings-panel .sp-toggle input:checked + .sp-toggle-slider { background: #1a6fa8; }
-                #jav-settings-panel .sp-toggle input:checked + .sp-toggle-slider::before { transform: translateX(18px); }
                 #jav-settings-panel .sp-footer {
                     padding: 14px 20px;
                     background: #fafafa;
@@ -457,111 +556,250 @@
                     opacity: 0; transition: opacity .3s;
                 }
                 #jav-settings-panel .sp-saved-tip.show { opacity: 1; }
+
+                /* 拖拽排序样式 */
+                .jjs-order-list { display: flex; flex-direction: column; gap: 6px; margin: 4px 0; }
+                .jjs-order-item {
+                    display: flex; align-items: center; gap: 8px;
+                    padding: 8px 10px; border-radius: 8px;
+                    border: 1px solid #e5e7eb; background: #fff;
+                    cursor: grab; user-select: none;
+                }
+                .jjs-order-item:active { cursor: grabbing; }
+                .jjs-order-item.drag-over { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
+                .jjs-order-handle { font-size: 18px; color: #c4c9d4; cursor: grab; padding: 0 2px; line-height: 1; }
+                .jjs-order-num {
+                    width: 20px; height: 20px; border-radius: 50%;
+                    background: #6366f1; color: #fff;
+                    font-size: 11px; font-weight: 700;
+                    display: flex; align-items: center; justify-content: center;
+                    flex-shrink: 0;
+                }
+                .jjs-order-emoji { font-size: 16px; flex-shrink: 0; }
+                .jjs-order-info { flex: 1; }
+                .jjs-order-name { font-size: 13px; font-weight: 600; color: #374151; }
+                .jjs-order-desc { font-size: 11px; color: #9ca3af; margin-top: 1px; }
+                .jjs-order-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
             `);
 
             const overlay = document.createElement('div');
             overlay.id = 'jav-settings-overlay';
 
-            const engineNames = getEngineNames();
-            const engineOptions = Object.entries(engineNames)
-                .map(([val, name]) =>
-                    `<option value="${val}" ${CFG.defaultEngine === val ? 'selected' : ''}>${name} (${val})</option>`
-                ).join('');
+            const panel = document.createElement('div');
+            panel.id = 'jav-settings-panel';
 
-            overlay.innerHTML = `
-                <div id="jav-settings-panel">
-                    <div class="sp-header">
-                        <h2>🚗 老司机设置</h2>
-                        <span class="sp-close">✕</span>
+            panel.innerHTML = `
+                <div class="sp-header">
+                    <h2>🚗 老司机设置</h2>
+                    <span class="sp-close">✕</span>
+                </div>
+                <div class="sp-section">
+                    <div class="sp-section-title">站点网址</div>
+                    <div class="sp-row">
+                        <span class="sp-label">JavBus 域名</span>
+                        <input class="sp-input" id="sp-javbus-url" value="${CFG.javbusUrl}" placeholder="www.javbus.com">
                     </div>
-
-                    <div class="sp-section">
-                        <div class="sp-section-title">站点网址</div>
-                        <div class="sp-row">
-                            <span class="sp-label">JavBus 域名</span>
-                            <input class="sp-input" id="sp-javbus-url" value="${CFG.javbusUrl}" placeholder="www.javbus.com">
-                        </div>
-                        <div class="sp-row">
-                            <span class="sp-label">JavDB 域名</span>
-                            <input class="sp-input" id="sp-javdb-url" value="${CFG.javdbUrl}" placeholder="javdb.com">
-                        </div>
-                        <div class="sp-row">
-                            <span class="sp-label">JavLib 域名</span>
-                            <input class="sp-input" id="sp-javlib-url" value="${CFG.javlibUrl}" placeholder="www.javlibrary.com">
-                        </div>
+                    <div class="sp-row">
+                        <span class="sp-label">JavDB 域名</span>
+                        <input class="sp-input" id="sp-javdb-url" value="${CFG.javdbUrl}" placeholder="javdb.com">
                     </div>
-
-                    <div class="sp-section">
-                        <div class="sp-section-title">磁力搜索引擎域名</div>
-                        <div class="sp-row">
-                            <span class="sp-label">JavDB 搜索</span>
-                            <input class="sp-input" id="sp-javdb-search" value="${CFG.javdbSearchUrl}" placeholder="javdb.com">
-                        </div>
-                        <div class="sp-row">
-                            <span class="sp-label">BtSow</span>
-                            <input class="sp-input" id="sp-btsow" value="${CFG.btsowUrl}" placeholder="btsow.hair">
-                        </div>
-                        <div class="sp-row">
-                            <span class="sp-label">BtDig</span>
-                            <input class="sp-input" id="sp-btdig" value="${CFG.btdigUrl}" placeholder="btdig.com">
-                        </div>
-                        <div class="sp-row">
-                            <span class="sp-label">sukebei</span>
-                            <input class="sp-input" id="sp-sukebei" value="${CFG.sukebeiUrl}" placeholder="sukebei.nyaa.si">
-                        </div>
-                        <div class="sp-row">
-                            <span class="sp-label">TorrentKitty</span>
-                            <input class="sp-input" id="sp-torrentkitty" value="${CFG.torrentkittyUrl}" placeholder="www.torrentkitty.tv">
-                        </div>
+                    <div class="sp-row">
+                        <span class="sp-label">JavLib 域名</span>
+                        <input class="sp-input" id="sp-javlib-url" value="${CFG.javlibUrl}" placeholder="www.javlibrary.com">
                     </div>
-
-                    <div class="sp-section">
-                        <div class="sp-section-title">功能设置</div>
-                        <div class="sp-row">
-                            <span class="sp-label">默认搜索引擎</span>
-                            <select class="sp-select" id="sp-default-engine">${engineOptions}</select>
-                        </div>
-                        <div class="sp-row">
-                            <span class="sp-label">瀑布流翻页</span>
-                            <label class="sp-toggle">
-                                <input type="checkbox" id="sp-waterfall" ${CFG.waterfallEnabled ? 'checked' : ''}>
-                                <span class="sp-toggle-slider"></span>
-                            </label>
-                        </div>
+                </div>
+                <div class="sp-section">
+                    <div class="sp-section-title">磁力搜索引擎域名</div>
+                    <div class="sp-row">
+                        <span class="sp-label">JavDB 搜索</span>
+                        <input class="sp-input" id="sp-javdb-search" value="${CFG.javdbSearchUrl}" placeholder="javdb.com">
                     </div>
-
-                    <div class="sp-footer">
-                        <span class="sp-saved-tip" id="sp-saved-tip">✓ 已保存，刷新页面生效</span>
-                        <button class="sp-btn sp-btn-cancel">取消</button>
-                        <button class="sp-btn sp-btn-save">保存</button>
+                    <div class="sp-row">
+                        <span class="sp-label">BtSow</span>
+                        <input class="sp-input" id="sp-btsow" value="${CFG.btsowUrl}" placeholder="btsow.hair">
                     </div>
+                    <div class="sp-row">
+                        <span class="sp-label">BtDig</span>
+                        <input class="sp-input" id="sp-btdig" value="${CFG.btdigUrl}" placeholder="btdig.com">
+                    </div>
+                    <div class="sp-row">
+                        <span class="sp-label">sukebei</span>
+                        <input class="sp-input" id="sp-sukebei" value="${CFG.sukebeiUrl}" placeholder="sukebei.nyaa.si">
+                    </div>
+                    <div class="sp-row">
+                        <span class="sp-label">TorrentKitty</span>
+                        <input class="sp-input" id="sp-torrentkitty" value="${CFG.torrentkittyUrl}" placeholder="www.torrentkitty.tv">
+                    </div>
+                </div>
+                <div class="sp-section">
+                    <div class="sp-section-title">功能设置</div>
+                    <div class="sp-row">
+                        <span class="sp-label">默认搜索引擎</span>
+                        <select class="sp-select" id="sp-default-engine">
+                            ${(() => {
+                                const engineNames = {
+                                    [CFG.javdbSearchUrl]: 'JavDB',
+                                    [CFG.btsowUrl]: 'BtSow',
+                                    [CFG.btdigUrl]: 'BtDig',
+                                    [CFG.sukebeiUrl]: 'sukebei',
+                                    [CFG.torrentkittyUrl]: 'TorrentKitty',
+                                };
+                                return Object.entries(engineNames)
+                                    .map(([val, name]) => `<option value="${val}" ${CFG.defaultEngine === val ? 'selected' : ''}>${name} (${val})</option>`)
+                                    .join('');
+                            })()}
+                        </select>
+                    </div>
+                    <!-- 预览图来源顺序（搬运自 jump.js） -->
+                    <div class="sp-row" style="flex-direction: column; align-items: flex-start;">
+                        <span class="sp-label" style="margin-bottom: 4px;">预览图来源顺序</span>
+                        <div style="font-size: 12px; color: #9ca3af; margin-bottom: 6px;">拖拽 ⠿ 手柄调整顺序，依次尝试获取</div>
+                        <div id="jjs-order-list" class="jjs-order-list" style="width: 100%;"></div>
+                    </div>
+                </div>
+                <div class="sp-footer">
+                    <span class="sp-saved-tip" id="sp-saved-tip">✓ 已保存，刷新页面生效</span>
+                    <button class="sp-btn sp-btn-cancel">取消</button>
+                    <button class="sp-btn sp-btn-save">保存</button>
                 </div>
             `;
 
             document.body.appendChild(overlay);
+            overlay.appendChild(panel);
 
-            // 关闭
+            // 渲染来源顺序列表
+            const SOURCE_META = {
+                javfree:    { label: 'javfree.me',     color: '#2ecc71', emoji: '🟢', desc: '二次爬取，速度较快' },
+                projectjav: { label: 'projectjav.com', color: '#f1c40f', emoji: '🟡', desc: '高清截图，两步请求' },
+                javstore:   { label: 'javstore.net',   color: '#e74c3c', emoji: '🔴', desc: '兜底来源，成功率参差' },
+            };
+
+            let currentOrder = [...CFG.thumbSourceOrder];
+            const orderList = document.getElementById('jjs-order-list');
+
+            function buildOrderItems() {
+                orderList.innerHTML = '';
+                currentOrder.forEach((src, idx) => {
+                    const meta = SOURCE_META[src] || { label: src, color: '#999', emoji: '⚪', desc: '' };
+                    const item = document.createElement('div');
+                    item.className = 'jjs-order-item';
+                    item.dataset.src = src;
+                    item.innerHTML = `
+                        <span class="jjs-order-handle">⠿</span>
+                        <span class="jjs-order-num">${idx + 1}</span>
+                        <span class="jjs-order-emoji">${meta.emoji}</span>
+                        <div class="jjs-order-info">
+                            <div class="jjs-order-name">${meta.label}</div>
+                            <div class="jjs-order-desc">${meta.desc}</div>
+                        </div>
+                        <span class="jjs-order-dot" style="background:${meta.color};"></span>
+                    `;
+                    orderList.appendChild(item);
+                });
+            }
+
+            function refreshNums() {
+                orderList.querySelectorAll('.jjs-order-item').forEach((el, i) => {
+                    el.querySelector('.jjs-order-num').textContent = i + 1;
+                });
+            }
+
+            function syncOrderFromDOM() {
+                currentOrder = [...orderList.querySelectorAll('.jjs-order-item')].map(el => el.dataset.src);
+            }
+
+            buildOrderItems();
+
+            // --- 拖拽排序逻辑 ---
+            let dragging = null, ghost = null, offsetX = 0, offsetY = 0;
+
+            orderList.addEventListener('mousedown', e => {
+                const handle = e.target.closest('.jjs-order-handle');
+                if (!handle) return;
+                e.preventDefault();
+                dragging = handle.closest('.jjs-order-item');
+                if (!dragging) return;
+                const rect = dragging.getBoundingClientRect();
+                offsetX = e.clientX - rect.left;
+                offsetY = e.clientY - rect.top;
+                ghost = dragging.cloneNode(true);
+                ghost.style.cssText = `
+                    position: fixed; z-index: 10000099;
+                    width: ${rect.width}px; left: ${rect.left}px; top: ${rect.top}px;
+                    opacity: 0.85; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+                    border-color: #6366f1; background: #fff; pointer-events: none;
+                    border-radius: 8px; border: 1px solid #6366f1;
+                `;
+                document.body.appendChild(ghost);
+                dragging.style.opacity = '0.3';
+            });
+
+            document.addEventListener('mousemove', e => {
+                if (!ghost || !dragging) return;
+                ghost.style.left = (e.clientX - offsetX) + 'px';
+                ghost.style.top  = (e.clientY - offsetY) + 'px';
+                orderList.querySelectorAll('.jjs-order-item').forEach(el => el.classList.remove('drag-over'));
+                ghost.style.display = 'none';
+                const elBelow = document.elementFromPoint(e.clientX, e.clientY);
+                ghost.style.display = '';
+                const target = elBelow?.closest('.jjs-order-item');
+                if (target && target !== dragging) {
+                    target.classList.add('drag-over');
+                }
+            });
+
+            document.addEventListener('mouseup', e => {
+                if (!dragging || !ghost) return;
+                ghost.style.display = 'none';
+                const elBelow = document.elementFromPoint(e.clientX, e.clientY);
+                ghost.style.display = '';
+                const target = elBelow?.closest('.jjs-order-item');
+                if (target && target !== dragging && orderList.contains(target)) {
+                    const items = [...orderList.querySelectorAll('.jjs-order-item')];
+                    const fromIdx = items.indexOf(dragging);
+                    const toIdx   = items.indexOf(target);
+                    if (fromIdx < toIdx) {
+                        orderList.insertBefore(dragging, target.nextSibling);
+                    } else {
+                        orderList.insertBefore(dragging, target);
+                    }
+                    refreshNums();
+                    syncOrderFromDOM();
+                }
+                dragging.style.opacity = '';
+                ghost.remove();
+                orderList.querySelectorAll('.jjs-order-item').forEach(el => el.classList.remove('drag-over'));
+                dragging = null;
+                ghost = null;
+            });
+
+            // 关闭逻辑
             const closePanel = () => { overlay.style.display = 'none'; };
-            overlay.querySelector('.sp-close').addEventListener('click', closePanel);
-            overlay.querySelector('.sp-btn-cancel').addEventListener('click', closePanel);
+            panel.querySelector('.sp-close').addEventListener('click', closePanel);
+            panel.querySelector('.sp-btn-cancel').addEventListener('click', closePanel);
             overlay.addEventListener('click', e => { if (e.target === overlay) closePanel(); });
 
-            // 保存
-            overlay.querySelector('.sp-btn-save').addEventListener('click', () => {
-                CFG.javbusUrl       = overlay.querySelector('#sp-javbus-url').value.trim().replace(/^https?:\/\//, '');
-                CFG.javdbUrl        = overlay.querySelector('#sp-javdb-url').value.trim().replace(/^https?:\/\//, '');
-                CFG.javlibUrl       = overlay.querySelector('#sp-javlib-url').value.trim().replace(/^https?:\/\//, '');
-                CFG.javdbSearchUrl  = overlay.querySelector('#sp-javdb-search').value.trim().replace(/^https?:\/\//, '');
-                CFG.btsowUrl        = overlay.querySelector('#sp-btsow').value.trim().replace(/^https?:\/\//, '');
-                CFG.btdigUrl        = overlay.querySelector('#sp-btdig').value.trim().replace(/^https?:\/\//, '');
-                CFG.sukebeiUrl         = overlay.querySelector('#sp-sukebei').value.trim().replace(/^https?:\/\//, '');
-                CFG.torrentkittyUrl = overlay.querySelector('#sp-torrentkitty').value.trim().replace(/^https?:\/\//, '');
-                CFG.defaultEngine   = overlay.querySelector('#sp-default-engine').value;
-                CFG.waterfallEnabled = overlay.querySelector('#sp-waterfall').checked ? 1 : 0;
+            // 保存逻辑
+            panel.querySelector('.sp-btn-save').addEventListener('click', () => {
+                CFG.javbusUrl       = panel.querySelector('#sp-javbus-url').value.trim().replace(/^https?:\/\//, '');
+                CFG.javdbUrl        = panel.querySelector('#sp-javdb-url').value.trim().replace(/^https?:\/\//, '');
+                CFG.javlibUrl       = panel.querySelector('#sp-javlib-url').value.trim().replace(/^https?:\/\//, '');
+                CFG.javdbSearchUrl  = panel.querySelector('#sp-javdb-search').value.trim().replace(/^https?:\/\//, '');
+                CFG.btsowUrl        = panel.querySelector('#sp-btsow').value.trim().replace(/^https?:\/\//, '');
+                CFG.btdigUrl        = panel.querySelector('#sp-btdig').value.trim().replace(/^https?:\/\//, '');
+                CFG.sukebeiUrl         = panel.querySelector('#sp-sukebei').value.trim().replace(/^https?:\/\//, '');
+                CFG.torrentkittyUrl = panel.querySelector('#sp-torrentkitty').value.trim().replace(/^https?:\/\//, '');
+                CFG.defaultEngine    = panel.querySelector('#sp-default-engine').value;
+                CFG.thumbSourceOrder = currentOrder; // 顺序已通过 DOM 同步
 
-                const tip = overlay.querySelector('#sp-saved-tip');
+                const tip = panel.querySelector('#sp-saved-tip');
                 tip.classList.add('show');
                 setTimeout(() => tip.classList.remove('show'), 2500);
+            });
+
+            // 点击 overlay 空白关闭
+            overlay.addEventListener('click', e => {
+                if (e.target === overlay) closePanel();
             });
         }
 
@@ -571,112 +809,7 @@
     GM_registerMenuCommand('⚙️ 老司机设置', () => SettingsPanel.open());
 
     // =========================================================================
-    // [区块6] 瀑布流（参考 jhs.js AutoPagePlugin 逻辑）
-    // =========================================================================
-
-    const Waterfall = (() => {
-        const PRELOAD_DISTANCE = 500; // 距底部多少 px 时预加载
-
-        function resolveUrl(href) {
-            if (!href) return null;
-            if (href.startsWith('http')) return href;
-            return location.origin + (href.startsWith('/') ? '' : '/') + href;
-        }
-
-        function init({ nextSel, itemSel, contSel, pagiSel }) {
-            if (!CFG.waterfallEnabled) return;
-
-            const cont = document.querySelector(contSel);
-            if (!cont) { log('瀑布流: 找不到容器', contSel); return; }
-
-            const nextEl = document.querySelector(nextSel);
-            if (!nextEl) { log('瀑布流: 没有下一页链接', nextSel); return; }
-
-            // 隐藏原分页栏
-            const pagi = document.querySelector(pagiSel);
-            if (pagi) pagi.style.display = 'none';
-
-            let nextUrl  = resolveUrl(nextEl.getAttribute('href'));
-            let isLoading = false;
-            let hasMore  = !!nextUrl;
-
-            // loader div：插在容器后面，用于触发检测和状态展示
-            const loader = document.createElement('div');
-            loader.style.cssText = 'text-align:center;padding:16px;font-size:13px;color:#999;';
-            cont.parentNode.insertBefore(loader, cont.nextSibling);
-
-            // 点击 loader 可在出错时重试
-            loader.addEventListener('click', () => {
-                if (loader.dataset.state === 'error') loadNext();
-            });
-
-            function setState(state, text) {
-                loader.dataset.state = state;
-                loader.textContent = text;
-                loader.style.color = state === 'error' ? '#f44336' : '#999';
-                loader.style.cursor = state === 'error' ? 'pointer' : 'default';
-            }
-
-            async function loadNext() {
-                if (isLoading || !hasMore || !nextUrl) return;
-                isLoading = true;
-                setState('loading', '加载中…');
-
-                try {
-                    // 用原生 fetch，same-origin 自动带 cookie，适合同域翻页
-                    const html = await fetch(nextUrl, { credentials: 'same-origin' }).then(r => r.text());
-                    const doc  = new DOMParser().parseFromString(html, 'text/html');
-
-                    const items = [...doc.querySelectorAll(itemSel)];
-                    items.forEach(el => {
-                        el.querySelectorAll('a').forEach(a => { a.target = '_blank'; });
-                        cont.appendChild(el);
-                    });
-
-                    const nextA = doc.querySelector(nextSel);
-                    nextUrl  = resolveUrl(nextA?.getAttribute('href') || null);
-                    hasMore  = !!nextUrl;
-
-                    if (hasMore) {
-                        setState('loading', '');
-                    } else {
-                        setState('done', '— The End —');
-                        window.removeEventListener('scroll', onScroll);
-                    }
-                } catch(e) {
-                    log('瀑布流加载失败:', e);
-                    setState('error', '加载失败，点击重试');
-                } finally {
-                    isLoading = false;
-                    // 加载完后立即检查是否还需要继续加载（内容不足一屏的情况）
-                    checkLoad();
-                }
-            }
-
-            function checkLoad() {
-                if (!hasMore || isLoading) return;
-                // 核心：loader 元素顶部距视口底部小于 PRELOAD_DISTANCE 时触发
-                const rect = loader.getBoundingClientRect();
-                if (rect.top < window.innerHeight + PRELOAD_DISTANCE) {
-                    loadNext();
-                }
-            }
-
-            function onScroll() { checkLoad(); }
-
-            window.addEventListener('scroll', onScroll, { passive: true });
-
-            // 延迟初始检测（等页面渲染完成）
-            setTimeout(checkLoad, 800);
-
-            if (!hasMore) setState('done', '— The End —');
-        }
-
-        return { init };
-    })();
-
-    // =========================================================================
-    // [区块7] 磁力核心（挊）
+    // [区块5] 磁力核心（挊）
     // =========================================================================
 
     const Magnet = (() => {
@@ -706,7 +839,6 @@
             const doc = parseHTML(r.responseText);
             const finalUrl = r.finalUrl || `${base}/search?q=${kw}`;
 
-            // 找到精确匹配的番号条目
             const titleEl = [...doc.querySelectorAll('.box .video-title')]
                 .find(el => el.textContent.trim().toUpperCase().replace('+','-') === kw.toUpperCase());
             if (!titleEl) return { url: finalUrl, data: [] };
@@ -851,7 +983,6 @@
                 overflow: hidden; text-overflow: ellipsis;
                 display: block; text-align: left;
             }
-            /* 刷新按钮 */
             #jav-nong-refresh {
                 display: none; margin-left: 8px;
                 color: #e74c3c; font-weight: bold; cursor: pointer;
@@ -862,11 +993,9 @@
             const table = document.createElement('table');
             table.id = 'jav-nong-table';
 
-            // 表头行
             const headRow = document.createElement('tr');
             headRow.className = 'nong-head-row';
 
-            // 引擎选择列
             const thEngine = document.createElement('th');
             const allEngines = Engines.getAll();
             const curKey = CFG.defaultEngine;
@@ -879,14 +1008,12 @@
                 if (k === curKey) op.selected = true;
                 sel.appendChild(op);
             });
-            // 切换引擎：只影响本次搜索，不持久化
             sel.addEventListener('change', () => {
                 runSearch(table, avid, sel.value);
             });
             thEngine.appendChild(sel);
             headRow.appendChild(thEngine);
 
-            // 其他列头
             ['大小', '操作', '115离线'].forEach(txt => {
                 const th = document.createElement('th');
                 th.textContent = txt;
@@ -895,12 +1022,10 @@
 
             table.appendChild(headRow);
 
-            // Loading 行
             const loadRow = document.createElement('tr');
             const loadTd = document.createElement('td');
             loadTd.colSpan = 4;
             loadTd.id = 'jav-nong-notice';
-
             const loadText = document.createTextNode('Loading…');
             const refreshBtn = document.createElement('a');
             refreshBtn.id = 'jav-nong-refresh';
@@ -911,7 +1036,6 @@
                 e.preventDefault();
                 runSearch(table, avid, sel.value);
             });
-
             loadTd.appendChild(loadText);
             loadTd.appendChild(refreshBtn);
             loadRow.appendChild(loadTd);
@@ -920,24 +1044,7 @@
             return table;
         }
 
-        function showLoading(table) {
-            const notice = table.querySelector('#jav-nong-notice');
-            if (!notice) return;
-            notice.firstChild.textContent = 'Loading…';
-            const btn = notice.querySelector('#jav-nong-refresh');
-            if (btn) btn.style.display = 'none';
-        }
-
-        function showRefreshBtn(table, msg = '加载超时，') {
-            const notice = table.querySelector('#jav-nong-notice');
-            if (!notice) return;
-            notice.firstChild.textContent = msg;
-            const btn = notice.querySelector('#jav-nong-refresh');
-            if (btn) btn.style.display = 'inline';
-        }
-
         function fillTable(table, data, engineUrl) {
-            // 移除 loading 行
             const notice = table.querySelector('#jav-nong-notice');
             if (notice) notice.parentElement.remove();
 
@@ -955,7 +1062,6 @@
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-maglink', item.maglink);
 
-                // 标题
                 const tdTitle = document.createElement('td');
                 const nameSpan = document.createElement('span');
                 nameSpan.className = 'nong-magnet-name';
@@ -968,13 +1074,11 @@
                 tdTitle.appendChild(nameSpan);
                 tr.appendChild(tdTitle);
 
-                // 大小
                 const tdSize = document.createElement('td');
                 tdSize.style.whiteSpace = 'nowrap';
                 tdSize.textContent = item.size;
                 tr.appendChild(tdSize);
 
-                // 操作（复制）
                 const tdOp = document.createElement('td');
                 tdOp.style.whiteSpace = 'nowrap';
                 const copyBtn = document.createElement('a');
@@ -990,7 +1094,6 @@
                 tdOp.appendChild(copyBtn);
                 tr.appendChild(tdOp);
 
-                // 115离线
                 const tdOffline = document.createElement('td');
                 const offBtn = document.createElement('a');
                 offBtn.href = '#';
@@ -1008,8 +1111,6 @@
         }
 
         async function runSearch(table, avid, engineKey) {
-            // 重置表格到 loading 状态
-            // 移除所有非表头、非notice行
             [...table.querySelectorAll('tr:not(.nong-head-row)')].forEach(r => r.remove());
             const loadRow = document.createElement('tr');
             const loadTd = document.createElement('td');
@@ -1020,7 +1121,6 @@
             refreshBtn.id = 'jav-nong-refresh';
             refreshBtn.href = '#';
             refreshBtn.textContent = '🔄 刷新';
-            refreshBtn.style.display = 'none';
             refreshBtn.style.cssText = 'display:none;margin-left:8px;color:#e74c3c;font-weight:bold;cursor:pointer;';
             refreshBtn.onclick = e => { e.preventDefault(); runSearch(table, avid, engineKey); };
             loadTd.appendChild(loadText);
@@ -1028,7 +1128,6 @@
             loadRow.appendChild(loadTd);
             table.appendChild(loadRow);
 
-            // 15秒超时显示刷新按钮
             const timer = setTimeout(() => {
                 loadText.textContent = '加载超时，';
                 refreshBtn.style.display = 'inline';
@@ -1048,7 +1147,6 @@
             }
         }
 
-        // 创建完整磁力模块（表格 + 标题容器）
         function createMagnetWidget(avid, previewBtn) {
             const wrapper = document.createElement('div');
             wrapper.className = 'jav-nong-wrapper';
@@ -1071,11 +1169,9 @@
             if (previewBtn) header.appendChild(previewBtn);
 
             wrapper.appendChild(header);
-
             const table = buildTable(avid);
             wrapper.appendChild(table);
 
-            // 启动首次搜索
             const engineKey = CFG.defaultEngine;
             runSearch(table, avid, engineKey);
 
@@ -1086,7 +1182,7 @@
     })();
 
     // =========================================================================
-    // [区块8] 站点适配层
+    // [区块6] 站点适配层（瀑布流已全部移除）
     // =========================================================================
 
     // --- JavBus ---
@@ -1095,20 +1191,15 @@
             return location.hostname.includes('javbus') && !!document.querySelector('.header');
         },
         getVid() {
-            // 从关键字 meta 取第一个词即番号
             const kw = document.querySelector('meta[name="keywords"]')?.content || '';
             return normalizeAvid(kw.split(',')[0].trim());
         },
         initPage(avid) {
-            // 去广告
             document.querySelector('.ad-box')?.remove();
 
-            // 全局铺满
             GM_addStyle(`
-                /* JavBus 全局铺满 */
                 .container { max-width: 100% !important; width: 100% !important;
                     padding-left: 20px !important; padding-right: 20px !important; }
-                /* 三列 flex 布局 */
                 .row.movie { display: flex !important; gap: 20px !important;
                     align-items: flex-start !important; flex-wrap: nowrap !important; margin: 0 !important; }
                 .col-md-9.screencap { flex: 1 1 0 !important; min-width: 0 !important;
@@ -1116,45 +1207,26 @@
                 .col-md-3.info { flex: 1 1 0 !important; min-width: 0 !important;
                     width: auto !important; float: none !important;
                     overflow: hidden !important; word-break: break-word !important; }
-                .col-md-3.info .genre { display: inline-block; max-width: 100%; white-space: normal; }
-                /* 磁力列占位槽 */
                 .jav-nong-slot { flex: 1 1 0 !important; min-width: 0 !important; align-self: flex-start !important; }
                 .jav-nong-wrapper { max-width: 100%; }
-                /* 封面图自适应 */
                 .screencap img { width: 100%; max-width: 100%; }
-                /* 页脚 */
                 .footer { padding: 20px 0; }
             `);
 
-            // 列表页：有 #waterfall 且有 .masonry
-            if (document.querySelector('#waterfall div.item') && document.querySelector('.masonry')) {
-                Waterfall.init({
-                    nextSel: 'a#next',
-                    itemSel: '#waterfall div.item',
-                    contSel: '.masonry',
-                    pagiSel: '.pagination-lg',
-                });
-                return; // 列表页不插磁力表格
-            }
+            // 列表页无磁力插入
+            if (document.querySelector('#waterfall div.item') && document.querySelector('.masonry')) return;
 
-            // 详情页：插入磁力模块
             this._insertMagnet(avid);
         },
         _insertMagnet(avid) {
             const infoCol = document.querySelector("div[class='col-md-3 info']");
             if (!infoCol) return;
-
-            // 清理旧槽（刷新场景）
             document.querySelectorAll('.jav-nong-slot').forEach(el => el.remove());
-
             const previewBtn = createPreviewBtn(avid);
             const widget = Magnet.createMagnetWidget(avid, previewBtn);
-
             const slot = document.createElement('div');
             slot.className = 'jav-nong-slot';
             slot.appendChild(widget);
-
-            // .row.movie 已被 CSS 改为 flex，直接插在 infoCol 后面即可
             infoCol.after(slot);
         },
     };
@@ -1169,79 +1241,46 @@
             return normalizeAvid(el?.dataset?.clipboardText || '');
         },
         initPage(avid) {
-            // 去广告/弹窗
             document.querySelector('.app-desktop-banner')?.remove();
             document.querySelector('.modal.is-active.over18-modal')?.remove();
 
             GM_addStyle(`
-                /* JavDB 全局 */
                 .container { max-width: 100% !important; }
-                /* 详情页介绍列标签换行 */
                 .movie-panel-info { overflow: hidden; word-break: break-word; }
                 .movie-panel-info .panel-block { flex-wrap: wrap; }
                 .movie-panel-info .value { overflow: hidden; word-break: break-word; }
             `);
 
-            // 列表页：只做瀑布流
-            if (!location.pathname.startsWith('/v/')) {
-                const movieList = document.querySelector('.movie-list');
-                if (movieList) {
-                    Waterfall.init({
-                        nextSel: '.pagination-next',
-                        itemSel: '.movie-list .item',
-                        contSel: '.movie-list',
-                        pagiSel: '.pagination',
-                    });
-                }
-                return;
-            }
-
-            // 详情页
+            if (!location.pathname.startsWith('/v/')) return;
             this._insertMagnet(avid);
         },
         _insertMagnet(avid) {
-            // JavDB 详情页结构：左封面列 + 右面板（.column.column-video-cover / .column.video-meta-panel）
             const coverCol  = document.querySelector('.column.column-video-cover');
             const infoPanel = document.querySelector('.movie-panel-info');
             if (!coverCol || !infoPanel) return;
 
             document.querySelectorAll('.jav-nong-slot').forEach(el => el.remove());
 
-            // 三列均分 flex
             const parent = coverCol.parentElement;
             let flexContainer = parent.querySelector('.jav-flex-container');
             if (!flexContainer) {
                 flexContainer = document.createElement('div');
                 flexContainer.className = 'jav-flex-container';
                 flexContainer.style.cssText = 'display:flex;gap:20px;align-items:flex-start;width:100%;';
-
                 coverCol.style.cssText  += ';flex:1 1 0;min-width:0;';
                 infoPanel.style.cssText += ';flex:1 1 0;min-width:0;overflow:hidden;word-break:break-word;';
-
                 flexContainer.appendChild(coverCol);
                 flexContainer.appendChild(infoPanel);
                 parent.appendChild(flexContainer);
             }
 
-            // 磁力列：占位槽 + 内容 wrapper（inline-block 不被 flex 撑开）
             const slot = document.createElement('div');
             slot.className = 'jav-nong-slot';
             slot.style.cssText = 'flex:1 1 0;min-width:0;align-self:flex-start;';
-
             const previewBtn = createPreviewBtn(avid);
             const widget = Magnet.createMagnetWidget(avid, previewBtn);
             slot.appendChild(widget);
             flexContainer.appendChild(slot);
-
-            // JavDB 列表页瀑布流（详情页不会进来，此段实际不执行）
-            if (document.querySelector('.movie-list .item')) {
-                Waterfall.init({
-                    nextSel: '.pagination-next',
-                    itemSel: '.movie-list .item',
-                    contSel: '.movie-list',
-                    pagiSel: '.pagination',
-                });
-            }
         },
     };
 
@@ -1250,65 +1289,34 @@
         match() {
             return /(javlibrary|javlib|r86m|s87n)/i.test(location.hostname);
         },
-        // 详情页判断：有 #video_id .text 且有 meta[name="keywords"]
         isDetailPage() {
             return !!document.querySelector('#video_id .text') &&
                    !!document.querySelector('meta[name="keywords"]');
         },
         getVid() {
-            // 详情页：从 #video_id .text 取番号
             const el = document.querySelector('#video_id .text');
             if (el?.textContent?.trim()) return normalizeAvid(el.textContent.trim());
-            // 降级：从 title 匹配
             const m = document.title.match(/([A-Z0-9]+-\d+)/i);
             return m ? m[1].toUpperCase() : '';
         },
         initPage(avid) {
-            // 列表页：只做瀑布流
-            if (!this.isDetailPage()) {
-                if (document.querySelector('div.videos div.video')) {
-                    GM_addStyle(`
-                        .videothumblist .videos .video { height: 270px; padding: 0; margin: 4px; }
-                        .videothumblist .videos .video .title { height: 2.8em; }
-                        .id { height: 1.3em; overflow: hidden; }
-                    `);
-                    const cont = document.querySelector('div.videos');
-                    if (cont) cont.id = 'jav-waterfall';
-                    Waterfall.init({
-                        nextSel: 'a[class="page next"]',
-                        itemSel: 'div.videos div.video',
-                        contSel: '#jav-waterfall',
-                        pagiSel: '.page_selector',
-                    });
-                    // JavLib 列表页不插磁力表格
-                }
-                return;
-            }
-
-            // 详情页
+            if (!this.isDetailPage()) return; // 列表页不处理
             if (!avid) return;
 
-            // 去除干扰
             document.querySelector('.socialmedia')?.remove();
 
             GM_addStyle(`
-                /* 全局铺满，隐藏左侧导航菜单（详情页不需要） */
                 #leftmenu { display: none; }
                 #rightcolumn { margin: 0 !important; width: 100% !important; float: none !important; }
                 #content { padding-top: 0; width: 100%; }
-                /* 封面图自适应 */
                 #video_jacket img { max-width: 100%; height: auto; }
-                /* 介绍列标签换行 */
                 #video_info { text-align: left; font: 14px Arial; overflow: hidden; word-break: break-word; }
-                /* 磁力表格不超出列宽 */
                 .jav-nong-slot .jav-nong-wrapper { max-width: 100%; }
             `);
 
             this._insertMagnet(avid);
         },
         _insertMagnet(avid) {
-            // JavLib 结构：table#video_jacket_info > tr > td（封面）+ td（介绍）
-            // 方案：把 table 的 tr 改为 flex 容器，三列均分，追加磁力列
             const table = document.getElementById('video_jacket_info');
             if (!table) return;
             const row = table.querySelector('tr');
@@ -1316,18 +1324,13 @@
 
             document.querySelectorAll('.jav-nong-slot').forEach(el => el.remove());
 
-            // table 本身撑满
             table.style.cssText = 'width:100%;display:block;';
-
-            // tr 改为 flex 行
             row.style.cssText = 'display:flex;gap:20px;align-items:flex-start;width:100%;';
 
-            // 封面 td 和介绍 td 均分
             const tds = row.querySelectorAll('td');
             if (tds[0]) tds[0].style.cssText = 'flex:1 1 0;min-width:0;vertical-align:top;';
             if (tds[1]) tds[1].style.cssText = 'flex:1 1 0;min-width:0;vertical-align:top;overflow:hidden;word-break:break-word;';
 
-            // 封面图自适应列宽
             const jacketImg = document.getElementById('video_jacket_img');
             if (jacketImg) {
                 jacketImg.removeAttribute('width');
@@ -1335,7 +1338,6 @@
                 jacketImg.style.cssText = 'width:100%;height:auto;max-width:100%;';
             }
 
-            // 第三列：磁力表格（占位 td + inline-block wrapper，边框跟随内容宽度）
             const magnetTd = document.createElement('td');
             magnetTd.className = 'jav-nong-slot';
             magnetTd.style.cssText = 'flex:1 1 0;min-width:0;vertical-align:top;align-self:flex-start;';
@@ -1352,7 +1354,7 @@
     };
 
     // =========================================================================
-    // [区块9] 主入口
+    // [区块7] 主入口
     // =========================================================================
 
     const SITES = [SiteJavBus, SiteJavDB, SiteJavLib];
@@ -1367,7 +1369,6 @@
         site.initPage(avid);
     }
 
-    // JavDB 详情页有动态加载，稍作延迟
     if (location.hostname.includes('javdb') && location.pathname.startsWith('/v/')) {
         setTimeout(mainRun, 600);
     } else {
