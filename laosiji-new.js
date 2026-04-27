@@ -30,8 +30,8 @@
 // @grant        GM_info
 // @connect      *
 // @license      GPL-3.0
-// @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/laosiji-new.js
-// @updateURL    https://raw.githubusercontent.com/ZiPenOk/scripts/main/laosiji-new.js
+// @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/laosiji-new.js
+// @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/laosiji-new.js
 // ==/UserScript==
 
 (function () {

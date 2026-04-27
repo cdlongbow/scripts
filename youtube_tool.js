@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Speed + CDN (Status Bar)
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      1.0.1
+// @version      1.0.2
 // @description  在 YouTube 视频播放器的右下角工具栏，实时显示当前的视频下载速度以及提供视频流的服务器（CDN）所在的国家或地区。
 // @author       wya (ZiPenOk 修复)
 // @match        https://www.youtube.com/*
@@ -24,8 +24,8 @@
 // @connect      ip-api.com
 // @connect      ipwhois.app
 // @connect      ipinfo.io
-// @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/youtube_tool.js
-// @updateURL    https://raw.githubusercontent.com/ZiPenOk/scripts/main/youtube_tool.js
+// @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/youtube_tool.js
+// @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/youtube_tool.js
 // ==/UserScript==
 
 (() => {

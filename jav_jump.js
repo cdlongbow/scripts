@@ -28,8 +28,8 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_addStyle
 // @connect      *
-// @updateURL    https://raw.githubusercontent.com/ZiPenOk/scripts/main/jav_jump.js
-// @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/jav_jump.js
+// @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/jav_jump.js
+// @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/jav_jump.js
 // ==/UserScript==
 
 (function() {
