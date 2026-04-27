@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      1.0.0
+// @version      1.0.1
 // @description  JavBus / JavDB / JavLib 磁力搜索 + 115离线 + 瀑布流 + 灯箱预览
 // @author       ZiPenOk
 // @require      https://lib.baomitu.com/jquery/2.2.4/jquery.min.js
@@ -13,11 +13,11 @@
 // @include      *://*s87n.com/*
 
 // JavBus
-// @match        https://www.javbus.com/*-*
-// @match        *://*javbus.com/*-*
+// @match        https://www.javbus.com/*
+// @match        *://*javbus.com/*
 
 // JavDB
-// @include      *://*javdb*.com/v/*
+// @include      *://*javdb*.com/*
 
 // @run-at       document-idle
 // @grant        GM_xmlhttpRequest
@@ -50,7 +50,7 @@
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
         get btsowUrl()         { return GM_getValue('cfg_btsow_url',         'btsow.hair'); },
         get btdigUrl()         { return GM_getValue('cfg_btdig_url',         'btdig.com'); },
-        get nyaaUrl()          { return GM_getValue('cfg_nyaa_url',          'nyaa.si'); },
+        get sukebeiUrl()          { return GM_getValue('cfg_sukebei_url',          'sukebei.nyaa.si'); },
         get torrentkittyUrl()  { return GM_getValue('cfg_torrentkitty_url',  'www.torrentkitty.tv'); },
 
         // 功能开关
@@ -63,7 +63,7 @@
         set javdbSearchUrl(v)   { GM_setValue('cfg_javdb_search_url', v); },
         set btsowUrl(v)         { GM_setValue('cfg_btsow_url', v); },
         set btdigUrl(v)         { GM_setValue('cfg_btdig_url', v); },
-        set nyaaUrl(v)          { GM_setValue('cfg_nyaa_url', v); },
+        set sukebeiUrl(v)          { GM_setValue('cfg_sukebei_url', v); },
         set torrentkittyUrl(v)  { GM_setValue('cfg_torrentkitty_url', v); },
         set waterfallEnabled(v) { GM_setValue('cfg_waterfall', v); },
         set defaultEngine(v)    { GM_setValue('cfg_default_engine', v); },
@@ -347,7 +347,7 @@
                 [CFG.javdbSearchUrl]: 'JavDB',
                 [CFG.btsowUrl]:       'BtSow',
                 [CFG.btdigUrl]:       'BtDig',
-                [CFG.nyaaUrl]:        'Nyaa',
+                [CFG.sukebeiUrl]:        'sukebei',
                 [CFG.torrentkittyUrl]:'TorrentKitty',
             };
         }
@@ -506,8 +506,8 @@
                             <input class="sp-input" id="sp-btdig" value="${CFG.btdigUrl}" placeholder="btdig.com">
                         </div>
                         <div class="sp-row">
-                            <span class="sp-label">Nyaa</span>
-                            <input class="sp-input" id="sp-nyaa" value="${CFG.nyaaUrl}" placeholder="nyaa.si">
+                            <span class="sp-label">sukebei</span>
+                            <input class="sp-input" id="sp-sukebei" value="${CFG.sukebeiUrl}" placeholder="sukebei.nyaa.si">
                         </div>
                         <div class="sp-row">
                             <span class="sp-label">TorrentKitty</span>
@@ -554,7 +554,7 @@
                 CFG.javdbSearchUrl  = overlay.querySelector('#sp-javdb-search').value.trim().replace(/^https?:\/\//, '');
                 CFG.btsowUrl        = overlay.querySelector('#sp-btsow').value.trim().replace(/^https?:\/\//, '');
                 CFG.btdigUrl        = overlay.querySelector('#sp-btdig').value.trim().replace(/^https?:\/\//, '');
-                CFG.nyaaUrl         = overlay.querySelector('#sp-nyaa').value.trim().replace(/^https?:\/\//, '');
+                CFG.sukebeiUrl         = overlay.querySelector('#sp-sukebei').value.trim().replace(/^https?:\/\//, '');
                 CFG.torrentkittyUrl = overlay.querySelector('#sp-torrentkitty').value.trim().replace(/^https?:\/\//, '');
                 CFG.defaultEngine   = overlay.querySelector('#sp-default-engine').value;
                 CFG.waterfallEnabled = overlay.querySelector('#sp-waterfall').checked ? 1 : 0;
@@ -571,59 +571,105 @@
     GM_registerMenuCommand('⚙️ 老司机设置', () => SettingsPanel.open());
 
     // =========================================================================
-    // [区块6] 瀑布流
+    // [区块6] 瀑布流（参考 jhs.js AutoPagePlugin 逻辑）
     // =========================================================================
 
     const Waterfall = (() => {
-        function init({ nextSel, itemSel, contSel, pagiSel }) {
-            if (!CFG.waterfallEnabled) return;
-            const cont = document.querySelector(contSel);
-            const pagi = document.querySelector(pagiSel);
-            if (!cont || !pagi) return;
+        const PRELOAD_DISTANCE = 500; // 距底部多少 px 时预加载
 
-            let loading = false;
-            let nextUrl = document.querySelector(nextSel)?.href;
-            if (!nextUrl) return;
-
-            // 隐藏原分页
-            pagi.style.display = 'none';
-
-            const sentinel = document.createElement('div');
-            sentinel.style.height = '1px';
-            cont.parentNode.insertBefore(sentinel, cont.nextSibling);
-
-            const observer = new IntersectionObserver(async entries => {
-                if (!entries[0].isIntersecting || loading || !nextUrl) return;
-                loading = true;
-
-                const indicator = _makeIndicator();
-                sentinel.parentNode.insertBefore(indicator, sentinel);
-
-                const doc = await fetchDoc(nextUrl);
-                indicator.remove();
-
-                if (!doc) { loading = false; return; }
-
-                const items = doc.querySelectorAll(itemSel);
-                items.forEach(el => cont.appendChild(el));
-
-                // 触发站点脚本对新元素的处理
-                document.dispatchEvent(new CustomEvent('jav:newItems', { detail: { items: [...items] } }));
-
-                const nextEl = doc.querySelector(nextSel);
-                nextUrl = nextEl ? nextEl.href : null;
-                if (!nextUrl) sentinel.remove();
-                loading = false;
-            }, { rootMargin: '200px' });
-
-            observer.observe(sentinel);
+        function resolveUrl(href) {
+            if (!href) return null;
+            if (href.startsWith('http')) return href;
+            return location.origin + (href.startsWith('/') ? '' : '/') + href;
         }
 
-        function _makeIndicator() {
-            const d = document.createElement('div');
-            d.style.cssText = 'text-align:center;padding:16px;color:#999;font-size:13px;';
-            d.textContent = '加载中…';
-            return d;
+        function init({ nextSel, itemSel, contSel, pagiSel }) {
+            if (!CFG.waterfallEnabled) return;
+
+            const cont = document.querySelector(contSel);
+            if (!cont) { log('瀑布流: 找不到容器', contSel); return; }
+
+            const nextEl = document.querySelector(nextSel);
+            if (!nextEl) { log('瀑布流: 没有下一页链接', nextSel); return; }
+
+            // 隐藏原分页栏
+            const pagi = document.querySelector(pagiSel);
+            if (pagi) pagi.style.display = 'none';
+
+            let nextUrl  = resolveUrl(nextEl.getAttribute('href'));
+            let isLoading = false;
+            let hasMore  = !!nextUrl;
+
+            // loader div：插在容器后面，用于触发检测和状态展示
+            const loader = document.createElement('div');
+            loader.style.cssText = 'text-align:center;padding:16px;font-size:13px;color:#999;';
+            cont.parentNode.insertBefore(loader, cont.nextSibling);
+
+            // 点击 loader 可在出错时重试
+            loader.addEventListener('click', () => {
+                if (loader.dataset.state === 'error') loadNext();
+            });
+
+            function setState(state, text) {
+                loader.dataset.state = state;
+                loader.textContent = text;
+                loader.style.color = state === 'error' ? '#f44336' : '#999';
+                loader.style.cursor = state === 'error' ? 'pointer' : 'default';
+            }
+
+            async function loadNext() {
+                if (isLoading || !hasMore || !nextUrl) return;
+                isLoading = true;
+                setState('loading', '加载中…');
+
+                try {
+                    // 用原生 fetch，same-origin 自动带 cookie，适合同域翻页
+                    const html = await fetch(nextUrl, { credentials: 'same-origin' }).then(r => r.text());
+                    const doc  = new DOMParser().parseFromString(html, 'text/html');
+
+                    const items = [...doc.querySelectorAll(itemSel)];
+                    items.forEach(el => {
+                        el.querySelectorAll('a').forEach(a => { a.target = '_blank'; });
+                        cont.appendChild(el);
+                    });
+
+                    const nextA = doc.querySelector(nextSel);
+                    nextUrl  = resolveUrl(nextA?.getAttribute('href') || null);
+                    hasMore  = !!nextUrl;
+
+                    if (hasMore) {
+                        setState('loading', '');
+                    } else {
+                        setState('done', '— The End —');
+                        window.removeEventListener('scroll', onScroll);
+                    }
+                } catch(e) {
+                    log('瀑布流加载失败:', e);
+                    setState('error', '加载失败，点击重试');
+                } finally {
+                    isLoading = false;
+                    // 加载完后立即检查是否还需要继续加载（内容不足一屏的情况）
+                    checkLoad();
+                }
+            }
+
+            function checkLoad() {
+                if (!hasMore || isLoading) return;
+                // 核心：loader 元素顶部距视口底部小于 PRELOAD_DISTANCE 时触发
+                const rect = loader.getBoundingClientRect();
+                if (rect.top < window.innerHeight + PRELOAD_DISTANCE) {
+                    loadNext();
+                }
+            }
+
+            function onScroll() { checkLoad(); }
+
+            window.addEventListener('scroll', onScroll, { passive: true });
+
+            // 延迟初始检测（等页面渲染完成）
+            setTimeout(checkLoad, 800);
+
+            if (!hasMore) setState('done', '— The End —');
         }
 
         return { init };
@@ -642,7 +688,7 @@
                     [CFG.javdbSearchUrl]: _searchJavDB,
                     [CFG.btsowUrl]:       _searchBtsow,
                     [CFG.btdigUrl]:       _searchBtdig,
-                    [CFG.nyaaUrl]:        _searchNyaa,
+                    [CFG.sukebeiUrl]:        _searchsukebei,
                     [CFG.torrentkittyUrl]:_searchTorrentkitty,
                 };
             },
@@ -714,8 +760,8 @@
             return { url: r.finalUrl || base, data };
         }
 
-        async function _searchNyaa(kw) {
-            const base = 'https://' + CFG.nyaaUrl;
+        async function _searchsukebei(kw) {
+            const base = 'https://' + CFG.sukebeiUrl;
             const r = await gmFetch(`${base}/?f=0&c=0_0&q=${kw}`);
             if (!r.loadstuts) return { url: base, data: [] };
             const doc = parseHTML(r.responseText);
@@ -1080,8 +1126,8 @@
                 .footer { padding: 20px 0; }
             `);
 
-            // 瀑布流（列表页）
-            if (document.querySelector('#waterfall div.item')) {
+            // 列表页：有 #waterfall 且有 .masonry
+            if (document.querySelector('#waterfall div.item') && document.querySelector('.masonry')) {
                 Waterfall.init({
                     nextSel: 'a#next',
                     itemSel: '#waterfall div.item',
@@ -1116,7 +1162,7 @@
     // --- JavDB ---
     const SiteJavDB = {
         match() {
-            return location.hostname.includes('javdb') && location.pathname.startsWith('/v/');
+            return location.hostname.includes('javdb');
         },
         getVid() {
             const el = document.querySelector('a.button.is-white.copy-to-clipboard');
@@ -1128,17 +1174,29 @@
             document.querySelector('.modal.is-active.over18-modal')?.remove();
 
             GM_addStyle(`
-                /* JavDB 详情页布局 */
-                .video-detail .container { max-width: 100% !important; }
-                /* 防止介绍列标签撑宽 */
+                /* JavDB 全局 */
+                .container { max-width: 100% !important; }
+                /* 详情页介绍列标签换行 */
                 .movie-panel-info { overflow: hidden; word-break: break-word; }
                 .movie-panel-info .panel-block { flex-wrap: wrap; }
                 .movie-panel-info .value { overflow: hidden; word-break: break-word; }
-                /* 磁力表格 */
-                .jav-nong-wrapper { max-width: 100%; }
             `);
 
-            // 瀑布流（列表页不会进来，但做保险）
+            // 列表页：只做瀑布流
+            if (!location.pathname.startsWith('/v/')) {
+                const movieList = document.querySelector('.movie-list');
+                if (movieList) {
+                    Waterfall.init({
+                        nextSel: '.pagination-next',
+                        itemSel: '.movie-list .item',
+                        contSel: '.movie-list',
+                        pagiSel: '.pagination',
+                    });
+                }
+                return;
+            }
+
+            // 详情页
             this._insertMagnet(avid);
         },
         _insertMagnet(avid) {
@@ -1175,10 +1233,10 @@
             slot.appendChild(widget);
             flexContainer.appendChild(slot);
 
-            // JavDB 列表页瀑布流
+            // JavDB 列表页瀑布流（详情页不会进来，此段实际不执行）
             if (document.querySelector('.movie-list .item')) {
                 Waterfall.init({
-                    nextSel: '.pagination .pagination-next',
+                    nextSel: '.pagination-next',
                     itemSel: '.movie-list .item',
                     contSel: '.movie-list',
                     pagiSel: '.pagination',
@@ -1222,6 +1280,7 @@
                         contSel: '#jav-waterfall',
                         pagiSel: '.page_selector',
                     });
+                    // JavLib 列表页不插磁力表格
                 }
                 return;
             }
@@ -1233,52 +1292,62 @@
             document.querySelector('.socialmedia')?.remove();
 
             GM_addStyle(`
-                #video_info { text-align: left; font: 14px Arial; min-width: 230px; max-width: 260px; padding: 0; }
-                #video_jacket_info { overflow: hidden; }
-                #coverimg { vertical-align: top; overflow: hidden; max-width: 50%; }
-                #content { padding-top: 0; }
-                /* flex 布局：左侧信息 + 右侧磁力 */
-                .jav-info-flex { display: flex; gap: 20px; align-items: flex-start; width: 100%; }
-                .jav-info-left { flex: 0 0 auto; min-width: 0; }
-                .jav-info-right { flex: 1; min-width: 0; }
-                @media (max-width: 1000px) {
-                    .jav-info-flex { flex-wrap: wrap; }
-                    .jav-info-right { flex-basis: 100%; }
-                }
+                /* 全局铺满，隐藏左侧导航菜单（详情页不需要） */
+                #leftmenu { display: none; }
+                #rightcolumn { margin: 0 !important; width: 100% !important; float: none !important; }
+                #content { padding-top: 0; width: 100%; }
+                /* 封面图自适应 */
+                #video_jacket img { max-width: 100%; height: auto; }
+                /* 介绍列标签换行 */
+                #video_info { text-align: left; font: 14px Arial; overflow: hidden; word-break: break-word; }
+                /* 磁力表格不超出列宽 */
+                .jav-nong-slot .jav-nong-wrapper { max-width: 100%; }
             `);
 
             this._insertMagnet(avid);
         },
         _insertMagnet(avid) {
-            // JavLib 详情页：#video_info 在一个 <td> 里
-            const videoInfo = document.getElementById('video_info');
-            if (!videoInfo) return;
-            const infoTd = videoInfo.closest('td');
-            if (!infoTd) return;
+            // JavLib 结构：table#video_jacket_info > tr > td（封面）+ td（介绍）
+            // 方案：把 table 的 tr 改为 flex 容器，三列均分，追加磁力列
+            const table = document.getElementById('video_jacket_info');
+            if (!table) return;
+            const row = table.querySelector('tr');
+            if (!row) return;
 
             document.querySelectorAll('.jav-nong-slot').forEach(el => el.remove());
 
-            // 创建 flex 容器，左侧放原 #video_info，右侧放磁力表格
-            const flex = document.createElement('div');
-            flex.className = 'jav-info-flex';
+            // table 本身撑满
+            table.style.cssText = 'width:100%;display:block;';
 
-            const left = document.createElement('div');
-            left.className = 'jav-info-left';
-            left.appendChild(videoInfo);
+            // tr 改为 flex 行
+            row.style.cssText = 'display:flex;gap:20px;align-items:flex-start;width:100%;';
 
-            const right = document.createElement('div');
-            right.className = 'jav-info-right jav-nong-slot';
+            // 封面 td 和介绍 td 均分
+            const tds = row.querySelectorAll('td');
+            if (tds[0]) tds[0].style.cssText = 'flex:1 1 0;min-width:0;vertical-align:top;';
+            if (tds[1]) tds[1].style.cssText = 'flex:1 1 0;min-width:0;vertical-align:top;overflow:hidden;word-break:break-word;';
+
+            // 封面图自适应列宽
+            const jacketImg = document.getElementById('video_jacket_img');
+            if (jacketImg) {
+                jacketImg.removeAttribute('width');
+                jacketImg.removeAttribute('height');
+                jacketImg.style.cssText = 'width:100%;height:auto;max-width:100%;';
+            }
+
+            // 第三列：磁力表格（占位 td + inline-block wrapper，边框跟随内容宽度）
+            const magnetTd = document.createElement('td');
+            magnetTd.className = 'jav-nong-slot';
+            magnetTd.style.cssText = 'flex:1 1 0;min-width:0;vertical-align:top;align-self:flex-start;';
+
+            const innerWrap = document.createElement('div');
+            innerWrap.style.cssText = 'display:inline-block;';
 
             const previewBtn = createPreviewBtn(avid);
             const widget = Magnet.createMagnetWidget(avid, previewBtn);
-            right.appendChild(widget);
-
-            flex.appendChild(left);
-            flex.appendChild(right);
-
-            // 清空原 td，放入 flex 容器
-            infoTd.innerHTML = '';
-            infoTd.appendChild(flex);
+            innerWrap.appendChild(widget);
+            magnetTd.appendChild(innerWrap);
+            row.appendChild(magnetTd);
         },
     };
 
