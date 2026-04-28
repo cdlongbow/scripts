@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         磁力&电驴链接助手
 // @namespace    https://github.com/ZiPenOk
-// @version      3.4.0
+// @version      3.4.1
 // @description  点击按钮显示绿色勾（验车按钮除外），支持复制（自动精简链接，保留xt和dn并提取番号）、推送到qB/115，新增磁力信息验车功能，截图轮播。现增强：支持FTP链接、纯哈希值转磁力、文本链接着色。
 // @icon         https://uxwing.com/wp-content/themes/uxwing/download/seo-marketing/magnet-magnetic-icon.png
 // @match        *://*/*
@@ -731,17 +731,22 @@
         });
     }
 
-    // ================= 10. 特殊处理：laosiji.js 表格 =================
+    // ================= 10. 特殊处理：laosiji 表格（兼容新旧版本）=================
     function handleLaosijiTable() {
-        const table = document.getElementById('nong-table-new');
+        // 兼容新版（jav-nong-table）和旧版（nong-table-new）
+        const table = document.getElementById('jav-nong-table') || document.getElementById('nong-table-new');
         if (!table) return;
 
-        const rows = table.querySelectorAll('tr.jav-nong-row:not(#jav-nong-head)');
+        // 新版：数据行带 data-maglink 属性；旧版：tr.jav-nong-row
+        const rows = table.querySelectorAll('tr[data-maglink], tr.jav-nong-row:not(.nong-head-row)');
         rows.forEach(row => {
             const cells = row.cells;
             if (cells.length < 3) return;
             const operationCell = cells[2];
-            const magnetLink = row.querySelector('td:first-child a[href^="magnet:"]')?.href;
+
+            // 新版磁力从 data-maglink 取，旧版从 td a[href^="magnet:"] 取
+            const magnetLink = row.getAttribute('data-maglink')
+                || row.querySelector('td:first-child a[href^="magnet:"]')?.href;
             if (!magnetLink) return;
 
             if (operationCell.querySelector('.mag-btn-group')) return;

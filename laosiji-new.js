@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      1.1.1
+// @version      1.2.0
 // @description  JavBus / JavDB / JavLib 磁力搜索 + 115离线 + 多源预览图(可调序) + Overlay灯箱
 // @author       ZiPenOk
 // @require      https://lib.baomitu.com/jquery/2.2.4/jquery.min.js
@@ -851,26 +851,33 @@
             const doc = parseHTML(r.responseText);
             const finalUrl = r.finalUrl || `${base}/search?q=${kw}`;
 
+            // 用 contains 模糊匹配，取父元素的 href 属性（getAttribute 拿原始相对路径，避免 DOMParser 不补全绝对 URL）
+            const kwUpper = kw.toUpperCase().replace('+', '-');
             const titleEl = [...doc.querySelectorAll('.box .video-title')]
-                .find(el => el.textContent.trim().toUpperCase().replace('+','-') === kw.toUpperCase());
+                .find(el => el.textContent.trim().toUpperCase().replace('+', '-').includes(kwUpper));
             if (!titleEl) return { url: finalUrl, data: [] };
 
-            const detailUrl = (() => {
-                let href = titleEl.closest('a')?.href || titleEl.parentElement?.href || '';
-                if (!href.startsWith('http')) href = base + href;
-                return href.replace(location.origin, base);
-            })();
+            // parentElement 是 <a>，用 getAttribute('href') 拿原始路径再手动补全
+            const rawHref = titleEl.parentElement?.getAttribute('href') || '';
+            const detailUrl = rawHref.startsWith('http') ? rawHref : base + rawHref;
 
             const r2 = await gmFetch(detailUrl);
             if (!r2.loadstuts) return { url: finalUrl, data: [] };
             const doc2 = parseHTML(r2.responseText);
             const items = doc2.querySelectorAll('#magnets-content .item');
-            const data = [...items].map(el => ({
-                title:   el.querySelector('.magnet-name span:nth-child(1)')?.textContent?.trim() || '',
-                maglink: el.querySelector('.magnet-name a:nth-child(1)')?.href || '',
-                size:    el.querySelector('.magnet-name .meta')?.textContent?.trim() || '',
-                src:     r2.finalUrl || detailUrl,
-            }));
+            const data = [...items].map(el => {
+                // magnet-name a 的 href 也是相对路径，需手动补全
+                const rawMag = el.querySelector('.magnet-name a:nth-child(1)')?.getAttribute('href') || '';
+                const maglink = rawMag.startsWith('magnet:') ? rawMag
+                              : rawMag.startsWith('http')    ? rawMag
+                              : base + rawMag;
+                return {
+                    title:   el.querySelector('.magnet-name span:nth-child(1)')?.textContent?.trim() || '',
+                    maglink,
+                    size:    el.querySelector('.magnet-name .meta')?.textContent?.trim() || '',
+                    src:     r2.finalUrl || detailUrl,
+                };
+            });
             return { url: r2.finalUrl || detailUrl, data };
         }
 
@@ -1094,12 +1101,33 @@
                 const tdOp = document.createElement('td');
                 tdOp.style.whiteSpace = 'nowrap';
                 const copyBtn = document.createElement('a');
-                copyBtn.href = '#';
+                const magShort = item.maglink.substring(0, 60);
+                const _extractCode = (text) => {
+                    if (!text) return null;
+                    const patterns = [
+                        /FC2[-\s_]?(?:PPV)?[-\s_]?(\d{6,9})/i,
+                        /([A-Z]{2,15})-(\d{2,10})(?:-(\d+))?/i,
+                        /([A-Z]{2,15})-([A-Z]{0,2}\d{2,10})/i,
+                        /^[A-Z0-9]+[-_](\d{6}[-_]\d{2,3})/i,
+                        /(\d{6}[-_]\d{2,3})[-_][A-Z0-9]+$/i,
+                        /(?<!\w)(\d{6}[-_]\d{2,3})(?!\w)/,
+                        /([A-Z]{1,2})(\d{3,4})/i,
+                    ];
+                    for (const re of patterns) {
+                        const m = text.match(re);
+                        if (m) return m[0].toUpperCase();
+                    }
+                    return null;
+                };
+                const dnCode = _extractCode(item.title) || _extractCode(item.maglink);
+                const magWithDn = magShort + (dnCode ? `&dn=${encodeURIComponent(dnCode)}` : '');
+                copyBtn.href = magShort;      // hover 状态栏显示磁力
+                copyBtn.title = magShort;     // tooltip 显示磁力
                 copyBtn.className = 'nong-copy';
                 copyBtn.textContent = '复制';
                 copyBtn.addEventListener('click', e => {
                     e.preventDefault();
-                    GM_setClipboard(item.maglink.substring(0, 60));
+                    GM_setClipboard(magWithDn);   // 复制带 &dn= 的完整磁力
                     copyBtn.textContent = '✓';
                     setTimeout(() => { copyBtn.textContent = '复制'; }, 1000);
                 });
@@ -1385,5 +1413,6 @@
     } else {
         mainRun();
     }
+
 
 })();
