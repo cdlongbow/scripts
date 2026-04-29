@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      1.3.0
+// @version      1.3.1
 // @description  JavBus / JavDB / JavLib 磁力搜索 + 115离线 + 多源预览图(可调序) + Overlay灯箱
 // @author       ZiPenOk
 // @require      https://lib.baomitu.com/jquery/2.2.4/jquery.min.js
@@ -986,6 +986,7 @@
                 margin: 8px 0; color: #666;
                 font-size: 13px; text-align: center;
                 background: #f2f2f2; border-collapse: collapse;
+                max-width: 100%;
             }
             #jav-nong-table th, #jav-nong-table td {
                 text-align: center; height: 30px;
@@ -1201,10 +1202,13 @@
             wrapper.className = 'jav-nong-wrapper';
             wrapper.style.cssText = `
                 display: inline-block;
+                max-width: 100%;
+                box-sizing: border-box;
                 padding: 12px 14px;
                 background: #fafafa;
                 border: 1px solid #ebebeb;
                 border-radius: 6px;
+                overflow-x: auto;
             `;
 
             const header = document.createElement('div');
@@ -1256,7 +1260,7 @@
                 .col-md-3.info { flex: 1 1 0 !important; min-width: 0 !important;
                     width: auto !important; float: none !important;
                     overflow: hidden !important; word-break: break-word !important; }
-                .jav-nong-slot { flex: 1 1 0 !important; min-width: 0 !important; align-self: flex-start !important; }
+                .jav-nong-slot { flex: 1 1 0 !important; min-width: 0 !important; align-self: flex-start !important; overflow: hidden !important; }
                 .jav-nong-wrapper { max-width: 100%; }
                 .screencap img { width: 100%; max-width: 100%; }
                 .footer { padding: 20px 0; }
@@ -1274,6 +1278,7 @@
             const widget = Magnet.createMagnetWidget(avid, previewBtn);
             const slot = document.createElement('div');
             slot.className = 'jav-nong-slot';
+            slot.style.overflow = 'hidden';
             slot.appendChild(widget);
             infoCol.after(slot);
         },
@@ -1324,7 +1329,7 @@
 
             const slot = document.createElement('div');
             slot.className = 'jav-nong-slot';
-            slot.style.cssText = 'flex:1 1 0;min-width:0;align-self:flex-start;';
+            slot.style.cssText = 'flex:1 1 0;min-width:0;align-self:flex-start;overflow:hidden;';
             const previewBtn = createPreviewBtn(avid);
             const widget = Magnet.createMagnetWidget(avid, previewBtn);
             slot.appendChild(widget);
