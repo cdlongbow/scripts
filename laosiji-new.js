@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      1.2.0
+// @version      1.3.0
 // @description  JavBus / JavDB / JavLib 磁力搜索 + 115离线 + 多源预览图(可调序) + Overlay灯箱
 // @author       ZiPenOk
 // @require      https://lib.baomitu.com/jquery/2.2.4/jquery.min.js
@@ -1011,11 +1011,13 @@
         function buildTable(avid) {
             const table = document.createElement('table');
             table.id = 'jav-nong-table';
+            table.dataset.avid = avid;
 
             const headRow = document.createElement('tr');
             headRow.className = 'nong-head-row';
 
             const thEngine = document.createElement('th');
+            thEngine.style.textAlign = 'left';
             const allEngines = Engines.getAll();
             const curKey = CFG.defaultEngine;
             const sel = document.createElement('select');
@@ -1036,6 +1038,7 @@
             ['大小', '操作', '115离线'].forEach(txt => {
                 const th = document.createElement('th');
                 th.textContent = txt;
+                if (txt === '115离线') th.className = 'nong-115-head';
                 headRow.appendChild(th);
             });
 
@@ -1064,6 +1067,7 @@
         }
 
         function fillTable(table, data, engineUrl) {
+
             const notice = table.querySelector('#jav-nong-notice');
             if (notice) notice.parentElement.remove();
 
@@ -1135,6 +1139,7 @@
                 tr.appendChild(tdOp);
 
                 const tdOffline = document.createElement('td');
+                tdOffline.className = 'nong-115-cell';
                 const offBtn = document.createElement('a');
                 offBtn.href = '#';
                 offBtn.className = 'nong-offline-115';
@@ -1168,21 +1173,25 @@
             loadRow.appendChild(loadTd);
             table.appendChild(loadRow);
 
+            let timedOut = false;
             const timer = setTimeout(() => {
-                loadText.textContent = '加载超时，';
+                timedOut = true;
+                loadText.textContent = '加载超时 ';
                 refreshBtn.style.display = 'inline';
-            }, 15000);
+            }, 8000);
 
             try {
                 const allEngines = Engines.getAll();
                 const fn = allEngines[engineKey] || Object.values(allEngines)[0];
                 const { url, data } = await fn(avid);
                 clearTimeout(timer);
+                // 若已超时显示刷新按钮，不再用空结果覆盖（避免刷新按钮消失）
+                if (timedOut) return;
                 fillTable(table, data, url);
             } catch(e) {
                 clearTimeout(timer);
                 log('磁力搜索出错:', e);
-                loadText.textContent = '搜索出错，';
+                loadText.textContent = '搜索出错 ';
                 refreshBtn.style.display = 'inline';
             }
         }
@@ -1242,7 +1251,7 @@
                     padding-left: 20px !important; padding-right: 20px !important; }
                 .row.movie { display: flex !important; gap: 20px !important;
                     align-items: flex-start !important; flex-wrap: nowrap !important; margin: 0 !important; }
-                .col-md-9.screencap { flex: 1 1 0 !important; min-width: 0 !important;
+                .col-md-9.screencap { flex: 1.5 1 0 !important; min-width: 0 !important;
                     width: auto !important; float: none !important; padding: 0 !important; }
                 .col-md-3.info { flex: 1 1 0 !important; min-width: 0 !important;
                     width: auto !important; float: none !important;
@@ -1305,7 +1314,7 @@
             if (!flexContainer) {
                 flexContainer = document.createElement('div');
                 flexContainer.className = 'jav-flex-container';
-                flexContainer.style.cssText = 'display:flex;gap:20px;align-items:flex-start;width:100%;';
+                flexContainer.style.cssText = 'display:flex;gap:20px;align-items:flex-start;width:100%;margin-top:16px;';
                 coverCol.style.cssText  += ';flex:1 1 0;min-width:0;';
                 infoPanel.style.cssText += ';flex:1 1 0;min-width:0;overflow:hidden;word-break:break-word;';
                 flexContainer.appendChild(coverCol);
@@ -1350,7 +1359,7 @@
                 #content { padding-top: 0; width: 100%; }
                 #video_jacket img { max-width: 100%; height: auto; }
                 #video_info { text-align: left; font: 14px Arial; overflow: hidden; word-break: break-word; }
-                .jav-nong-slot .jav-nong-wrapper { max-width: 100%; }
+                .jav-nong-slot .jav-nong-wrapper { max-width: 100%; margin-top: 16px; }
             `);
 
             this._insertMagnet(avid);
@@ -1367,7 +1376,7 @@
             row.style.cssText = 'display:flex;gap:20px;align-items:flex-start;width:100%;';
 
             const tds = row.querySelectorAll('td');
-            if (tds[0]) tds[0].style.cssText = 'flex:1 1 0;min-width:0;vertical-align:top;';
+            if (tds[0]) tds[0].style.cssText = 'flex:1.5 1 0;min-width:0;vertical-align:top;';
             if (tds[1]) tds[1].style.cssText = 'flex:1 1 0;min-width:0;vertical-align:top;overflow:hidden;word-break:break-word;';
 
             const jacketImg = document.getElementById('video_jacket_img');
@@ -1414,5 +1423,5 @@
         mainRun();
     }
 
-
+    // 暴露接口：jump.js 初始化完成后调用，通知隐藏「复制」按钮文字（列和 td 保留）
 })();
