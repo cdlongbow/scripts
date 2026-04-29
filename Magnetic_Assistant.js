@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         磁力&电驴链接助手
 // @namespace    https://github.com/ZiPenOk
-// @version      3.4.1
+// @version      3.4.2
 // @description  点击按钮显示绿色勾（验车按钮除外），支持复制（自动精简链接，保留xt和dn并提取番号）、推送到qB/115，新增磁力信息验车功能，截图轮播。现增强：支持FTP链接、纯哈希值转磁力、文本链接着色。
 // @icon         https://uxwing.com/wp-content/themes/uxwing/download/seo-marketing/magnet-magnetic-icon.png
 // @match        *://*/*
@@ -737,14 +737,18 @@
         const table = document.getElementById('jav-nong-table') || document.getElementById('nong-table-new');
         if (!table) return;
 
-        // 新版：数据行带 data-maglink 属性；旧版：tr.jav-nong-row
+        // 隐藏 115 离线列（cili 自带 115 推送，避免重复）
+        table.querySelectorAll('.nong-115-head, .nong-115-cell').forEach(el => {
+            el.style.display = 'none';
+        });
+
+        // 新版行带 data-maglink；旧版行是 tr.jav-nong-row
         const rows = table.querySelectorAll('tr[data-maglink], tr.jav-nong-row:not(.nong-head-row)');
         rows.forEach(row => {
             const cells = row.cells;
             if (cells.length < 3) return;
             const operationCell = cells[2];
 
-            // 新版磁力从 data-maglink 取，旧版从 td a[href^="magnet:"] 取
             const magnetLink = row.getAttribute('data-maglink')
                 || row.querySelector('td:first-child a[href^="magnet:"]')?.href;
             if (!magnetLink) return;
