@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      1.3.1
+// @version      1.3.2
 // @description  JavBus / JavDB / JavLib 磁力搜索 + 115离线 + 多源预览图(可调序) + Overlay灯箱
 // @author       ZiPenOk
 // @require      https://lib.baomitu.com/jquery/2.2.4/jquery.min.js
@@ -1257,10 +1257,10 @@
                     align-items: flex-start !important; flex-wrap: nowrap !important; margin: 0 !important; }
                 .col-md-9.screencap { flex: 1.5 1 0 !important; min-width: 0 !important;
                     width: auto !important; float: none !important; padding: 0 !important; }
-                .col-md-3.info { flex: 1 1 0 !important; min-width: 0 !important;
+                .col-md-3.info { flex: 0.7 1 0 !important; min-width: 0 !important;
                     width: auto !important; float: none !important;
                     overflow: hidden !important; word-break: break-word !important; }
-                .jav-nong-slot { flex: 1 1 0 !important; min-width: 0 !important; align-self: flex-start !important; overflow: hidden !important; }
+                .jav-nong-slot { flex: 1.3 1 0 !important; min-width: 0 !important; align-self: flex-start !important; overflow: hidden !important; }
                 .jav-nong-wrapper { max-width: 100%; }
                 .screencap img { width: 100%; max-width: 100%; }
                 .footer { padding: 20px 0; }
