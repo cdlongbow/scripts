@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      1.3.2
+// @version      1.3.3
 // @description  JavBus / JavDB / JavLib 磁力搜索 + 115离线 + 多源预览图(可调序) + Overlay灯箱
 // @author       ZiPenOk
 // @require      https://lib.baomitu.com/jquery/2.2.4/jquery.min.js
@@ -793,20 +793,49 @@
 
             // 保存逻辑
             panel.querySelector('.sp-btn-save').addEventListener('click', () => {
+                // 保存前记录原始值，用于检测是否有改变
+                const before = {
+                    javbusUrl:       CFG.javbusUrl,
+                    javdbUrl:        CFG.javdbUrl,
+                    javlibUrl:       CFG.javlibUrl,
+                    javdbSearchUrl:  CFG.javdbSearchUrl,
+                    btsowUrl:        CFG.btsowUrl,
+                    btdigUrl:        CFG.btdigUrl,
+                    sukebeiUrl:      CFG.sukebeiUrl,
+                    torrentkittyUrl: CFG.torrentkittyUrl,
+                    defaultEngine:   CFG.defaultEngine,
+                    thumbSourceOrder: JSON.stringify(CFG.thumbSourceOrder),
+                };
+
                 CFG.javbusUrl       = panel.querySelector('#sp-javbus-url').value.trim().replace(/^https?:\/\//, '');
                 CFG.javdbUrl        = panel.querySelector('#sp-javdb-url').value.trim().replace(/^https?:\/\//, '');
                 CFG.javlibUrl       = panel.querySelector('#sp-javlib-url').value.trim().replace(/^https?:\/\//, '');
                 CFG.javdbSearchUrl  = panel.querySelector('#sp-javdb-search').value.trim().replace(/^https?:\/\//, '');
                 CFG.btsowUrl        = panel.querySelector('#sp-btsow').value.trim().replace(/^https?:\/\//, '');
                 CFG.btdigUrl        = panel.querySelector('#sp-btdig').value.trim().replace(/^https?:\/\//, '');
-                CFG.sukebeiUrl         = panel.querySelector('#sp-sukebei').value.trim().replace(/^https?:\/\//, '');
+                CFG.sukebeiUrl      = panel.querySelector('#sp-sukebei').value.trim().replace(/^https?:\/\//, '');
                 CFG.torrentkittyUrl = panel.querySelector('#sp-torrentkitty').value.trim().replace(/^https?:\/\//, '');
-                CFG.defaultEngine    = panel.querySelector('#sp-default-engine').value;
-                CFG.thumbSourceOrder = currentOrder; // 顺序已通过 DOM 同步
+                CFG.defaultEngine   = panel.querySelector('#sp-default-engine').value;
+                CFG.thumbSourceOrder = currentOrder;
 
-                const tip = panel.querySelector('#sp-saved-tip');
-                tip.classList.add('show');
-                setTimeout(() => tip.classList.remove('show'), 2500);
+                // 检测是否有任何改变
+                const changed =
+                    CFG.javbusUrl       !== before.javbusUrl       ||
+                    CFG.javdbUrl        !== before.javdbUrl        ||
+                    CFG.javlibUrl       !== before.javlibUrl       ||
+                    CFG.javdbSearchUrl  !== before.javdbSearchUrl  ||
+                    CFG.btsowUrl        !== before.btsowUrl        ||
+                    CFG.btdigUrl        !== before.btdigUrl        ||
+                    CFG.sukebeiUrl      !== before.sukebeiUrl      ||
+                    CFG.torrentkittyUrl !== before.torrentkittyUrl ||
+                    CFG.defaultEngine   !== before.defaultEngine   ||
+                    JSON.stringify(CFG.thumbSourceOrder) !== before.thumbSourceOrder;
+
+                if (changed) {
+                    location.reload();
+                } else {
+                    closePanel();
+                }
             });
 
             // 点击 overlay 空白关闭
@@ -883,17 +912,50 @@
 
         async function _searchBtsow(kw) {
             const base = 'https://' + CFG.btsowUrl;
-            const r = await gmFetch(`${base}/search/${kw}`);
-            if (!r.loadstuts) return { url: base, data: [] };
-            const doc = parseHTML(r.responseText);
-            const rows = doc.querySelectorAll('.data-list a:not(.btn)');
-            const data = [...rows].map(a => ({
-                title:   a.title || a.textContent.trim(),
-                maglink: 'magnet:?xt=urn:btih:' + a.outerHTML.replace(/.*hash\//, '').replace(/\" .*\n.*\n.*\n.*/, ''),
-                size:    a.nextElementSibling?.textContent?.trim() || '',
-                src:     a.href,
+            const searchUrl = `${base}/search/${kw}`;
+
+            // btsow 是 SPA，需直接调后端 API
+            // 第一步：获取页面拿 CSRF token
+            const pageR = await gmFetch(searchUrl);
+            if (!pageR.loadstuts) return { url: searchUrl, data: [] };
+            const csrfMatch = pageR.responseText.match(/name="csrf-token"[^>]*content="([^"]+)"/);
+            const csrfToken = csrfMatch ? csrfMatch[1] : '';
+
+            // 第二步：POST 搜索 API
+            const apiUrl = `${base}/bts/data/api/search`;
+            const apiR = await gmFetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json, text/plain, */*',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': csrfToken,
+                    'Referer': searchUrl,
+                },
+                data: JSON.stringify([{ search: kw }, 50, 1]),
+            });
+            if (!apiR.loadstuts) return { url: searchUrl, data: [] };
+
+            let json;
+            try { json = JSON.parse(apiR.responseText); } catch(e) { return { url: searchUrl, data: [] }; }
+            if (json.code !== 200 || !Array.isArray(json.data)) return { url: searchUrl, data: [] };
+
+            // 格式化大小
+            const fmtSize = bytes => {
+                if (!bytes) return '';
+                if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
+                if (bytes >= 1048576)    return (bytes / 1048576).toFixed(2) + ' MB';
+                return (bytes / 1024).toFixed(2) + ' KB';
+            };
+
+            const data = json.data.map(item => ({
+                title:   item.name.replace(/<[^>]+>/g, '').trim(), // 去掉 <em> 标签
+                maglink: `magnet:?xt=urn:btih:${item.hash}`,
+                size:    fmtSize(item.size),
+                src:     `${base}/magnet/detail/${item.hash}`,
             }));
-            return { url: r.finalUrl || base, data };
+
+            return { url: searchUrl, data };
         }
 
         async function _searchBtdig(kw) {
