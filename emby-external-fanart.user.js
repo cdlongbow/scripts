@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Emby External Fanart
 // @namespace    emby-external-fanart
-// @version      2.1.0
-// @description  在 Emby 详情页从 JavBus / JavDB / DMM 抓取外部剧照并替换原有embycss剧照区块
+// @version      2.3.0
+// @description  在 Emby 详情页从 JavBus / JavDB / DMM 抓取外部剧照并替换原有embycss剧照区块，保留预告片卡片
 // @author       ZiPenOk
 // @match        *://*/web/index.html*
 // @match        *://*/web/
@@ -32,7 +32,7 @@
             dmm:    'https://www.dmm.co.jp',
         },
         containerId: 'jv-image-container',
-        cacheExpiry: 60 * 60 * 1000, // 1小时
+        cacheExpiry: 60 * 60 * 1000,
         maxImages: 0,
     };
 
@@ -82,39 +82,31 @@
         });
     }
 
-    // ===== 番号提取（修复版）=====
-    // 从整个字符串中搜索番号，不再只取纯文本节点
+    // ===== 番号提取 =====
     function extractCode(text) {
         if (!text) return null;
-        // 匹配番号：字母-数字，如 DLDSS-286、SSNI-946、FC2-PPV-1234567
         const m = text.match(/\b([A-Za-z]{2,10}(?:-[A-Za-z]+)?)-(\d{2,7})\b/);
         if (m) return `${m[1].toUpperCase()}-${m[2]}`;
         return null;
     }
 
-    // 优先从 Emby API 读取，再从页面标题提取
     async function getCode(itemId) {
-        // 1. 尝试 Emby API：OriginalTitle 和 ProviderIds 最可靠
+        // 1. 优先从 Emby API 读取
         if (typeof ApiClient !== 'undefined') {
             try {
                 const userId = ApiClient.getCurrentUserId();
                 const item   = await ApiClient.getItem(userId, itemId);
 
-                // OriginalTitle 通常直接就是番号，如 "DLDSS-286"
                 if (item.OriginalTitle) {
                     const code = extractCode(item.OriginalTitle);
                     if (code) { log('番号来源: OriginalTitle →', code); return code; }
                 }
-
-                // ProviderIds 里可能有 Javbus / JavDB 等键值
                 if (item.ProviderIds) {
                     for (const val of Object.values(item.ProviderIds)) {
                         const code = extractCode(String(val));
                         if (code) { log('番号来源: ProviderIds →', code); return code; }
                     }
                 }
-
-                // Name（完整标题，包含番号前缀）
                 if (item.Name) {
                     const code = extractCode(item.Name);
                     if (code) { log('番号来源: Name →', code); return code; }
@@ -124,34 +116,54 @@
             }
         }
 
-        // 2. 回退：从页面 DOM 标题元素的完整 textContent 提取
+        // 2. 回退：从 DOM 完整 textContent 提取
         const selectors = [
             '.detailPagePrimaryContainer h1',
             '#itemDetailPage:not(.hide) .nameContainer .itemName',
             '.itemView:not(.hide) .nameContainer .itemName',
             '.detailPagePrimaryContainer .itemName',
             '.nameContainer .itemName',
-            'h1',
-            '.itemName',
+            'h1', '.itemName',
         ];
         for (const sel of selectors) {
             const el = document.querySelector(sel);
             if (!el) continue;
-            // 取完整 textContent（包含所有子元素文本，番号 badge 也会被包含）
             const text = el.textContent.trim();
-            log('尝试从DOM提取，文本:', text);
             const code = extractCode(text);
             if (code) { log('番号来源: DOM →', code); return code; }
         }
-
         return null;
     }
 
+    // ===== 携带浏览器 Cookie 的 fetch（专用于 JavBus）=====
+    // anonymous:false 让 Tampermonkey 自动携带该域名下浏览器已有的 Cookie
+    function gmFetchWithCookie(url) {
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url,
+                anonymous: false,
+                headers: {
+                    'User-Agent': navigator.userAgent,
+                    'Accept': 'text/html,application/xhtml+xml,*/*;q=0.9',
+                    'Accept-Language': 'ja,zh-CN;q=0.9,en;q=0.8',
+                    'Referer': 'https://www.javbus.com/',
+                },
+                responseType: 'document',
+                timeout: 20000,
+                onload:    (res) => res.status >= 200 && res.status < 400 ? resolve(res.response) : reject(new Error(`HTTP ${res.status}`)),
+                onerror:   () => reject(new Error(`网络错误: ${url}`)),
+                ontimeout: () => reject(new Error(`请求超时: ${url}`)),
+            });
+        });
+    }
+
     // ===== JavBus 抓取 =====
+    // 结构：#sample-waterfall > a.sample-box[href="大图URL"]
     async function fetchJavBus(code) {
         const url = `${CONFIG.sites.javbus}/${code}`;
         log(`[JavBus] 请求: ${url}`);
-        const doc = await gmFetch(url);
+        const doc = await gmFetchWithCookie(url);
         if (!doc) return [];
 
         const imgs = [];
@@ -164,6 +176,8 @@
     }
 
     // ===== JavDB 抓取 =====
+    // 搜索页：.movie-list .item a → 详情页
+    // 详情页：.tile-images.preview-images a.tile-item[href] → 大图
     async function fetchJavDB(code) {
         const searchUrl = `${CONFIG.sites.javdb}/search?q=${encodeURIComponent(code)}&f=all`;
         log(`[JavDB] 搜索: ${searchUrl}`);
@@ -190,13 +204,13 @@
     }
 
     // ===== DMM 抓取 =====
+    // 结构：#sample-image-block img[data-lazy]，跳过封面(ps.jpg)
     async function fetchDMM(code) {
         const dmmCid = normalizeDMMCode(code);
         if (!dmmCid) { warn(`[DMM] 无法转换番号: ${code}`); return []; }
 
         const url = `${CONFIG.sites.dmm}/digital/videoa/-/detail/=/cid=${dmmCid}/`;
         log(`[DMM] 请求: ${url}`);
-
         let doc;
         try {
             doc = await gmFetch(url, {
@@ -233,7 +247,6 @@
             log(`[Cache] 命中: ${code} (${cached.images.length} 张, 来自 ${cached.source})`);
             return cached;
         }
-
         for (const site of CONFIG.siteOrder) {
             try {
                 const imgs = await FETCHERS[site](code);
@@ -247,7 +260,6 @@
                 warn(`[${site}] 出错: ${e.message}，尝试下一站点`);
             }
         }
-
         warn('[所有站点] 均未找到剧照');
         return { images: [], source: null };
     }
@@ -420,12 +432,10 @@
         zoomOverlay.style.display = 'flex';
         updateZoomImg();
     }
-
     function navZoom(dir) {
         zoomIdx = (zoomIdx + dir + zoomImgs.length) % zoomImgs.length;
         updateZoomImg();
     }
-
     function updateZoomImg() {
         const img = zoomOverlay.querySelector('#ef-zoom-img');
         img.style.opacity = '0';
@@ -433,18 +443,34 @@
         img.onload = () => { img.style.opacity = '1'; };
         zoomOverlay.querySelector('.ef-zoom-counter').textContent = `${zoomIdx + 1} / ${zoomImgs.length}`;
     }
-
     function closeZoom() { if (zoomOverlay) zoomOverlay.style.display = 'none'; }
 
-    // ===== 渲染剧照 =====
+    // ===== 渲染剧照（保留预告片卡片）=====
     function renderImages(container, images, source) {
         const grid = container.querySelector('.jv-images-grid');
         if (!grid) return;
-        grid.innerHTML = '';
 
+        // ⭐ 关键修复：保存预告片节点，清空后再放回去
+        const trailerCard = grid.querySelector('.jv-trailer-wrapper');
+
+        // 移除所有非预告片的子节点
+        [...grid.children].forEach(child => {
+            if (!child.classList.contains('jv-trailer-wrapper') &&
+                !child.classList.contains('ef-status')) {
+                child.remove();
+            }
+        });
+        // 同时移除加载状态提示
+        grid.querySelector('.ef-status')?.remove();
+
+        // 更新数量文字
         const countEl = container.querySelector('.jv-image-count');
-        if (countEl) countEl.textContent = `共 ${images.length} 张 · 来自 ${source.toUpperCase()}`;
+        if (countEl) {
+            const trailerText = trailerCard ? '预告片 + ' : '';
+            countEl.textContent = `${trailerText}${images.length} 张 · 来自 ${source.toUpperCase()}`;
+        }
 
+        // 剧照节点追加到预告片后面
         images.forEach((src, idx) => {
             const wrapper = document.createElement('div');
             wrapper.className = 'ef-img-wrapper';
@@ -471,11 +497,17 @@
     function showLoading(container, code) {
         const grid = container.querySelector('.jv-images-grid');
         if (!grid) return;
-        grid.innerHTML = '';
+
+        // 保留预告片，只清除剧照和旧状态提示
+        [...grid.children].forEach(child => {
+            if (!child.classList.contains('jv-trailer-wrapper')) child.remove();
+        });
+
         const div = document.createElement('div');
         div.className = 'ef-status';
         div.innerHTML = `<div class="ef-spinner"></div><span>正在加载外部剧照（${code}）…</span>`;
         grid.appendChild(div);
+
         const countEl = container.querySelector('.jv-image-count');
         if (countEl) countEl.textContent = '';
     }
@@ -483,11 +515,17 @@
     function showError(container, msg) {
         const grid = container.querySelector('.jv-images-grid');
         if (!grid) return;
-        grid.innerHTML = '';
+
+        // 保留预告片，只清除剧照和旧状态提示
+        [...grid.children].forEach(child => {
+            if (!child.classList.contains('jv-trailer-wrapper')) child.remove();
+        });
+
         const div = document.createElement('div');
         div.className = 'ef-status ef-error';
         div.textContent = msg;
         grid.appendChild(div);
+
         const countEl = container.querySelector('.jv-image-count');
         if (countEl) countEl.textContent = '';
     }
@@ -514,7 +552,6 @@
             }
             if (getItemId() !== itemId) return;
 
-            // 获取番号（优先 API，回退 DOM）
             const code = await getCode(itemId);
             if (!code) {
                 warn('无法提取番号，跳过');
@@ -545,11 +582,9 @@
     function isDetailPage() {
         return location.hash.includes('/details?id=') || location.hash.includes('/item?id=');
     }
-
     function getItemId() {
         return location.hash.match(/id=([^&]+)/)?.[1] ?? null;
     }
-
     function waitForElement(selector, timeout = 12000) {
         return new Promise(resolve => {
             const el = document.querySelector(selector);
@@ -580,5 +615,5 @@
     window.addEventListener('hashchange', () => scheduleRun(900));
     scheduleRun(1500);
 
-    log('v2.1 已加载');
+    log('v2.2 已加载');
 })();
