@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Emby External Fanart
 // @namespace    emby-external-fanart
-// @version      3.2.0
+// @version      3.3.0
 // @description  在 Emby 详情页从 JavBus / JavDB / DMM 抓取外部剧照并替换原有embycss剧照区块，保留预告片卡片
 // @author       ZiPenOk
 // @match        *://*/web/index.html*
@@ -64,13 +64,20 @@
     const memCache = new Map();
     const CACHE_EXPIRY = 60 * 60 * 1000;
 
+    // 缓存 key 包含站点配置指纹，配置变化后自动失效
+    function cacheKey(code) {
+        const fingerprint = SETTINGS.siteOrder.filter(s => SETTINGS.siteEnabled[s]).join(',');
+        return `${code}__${fingerprint}`;
+    }
+
     function getCached(code) {
-        const hit = memCache.get(code);
+        const key = cacheKey(code);
+        const hit = memCache.get(key);
         if (hit && Date.now() - hit.ts < CACHE_EXPIRY) return hit;
         try {
-            const stored = GM_getValue(`ef_${code}`, null);
+            const stored = GM_getValue(`ef_${key}`, null);
             if (stored && Date.now() - stored.ts < CACHE_EXPIRY) {
-                memCache.set(code, stored);
+                memCache.set(key, stored);
                 return stored;
             }
         } catch (e) {}
@@ -78,9 +85,10 @@
     }
 
     function setCache(code, images, source) {
+        const key = cacheKey(code);
         const entry = { images, source, ts: Date.now() };
-        memCache.set(code, entry);
-        try { GM_setValue(`ef_${code}`, entry); } catch (e) {}
+        memCache.set(key, entry);
+        try { GM_setValue(`ef_${key}`, entry); } catch (e) {}
     }
 
     function clearAllImageCache() {
