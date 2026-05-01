@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Emby External Fanart
 // @namespace    emby-external-fanart
-// @version      3.1.0
+// @version      3.2.0
 // @description  在 Emby 详情页从 JavBus / JavDB / DMM 抓取外部剧照并替换原有embycss剧照区块，保留预告片卡片
 // @author       ZiPenOk
 // @match        *://*/web/index.html*
@@ -81,6 +81,20 @@
         const entry = { images, source, ts: Date.now() };
         memCache.set(code, entry);
         try { GM_setValue(`ef_${code}`, entry); } catch (e) {}
+    }
+
+    function clearAllImageCache() {
+        memCache.clear();
+        // 清理 GM storage 中所有图片缓存（ef_ 前缀，排除设置）
+        try {
+            // Tampermonkey 没有 listValues，用已知的番号前缀约定清理
+            // 通过重置当前页缓存 key 实现：下次访问会重新抓取
+            const keys = [];
+            for (let i = 0; i < 500; i++) {
+                // 无法枚举 GM storage，只清内存缓存即可
+                // GM storage 的 ef_ 条目会因 ts 过期自然失效
+            }
+        } catch (e) {}
     }
 
     // ===== GM fetch 封装 =====
@@ -229,6 +243,8 @@
         s.id = 'ef-styles';
         s.textContent = `
         #jv-image-container .jv-images-grid{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+        #jv-image-container .jv-images-grid .jv-trailer-wrapper{width:auto !important;height:160px !important;flex:0 0 auto;border-radius:4px}
+        #jv-image-container .jv-images-grid .jv-trailer-wrapper .jv-image{width:auto !important;height:100% !important;max-width:280px;object-fit:cover}
         .ef-img-wrapper{position:relative;cursor:pointer;overflow:hidden;border-radius:4px;height:160px;flex:0 0 auto;background:rgba(255,255,255,0.05)}
         .ef-img-wrapper img{height:100%;width:auto;max-width:300px;object-fit:cover;display:block;transition:transform 0.2s ease,opacity 0.3s ease;opacity:0}
         .ef-img-wrapper img.ef-loaded{opacity:1}
@@ -526,14 +542,28 @@
 
         // 保存
         mask.querySelector('#ef-btn-save').addEventListener('click', () => {
-            const state = readPanelState();
-            SETTINGS = state;
-            saveSettings(state);
-            const hint = mask.querySelector('#ef-saved-hint');
-            hint.classList.add('show');
-            setTimeout(() => hint.classList.remove('show'), 2000);
-            // 清空缓存，下次进入详情页重新抓取
+            const newState = readPanelState();
+            const oldStr = JSON.stringify({ order: SETTINGS.siteOrder, enabled: SETTINGS.siteEnabled });
+            const newStr = JSON.stringify({ order: newState.siteOrder, enabled: newState.siteEnabled });
+            const changed = oldStr !== newStr;
+
+            SETTINGS = newState;
+            saveSettings(newState);
+
+            if (!changed) {
+                // 无变化，直接关闭面板
+                mask.remove();
+                return;
+            }
+
+            // 有变化：清缓存，关面板，强制当前页重新抓取
             memCache.clear();
+            mask.remove();
+
+            // 重置状态，触发重新抓取当前详情页
+            currentItemId = null;
+            isRunning = false;
+            scheduleRun(300);
         });
 
         // 恢复默认
