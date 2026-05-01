@@ -16,8 +16,8 @@
 // @connect      c0.jdbstatic.com
 // @run-at       document-end
 // @icon         https://img.icons8.com/fluency/96/emby.png
-// @updateURL    https://raw.githubusercontent.com/ZiPenOk/scripts/main/emby-external-fanart.user.js
-// @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/emby-external-fanart.user.js
+// @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/emby-external-fanart.user.js
+// @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/emby-external-fanart.user.js
 // ==/UserScript==
 
 (function () {
