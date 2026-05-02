@@ -6,6 +6,7 @@ from datetime import datetime
 from collections import Counter
 import cloudscraper
 from colorama import Fore, Style, init
+from tqdm import tqdm
 import tkinter as tk
 from tkinter import filedialog
 
@@ -25,7 +26,7 @@ def log(level, msg):
         "WARN": Fore.YELLOW,
         "ERR": Fore.RED
     }
-    print(colors.get(level, "") + f"[{level}] {msg}" + Style.RESET_ALL)
+    tqdm.write(colors.get(level, "") + f"[{level}] {msg}" + Style.RESET_ALL)
 
 # ====== 工具 ======
 def extract_code(filename):
@@ -112,17 +113,18 @@ def choose_best_sub(subs):
 
 # ====== 构建文件名 ======
 def build_name(file, ext):
-    return file.replace(".strm", f".zh.{ext}")
+    base = file[:-5]  # 去掉 ".strm"
+    return f"{base}.zh.{ext}"
 
 # ====== 统计 ======
-stats = {"total":0,"success":0,"skip":0,"fail":0}
-report = {"fail":[]}
+stats = {"total": 0, "success": 0, "skip": 0, "fail": 0}
+report = {"fail": []}
 
 # ====== 保存日志 ======
 def save_report():
     name = datetime.now().strftime("subtitle_log_%Y-%m-%d_%H-%M-%S.txt")
 
-    with open(name,"w",encoding="utf-8") as f:
+    with open(name, "w", encoding="utf-8") as f:
         f.write(f"总数:{stats['total']}\n成功:{stats['success']}\n跳过:{stats['skip']}\n失败:{stats['fail']}\n\n")
 
         f.write("失败列表:\n")
@@ -130,8 +132,8 @@ def save_report():
             f.write(f"{i[0]} → {i[1]}\n")
 
         f.write("\n失败统计:\n")
-        c = Counter([r for _,r in report["fail"]])
-        for k,v in c.items():
+        c = Counter([r for _, r in report["fail"]])
+        for k, v in c.items():
             f.write(f"{k}:{v}\n")
 
     log("INFO", f"日志保存: {name}")
@@ -142,6 +144,15 @@ def choose_folder():
     root.withdraw()
     return filedialog.askdirectory(title="选择STRM目录")
 
+# ====== 收集所有 strm 文件 ======
+def collect_strm_files(folder):
+    result = []
+    for root, _, files in os.walk(folder):
+        for file in files:
+            if file.endswith(".strm"):
+                result.append((root, file))
+    return result
+
 # ====== 主程序 ======
 def main():
     folder = choose_folder()
@@ -149,64 +160,88 @@ def main():
         return
 
     log("INFO", f"目录: {folder}")
+    log("INFO", "扫描文件中...")
 
-    for root,_,files in os.walk(folder):
-        for file in files:
-            if not file.endswith(".strm"):
-                continue
+    strm_files = collect_strm_files(folder)
+    stats["total"] = len(strm_files)
 
-            stats["total"]+=1
-            log("INFO", f"\n处理: {file}")
+    if not strm_files:
+        log("WARN", "未找到任何 .strm 文件")
+        return
+
+    log("INFO", f"共找到 {stats['total']} 个 .strm 文件\n")
+
+    with tqdm(
+        total=stats["total"],
+        unit="个",
+        ncols=80,
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
+    ) as pbar:
+        for root, file in strm_files:
+            full_path = os.path.join(root, file)
+
+            # 更新进度条描述为当前番号（截断避免过长）
+            code_hint = extract_code(file) or file[:20]
+            pbar.set_description(f"{code_hint:<12}")
+
+            log("INFO", f"\n{'─'*50}")
+            log("INFO", f"文件: {full_path}")
 
             if has_chinese_sub_mark(file):
-                log("WARN","跳过（内嵌字幕）")
-                stats["skip"]+=1
+                log("WARN", "跳过（内嵌字幕）")
+                stats["skip"] += 1
+                pbar.update(1)
                 continue
 
             has_sub, reason = check_and_fix_subtitle(root, file)
             if has_sub:
                 log("WARN", reason)
-                stats["skip"]+=1
+                stats["skip"] += 1
+                pbar.update(1)
                 continue
 
             code = extract_code(file)
             if not code:
-                log("WARN","无法识别番号")
-                stats["skip"]+=1
+                log("WARN", "无法识别番号")
+                stats["skip"] += 1
+                pbar.update(1)
                 continue
 
             subs = get_javsubs_subs(code)
             if not subs:
-                log("ERR","未找到字幕")
-                stats["fail"]+=1
-                report["fail"].append((file,"未找到字幕"))
+                log("ERR", "未找到字幕")
+                stats["fail"] += 1
+                report["fail"].append((full_path, "未找到字幕"))
+                pbar.update(1)
                 continue
 
             sub = choose_best_sub(subs)
             if not sub:
-                log("ERR","无合适字幕")
-                stats["fail"]+=1
-                report["fail"].append((file,"无合适字幕"))
+                log("ERR", "无合适字幕")
+                stats["fail"] += 1
+                report["fail"].append((full_path, "无合适字幕"))
+                pbar.update(1)
                 continue
 
             save_path = os.path.join(root, build_name(file, sub["ext"]))
 
             if download_javsubs(sub, save_path):
-                log("OK","完成")
-                stats["success"]+=1
+                log("OK", "完成")
+                stats["success"] += 1
             else:
-                log("ERR","下载失败")
-                stats["fail"]+=1
-                report["fail"].append((file,"下载失败"))
+                log("ERR", "下载失败")
+                stats["fail"] += 1
+                report["fail"].append((full_path, "下载失败"))
 
+            pbar.update(1)
             time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))
 
-    print("\n"+"="*40)
-    log("INFO","完成")
-    log("INFO",f"总数:{stats['total']}")
-    log("OK",f"成功:{stats['success']}")
-    log("WARN",f"跳过:{stats['skip']}")
-    log("ERR",f"失败:{stats['fail']}")
+    print("\n" + "=" * 50)
+    log("INFO", "全部处理完成")
+    log("INFO", f"总数:  {stats['total']}")
+    log("OK",   f"成功:  {stats['success']}")
+    log("WARN", f"跳过:  {stats['skip']}")
+    log("ERR",  f"失败:  {stats['fail']}")
 
     save_report()
 
