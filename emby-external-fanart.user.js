@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Emby External Fanart
 // @namespace    emby-external-fanart
-// @version      3.7.0
+// @version      3.8.0
 // @description  在 Emby 详情页从 JavBus / JavDB / DMM 抓取外部剧照并替换原有embycss剧照区块，保留预告片卡片
 // @author       ZiPenOk
 // @match        *://*/web/index.html*
@@ -278,9 +278,15 @@
         const s = document.createElement('style');
         s.id = 'ef-styles';
         s.textContent = `
-        #jv-image-container .jv-images-grid{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+        .ef-scroll-wrapper{position:relative;width:100%}
+        #jv-image-container .jv-images-grid{display:flex;flex-wrap:nowrap;gap:8px;align-items:flex-start;overflow:hidden;scroll-behavior:smooth}
         #jv-image-container .jv-images-grid .jv-trailer-wrapper{width:auto !important;height:160px !important;flex:0 0 auto;border-radius:4px}
         #jv-image-container .jv-images-grid .jv-trailer-wrapper .jv-image{width:auto !important;height:100% !important;max-width:280px;object-fit:cover}
+        .ef-scroll-btn{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:60px;background:rgba(0,0,0,0.55);border:none;color:#fff;font-size:1.6rem;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;transition:background 0.15s;border-radius:4px;opacity:0;pointer-events:none}
+        .ef-scroll-btn.visible{opacity:1;pointer-events:auto}
+        .ef-scroll-btn:hover{background:rgba(0,0,0,0.82)}
+        .ef-scroll-prev{left:0;border-radius:0 4px 4px 0}
+        .ef-scroll-next{right:0;border-radius:4px 0 0 4px}
         .ef-img-wrapper{position:relative;cursor:pointer;overflow:hidden;border-radius:4px;height:160px;flex:0 0 auto;background:rgba(255,255,255,0.05)}
         .ef-img-wrapper img{height:100%;width:auto;max-width:300px;object-fit:cover;display:block;transition:transform 0.2s ease,opacity 0.3s ease;opacity:0}
         .ef-img-wrapper img.ef-loaded{opacity:1}
@@ -400,6 +406,63 @@
             wrapper.appendChild(badge); wrapper.appendChild(img);
             grid.appendChild(wrapper);
         });
+
+        setupScrollButtons(container, grid);
+    }
+
+    // ===== 横向滚动箭头 =====
+    function setupScrollButtons(container, grid) {
+        // 找或创建外层 wrapper
+        let wrapper = container.querySelector('.ef-scroll-wrapper');
+        if (!wrapper) {
+            wrapper = document.createElement('div');
+            wrapper.className = 'ef-scroll-wrapper';
+            grid.parentNode.insertBefore(wrapper, grid);
+            wrapper.appendChild(grid);
+        }
+
+        // 移除旧箭头
+        wrapper.querySelectorAll('.ef-scroll-btn').forEach(b => b.remove());
+
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'ef-scroll-btn ef-scroll-prev';
+        prevBtn.innerHTML = '&#8249;';
+        prevBtn.title = '向左滚动';
+
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'ef-scroll-btn ef-scroll-next';
+        nextBtn.innerHTML = '&#8250;';
+        nextBtn.title = '向右滚动';
+
+        wrapper.appendChild(prevBtn);
+        wrapper.appendChild(nextBtn);
+
+        const scrollStep = () => wrapper.offsetWidth * 0.8;
+
+        const updateBtns = () => {
+            const scrollable = grid.scrollWidth > grid.clientWidth + 4;
+            const atStart = grid.scrollLeft <= 0;
+            const atEnd   = grid.scrollLeft + grid.clientWidth >= grid.scrollWidth - 2;
+            prevBtn.classList.toggle('visible', scrollable && !atStart);
+            nextBtn.classList.toggle('visible', scrollable);
+            // 到达尾部：箭头变循环图标，点击回到开头
+            nextBtn.innerHTML = (scrollable && atEnd) ? '&#8634;' : '&#8250;';
+            nextBtn.title     = (scrollable && atEnd) ? '回到开头' : '向右滚动';
+        };
+
+        nextBtn.addEventListener('click', () => {
+            const atEnd = grid.scrollLeft + grid.clientWidth >= grid.scrollWidth - 2;
+            if (atEnd) grid.scrollTo({ left: 0, behavior: 'smooth' });
+            else grid.scrollBy({ left: scrollStep(), behavior: 'smooth' });
+        });
+
+        prevBtn.addEventListener('click', () => {
+            grid.scrollBy({ left: -scrollStep(), behavior: 'smooth' });
+        });
+
+        grid.addEventListener('scroll', updateBtns, { passive: true });
+        setTimeout(updateBtns, 400);
+        updateBtns();
     }
 
     function showLoading(container, code) {
