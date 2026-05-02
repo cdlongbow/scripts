@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Emby External Fanart
 // @namespace    emby-external-fanart
-// @version      3.4.0
+// @version      3.7.0
 // @description  在 Emby 详情页从 JavBus / JavDB / DMM 抓取外部剧照并替换原有embycss剧照区块，保留预告片卡片
 // @author       ZiPenOk
 // @match        *://*/web/index.html*
@@ -207,45 +207,51 @@
         return imgs;
     }
 
+    // DMM 通販 (mono/dvd) 版本 — 有完整服务端渲染，可直接解析 HTML
+    // 流程：搜索页取详情链接 → 详情页解析 #sample-image-block img[data-lazy]
     async function fetchDMM(code) {
-        const m = code.match(/^([A-Za-z]+)-(\d+)$/);
-        if (!m) { warn(`[DMM] 无法转换番号: ${code}`); return []; }
-        const cid = m[1].toLowerCase() + m[2].padStart(5, '0');
-        log(`[DMM] 探测图片序列 (cid: ${cid})`);
+        // 1. 搜索
+        const searchUrl = `https://www.dmm.co.jp/mono/-/search/=/searchstr=${encodeURIComponent(code)}/`;
+        log(`[DMM] 搜索: ${searchUrl}`);
+        let searchDoc;
+        try {
+            searchDoc = await gmFetch(searchUrl, {
+                'Accept-Language': 'ja',
+                'Referer': 'https://www.dmm.co.jp/',
+            });
+        } catch (e) { warn(`[DMM] 搜索失败: ${e.message}`); return []; }
+        if (!searchDoc) return [];
 
+        // 2. 取第一个详情页链接（/mono/dvd/-/detail/）
+        const links = [...searchDoc.querySelectorAll('a[href*="/mono/dvd/-/detail/"]')];
+        if (!links.length) { log('[DMM] 搜索无结果'); return []; }
+        const detailUrl = links[0].getAttribute('href');
+        log(`[DMM] 详情页: ${detailUrl}`);
+
+        // 3. 获取详情页
+        let detailDoc;
+        try {
+            detailDoc = await gmFetch(detailUrl, {
+                'Accept-Language': 'ja',
+                'Referer': searchUrl,
+                'Cookie': 'age_check_done=1; ckcy=1',
+            });
+        } catch (e) { warn(`[DMM] 详情页失败: ${e.message}`); return []; }
+        if (!detailDoc) return [];
+
+        // 4. 解析 #sample-image-block img[data-lazy]，跳过封面（ps.jpg）
+        // 小图 URL 规律：wanz00826-1.jpg → 大图：wanz00826jp-1.jpg（插入 jp）
         const imgs = [];
-        let consecutive_fail = 0;
-        const MAX_FAIL = 2;   // 连续失败 2 次则停止
-        const MAX_IMGS = 30;  // 最多探测 30 张
-
-        for (let i = 1; i <= MAX_IMGS; i++) {
-            const url = `https://pics.dmm.co.jp/digital/video/${cid}/${cid}jp-${i}.jpg`;
-            const exists = await gmHead(url);
-            if (exists) {
-                imgs.push(url);
-                consecutive_fail = 0;
-            } else {
-                consecutive_fail++;
-                if (consecutive_fail >= MAX_FAIL) break;
-            }
-        }
+        detailDoc.querySelectorAll('#sample-image-block img').forEach(img => {
+            const src = img.getAttribute('data-lazy') || '';
+            if (!src.startsWith('http') || src.endsWith('ps.jpg')) return;
+            // 将 -数字.jpg 替换为 jp-数字.jpg
+            const bigSrc = src.replace(/-(\d+\.jpg)$/, 'jp-$1');
+            imgs.push(bigSrc);
+        });
 
         log(`[DMM] 找到 ${imgs.length} 张`);
         return imgs;
-    }
-
-    // HEAD 请求探测图片是否存在
-    function gmHead(url) {
-        return new Promise(resolve => {
-            GM_xmlhttpRequest({
-                method: 'HEAD',
-                url,
-                timeout: 8000,
-                onload:    (res) => resolve(res.status >= 200 && res.status < 400),
-                onerror:   () => resolve(false),
-                ontimeout: () => resolve(false),
-            });
-        });
     }
 
     const FETCHERS = { javbus: fetchJavBus, javdb: fetchJavDB, dmm: fetchDMM };
