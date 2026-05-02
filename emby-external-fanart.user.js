@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Emby External Fanart
 // @namespace    emby-external-fanart
-// @version      3.8.0
+// @version      3.9.1
 // @description  在 Emby 详情页从 JavBus / JavDB / DMM 抓取外部剧照并替换原有embycss剧照区块，保留预告片卡片
 // @author       ZiPenOk
 // @match        *://*/web/index.html*
@@ -75,8 +75,10 @@
         const hit = memCache.get(key);
         if (hit && Date.now() - hit.ts < CACHE_EXPIRY) return hit;
         try {
+            // 若用户手动清除过缓存，忽略清除时间之前的 GM storage 条目
+            const clearedAt = GM_getValue('ef_cache_cleared_at', 0);
             const stored = GM_getValue(`ef_${key}`, null);
-            if (stored && Date.now() - stored.ts < CACHE_EXPIRY) {
+            if (stored && stored.ts > clearedAt && Date.now() - stored.ts < CACHE_EXPIRY) {
                 memCache.set(key, stored);
                 return stored;
             }
@@ -334,12 +336,17 @@
         .ef-toggle-track::after{content:'';position:absolute;width:13px;height:13px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform 0.2s}
         .ef-toggle input:checked+.ef-toggle-track::after{transform:translateX(15px)}
         .ef-divider{height:1px;background:rgba(255,255,255,0.07);margin:16px 0}
-        .ef-action-row{display:flex;gap:8px;justify-content:space-between;align-items:center}
+        .ef-action-row{display:flex;flex-direction:column;gap:8px}
+        .ef-action-top{display:flex;align-items:center;gap:8px;min-height:18px}
+        .ef-action-btns{display:flex;gap:8px;justify-content:flex-end}
         .ef-saved-hint{font-size:12px;color:#1D9E75;opacity:0;transition:opacity 0.3s}
         .ef-saved-hint.show{opacity:1}
         .ef-btn{padding:7px 16px;border-radius:7px;font-size:13px;cursor:pointer;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#e8e8e8;transition:background 0.15s}
         .ef-btn:hover{background:rgba(255,255,255,0.08)}
         .ef-btn-primary{background:#1D9E75;border-color:transparent;color:#fff}
+        .ef-btn-danger{border-color:rgba(220,60,60,0.4);color:#e07070}
+        .ef-btn-danger:hover{background:rgba(220,60,60,0.15);border-color:rgba(220,60,60,0.7)}
+        .ef-cache-info{font-size:12px;color:rgba(255,255,255,0.3)}
         .ef-btn-primary:hover{background:#18876a}
         `;
         document.head.appendChild(s);
@@ -536,8 +543,12 @@
                 </div>
                 <div class="ef-divider"></div>
                 <div class="ef-action-row">
-                    <span class="ef-saved-hint" id="ef-saved-hint">✓ 已保存</span>
-                    <div style="display:flex;gap:8px">
+                    <div class="ef-action-top">
+                        <span class="ef-saved-hint" id="ef-saved-hint">✓ 已保存</span>
+                        <span class="ef-cache-info" id="ef-cache-info"></span>
+                    </div>
+                    <div class="ef-action-btns">
+                        <button class="ef-btn ef-btn-danger" id="ef-btn-clear-cache">清除缓存</button>
                         <button class="ef-btn" id="ef-btn-reset">恢复默认</button>
                         <button class="ef-btn ef-btn-primary" id="ef-btn-save">保存设置</button>
                     </div>
@@ -639,6 +650,28 @@
             return { siteOrder: order, siteEnabled: enabled };
         }
 
+        // 更新缓存统计显示
+        const updateCacheInfo = () => {
+            const el = mask.querySelector('#ef-cache-info');
+            if (!el) return;
+            const n = countGMCache();
+            el.textContent = n > 0 ? `已缓存 ${n} 条` : '无缓存';
+        };
+        updateCacheInfo();
+
+        // 清除缓存
+        mask.querySelector('#ef-btn-clear-cache').addEventListener('click', () => {
+            clearAllCache();
+            updateCacheInfo();
+            const hint = mask.querySelector('#ef-saved-hint');
+            hint.textContent = '✓ 缓存已清除';
+            hint.classList.add('show');
+            setTimeout(() => {
+                hint.classList.remove('show');
+                hint.textContent = '✓ 已保存';
+            }, 2000);
+        });
+
         // 保存
         mask.querySelector('#ef-btn-save').addEventListener('click', () => {
             const newState = readPanelState();
@@ -679,6 +712,26 @@
         document.addEventListener('keydown', function onKey(e) {
             if (e.key === 'Escape') { closePanel(); document.removeEventListener('keydown', onKey); }
         });
+    }
+
+    // ===== 缓存统计 =====
+    function countGMCache() {
+        // 遍历 memCache 中 ef_ 开头的条目（图片缓存，排除设置）
+        let count = 0;
+        memCache.forEach((_, key) => { if (!key.startsWith('settings')) count++; });
+        return count;
+    }
+
+    function clearAllCache() {
+        // 清内存缓存
+        memCache.clear();
+        // 清 GM storage 中所有图片缓存（ef_ 前缀，非 ef_settings）
+        // Tampermonkey 没有 listValues API，用已知 key 格式尝试删除
+        // 实际上内存缓存清掉后，GM storage 里的会在 1 小时后自然过期
+        // 但可以用一个标记让 getCached 忽略旧缓存
+        try {
+            GM_setValue('ef_cache_cleared_at', Date.now());
+        } catch (e) {}
     }
 
     // ===== Tampermonkey 菜单注册 =====
