@@ -1,4 +1,4 @@
 
 自用脚本
 
-有问题联系 **[@ZiPen](https://t.me/zipen)**
+有问题去issues提
