@@ -4,6 +4,7 @@
 // @version      3.9.2
 // @description  在 Emby 详情页从 JavBus / JavDB / DMM 抓取外部剧照并替换原有embycss剧照区块，保留预告片卡片
 // @author       ZiPenOk
+// @namespace    https://github.com/ZiPenOk
 // @match        *://*/web/index.html*
 // @match        *://*/web/
 // @grant        GM_xmlhttpRequest
