@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Emby External Fanart
 // @namespace    emby-external-fanart
-// @version      3.9.1
+// @version      3.9.2
 // @description  在 Emby 详情页从 JavBus / JavDB / DMM 抓取外部剧照并替换原有embycss剧照区块，保留预告片卡片
 // @author       ZiPenOk
 // @match        *://*/web/index.html*
@@ -468,8 +468,28 @@
         });
 
         grid.addEventListener('scroll', updateBtns, { passive: true });
-        setTimeout(updateBtns, 400);
+
+        // 立即检测一次
         updateBtns();
+
+        // 监听所有图片加载完成，每张加载后重新检测
+        // 解决图片未加载时 scrollWidth 不准确导致箭头不出现的问题
+        const imgs = grid.querySelectorAll('img');
+        let loadedCount = 0;
+        if (imgs.length === 0) return;
+
+        imgs.forEach(img => {
+            if (img.complete) {
+                loadedCount++;
+                updateBtns();
+            } else {
+                img.addEventListener('load',  () => { loadedCount++; updateBtns(); }, { once: true });
+                img.addEventListener('error', () => { loadedCount++; updateBtns(); }, { once: true });
+            }
+        });
+
+        // 兜底：500ms / 1500ms / 3000ms 各检测一次，防止极端情况漏检
+        [500, 1500, 3000].forEach(t => setTimeout(updateBtns, t));
     }
 
     function showLoading(container, code) {
