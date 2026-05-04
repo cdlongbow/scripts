@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         115网盘-cookie-扫码登录
-// @namespace    115-qrcode-login
+// @namespace    115-qrcode-cookie-login
 // @version      2.0
 // @author       提取自 JAV-JHS
 // @namespace    https://github.com/ZiPenOk
