@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         115网盘-cookie-扫码登录
-// @namespace    115-qrcode-cookie-login
-// @version      1.0
+// @namespace    115-qrcode-login
+// @version      2.0
 // @author       提取自 JAV-JHS
 // @namespace    https://github.com/ZiPenOk
 // @description  在115.com登录页面注入"JHS-扫码"面板，支持微信/支付宝小程序扫码登录，以及直接输入Cookie登录；登录后可在右下角悬浮面板复制Cookie
@@ -16,9 +16,9 @@
 // @require      https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js
 // @require      https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.js
 // @require      https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js
-// @updateURL    https://raw.githubusercontent.com/ZiPenOk/scripts/main/115_cookie.js
-// @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/115_cookie.js
-// @run-at       document-idle
+// @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/115_cookie.js
+// @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/115_cookie.js
+// @run-at       document-start
 // ==/UserScript==
 
 (function () {
@@ -556,11 +556,50 @@
     }
 
     // ─────────────────────────────────────────────
+    //  检测并拦截无限刷新循环
+    // ─────────────────────────────────────────────
+    function checkAndBreakLoop() {
+        if (!window.location.href.includes('115') || window.self !== window.top) return;
+
+        const LIMIT_COUNT  = 7;    // 触发拦截的刷新次数
+        const TIME_WINDOW  = 5000; // 统计时间窗口 (ms)
+        const loopData = JSON.parse(sessionStorage.getItem('jhs_loop_control') || '{"count":0,"time":0}');
+        const now = Date.now();
+
+        // 在时间窗口内累加，否则重置
+        loopData.count = (now - loopData.time < TIME_WINDOW) ? loopData.count + 1 : 1;
+        loopData.time  = now;
+        sessionStorage.setItem('jhs_loop_control', JSON.stringify(loopData));
+
+        if (loopData.count > LIMIT_COUNT) {
+            // 强制中断页面加载
+            window.stop();
+
+            // 清理脚本缓存的 Cookie 数据
+            localStorage.removeItem('jhs_115_cookie');
+            localStorage.removeItem('jhs_115_max_age');
+            sessionStorage.removeItem('jhs_loop_control');
+
+            // 清除 115 域名下的全部 Cookie
+            document.cookie.split(';').forEach(cookie => {
+                const name = cookie.substring(0, cookie.indexOf('=')).trim();
+                if (!name) return;
+                document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.115.com`;
+                document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+            });
+
+            alert('\n⚠️ JHS-For-115 检测到页面正在异常刷新！\n\n已自动清空 115 缓存及浏览器 Cookie。\n页面将停止跳转，请手动刷新并重新登录。');
+            throw new Error('JHS-For-115 拦截无限刷新');
+        }
+    }
+
+    // ─────────────────────────────────────────────
     //  主入口
     // ─────────────────────────────────────────────
     function main() {
         const href = window.location.href;
 
+        checkAndBreakLoop();
         injectStyles();
 
         // 115.com 登录页面（排除进入网盘的 userfile 页）
