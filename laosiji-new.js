@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      1.3.3
+// @version      1.3.4
 // @description  JavBus / JavDB / JavLib 磁力搜索 + 115离线 + 多源预览图(可调序) + Overlay灯箱
 // @author       ZiPenOk
 // @require      https://lib.baomitu.com/jquery/2.2.4/jquery.min.js
@@ -49,7 +49,7 @@
 
         // 磁力搜索引擎域名
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
-        get btsowUrl()         { return GM_getValue('cfg_btsow_url',         'btsow.hair'); },
+        get btsowUrl()         { return GM_getValue('cfg_btsow_url',         'btsow.pics'); },
         get btdigUrl()         { return GM_getValue('cfg_btdig_url',         'btdig.com'); },
         get sukebeiUrl()          { return GM_getValue('cfg_sukebei_url',          'sukebei.nyaa.si'); },
         get torrentkittyUrl()  { return GM_getValue('cfg_torrentkitty_url',  'www.torrentkitty.tv'); },
@@ -628,7 +628,7 @@
                     </div>
                     <div class="sp-row">
                         <span class="sp-label">BtSow</span>
-                        <input class="sp-input" id="sp-btsow" value="${CFG.btsowUrl}" placeholder="btsow.hair">
+                        <input class="sp-input" id="sp-btsow" value="${CFG.btsowUrl}" placeholder="btsow.pics">
                     </div>
                     <div class="sp-row">
                         <span class="sp-label">BtDig</span>
