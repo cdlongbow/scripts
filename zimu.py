@@ -1,352 +1,324 @@
-import os
-import re
-import time
-import random
-import signal
-import atexit
-from datetime import datetime
-from collections import Counter
+# -*- coding: utf-8 -*-
+import os, re, time, random, signal, json, hashlib, traceback
 import cloudscraper
+from datetime import datetime
 from colorama import Fore, Style, init
-from tqdm import tqdm
+from collections import Counter
 import tkinter as tk
 from tkinter import filedialog
 
 init(autoreset=True)
 
-# ====== 配置 ======
-DELAY_MIN = 1.5
-DELAY_MAX = 3.0
-DOWNLOAD_RETRIES = 3        # 下载最大重试次数
-RETRY_DELAY = 2.0           # 重试基础间隔（秒），指数退避
+DELAY_MIN, DELAY_MAX = 2.5, 5.0
+REQUEST_RETRIES = 3
+
+FORCE_MODE = False
+stats = {"total":0,"success":0,"skip":0,"fail":0}
+report_details = []
+_selected_folder = ""
 
 scraper = cloudscraper.create_scraper()
 
-# ====== 日志 ======
-def log(level, msg):
-    colors = {
-        "INFO": Fore.CYAN,
-        "OK": Fore.GREEN,
-        "WARN": Fore.YELLOW,
-        "ERR": Fore.RED
-    }
-    tqdm.write(colors.get(level, "") + f"[{level}] {msg}" + Style.RESET_ALL)
+SYMBOL_MAP = {
+    "scan":  "[🔍]",
+    "net":   "[🌐]",
+    "down":  "[📥]",
+    "ok":    "[✅]",
+    "rep":   "[♻️]",
+    "skip":  "[⏩]",
+    "fall":  "[🔄]",
+    "match": "[🎯]",
+    "err":   "[❓]",
+    "log":   "[📝]"
+}
 
-# ====== 工具 ======
-def extract_code(filename):
-    m = re.search(r'([A-Z]+[0-9]*-\d+)', filename, re.I)
+def log(tag, color, msg):
+    print(color + f"{SYMBOL_MAP.get(tag,'[    ]')} {msg}" + Style.RESET_ALL)
+
+# ===== 重试请求 =====
+def safe_get(url, **kwargs):
+    for i in range(REQUEST_RETRIES):
+        try:
+            r = scraper.get(url, timeout=15, **kwargs)
+            if r.status_code == 200 and r.text.strip():
+                return r
+        except:
+            pass
+
+        wait = 2 + i * 2
+        log("err", Fore.YELLOW, f"请求失败，重试 {i+1}/{REQUEST_RETRIES} (等待{wait}s)")
+        time.sleep(wait)
+
+    return None
+
+# ===== 字幕检测 =====
+def check_subtitle(content):
+    try:
+        text = content.decode("utf-8", errors="ignore")
+    except:
+        return False, "编码错误"
+
+    if len(text) < 50:
+        return False, "内容过短"
+
+    total = len(text)
+    zh = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
+    zh_ratio = zh / total
+
+    bad = sum(1 for c in text if ord(c) > 127 and c not in "，。！？：；“”‘’（）【】《》")
+    bad_ratio = bad / total
+
+    if zh < 20:
+        return False, f"中文过少({zh})"
+
+    if zh_ratio < 0.1:
+        return False, f"中文比例低({zh_ratio:.2f})"
+
+    if bad_ratio > 0.3:
+        return False, f"乱码比例高({bad_ratio:.2f})"
+
+    return True, "正常"
+
+# ===== MD5 =====
+def md5_file(p):
+    if not os.path.exists(p): return None
+    with open(p,"rb") as f: return hashlib.md5(f.read()).hexdigest()
+
+def md5_bytes(b): return hashlib.md5(b).hexdigest()
+
+# ===== 编号 =====
+def extract_code(name):
+    m=re.search(r'([A-Z]+[0-9]*-\d+)',name,re.I)
     return m.group(1).upper() if m else None
 
-def has_chinese_sub_mark(filename):
-    return re.search(r'-(c|ch)(?=[\-\.\(]|$)', filename, re.I)
+# ===== 内嵌字幕 =====
+def has_embedded(file):
+    return re.search(r'-(c|ch)(?=[\-\.\(]|$)',file,re.I)
 
-def is_normal_name(name):
-    return bool(re.search(r'[A-Z]+-\d+', name, re.I))
+# ===== 下载 =====
+def download(url,save):
+    r = safe_get(url)
+    if not r: return "FAIL","下载失败"
 
-# ====== 字幕检测+修正 ======
-def check_and_fix_subtitle(root, file):
-    base = file.replace(".strm", "")
-    exts = [".srt", ".ass", ".vtt"]
+    content = r.content
+    new = md5_bytes(content)
+    old = md5_file(save)
 
-    for ext in exts:
-        normal = os.path.join(root, base + ext)
-        zh = os.path.join(root, base + ".zh" + ext)
+    if FORCE_MODE and old:
+        if new == old:
+            return "SKIP_MD5","MD5相同"
+        else:
+            with open(save,"wb") as f:f.write(content)
+            return "REPLACED","MD5不同"
 
-        if os.path.exists(zh):
-            log("OK", f"已标准字幕: {os.path.basename(zh)}")
-            return True, "已存在标准字幕"
+    with open(save,"wb") as f:f.write(content)
+    return "OK","成功"
 
-        if os.path.exists(normal):
-            try:
-                os.rename(normal, zh)
-                log("INFO", f"修正字幕: {os.path.basename(normal)} → {os.path.basename(zh)}")
-                return True, "已修正字幕命名"
-            except Exception as e:
-                log("ERR", f"改名失败: {e}")
-                return True, "改名失败"
+# ===== Manko 解码 =====
+def base91_decode(e):
+    A='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_`{|}~"'
+    t=e or "";a=o=0;i=-1;r=[]
+    for c in t:
+        p=A.find(c)
+        if p==-1:continue
+        if i<0:i=p
+        else:
+            i+=p*91;a|=i<<o
+            o+=13 if (i&8191)>88 else 14
+            while o>7:r.append(a&255);a>>=8;o-=8
+            i=-1
+    if i>-1:r.append((a|i<<o)&255)
+    try:return bytes(r).decode()
+    except:return ""
 
-    return False, None
-
-# ====== JavSubs ======
-def get_javsubs_subs(code):
-    log("INFO", f"[JavSubs] 搜索: {code}")
-
-    url = f"https://javsubs.furina.in/api/subtitle?name={code}"
-
+def decode_manko(j):
     try:
-        r = scraper.get(url, timeout=15)
-        if r.status_code != 200:
-            log("ERR", "请求失败")
+        return json.loads(base91_decode(j.get("data","")))
+    except:
+        return None
+
+# ===== Manko =====
+def get_manko(code):
+    try:
+        log("net",Fore.WHITE,"Manko 查询中...")
+
+        r = safe_get("https://healertanker.com/swx/movie/search",
+                     params={"keyword":code,"size":24,"page":1})
+
+        if not r: return []
+
+        try:
+            decoded = decode_manko(r.json())
+        except:
             return []
 
-        subs = r.json().get("data", [])
-        log("INFO", f"找到 {len(subs)} 条")
+        if not decoded: return []
+
+        mid = decoded[0]["_id"]
+
+        r = safe_get(f"https://healertanker.com/swx/subtitle-link/{mid}")
+        if not r: return []
+
+        raw = decode_manko(r.json())
+        if not raw: return []
+
+        subs=[]
+        for it in raw.get("subtitle_link",[]):
+            for lang,url in it.items():
+                if url:
+                    subs.append({
+                        "lang":lang.lower(),
+                        "url":url,
+                        "ext":"ass" if ".ass" in url else "srt"
+                    })
+
+        log("net",Fore.WHITE,f"Manko返回字幕数: {len(subs)}")
         return subs
 
     except Exception as e:
-        log("ERR", f"异常: {e}")
+        log("err",Fore.RED,f"Manko异常: {e}")
         return []
 
-def download_javsubs(sub, save_path):
-    log("INFO", f"下载: {os.path.basename(save_path)}")
+# ===== 主逻辑 =====
+def process(root,file):
+    code=extract_code(file)
+    base=os.path.splitext(file)[0]
 
-    for attempt in range(1, DOWNLOAD_RETRIES + 1):
+    if has_embedded(file):
+        log("skip",Fore.YELLOW,f"{file} (内嵌字幕跳过)")
+        return "SKIP","内嵌字幕",code or "Unknown"
+
+    if not code:
+        return "FAIL","无法识别","Unknown"
+
+    log("scan",Fore.CYAN,f"检索中: {code}")
+
+    subs=get_manko(code)
+    tw=None
+
+    for s in subs:
+        if s["lang"] in ["zh","chs","sc"]:
+            save=os.path.join(root,f"{base}.{s['lang']}.{s['ext']}")
+            log("down",Fore.MAGENTA,f"Manko({s['lang']}) -> {os.path.basename(save)}")
+
+            r=safe_get(s["url"])
+            if not r: continue
+
+            ok,reason=check_subtitle(r.content)
+            if not ok:
+                log("err",Fore.YELLOW,f"Manko zh 字幕异常: {reason}")
+                continue
+
+            res,_=download(s["url"],save)
+            log("ok",Fore.GREEN,f"成功: {code} (Manko-zh)")
+            return "SUCCESS","Manko",code
+
+        elif s["lang"] in ["tw","cht","tc"]:
+            tw=s
+
+    if tw:
+        log("fall",Fore.WHITE,"Manko zh 异常 → 暂存 tw → 尝试 JavSubs(优先简体)")
+    else:
+        log("fall",Fore.WHITE,"Manko无有效字幕 → JavSubs")
+
+    # ===== JavSubs =====
+    r=safe_get(f"https://javsubs.furina.in/api/subtitle?name={code}")
+    if r:
         try:
-            r = scraper.get(sub["url"], timeout=20)
-            if r.status_code == 200 and len(r.content) > 100:
-                with open(save_path, "wb") as f:
-                    f.write(r.content)
-                return True
-            else:
-                log("WARN", f"下载响应异常 (尝试 {attempt}/{DOWNLOAD_RETRIES}): HTTP {r.status_code}, 大小 {len(r.content)}B")
-        except Exception as e:
-            log("WARN", f"下载异常 (尝试 {attempt}/{DOWNLOAD_RETRIES}): {e}")
+            data=r.json().get("data",[])
+        except:
+            data=[]
 
-        if attempt < DOWNLOAD_RETRIES:
-            wait = RETRY_DELAY * (2 ** (attempt - 1))   # 指数退避: 2s, 4s
-            log("INFO", f"等待 {wait:.0f}s 后重试...")
-            time.sleep(wait)
+        for sub in data:
+            log("match",Fore.CYAN,f"匹配: {sub['name']}")
 
-    log("ERR", f"下载失败，已重试 {DOWNLOAD_RETRIES} 次")
-    return False
+            save=os.path.join(root,f"{base}.zh.{sub['ext']}")
+            log("down",Fore.MAGENTA,f"JavSubs -> {os.path.basename(save)}")
 
-# ====== 字幕优先级评分 ======
-# 返回值越小优先级越高
-def sub_priority(sub):
-    name = sub.get("name", "").lower()
+            r2=safe_get(sub["url"])
+            if not r2: continue
 
-    # 第一优先级：zh / zh-cn / chs（简体明确标记）
-    if re.search(r'[\.\-_]zh[\.\-_](?!tw|hk|hant)', name):  # .zh. 排除繁体
-        lang_score = 0
-    elif re.search(r'[\.\-_](zh-cn|chs|sc|simp)[\.\-_.]', name):
-        lang_score = 1
-    # 第二优先级：无语言后缀（纯番号命名）
-    elif re.search(r'^[a-z]+-\d+\.(srt|ass|vtt)$', name):
-        lang_score = 2
-    # 第三优先级：繁体中文
-    elif re.search(r'[\.\-_](zh-tw|zh-hk|cht|trad|hant)[\.\-_.]', name):
-        lang_score = 3
-    # 兜底：其他
-    else:
-        lang_score = 4
+            ok,reason=check_subtitle(r2.content)
+            if not ok:
+                log("err",Fore.YELLOW,f"JavSubs 字幕异常: {reason}")
+                continue
 
-    # 同级内文件名短的更干净
-    name_len = len(name)
+            download(sub["url"],save)
+            log("ok",Fore.GREEN,f"成功: {code} (JavSubs)")
+            return "SUCCESS","JavSubs",code
 
-    return (lang_score, name_len)
+    # fallback tw
+    if tw:
+        save=os.path.join(root,f"{base}.{tw['lang']}.{tw['ext']}")
+        log("down",Fore.MAGENTA,f"Manko({tw['lang']}) -> {os.path.basename(save)}")
 
-# ====== 选择字幕 ======
-def choose_best_sub(subs):
-    if not subs:
-        return None
-    subs.sort(key=sub_priority)
-    best = subs[0]
-    log("INFO", f"选择字幕: {best.get('name', '?')}")
-    return best
+        r=safe_get(tw["url"])
+        if r:
+            ok,_=check_subtitle(r.content)
+            if ok:
+                download(tw["url"],save)
+                log("ok",Fore.GREEN,f"成功: {code} (Manko-tw)")
+                return "SUCCESS","Manko",code
 
-# ====== 构建文件名 ======
-def build_name(file, ext):
-    base = file[:-5]  # 去掉 ".strm"
-    return f"{base}.zh.{ext}"
+    return "FAIL","失败",code
 
-# ====== 统计 ======
-stats = {"total": 0, "success": 0, "skip": 0, "fail": 0}
-report = {"fail": []}
-
-# ====== 断点续传 ======
-CACHE_FILE = ".zimu_cache"
-_done_set: set = set()
-_cache_handle = None
-
-def load_cache():
-    """读取上次已处理的文件路径"""
-    if os.path.exists(CACHE_FILE):
-        with open(CACHE_FILE, "r", encoding="utf-8") as f:
-            paths = {line.strip() for line in f if line.strip()}
-        log("INFO", f"发现断点缓存，已跳过 {len(paths)} 个文件")
-        return paths
-    return set()
-
-def open_cache_writer():
-    """追加模式打开 cache，程序运行期间保持句柄"""
-    global _cache_handle
-    _cache_handle = open(CACHE_FILE, "a", encoding="utf-8")
-
-def mark_done(full_path):
-    """记录一个文件已处理完成"""
-    _done_set.add(full_path)
-    if _cache_handle:
-        _cache_handle.write(full_path + "\n")
-        _cache_handle.flush()   # 立即落盘，防止崩溃丢失
-
-def close_cache():
-    if _cache_handle:
-        _cache_handle.close()
-
-def clear_cache():
-    """任务正常完成后删除 cache"""
-    close_cache()
-    if os.path.exists(CACHE_FILE):
-        os.remove(CACHE_FILE)
-        log("INFO", "断点缓存已清除")
-
-def _emergency_save(signum=None, frame=None):
-    """捕获到终止信号时，确保 cache 落盘后退出"""
-    tqdm.write(Fore.YELLOW + "\n[WARN] 检测到中断，正在保存进度..." + Style.RESET_ALL)
-    close_cache()
-    # 不删 cache，下次启动可以续传
-    os._exit(1)   # 强制退出，跳过 atexit（atexit 里的 clear_cache 是正常完成才调用）
-
-# ====== 保存日志 ======
+# ===== 报告 =====
 def save_report():
-    name = datetime.now().strftime("subtitle_log_%Y-%m-%d_%H-%M-%S.txt")
+    if not _selected_folder:return
+    path=os.path.join(_selected_folder,f"字幕任务报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
 
-    with open(name, "w", encoding="utf-8") as f:
-        f.write(f"总数:{stats['total']}\n成功:{stats['success']}\n跳过:{stats['skip']}\n失败:{stats['fail']}\n\n")
+    with open(path,"w",encoding="utf-8") as f:
+        f.write("="*80+"\n")
+        f.write(f" 字幕下载详细报告 | 生成时间: {datetime.now()}\n")
+        f.write("="*80+"\n\n")
 
-        f.write("失败列表:\n")
-        for i in report["fail"]:
-            f.write(f"{i[0]} → {i[1]}\n")
+        f.write(f"任务总数: {stats['total']}\n成功: {stats['success']}\n跳过: {stats['skip']}\n失败: {stats['fail']}\n\n")
 
-        f.write("\n失败统计:\n")
-        c = Counter([r for _, r in report["fail"]])
-        for k, v in c.items():
-            f.write(f"{k}:{v}\n")
+        for r in report_details:
+            f.write(f"{r['code']} | {r['status']} | {r['reason']}\n")
 
-    log("INFO", f"日志保存: {name}")
+    log("log",Fore.GREEN,f"报告已保存: {path}")
 
-# ====== 选择目录 ======
-def choose_folder():
-    root = tk.Tk()
-    root.withdraw()
-    return filedialog.askdirectory(title="选择STRM目录")
-
-# ====== 收集所有 strm 文件 ======
-def collect_strm_files(folder):
-    result = []
-    for root, _, files in os.walk(folder):
-        for file in files:
-            if file.endswith(".strm"):
-                result.append((os.path.normpath(root), file))
-    return result
-
-# ====== 主程序 ======
+# ===== 主 =====
 def main():
-    folder = choose_folder()
-    if not folder:
-        return
+    global FORCE_MODE,_selected_folder
 
-    log("INFO", f"目录: {folder}")
+    tk.Tk().withdraw()
+    _selected_folder=filedialog.askdirectory()
+    if not _selected_folder:return
 
-    # 注册信号处理（Ctrl+C、kill、窗口关闭）
-    signal.signal(signal.SIGINT,  _emergency_save)
-    signal.signal(signal.SIGTERM, _emergency_save)
+    FORCE_MODE=(input("模式: 1正常 2洗版: ").strip()=="2")
 
-    # 加载断点缓存
-    global _done_set
-    _done_set = load_cache()
-    open_cache_writer()
+    files=[]
+    for r,_,fs in os.walk(_selected_folder):
+        for f in fs:
+            if f.endswith(".strm"):
+                files.append((r,f))
 
-    log("INFO", "扫描文件中...")
-    strm_files = collect_strm_files(folder)
-    stats["total"] = len(strm_files)
+    stats["total"]=len(files)
 
-    if not strm_files:
-        log("WARN", "未找到任何 .strm 文件")
-        clear_cache()
-        return
+    print(f"\n🚀 开始任务: 共 {stats['total']} 个\n"+"-"*60)
 
-    # 过滤掉已处理的
-    pending = [(r, f) for r, f in strm_files
-               if os.path.join(r, f) not in _done_set]
-    skipped_by_cache = len(strm_files) - len(pending)
+    for root,file in files:
+        st,rs,cd=process(root,file)
 
-    log("INFO", f"共找到 {stats['total']} 个 .strm 文件")
-    if skipped_by_cache:
-        log("INFO", f"断点续传：跳过已完成 {skipped_by_cache} 个，剩余 {len(pending)} 个\n")
-    else:
-        log("INFO", "")
+        if st=="SUCCESS": stats["success"]+=1
+        elif st=="SKIP": stats["skip"]+=1
+        else: stats["fail"]+=1
 
-    with tqdm(
-        total=len(pending),
-        unit="个",
-        ncols=80,
-        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
-    ) as pbar:
-        for root, file in pending:
-            full_path = os.path.join(root, file)
+        report_details.append({"code":cd,"status":st,"reason":rs})
 
-            code_hint = extract_code(file) or file[:20]
-            pbar.set_description(f"{code_hint:<12}")
-
-            log("INFO", f"\n{'─'*50}")
-            log("INFO", f"文件: {full_path}")
-
-            if has_chinese_sub_mark(file):
-                log("WARN", "跳过（内嵌字幕）")
-                stats["skip"] += 1
-                mark_done(full_path)
-                pbar.update(1)
-                continue
-
-            has_sub, reason = check_and_fix_subtitle(root, file)
-            if has_sub:
-                log("WARN", reason)
-                stats["skip"] += 1
-                mark_done(full_path)
-                pbar.update(1)
-                continue
-
-            code = extract_code(file)
-            if not code:
-                log("WARN", "无法识别番号")
-                stats["skip"] += 1
-                mark_done(full_path)
-                pbar.update(1)
-                continue
-
-            subs = get_javsubs_subs(code)
-            if not subs:
-                log("ERR", "未找到字幕")
-                stats["fail"] += 1
-                report["fail"].append((full_path, "未找到字幕"))
-                mark_done(full_path)
-                pbar.update(1)
-                continue
-
-            sub = choose_best_sub(subs)
-            if not sub:
-                log("ERR", "无合适字幕")
-                stats["fail"] += 1
-                report["fail"].append((full_path, "无合适字幕"))
-                mark_done(full_path)
-                pbar.update(1)
-                continue
-
-            save_path = os.path.join(root, build_name(file, sub["ext"]))
-
-            if download_javsubs(sub, save_path):
-                log("OK", "完成")
-                stats["success"] += 1
-            else:
-                stats["fail"] += 1
-                report["fail"].append((full_path, "下载失败"))
-
-            # 无论成功失败都标记已处理（失败的日志里有记录，不重复跑）
-            mark_done(full_path)
-            pbar.update(1)
-            time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))
-
-    print("\n" + "=" * 50)
-    log("INFO", "全部处理完成")
-    log("INFO", f"总数:  {stats['total']}")
-    log("OK",   f"成功:  {stats['success']}")
-    log("WARN", f"跳过:  {stats['skip']}")
-    log("ERR",  f"失败:  {stats['fail']}")
+        print("─"*40)
+        time.sleep(random.uniform(DELAY_MIN,DELAY_MAX))
 
     save_report()
-    clear_cache()   # 正常完成才删 cache
 
-if __name__ == "__main__":
-    main()
-    input("\n回车退出...")
+    print("\n✨ 任务完成！")
+    input("\n按回车键关闭窗口...")
+
+if __name__=="__main__":
+    try:
+        main()
+    except:
+        traceback.print_exc()
+        input("\n程序异常，按回车退出...")
