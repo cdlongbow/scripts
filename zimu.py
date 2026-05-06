@@ -144,20 +144,34 @@ def extract_code(name):
 def has_embedded(file):
     return re.search(r'-(c|ch)(?=[\-\.\(]|$)',file,re.I)
 
-def download(url,save):
+def download(url, save):
     r = safe_get(url)
-    if not r: return "FAIL","下载失败"
+    if not r:
+        return "FAIL", "下载失败"
+    
     content = r.content
-    new = md5_bytes(content)
-    old = md5_file(save)
-    if FORCE_MODE and old:
-        if new == old:
-            return "SKIP_MD5","MD5相同"
+    new_md5 = md5_bytes(content)
+    old_md5 = md5_file(save)
+    
+    if os.path.exists(save):
+        if FORCE_MODE:
+            if new_md5 == old_md5:
+                log("skip", Fore.YELLOW, f"MD5相同，跳过: {os.path.basename(save)}")
+                return "SKIP_MD5", "MD5相同"
+            else:
+                with open(save, "wb") as f:
+                    f.write(content)
+                log("rep", Fore.CYAN, f"洗版替换完成: {os.path.basename(save)}")
+                return "REPLACED", "MD5不同（已替换）"
         else:
-            with open(save,"wb") as f: f.write(content)
-            return "REPLACED","MD5不同"
-    with open(save,"wb") as f: f.write(content)
-    return "OK","成功"
+            log("skip", Fore.YELLOW, f"文件已存在，跳过: {os.path.basename(save)}")
+            return "SKIP_EXIST", "文件已存在"
+    
+    # 文件不存在 → 正常下载
+    with open(save, "wb") as f:
+        f.write(content)
+    log("ok", Fore.GREEN, f"下载完成: {os.path.basename(save)}")
+    return "OK", "成功（新建）"
 
 def base91_decode(e):
     A='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_`{|}~"'
@@ -213,42 +227,47 @@ def get_manko(code):
         log("err",Fore.RED,f"Manko异常: {e}")
         return []
 
-def process(root,file):
+def process(root, file):
     code = extract_code(file)
     base = os.path.splitext(file)[0]
     abs_path = os.path.abspath(os.path.join(root, file))
     rel_path = abs_path  # 报告用绝对路径
+    
     if has_embedded(file):
-        log("skip",Fore.YELLOW,f"{abs_path} (内嵌字幕跳过)")
-        return "SKIP","内嵌字幕",code or "Unknown",rel_path
+        log("skip", Fore.YELLOW, f"{abs_path} (内嵌字幕跳过)")
+        return "SKIP", "内嵌字幕", code or "Unknown", rel_path
+    
     if not code:
-        return "FAIL","无法识别","Unknown",rel_path
-    log("scan",Fore.CYAN,f"检索中: {code} | {abs_path}")
+        return "FAIL", "无法识别", "Unknown", rel_path
+    
+    log("scan", Fore.CYAN, f"检索中: {code} | {abs_path}")
 
+    # ====================== Manko 查询 ======================
     subs = get_manko(code)
     tw = None
 
     for s in subs:
-        if s["lang"] in ["zh","chs","sc"]:
-            save = os.path.join(root,f"{base}.{s['lang']}.{s['ext']}")
-            log("down",Fore.MAGENTA,f"Manko({s['lang']}) -> {os.path.basename(save)}")
-            r = safe_get(s["url"])
-            if not r: continue
-            ok,reason = check_subtitle(r.content, s['ext'])
-            if not ok:
-                log("err",Fore.YELLOW,f"Manko zh 字幕异常: {reason}")
-                continue
-            download(s["url"],save)
-            log("ok",Fore.GREEN,f"成功: {code} (Manko-zh)")
-            return "SUCCESS","Manko",code,rel_path
-        elif s["lang"] in ["tw","cht","tc"]:
+        if s["lang"] in ["zh", "chs", "sc"]:
+            save = os.path.join(root, f"{base}.{s['lang']}.{s['ext']}")
+            log("down", Fore.MAGENTA, f"Manko({s['lang']}) -> {os.path.basename(save)}")
+            
+            status, reason = download(s["url"], save)   # ← 修改点
+            
+            if status in ["REPLACED", "OK"]:
+                log("ok", Fore.GREEN, f"成功: {code} (Manko-zh)")
+                return "SUCCESS", "Manko", code, rel_path
+            elif status == "SKIP_MD5":
+                return "SKIP", "MD5相同", code, rel_path
+                
+        elif s["lang"] in ["tw", "cht", "tc"]:
             tw = s
 
     if tw:
-        log("fall",Fore.WHITE,"Manko zh 异常 → 暂存 tw → 尝试 JavSubs(优先简体)")
+        log("fall", Fore.WHITE, "Manko zh 异常 → 暂存 tw → 尝试 JavSubs(优先简体)")
     else:
-        log("fall",Fore.WHITE,"Manko无有效字幕 → JavSubs")
+        log("fall", Fore.WHITE, "Manko无有效字幕 → JavSubs")
 
+    # ====================== JavSubs 查询（ASS优先 + 严格匹配）====================
     r = safe_get(f"https://javsubs.furina.in/api/subtitle?name={code}")
     if r:
         try:
@@ -259,50 +278,54 @@ def process(root,file):
         if not data:
             log("err", Fore.YELLOW, "JavSubs无匹配字幕")
         else:
-            # 分离 .ass 和 .srt
-            ass_subs = [sub for sub in data if sub.get('ext','').lower() == 'ass']
-            srt_subs = [sub for sub in data if sub.get('ext','').lower() == 'srt']
+            # 严格过滤：必须包含番号（不区分大小写）
+            matched_subs = []
+            for sub in data:
+                sub_name = sub.get('name', '').upper()
+                if code.upper() in sub_name or sub_name.startswith(code.upper()):
+                    matched_subs.append(sub)
             
-            # 更智能的日志
-            if ass_subs:
-                log("fall", Fore.WHITE, f"JavSubs 找到 {len(ass_subs)} 个 ASS 和 {len(srt_subs)} 个 SRT，优先尝试 ASS")
+            if not matched_subs:
+                log("err", Fore.YELLOW, f"JavSubs 返回 {len(data)} 个结果，但无明确匹配 {code} 的字幕（全部哈希或无关）")
             else:
-                log("fall", Fore.WHITE, f"JavSubs 找到 {len(srt_subs)} 个 SRT")
-            
-            # 先 ASS 后 SRT
-            priority_list = ass_subs + srt_subs
-            
-            for sub in priority_list:
-                log("match", Fore.CYAN, f"匹配: {sub['name']}")
-                save = os.path.join(root, f"{base}.zh.{sub['ext']}")
-                log("down", Fore.MAGENTA, f"JavSubs -> {os.path.basename(save)}")
+                ass_subs = [sub for sub in matched_subs if sub.get('ext','').lower() == 'ass']
+                srt_subs = [sub for sub in matched_subs if sub.get('ext','').lower() == 'srt']
                 
-                r2 = safe_get(sub["url"])
-                if not r2: 
-                    continue
+                if ass_subs:
+                    log("fall", Fore.WHITE, f"JavSubs 找到 {len(ass_subs)} 个 ASS 和 {len(srt_subs)} 个 SRT（已严格匹配）")
+                else:
+                    log("fall", Fore.WHITE, f"JavSubs 找到 {len(srt_subs)} 个 SRT（已严格匹配）")
+                
+                priority_list = ass_subs + srt_subs
+                
+                for sub in priority_list:
+                    log("match", Fore.CYAN, f"匹配: {sub['name']}")
+                    save = os.path.join(root, f"{base}.zh.{sub['ext']}")
                     
-                ok, reason = check_subtitle(r2.content, sub['ext'])
-                if not ok:
-                    log("err", Fore.YELLOW, f"JavSubs 字幕异常: {reason}")
-                    continue
+                    log("down", Fore.MAGENTA, f"JavSubs -> {os.path.basename(save)}")
+                    status, reason = download(sub["url"], save)
                     
-                download(sub["url"], save)
-                log("ok", Fore.GREEN, f"成功: {code} (JavSubs - {sub['ext'].upper()})")
-                return "SUCCESS", "JavSubs", code, rel_path
+                    if status in ["REPLACED", "OK"]:
+                        log("ok", Fore.GREEN, f"成功: {code} (JavSubs - {sub['ext'].upper()})")
+                        return "SUCCESS", "JavSubs", code, rel_path
+                    elif status == "SKIP_MD5":
+                        return "SKIP", "MD5相同", code, rel_path
+    # =====================================================================
 
+    # ====================== 回退使用 Manko TW ======================
     if tw:
-        save = os.path.join(root,f"{base}.{tw['lang']}.{tw['ext']}")
-        log("down",Fore.MAGENTA,f"Manko({tw['lang']}) -> {os.path.basename(save)}")
-        r = safe_get(tw["url"])
-        if r:
-            ok,_ = check_subtitle(r.content, tw['ext'])
-            if ok:
-                download(tw["url"],save)
-                log("ok",Fore.GREEN,f"成功: {code} (Manko-tw)")
-                return "SUCCESS","Manko",code,rel_path
+        save = os.path.join(root, f"{base}.{tw['lang']}.{tw['ext']}")
+        log("down", Fore.MAGENTA, f"Manko({tw['lang']}) -> {os.path.basename(save)}")
+        status, reason = download(tw["url"], save)
+        
+        if status in ["REPLACED", "OK"]:
+            log("ok", Fore.GREEN, f"成功: {code} (Manko-tw)")
+            return "SUCCESS", "Manko", code, rel_path
+        elif status == "SKIP_MD5":
+            return "SKIP", "MD5相同", code, rel_path
 
     log("err", Fore.RED, f"失败: {code} (无可用字幕)")
-    return "FAIL","无可用字幕",code,rel_path
+    return "FAIL", "无可用字幕", code, rel_path
 
 def save_report():
     if not _selected_folder: return
@@ -332,39 +355,63 @@ def save_report():
         log("err", Fore.RED, f"保存报告失败: {e}")
 
 def main():
-    global FORCE_MODE,_selected_folder
+    global FORCE_MODE, _selected_folder
     tk.Tk().withdraw()
     _selected_folder = filedialog.askdirectory()
-    if not _selected_folder: return
+    if not _selected_folder: 
+        return
+    
     FORCE_MODE = (input("模式: 1正常 2洗版: ").strip()=="2")
 
     done_set = load_progress()
     files = []
-    for r,_,fs in os.walk(_selected_folder):
+    for r, _, fs in os.walk(_selected_folder):
         for f in fs:
             if f.endswith(".strm"):
-                files.append((r,f))
+                files.append((r, f))
+    
     stats["total"] = len(files)
-    print(f"\n🚀 开始任务: 共 {stats['total']} 个\n"+"-"*60)
-    for i,(root,file) in enumerate(files,1):
+    print(f"\n🚀 开始任务: 共 {stats['total']} 个\n" + "-"*60)
+
+    for i, (root, file) in enumerate(files, 1):
         print(f"\n进度: {i}/{stats['total']}")
+        
+        # ==================== 开始时间戳 ====================
+        start_time = datetime.now()
+        print(f"{Fore.CYAN}[🕒] {start_time.strftime('%Y-%m-%d %H:%M:%S')}{Style.RESET_ALL}")
+        # ==================================================
+        
         code = extract_code(file)
         if not FORCE_MODE and code in done_set:
-            log("skip",Fore.YELLOW,f"{code} 已完成(断点续跑)")
+            log("skip", Fore.YELLOW, f"{code} 已完成(断点续跑)")
             stats["skip"] += 1
+            # 结束时间戳（跳过的情况也打印）
+            end_time = datetime.now()
+            print(f"{Fore.CYAN}[⏰️] {end_time.strftime('%Y-%m-%d %H:%M:%S')}  (跳过){Style.RESET_ALL}")
             continue
-        st,rs,cd,path = process(root,file)
-        if st=="SUCCESS":
+        
+        st, rs, cd, path = process(root, file)
+        
+        if st == "SUCCESS":
             stats["success"] += 1
             done_set.add(cd)
             save_progress(done_set)
-        elif st=="SKIP":
+        elif st == "SKIP":
             stats["skip"] += 1
         else:
             stats["fail"] += 1
-        report_details.append({"code":cd,"status":st,"reason":rs,"path":path})
+        
+        report_details.append({"code": cd, "status": st, "reason": rs, "path": path})
+        
+        # ==================== 结束时间戳 ====================
+        end_time = datetime.now()
+        duration = (end_time - start_time).seconds
+        print(f"{Fore.CYAN}[🕒] {end_time.strftime('%Y-%m-%d %H:%M:%S')}  (耗时 {duration}秒){Style.RESET_ALL}")
+        # ==================================================
+        
         print("─"*40)
-        time.sleep(random.uniform(DELAY_MIN,DELAY_MAX))
+        time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))
+
     save_report()
     print("\n✨ 任务完成！")
     input("\n按回车键关闭窗口...")
