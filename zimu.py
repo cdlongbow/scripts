@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
-import os, re, time, random, signal, json, hashlib, traceback
+import os, re, time, random, json, hashlib, traceback
 import cloudscraper
 from datetime import datetime
 from colorama import Fore, Style, init
-from collections import Counter
 import tkinter as tk
 from tkinter import filedialog
 
 init(autoreset=True)
 
+# ===== 配置 =====
 DELAY_MIN, DELAY_MAX = 2.5, 5.0
 REQUEST_RETRIES = 3
+PROGRESS_FILE = "progress.json"
 
 FORCE_MODE = False
 stats = {"total":0,"success":0,"skip":0,"fail":0}
@@ -35,7 +36,24 @@ SYMBOL_MAP = {
 def log(tag, color, msg):
     print(color + f"{SYMBOL_MAP.get(tag,'[    ]')} {msg}" + Style.RESET_ALL)
 
-# ===== 重试请求 =====
+# ===== 断点续跑 =====
+def load_progress():
+    if not os.path.exists(PROGRESS_FILE):
+        return set()
+    try:
+        with open(PROGRESS_FILE, "r", encoding="utf-8") as f:
+            return set(json.load(f).get("done", []))
+    except:
+        return set()
+
+def save_progress(done_set):
+    try:
+        with open(PROGRESS_FILE, "w", encoding="utf-8") as f:
+            json.dump({"done": list(done_set)}, f, ensure_ascii=False, indent=2)
+    except:
+        pass
+
+# ===== 请求（重试机制）=====
 def safe_get(url, **kwargs):
     for i in range(REQUEST_RETRIES):
         try:
@@ -79,19 +97,17 @@ def check_subtitle(content):
 
     return True, "正常"
 
-# ===== MD5 =====
+# ===== 工具 =====
 def md5_file(p):
     if not os.path.exists(p): return None
     with open(p,"rb") as f: return hashlib.md5(f.read()).hexdigest()
 
 def md5_bytes(b): return hashlib.md5(b).hexdigest()
 
-# ===== 编号 =====
 def extract_code(name):
     m=re.search(r'([A-Z]+[0-9]*-\d+)',name,re.I)
     return m.group(1).upper() if m else None
 
-# ===== 内嵌字幕 =====
 def has_embedded(file):
     return re.search(r'-(c|ch)(?=[\-\.\(]|$)',file,re.I)
 
@@ -144,14 +160,9 @@ def get_manko(code):
 
         r = safe_get("https://healertanker.com/swx/movie/search",
                      params={"keyword":code,"size":24,"page":1})
-
         if not r: return []
 
-        try:
-            decoded = decode_manko(r.json())
-        except:
-            return []
-
+        decoded = decode_manko(r.json())
         if not decoded: return []
 
         mid = decoded[0]["_id"]
@@ -171,6 +182,9 @@ def get_manko(code):
                         "url":url,
                         "ext":"ass" if ".ass" in url else "srt"
                     })
+
+        if not subs:
+            log("err", Fore.YELLOW, "Manko未找到字幕")
 
         log("net",Fore.WHITE,f"Manko返回字幕数: {len(subs)}")
         return subs
@@ -210,7 +224,14 @@ def process(root,file):
                 continue
 
             res,_=download(s["url"],save)
-            log("ok",Fore.GREEN,f"成功: {code} (Manko-zh)")
+
+            if res=="OK":
+                log("ok",Fore.GREEN,f"成功: {code} (Manko-zh)")
+            elif res=="REPLACED":
+                log("rep",Fore.GREEN,f"替换成功: {code} (Manko-zh)")
+            elif res=="SKIP_MD5":
+                log("skip",Fore.YELLOW,f"跳过: {code} (MD5相同)")
+
             return "SUCCESS","Manko",code
 
         elif s["lang"] in ["tw","cht","tc"]:
@@ -225,7 +246,10 @@ def process(root,file):
     r=safe_get(f"https://javsubs.furina.in/api/subtitle?name={code}")
     if r:
         try:
-            data=r.json().get("data",[])
+            data = r.json().get("data",[])
+
+            if not data:
+                log("err", Fore.YELLOW, "JavSubs无匹配字幕")
         except:
             data=[]
 
@@ -247,7 +271,6 @@ def process(root,file):
             log("ok",Fore.GREEN,f"成功: {code} (JavSubs)")
             return "SUCCESS","JavSubs",code
 
-    # fallback tw
     if tw:
         save=os.path.join(root,f"{base}.{tw['lang']}.{tw['ext']}")
         log("down",Fore.MAGENTA,f"Manko({tw['lang']}) -> {os.path.basename(save)}")
@@ -260,7 +283,8 @@ def process(root,file):
                 log("ok",Fore.GREEN,f"成功: {code} (Manko-tw)")
                 return "SUCCESS","Manko",code
 
-    return "FAIL","失败",code
+    log("err", Fore.RED, f"失败: {code} (无可用字幕)")
+    return "FAIL","无可用字幕",code
 
 # ===== 报告 =====
 def save_report():
@@ -272,10 +296,30 @@ def save_report():
         f.write(f" 字幕下载详细报告 | 生成时间: {datetime.now()}\n")
         f.write("="*80+"\n\n")
 
-        f.write(f"任务总数: {stats['total']}\n成功: {stats['success']}\n跳过: {stats['skip']}\n失败: {stats['fail']}\n\n")
+        f.write(f"[ 数据统计 ]\n")
+        f.write(f" - 任务总数: {stats['total']}\n")
+        f.write(f" - 成功下载: {stats['success']}\n")
+        f.write(f" - 自动跳过: {stats['skip']}\n")
+        f.write(f" - 任务失败: {stats['fail']}\n\n")
+
+        # ===== 失败统计 =====
+        fail_reasons = {}
+        for r in report_details:
+            if r["status"] == "FAIL":
+                fail_reasons[r["reason"]] = fail_reasons.get(r["reason"], 0) + 1
+
+        if fail_reasons:
+            f.write("[ 失败归因分析 ]\n")
+            for k,v in fail_reasons.items():
+                f.write(f" ● {k}: {v} 个\n")
+            f.write("\n")
+
+        f.write("[ 详细执行档案 ]\n")
+        f.write("番号            | 状态       | 最终站点/原因\n")
+        f.write("-"*80+"\n")
 
         for r in report_details:
-            f.write(f"{r['code']} | {r['status']} | {r['reason']}\n")
+            f.write(f"{r['code']:<15} | {r['status']:<10} | {r['reason']}\n")
 
     log("log",Fore.GREEN,f"报告已保存: {path}")
 
@@ -289,6 +333,8 @@ def main():
 
     FORCE_MODE=(input("模式: 1正常 2洗版: ").strip()=="2")
 
+    done_set = load_progress()
+
     files=[]
     for r,_,fs in os.walk(_selected_folder):
         for f in fs:
@@ -299,12 +345,26 @@ def main():
 
     print(f"\n🚀 开始任务: 共 {stats['total']} 个\n"+"-"*60)
 
-    for root,file in files:
+    for i,(root,file) in enumerate(files,1):
+
+        print(f"\n进度: {i}/{stats['total']}")
+
+        code=extract_code(file)
+        if not FORCE_MODE and code in done_set:
+            log("skip",Fore.YELLOW,f"{code} 已完成(断点续跑)")
+            stats["skip"]+=1
+            continue
+
         st,rs,cd=process(root,file)
 
-        if st=="SUCCESS": stats["success"]+=1
-        elif st=="SKIP": stats["skip"]+=1
-        else: stats["fail"]+=1
+        if st=="SUCCESS":
+            stats["success"]+=1
+            done_set.add(cd)
+            save_progress(done_set)
+        elif st=="SKIP":
+            stats["skip"]+=1
+        else:
+            stats["fail"]+=1
 
         report_details.append({"code":cd,"status":st,"reason":rs})
 
