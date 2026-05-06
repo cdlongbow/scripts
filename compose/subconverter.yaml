@@ -6,5 +6,3 @@ services:
     ports:
       - "25500:25500/tcp"
     restart: unless-stopped
-    volumes:
-      - /home/SubConverter-Extended/base/pref.toml:/base/pref.toml
