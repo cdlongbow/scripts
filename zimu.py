@@ -231,16 +231,31 @@ def process(root, file):
     code = extract_code(file)
     base = os.path.splitext(file)[0]
     abs_path = os.path.abspath(os.path.join(root, file))
-    rel_path = abs_path  # 报告用绝对路径
-    
+    rel_path = abs_path
+
     if has_embedded(file):
         log("skip", Fore.YELLOW, f"{abs_path} (内嵌字幕跳过)")
         return "SKIP", "内嵌字幕", code or "Unknown", rel_path
-    
+
     if not code:
         return "FAIL", "无法识别", "Unknown", rel_path
-    
+
     log("scan", Fore.CYAN, f"检索中: {code} | {abs_path}")
+
+    # ====================== 模式1：本地字幕优先检查 ======================
+    if not FORCE_MODE:   # 正常模式下先检查本地
+        for lang in ["zh", "chs", "sc", "zh-CN"]:
+            for ext in ["srt", "ass"]:
+                existing = os.path.join(root, f"{base}.{lang}.{ext}")
+                if os.path.exists(existing):
+                    log("skip", Fore.YELLOW, f"本地已存在字幕，跳过: {os.path.basename(existing)}")
+                    return "SKIP", "本地已存在", code, rel_path
+                    
+                # 也检查不带语言后缀的 .zh.srt 常见写法
+                simple_zh = os.path.join(root, f"{base}.zh.{ext}")
+                if os.path.exists(simple_zh):
+                    log("skip", Fore.YELLOW, f"本地已存在字幕，跳过: {os.path.basename(simple_zh)}")
+                    return "SKIP", "本地已存在", code, rel_path
 
     # ====================== Manko 查询 ======================
     subs = get_manko(code)
@@ -251,23 +266,24 @@ def process(root, file):
             save = os.path.join(root, f"{base}.{s['lang']}.{s['ext']}")
             log("down", Fore.MAGENTA, f"Manko({s['lang']}) -> {os.path.basename(save)}")
             
-            status, reason = download(s["url"], save)   # ← 修改点
+            status, reason = download(s["url"], save)
             
             if status in ["REPLACED", "OK"]:
                 log("ok", Fore.GREEN, f"成功: {code} (Manko-zh)")
                 return "SUCCESS", "Manko", code, rel_path
-            elif status == "SKIP_MD5":
-                return "SKIP", "MD5相同", code, rel_path
+            elif status in ["SKIP_MD5", "SKIP_EXIST"]:
+                log("ok", Fore.GREEN, f"成功: {code} (Manko-zh 已存在)")
+                return "SUCCESS", "Manko", code, rel_path
                 
         elif s["lang"] in ["tw", "cht", "tc"]:
             tw = s
 
     if tw:
-        log("fall", Fore.WHITE, "Manko zh 异常 → 暂存 tw → 尝试 JavSubs(优先简体)")
+        log("fall", Fore.WHITE, "Manko zh 异常 → 暂存 tw → 尝试 JavSubs")
     else:
         log("fall", Fore.WHITE, "Manko无有效字幕 → JavSubs")
 
-    # ====================== JavSubs 查询（ASS优先 + 严格匹配）====================
+    # ====================== JavSubs 查询 ======================
     r = safe_get(f"https://javsubs.furina.in/api/subtitle?name={code}")
     if r:
         try:
@@ -275,26 +291,17 @@ def process(root, file):
         except:
             data = []
 
-        if not data:
-            log("err", Fore.YELLOW, "JavSubs无匹配字幕")
-        else:
-            # 严格过滤：必须包含番号（不区分大小写）
-            matched_subs = []
-            for sub in data:
-                sub_name = sub.get('name', '').upper()
-                if code.upper() in sub_name or sub_name.startswith(code.upper()):
-                    matched_subs.append(sub)
+        if data:
+            matched_subs = [sub for sub in data if code.upper() in sub.get('name', '').upper()]
             
-            if not matched_subs:
-                log("err", Fore.YELLOW, f"JavSubs 返回 {len(data)} 个结果，但无明确匹配 {code} 的字幕（全部哈希或无关）")
-            else:
+            if matched_subs:
                 ass_subs = [sub for sub in matched_subs if sub.get('ext','').lower() == 'ass']
                 srt_subs = [sub for sub in matched_subs if sub.get('ext','').lower() == 'srt']
                 
                 if ass_subs:
-                    log("fall", Fore.WHITE, f"JavSubs 找到 {len(ass_subs)} 个 ASS 和 {len(srt_subs)} 个 SRT（已严格匹配）")
+                    log("fall", Fore.WHITE, f"JavSubs 找到 {len(ass_subs)} 个 ASS 和 {len(srt_subs)} 个 SRT")
                 else:
-                    log("fall", Fore.WHITE, f"JavSubs 找到 {len(srt_subs)} 个 SRT（已严格匹配）")
+                    log("fall", Fore.WHITE, f"JavSubs 找到 {len(srt_subs)} 个 SRT")
                 
                 priority_list = ass_subs + srt_subs
                 
@@ -308,21 +315,19 @@ def process(root, file):
                     if status in ["REPLACED", "OK"]:
                         log("ok", Fore.GREEN, f"成功: {code} (JavSubs - {sub['ext'].upper()})")
                         return "SUCCESS", "JavSubs", code, rel_path
-                    elif status == "SKIP_MD5":
-                        return "SKIP", "MD5相同", code, rel_path
-    # =====================================================================
+                    elif status in ["SKIP_MD5", "SKIP_EXIST"]:
+                        log("ok", Fore.GREEN, f"成功: {code} (JavSubs - 已存在)")
+                        return "SUCCESS", "JavSubs", code, rel_path
 
-    # ====================== 回退使用 Manko TW ======================
+    # ====================== 回退 Manko TW ======================
     if tw:
         save = os.path.join(root, f"{base}.{tw['lang']}.{tw['ext']}")
         log("down", Fore.MAGENTA, f"Manko({tw['lang']}) -> {os.path.basename(save)}")
         status, reason = download(tw["url"], save)
         
-        if status in ["REPLACED", "OK"]:
+        if status in ["REPLACED", "OK", "SKIP_MD5", "SKIP_EXIST"]:
             log("ok", Fore.GREEN, f"成功: {code} (Manko-tw)")
             return "SUCCESS", "Manko", code, rel_path
-        elif status == "SKIP_MD5":
-            return "SKIP", "MD5相同", code, rel_path
 
     log("err", Fore.RED, f"失败: {code} (无可用字幕)")
     return "FAIL", "无可用字幕", code, rel_path
@@ -367,7 +372,8 @@ def main():
     files = []
     for r, _, fs in os.walk(_selected_folder):
         for f in fs:
-            if f.endswith(".strm"):
+            VIDEO_EXTS = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".ts", ".m2ts", ".rmvb", ".strm"}
+            if os.path.splitext(f)[1].lower() in VIDEO_EXTS:
                 files.append((r, f))
     
     stats["total"] = len(files)
