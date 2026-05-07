@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, re, time, random, json, hashlib, traceback
+import os, re, time, random, json, hashlib, traceback, unicodedata
 import cloudscraper
 import requests
 from datetime import datetime
@@ -39,6 +39,16 @@ SYMBOL_MAP = {
 def log(tag, color, msg):
     print(color + f"{SYMBOL_MAP.get(tag,'[    ]')} {msg}" + Style.RESET_ALL)
 
+def pause_before_exit(msg="\n按任意键关闭窗口..."):
+    print(msg)
+    try:
+        os.system("pause >nul")
+    except:
+        try:
+            input()
+        except:
+            pass
+
 def load_progress():
     if not os.path.exists(PROGRESS_FILE):
         return set()
@@ -55,7 +65,7 @@ def save_progress(done_set):
     except:
         pass
 
-def safe_get(url, use_scraper=False, **kwargs):
+def safe_get(url, use_scraper=False, source="请求", **kwargs):
     client = scraper if use_scraper else session
     for i in range(REQUEST_RETRIES):
         try:
@@ -65,14 +75,16 @@ def safe_get(url, use_scraper=False, **kwargs):
                 return r
             if r.status_code == 429:
                 wait = 2 ** (i+1)
-                log("err", Fore.YELLOW, f"429限速，退避 {wait}s")
+                log("err", Fore.YELLOW, f"{source} 429限速，退避 {wait}s")
                 time.sleep(wait)
                 continue
+            log("err", Fore.YELLOW, f"{source} HTTP {r.status_code}，内容长度 {len(r.content)}")
         except Exception as e:
-            log("err", Fore.YELLOW, f"请求异常: {str(e)[:50]}")
+            log("err", Fore.YELLOW, f"{source} 异常: {str(e)[:60]}")
         wait = 2 ** (i+1)
-        log("err", Fore.YELLOW, f"请求失败，重试 {i+1}/{REQUEST_RETRIES} (等待{wait}s)")
+        log("err", Fore.YELLOW, f"{source} 失败，重试 {i+1}/{REQUEST_RETRIES} (等待{wait}s)")
         time.sleep(wait)
+    log("err", Fore.YELLOW, f"{source} 最终失败")
     return None
 
 def extract_valid_text(text, ext="srt"):
@@ -101,20 +113,63 @@ def extract_valid_text(text, ext="srt"):
             valid_lines.append(line)
     return "\n".join(valid_lines)
 
-def check_subtitle(content, ext="srt"):
-    try:
-        text = content.decode("utf-8", errors="ignore")
-    except:
-        return False, "编码错误"
+def is_cjk_char(c):
+    return (
+        '\u3400' <= c <= '\u4dbf' or
+        '\u4e00' <= c <= '\u9fff' or
+        '\uf900' <= c <= '\ufaff'
+    )
+
+def is_bad_subtitle_char(c):
+    if ord(c) <= 127 or is_cjk_char(c) or c.isspace():
+        return False
+    category = unicodedata.category(c)
+    return category[0] not in ("P", "S", "N", "Z")
+
+def has_subtitle_timeline(text, ext="srt"):
+    ext = ext.lower()
+    if ext == "srt":
+        return bool(re.search(
+            r"\d{1,2}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{1,2}:\d{2}:\d{2}[,.]\d{3}",
+            text
+        ))
+    if ext == "ass":
+        lower = text.lower()
+        return "dialogue:" in lower or "[events]" in lower
+    return True
+
+def decoded_subtitle_candidates(content):
+    encodings = []
+    if content.startswith(b"\xef\xbb\xbf"):
+        encodings.append("utf-8-sig")
+    if content.startswith((b"\xff\xfe", b"\xfe\xff")):
+        encodings.append("utf-16")
+    encodings += ["utf-8", "gb18030", "big5", "cp950"]
+    if content[:500].count(b"\x00") > 20:
+        encodings += ["utf-16", "utf-16le", "utf-16be"]
+
+    seen = set()
+    for enc in encodings:
+        if enc in seen:
+            continue
+        seen.add(enc)
+        try:
+            yield enc, content.decode(enc)
+        except UnicodeError:
+            continue
+
+def validate_subtitle_text(text, ext="srt"):
     if "<html" in text.lower():
         return False, "HTML内容"
+    if not has_subtitle_timeline(text, ext):
+        return False, "缺少字幕时间轴"
     clean_text = extract_valid_text(text, ext)
     if len(clean_text) < 20:
         return False, "有效内容过少"
     total = len(clean_text)
-    zh = sum(1 for c in clean_text if '\u4e00' <= c <= '\u9fff')
+    zh = sum(1 for c in clean_text if is_cjk_char(c))
     zh_ratio = zh / total if total else 0
-    bad = sum(1 for c in clean_text if ord(c) > 127 and not ('\u4e00' <= c <= '\u9fff') and c not in "，。！？：；“”‘’（）【】《》")
+    bad = sum(1 for c in clean_text if is_bad_subtitle_char(c))
     bad_ratio = bad / total if total else 0
     if ext.lower() == "ass":
         if zh < 5:
@@ -131,25 +186,86 @@ def check_subtitle(content, ext="srt"):
             return False, f"乱码比例高({bad_ratio:.2f})"
         return True, "正常"
 
+def prepare_subtitle_content(content, ext="srt"):
+    first_error = None
+    for enc, text in decoded_subtitle_candidates(content):
+        ok, reason = validate_subtitle_text(text, ext)
+        if ok:
+            text = text.replace("\r\n", "\n").replace("\r", "\n")
+            note = "正常" if enc in ("utf-8", "utf-8-sig") else f"正常({enc}->utf-8)"
+            return True, note, text.encode("utf-8")
+        if first_error is None:
+            first_error = f"{reason}({enc})"
+    return False, first_error or "编码错误", None
+
+def check_subtitle(content, ext="srt"):
+    ok, reason, _ = prepare_subtitle_content(content, ext)
+    return ok, reason
+
+def check_subtitle_file(path):
+    ext = os.path.splitext(path)[1].lstrip(".").lower() or "srt"
+    try:
+        with open(path, "rb") as f:
+            return check_subtitle(f.read(), ext)
+    except Exception as e:
+        return False, f"读取失败({str(e)[:30]})"
+
 def md5_file(p):
     if not os.path.exists(p): return None
     with open(p,"rb") as f: return hashlib.md5(f.read()).hexdigest()
 
 def md5_bytes(b): return hashlib.md5(b).hexdigest()
 
+def write_file_atomic(path, content):
+    tmp = f"{path}.tmp"
+    with open(tmp, "wb") as f:
+        f.write(content)
+    os.replace(tmp, path)
+
+def path_key(path):
+    return os.path.normcase(os.path.abspath(path))
+
+def normalize_num(num):
+    n = num.lstrip("0") or "0"
+    return n.zfill(3) if len(n) < 3 else n
+
 def extract_code(name):
-    m = re.search(r'([A-Z]+[0-9]*-\d+)', name, re.I)
-    return m.group(1).upper() if m else None
+    text = re.sub(r'\([^)]*\)|\[[^]]*\]', ' ', name)
+
+    m = re.search(r'([A-Z]{2,8}\d*)\s*-\s*(\d{2,6})', text, re.I)
+    if m:
+        return f"{m.group(1).upper()}-{normalize_num(m.group(2))}"
+
+    m = re.search(r'([A-Z]{2,8})(\d{3,6})', text, re.I)
+    if m:
+        return f"{m.group(1).upper()}-{normalize_num(m.group(2))}"
+
+    return None
 
 def has_embedded(file):
-    return re.search(r'-(c|ch)(?=[\-\.\(]|$)',file,re.I)
+    return re.search(r'(?i)(?:^|[\s._-])(ch|c)(?=[\s._\-\(\[]|$)', file)
 
-def download(url, save):
+def download(url, save, existing_invalid_reason=None):
+    existing_invalid = existing_invalid_reason
+    if os.path.exists(save) and not FORCE_MODE:
+        if existing_invalid is None:
+            ok, reason = check_subtitle_file(save)
+            if ok:
+                log("skip", Fore.YELLOW, f"文件已存在且有效，跳过: {os.path.basename(save)}")
+                return "SKIP_EXIST", "文件已存在"
+            existing_invalid = reason
+            log("err", Fore.YELLOW, f"本地字幕无效({reason})，尝试重新下载: {os.path.basename(save)}")
+
     r = safe_get(url)
     if not r:
         return "FAIL", "下载失败"
     
-    content = r.content
+    ext = os.path.splitext(save)[1].lstrip(".").lower() or "srt"
+    ok, reason, content = prepare_subtitle_content(r.content, ext)
+    if not ok:
+        log("err", Fore.YELLOW, f"字幕校验失败({reason}): {os.path.basename(save)}")
+        return "FAIL_INVALID", reason
+
     new_md5 = md5_bytes(content)
     old_md5 = md5_file(save)
     
@@ -159,17 +275,16 @@ def download(url, save):
                 log("skip", Fore.YELLOW, f"MD5相同，跳过: {os.path.basename(save)}")
                 return "SKIP_MD5", "MD5相同"
             else:
-                with open(save, "wb") as f:
-                    f.write(content)
+                write_file_atomic(save, content)
                 log("rep", Fore.CYAN, f"洗版替换完成: {os.path.basename(save)}")
                 return "REPLACED", "MD5不同（已替换）"
         else:
-            log("skip", Fore.YELLOW, f"文件已存在，跳过: {os.path.basename(save)}")
-            return "SKIP_EXIST", "文件已存在"
+            write_file_atomic(save, content)
+            log("rep", Fore.CYAN, f"无效字幕替换完成: {os.path.basename(save)}")
+            return "REPLACED_INVALID", f"替换无效字幕({existing_invalid})"
     
     # 文件不存在 → 正常下载
-    with open(save, "wb") as f:
-        f.write(content)
+    write_file_atomic(save, content)
     log("ok", Fore.GREEN, f"下载完成: {os.path.basename(save)}")
     return "OK", "成功（新建）"
 
@@ -201,15 +316,23 @@ def decode_manko(j):
 def get_manko(code):
     try:
         log("net",Fore.WHITE,"Manko 查询中...")
-        r = safe_get("https://healertanker.com/swx/movie/search", use_scraper=True, params={"keyword":code,"size":24,"page":1})
-        if not r: return []
+        r = safe_get("https://healertanker.com/swx/movie/search", use_scraper=True, source="Manko搜索", params={"keyword":code,"size":24,"page":1})
+        if not r:
+            log("err", Fore.YELLOW, "Manko搜索失败")
+            return []
         decoded = decode_manko(r.json())
-        if not decoded: return []
+        if not decoded:
+            log("err", Fore.YELLOW, "Manko搜索结果为空或解码失败")
+            return []
         mid = decoded[0]["_id"]
-        r = safe_get(f"https://healertanker.com/swx/subtitle-link/{mid}", use_scraper=True)
-        if not r: return []
+        r = safe_get(f"https://healertanker.com/swx/subtitle-link/{mid}", use_scraper=True, source="Manko字幕链接")
+        if not r:
+            log("err", Fore.YELLOW, "Manko字幕链接获取失败")
+            return []
         raw = decode_manko(r.json())
-        if not raw: return []
+        if not raw:
+            log("err", Fore.YELLOW, "Manko字幕链接为空或解码失败")
+            return []
         subs=[]
         for it in raw.get("subtitle_link",[]):
             for lang,url in it.items():
@@ -243,19 +366,27 @@ def process(root, file):
     log("scan", Fore.CYAN, f"检索中: {code} | {abs_path}")
 
     # ====================== 模式1：本地字幕优先检查 ======================
+    local_invalid = {}
     if not FORCE_MODE:   # 正常模式下先检查本地
+        candidates = []
         for lang in ["zh", "chs", "sc", "zh-CN"]:
             for ext in ["srt", "ass"]:
-                existing = os.path.join(root, f"{base}.{lang}.{ext}")
-                if os.path.exists(existing):
-                    log("skip", Fore.YELLOW, f"本地已存在字幕，跳过: {os.path.basename(existing)}")
-                    return "SKIP", "本地已存在", code, rel_path
-                    
-                # 也检查不带语言后缀的 .zh.srt 常见写法
-                simple_zh = os.path.join(root, f"{base}.zh.{ext}")
-                if os.path.exists(simple_zh):
-                    log("skip", Fore.YELLOW, f"本地已存在字幕，跳过: {os.path.basename(simple_zh)}")
-                    return "SKIP", "本地已存在", code, rel_path
+                candidates.append(os.path.join(root, f"{base}.{lang}.{ext}"))
+
+        checked = set()
+        for existing in candidates:
+            key = path_key(existing)
+            if key in checked or not os.path.exists(existing):
+                continue
+            checked.add(key)
+
+            ok, reason = check_subtitle_file(existing)
+            if ok:
+                log("skip", Fore.YELLOW, f"本地已存在有效字幕，跳过: {os.path.basename(existing)}")
+                return "SKIP", "本地已存在", code, rel_path
+
+            local_invalid[key] = reason
+            log("err", Fore.YELLOW, f"本地字幕无效({reason})，继续查找替换: {os.path.basename(existing)}")
 
     # ====================== Manko 查询 ======================
     subs = get_manko(code)
@@ -266,9 +397,9 @@ def process(root, file):
             save = os.path.join(root, f"{base}.{s['lang']}.{s['ext']}")
             log("down", Fore.MAGENTA, f"Manko({s['lang']}) -> {os.path.basename(save)}")
             
-            status, reason = download(s["url"], save)
+            status, reason = download(s["url"], save, local_invalid.get(path_key(save)))
             
-            if status in ["REPLACED", "OK"]:
+            if status in ["REPLACED", "REPLACED_INVALID", "OK"]:
                 log("ok", Fore.GREEN, f"成功: {code} (Manko-zh)")
                 return "SUCCESS", "Manko", code, rel_path
             elif status in ["SKIP_MD5", "SKIP_EXIST"]:
@@ -284,17 +415,25 @@ def process(root, file):
         log("fall", Fore.WHITE, "Manko无有效字幕 → JavSubs")
 
     # ====================== JavSubs 查询 ======================
-    r = safe_get(f"https://javsubs.furina.in/api/subtitle?name={code}")
-    if r:
+    log("net", Fore.WHITE, "JavSubs 查询中...")
+    r = safe_get(f"https://javsubs.furina.in/api/subtitle?name={code}", source="JavSubs查询")
+    if not r:
+        log("err", Fore.YELLOW, "JavSubs查询失败，回退 Manko TW")
+    else:
         try:
             data = r.json().get("data", [])
-        except:
+        except Exception as e:
+            log("err", Fore.YELLOW, f"JavSubs JSON解析失败: {str(e)[:60]}")
             data = []
 
-        if data:
+        if not data:
+            log("err", Fore.YELLOW, "JavSubs无返回字幕，回退 Manko TW")
+        else:
             matched_subs = [sub for sub in data if code.upper() in sub.get('name', '').upper()]
             
-            if matched_subs:
+            if not matched_subs:
+                log("err", Fore.YELLOW, f"JavSubs返回 {len(data)} 条，但无明确匹配 {code}，回退 Manko TW")
+            else:
                 ass_subs = [sub for sub in matched_subs if sub.get('ext','').lower() == 'ass']
                 srt_subs = [sub for sub in matched_subs if sub.get('ext','').lower() == 'srt']
                 
@@ -310,22 +449,26 @@ def process(root, file):
                     save = os.path.join(root, f"{base}.zh.{sub['ext']}")
                     
                     log("down", Fore.MAGENTA, f"JavSubs -> {os.path.basename(save)}")
-                    status, reason = download(sub["url"], save)
+                    status, reason = download(sub["url"], save, local_invalid.get(path_key(save)))
                     
-                    if status in ["REPLACED", "OK"]:
+                    if status in ["REPLACED", "REPLACED_INVALID", "OK"]:
                         log("ok", Fore.GREEN, f"成功: {code} (JavSubs - {sub['ext'].upper()})")
                         return "SUCCESS", "JavSubs", code, rel_path
                     elif status in ["SKIP_MD5", "SKIP_EXIST"]:
                         log("ok", Fore.GREEN, f"成功: {code} (JavSubs - 已存在)")
                         return "SUCCESS", "JavSubs", code, rel_path
+                    else:
+                        log("err", Fore.YELLOW, f"JavSubs下载不可用: {sub.get('name','Unknown')} | {reason}")
+
+                log("err", Fore.YELLOW, "JavSubs匹配结果全部下载或校验失败，回退 Manko TW")
 
     # ====================== 回退 Manko TW ======================
     if tw:
         save = os.path.join(root, f"{base}.{tw['lang']}.{tw['ext']}")
         log("down", Fore.MAGENTA, f"Manko({tw['lang']}) -> {os.path.basename(save)}")
-        status, reason = download(tw["url"], save)
+        status, reason = download(tw["url"], save, local_invalid.get(path_key(save)))
         
-        if status in ["REPLACED", "OK", "SKIP_MD5", "SKIP_EXIST"]:
+        if status in ["REPLACED", "REPLACED_INVALID", "OK", "SKIP_MD5", "SKIP_EXIST"]:
             log("ok", Fore.GREEN, f"成功: {code} (Manko-tw)")
             return "SUCCESS", "Manko", code, rel_path
 
@@ -420,11 +563,11 @@ def main():
 
     save_report()
     print("\n✨ 任务完成！")
-    input("\n按回车键关闭窗口...")
+    pause_before_exit()
 
 if __name__=="__main__":
     try:
         main()
     except:
         traceback.print_exc()
-        input("\n程序异常，按回车退出...")
+        pause_before_exit("\n程序异常，按任意键退出...")
