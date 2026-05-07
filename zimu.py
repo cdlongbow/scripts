@@ -12,13 +12,18 @@ init(autoreset=True)
 # ==================== 路径配置 ====================
 DESKTOP = os.path.join(os.path.expanduser("~"), "Desktop")
 
+SCRIPT_NAME = "字幕下载助手"
+SCRIPT_VERSION = "2026.05.07"
 DELAY_MIN, DELAY_MAX = 2.5, 5.0
 REQUEST_RETRIES = 3
+MAX_TASK_RETRY_ROUNDS = 2
 PROGRESS_FILE = "progress.json"
 FORCE_MODE = False
 stats = {"total":0,"success":0,"skip":0,"fail":0}
 report_details = []
 _selected_folder = ""
+VIDEO_EXTS = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".ts", ".m2ts", ".rmvb", ".strm"}
+RETRYABLE_REASONS = {"网络/接口失败", "接口解析失败", "下载失败", "字幕校验失败", "无法识别"}
 
 scraper = cloudscraper.create_scraper()
 session = requests.Session()
@@ -33,11 +38,22 @@ SYMBOL_MAP = {
     "fall":  "[🔄]",
     "match": "[🎯]",
     "err":   "[❓]",
-    "log":   "[📝]"
+    "log":   "[📝]",
+    "info":  "[ℹ️]",
+    "retry": "[🔁]"
 }
 
 def log(tag, color, msg):
     print(color + f"{SYMBOL_MAP.get(tag,'[    ]')} {msg}" + Style.RESET_ALL)
+
+def fail_result(reason, detail, code, path):
+    return "FAIL", reason, code, path, detail, reason in RETRYABLE_REASONS
+
+def success_result(source, code, path, detail=""):
+    return "SUCCESS", source, code, path, detail, False
+
+def skip_result(reason, code, path, detail=""):
+    return "SKIP", reason, code, path, detail, False
 
 def pause_before_exit(msg="\n按任意键关闭窗口..."):
     print(msg)
@@ -48,6 +64,34 @@ def pause_before_exit(msg="\n按任意键关闭窗口..."):
             input()
         except:
             pass
+
+def print_welcome():
+    print("=" * 68)
+    print(f" {SCRIPT_NAME} v{SCRIPT_VERSION}")
+    print("=" * 68)
+    print(" 工作流: 选择模式 → 选择目录 → 批量检索 → 校验字幕 → 失败重试")
+    print(f" 网络请求: 单次请求最多重试 {REQUEST_RETRIES} 次")
+    print(f" 任务重试: 批量结束后可重试可恢复失败，最多 {MAX_TASK_RETRY_ROUNDS} 轮")
+    print(" 字幕校验: 时间轴 / 中文比例 / 乱码字符 / HTML错误页")
+    print("-" * 68)
+
+def choose_mode():
+    while True:
+        print("\n请选择运行模式")
+        print("  1. 正常模式  - 已有有效字幕跳过；无效字幕会尝试替换")
+        print("  2. 洗版模式  - 重新下载并用 MD5 判断是否替换")
+        choice = input("请输入 1 或 2: ").strip()
+        if choice in ("1", "2"):
+            return choice == "2"
+        log("err", Fore.YELLOW, "输入无效，请输入 1 或 2")
+
+def choose_folder():
+    print("\n请选择要扫描的文件夹...")
+    tk.Tk().withdraw()
+    folder = filedialog.askdirectory()
+    if folder:
+        log("info", Fore.CYAN, f"已选择目录: {folder}")
+    return folder
 
 def load_progress():
     if not os.path.exists(PROGRESS_FILE):
@@ -256,7 +300,7 @@ def download(url, save, existing_invalid_reason=None):
             existing_invalid = reason
             log("err", Fore.YELLOW, f"本地字幕无效({reason})，尝试重新下载: {os.path.basename(save)}")
 
-    r = safe_get(url)
+    r = safe_get(url, source="字幕下载")
     if not r:
         return "FAIL", "下载失败"
     
@@ -319,20 +363,20 @@ def get_manko(code):
         r = safe_get("https://healertanker.com/swx/movie/search", use_scraper=True, source="Manko搜索", params={"keyword":code,"size":24,"page":1})
         if not r:
             log("err", Fore.YELLOW, "Manko搜索失败")
-            return []
+            return [], "网络/接口失败", "Manko搜索失败"
         decoded = decode_manko(r.json())
         if not decoded:
             log("err", Fore.YELLOW, "Manko搜索结果为空或解码失败")
-            return []
+            return [], "接口解析失败", "Manko搜索结果为空或解码失败"
         mid = decoded[0]["_id"]
         r = safe_get(f"https://healertanker.com/swx/subtitle-link/{mid}", use_scraper=True, source="Manko字幕链接")
         if not r:
             log("err", Fore.YELLOW, "Manko字幕链接获取失败")
-            return []
+            return [], "网络/接口失败", "Manko字幕链接获取失败"
         raw = decode_manko(r.json())
         if not raw:
             log("err", Fore.YELLOW, "Manko字幕链接为空或解码失败")
-            return []
+            return [], "接口解析失败", "Manko字幕链接为空或解码失败"
         subs=[]
         for it in raw.get("subtitle_link",[]):
             for lang,url in it.items():
@@ -344,11 +388,12 @@ def get_manko(code):
                     })
         if not subs:
             log("err", Fore.YELLOW, "Manko未找到字幕")
+            return [], "无可用字幕", "Manko未找到字幕"
         log("net",Fore.WHITE,f"Manko返回字幕数: {len(subs)}")
-        return subs
+        return subs, "", ""
     except Exception as e:
         log("err",Fore.RED,f"Manko异常: {e}")
-        return []
+        return [], "网络/接口失败", f"Manko异常: {e}"
 
 def process(root, file):
     code = extract_code(file)
@@ -358,10 +403,10 @@ def process(root, file):
 
     if has_embedded(file):
         log("skip", Fore.YELLOW, f"{abs_path} (内嵌字幕跳过)")
-        return "SKIP", "内嵌字幕", code or "Unknown", rel_path
+        return skip_result("内嵌字幕", code or "Unknown", rel_path)
 
     if not code:
-        return "FAIL", "无法识别", "Unknown", rel_path
+        return fail_result("无法识别", "文件名未匹配到番号", "Unknown", rel_path)
 
     log("scan", Fore.CYAN, f"检索中: {code} | {abs_path}")
 
@@ -383,13 +428,16 @@ def process(root, file):
             ok, reason = check_subtitle_file(existing)
             if ok:
                 log("skip", Fore.YELLOW, f"本地已存在有效字幕，跳过: {os.path.basename(existing)}")
-                return "SKIP", "本地已存在", code, rel_path
+                return skip_result("本地已存在", code, rel_path, os.path.basename(existing))
 
             local_invalid[key] = reason
             log("err", Fore.YELLOW, f"本地字幕无效({reason})，继续查找替换: {os.path.basename(existing)}")
 
     # ====================== Manko 查询 ======================
-    subs = get_manko(code)
+    failure_notes = []
+    subs, manko_reason, manko_detail = get_manko(code)
+    if manko_reason:
+        failure_notes.append((manko_reason, manko_detail))
     tw = None
 
     for s in subs:
@@ -401,10 +449,14 @@ def process(root, file):
             
             if status in ["REPLACED", "REPLACED_INVALID", "OK"]:
                 log("ok", Fore.GREEN, f"成功: {code} (Manko-zh)")
-                return "SUCCESS", "Manko", code, rel_path
+                return success_result("Manko", code, rel_path, "Manko-zh")
             elif status in ["SKIP_MD5", "SKIP_EXIST"]:
                 log("ok", Fore.GREEN, f"成功: {code} (Manko-zh 已存在)")
-                return "SUCCESS", "Manko", code, rel_path
+                return success_result("Manko", code, rel_path, "Manko-zh 已存在")
+            elif status == "FAIL_INVALID":
+                failure_notes.append(("字幕校验失败", f"Manko({s['lang']}) {reason}"))
+            elif status == "FAIL":
+                failure_notes.append(("下载失败", f"Manko({s['lang']}) {reason}"))
                 
         elif s["lang"] in ["tw", "cht", "tc"]:
             tw = s
@@ -419,20 +471,24 @@ def process(root, file):
     r = safe_get(f"https://javsubs.furina.in/api/subtitle?name={code}", source="JavSubs查询")
     if not r:
         log("err", Fore.YELLOW, "JavSubs查询失败，回退 Manko TW")
+        failure_notes.append(("网络/接口失败", "JavSubs查询失败"))
     else:
         try:
             data = r.json().get("data", [])
         except Exception as e:
             log("err", Fore.YELLOW, f"JavSubs JSON解析失败: {str(e)[:60]}")
             data = []
+            failure_notes.append(("接口解析失败", f"JavSubs JSON解析失败: {str(e)[:60]}"))
 
         if not data:
             log("err", Fore.YELLOW, "JavSubs无返回字幕，回退 Manko TW")
+            failure_notes.append(("无可用字幕", "JavSubs无返回字幕"))
         else:
             matched_subs = [sub for sub in data if code.upper() in sub.get('name', '').upper()]
             
             if not matched_subs:
                 log("err", Fore.YELLOW, f"JavSubs返回 {len(data)} 条，但无明确匹配 {code}，回退 Manko TW")
+                failure_notes.append(("无可用字幕", f"JavSubs返回 {len(data)} 条但无明确匹配"))
             else:
                 ass_subs = [sub for sub in matched_subs if sub.get('ext','').lower() == 'ass']
                 srt_subs = [sub for sub in matched_subs if sub.get('ext','').lower() == 'srt']
@@ -453,12 +509,14 @@ def process(root, file):
                     
                     if status in ["REPLACED", "REPLACED_INVALID", "OK"]:
                         log("ok", Fore.GREEN, f"成功: {code} (JavSubs - {sub['ext'].upper()})")
-                        return "SUCCESS", "JavSubs", code, rel_path
+                        return success_result("JavSubs", code, rel_path, f"JavSubs-{sub['ext'].upper()}")
                     elif status in ["SKIP_MD5", "SKIP_EXIST"]:
                         log("ok", Fore.GREEN, f"成功: {code} (JavSubs - 已存在)")
-                        return "SUCCESS", "JavSubs", code, rel_path
+                        return success_result("JavSubs", code, rel_path, "JavSubs 已存在")
                     else:
                         log("err", Fore.YELLOW, f"JavSubs下载不可用: {sub.get('name','Unknown')} | {reason}")
+                        fail_type = "字幕校验失败" if status == "FAIL_INVALID" else "下载失败"
+                        failure_notes.append((fail_type, f"JavSubs {sub.get('name','Unknown')} | {reason}"))
 
                 log("err", Fore.YELLOW, "JavSubs匹配结果全部下载或校验失败，回退 Manko TW")
 
@@ -470,10 +528,22 @@ def process(root, file):
         
         if status in ["REPLACED", "REPLACED_INVALID", "OK", "SKIP_MD5", "SKIP_EXIST"]:
             log("ok", Fore.GREEN, f"成功: {code} (Manko-tw)")
-            return "SUCCESS", "Manko", code, rel_path
+            return success_result("Manko", code, rel_path, "Manko-tw")
+        elif status == "FAIL_INVALID":
+            failure_notes.append(("字幕校验失败", f"Manko({tw['lang']}) {reason}"))
+        elif status == "FAIL":
+            failure_notes.append(("下载失败", f"Manko({tw['lang']}) {reason}"))
 
-    log("err", Fore.RED, f"失败: {code} (无可用字幕)")
-    return "FAIL", "无可用字幕", code, rel_path
+    retryable_notes = [item for item in failure_notes if item[0] in RETRYABLE_REASONS]
+    if retryable_notes:
+        reason, detail = retryable_notes[-1]
+    elif failure_notes:
+        reason, detail = failure_notes[-1]
+    else:
+        reason, detail = "无可用字幕", "所有字幕源均无可用结果"
+
+    log("err", Fore.RED, f"失败: {code} ({reason})")
+    return fail_result(reason, detail, code, rel_path)
 
 def save_report():
     if not _selected_folder: return
@@ -497,72 +567,149 @@ def save_report():
             f.write("[ 失败归因分析 ]\n")
             for r in report_details:
                 if r["status"]=="FAIL":
-                    f.write(f" ● {r['code']} | {r['path']} | {r['reason']}\n")
+                    detail = f" | {r['detail']}" if r.get("detail") else ""
+                    retry = "可重试" if r.get("retryable") else "不建议重试"
+                    f.write(f" ● {r['code']} | {r['path']} | {r['reason']}{detail} | {retry}\n")
+            f.write("\n[ 重试成功记录 ]\n")
+            for r in report_details:
+                if r["status"]=="SUCCESS" and r.get("attempt", 1) > 1:
+                    f.write(f" ● {r['code']} | 第{r['attempt']}次尝试成功 | {r['path']} | {r.get('detail','')}\n")
         log("log",Fore.GREEN,f"报告已保存: {path}")
     except Exception as e:
         log("err", Fore.RED, f"保存报告失败: {e}")
 
+def make_task_key(root, file):
+    return path_key(os.path.join(root, file))
+
+def result_record(root, file, result, attempt=1):
+    st, reason, code, path, detail, retryable = result
+    return {
+        "root": root,
+        "file": file,
+        "code": code,
+        "status": st,
+        "reason": reason,
+        "detail": detail,
+        "path": path,
+        "retryable": retryable,
+        "attempt": attempt,
+    }
+
+def record_result(results, root, file, result, attempt=1):
+    rec = result_record(root, file, result, attempt)
+    results[make_task_key(root, file)] = rec
+    return rec
+
+def recompute_stats(results):
+    stats["total"] = len(results)
+    stats["success"] = sum(1 for r in results.values() if r["status"] == "SUCCESS")
+    stats["skip"] = sum(1 for r in results.values() if r["status"] == "SKIP")
+    stats["fail"] = sum(1 for r in results.values() if r["status"] == "FAIL")
+
+def sync_report_details(results):
+    report_details.clear()
+    report_details.extend(results.values())
+
+def retryable_failures(results):
+    return [r for r in results.values() if r["status"] == "FAIL" and r.get("retryable")]
+
+def print_retry_summary(items):
+    counts = {}
+    for item in items:
+        counts[item["reason"]] = counts.get(item["reason"], 0) + 1
+    print("\n" + "-" * 60)
+    log("retry", Fore.CYAN, f"发现可重试失败 {len(items)} 个")
+    for reason, count in sorted(counts.items()):
+        print(f" - {reason}: {count}")
+
+def ask_retry(items, round_no):
+    if not items or round_no > MAX_TASK_RETRY_ROUNDS:
+        return False
+    print_retry_summary(items)
+    print(f"当前可进行第 {round_no}/{MAX_TASK_RETRY_ROUNDS} 轮任务级重试")
+    choice = input("是否重试这些任务？1重试 2跳过: ").strip()
+    return choice == "1"
+
+def run_one_task(root, file, index, total, done_set, attempt=1, retry_mode=False):
+    prefix = "重试进度" if retry_mode else "进度"
+    print(f"\n{prefix}: {index}/{total}")
+    start_time = datetime.now()
+    print(f"{Fore.CYAN}[🕒] {start_time.strftime('%Y-%m-%d %H:%M:%S')}{Style.RESET_ALL}")
+
+    code = extract_code(file)
+    if not retry_mode and not FORCE_MODE and code in done_set:
+        log("skip", Fore.YELLOW, f"{code} 已完成(断点续跑)")
+        end_time = datetime.now()
+        print(f"{Fore.CYAN}[⏰️] {end_time.strftime('%Y-%m-%d %H:%M:%S')}  (跳过){Style.RESET_ALL}")
+        return skip_result("断点续跑", code or "Unknown", os.path.abspath(os.path.join(root, file)), "progress.json")
+
+    result = process(root, file)
+    st, reason, cd, _, detail, _ = result
+    if st == "SUCCESS":
+        done_set.add(cd)
+        save_progress(done_set)
+
+    end_time = datetime.now()
+    duration = (end_time - start_time).seconds
+    print(f"{Fore.CYAN}[🕒] {end_time.strftime('%Y-%m-%d %H:%M:%S')}  (耗时 {duration}秒){Style.RESET_ALL}")
+    if retry_mode:
+        log("retry", Fore.CYAN, f"重试结果: {cd} | {st} | {reason}" + (f" | {detail}" if detail else ""))
+    print("─"*40)
+    time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))
+    return result
+
 def main():
     global FORCE_MODE, _selected_folder
-    tk.Tk().withdraw()
-    _selected_folder = filedialog.askdirectory()
+    print_welcome()
+    FORCE_MODE = choose_mode()
+    mode_name = "洗版模式" if FORCE_MODE else "正常模式"
+    log("info", Fore.CYAN, f"当前模式: {mode_name}")
+
+    _selected_folder = choose_folder()
     if not _selected_folder: 
         return
-    
-    FORCE_MODE = (input("模式: 1正常 2洗版: ").strip()=="2")
 
     done_set = load_progress()
     files = []
     for r, _, fs in os.walk(_selected_folder):
         for f in fs:
-            VIDEO_EXTS = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".ts", ".m2ts", ".rmvb", ".strm"}
             if os.path.splitext(f)[1].lower() in VIDEO_EXTS:
                 files.append((r, f))
     
-    stats["total"] = len(files)
-    print(f"\n🚀 开始任务: 共 {stats['total']} 个\n" + "-"*60)
+    results = {}
+    print(f"\n🚀 开始任务: 共 {len(files)} 个\n" + "-"*60)
 
     for i, (root, file) in enumerate(files, 1):
-        print(f"\n进度: {i}/{stats['total']}")
-        
-        # ==================== 开始时间戳 ====================
-        start_time = datetime.now()
-        print(f"{Fore.CYAN}[🕒] {start_time.strftime('%Y-%m-%d %H:%M:%S')}{Style.RESET_ALL}")
-        # ==================================================
-        
-        code = extract_code(file)
-        if not FORCE_MODE and code in done_set:
-            log("skip", Fore.YELLOW, f"{code} 已完成(断点续跑)")
-            stats["skip"] += 1
-            # 结束时间戳（跳过的情况也打印）
-            end_time = datetime.now()
-            print(f"{Fore.CYAN}[⏰️] {end_time.strftime('%Y-%m-%d %H:%M:%S')}  (跳过){Style.RESET_ALL}")
-            continue
-        
-        st, rs, cd, path = process(root, file)
-        
-        if st == "SUCCESS":
-            stats["success"] += 1
-            done_set.add(cd)
-            save_progress(done_set)
-        elif st == "SKIP":
-            stats["skip"] += 1
-        else:
-            stats["fail"] += 1
-        
-        report_details.append({"code": cd, "status": st, "reason": rs, "path": path})
-        
-        # ==================== 结束时间戳 ====================
-        end_time = datetime.now()
-        duration = (end_time - start_time).seconds
-        print(f"{Fore.CYAN}[🕒] {end_time.strftime('%Y-%m-%d %H:%M:%S')}  (耗时 {duration}秒){Style.RESET_ALL}")
-        # ==================================================
-        
-        print("─"*40)
-        time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))
+        result = run_one_task(root, file, i, len(files), done_set)
+        record_result(results, root, file, result)
 
+    recompute_stats(results)
+    sync_report_details(results)
     save_report()
+
+    retry_round = 1
+    while True:
+        items = retryable_failures(results)
+        if not ask_retry(items, retry_round):
+            break
+
+        print(f"\n🔁 开始第 {retry_round}/{MAX_TASK_RETRY_ROUNDS} 轮任务级重试: 共 {len(items)} 个\n" + "-"*60)
+        for i, item in enumerate(items, 1):
+            result = run_one_task(item["root"], item["file"], i, len(items), done_set, attempt=retry_round + 1, retry_mode=True)
+            record_result(results, item["root"], item["file"], result, attempt=retry_round + 1)
+
+        recompute_stats(results)
+        sync_report_details(results)
+        save_report()
+        retry_round += 1
+        if retry_round > MAX_TASK_RETRY_ROUNDS:
+            log("retry", Fore.CYAN, "已达到最大任务级重试轮数")
+            break
+
+    recompute_stats(results)
+    sync_report_details(results)
     print("\n✨ 任务完成！")
+    print(f"最终统计: 总数 {stats['total']} | 成功 {stats['success']} | 跳过 {stats['skip']} | 失败 {stats['fail']}")
     pause_before_exit()
 
 if __name__=="__main__":
