@@ -55,6 +55,9 @@ def success_result(source, code, path, detail=""):
 def skip_result(reason, code, path, detail=""):
     return "SKIP", reason, code, path, detail, False
 
+def fallback_msg(tw):
+    return "，回退 Manko TW" if tw else ""
+
 def pause_before_exit(msg="\n按任意键关闭窗口..."):
     print(msg)
     try:
@@ -470,7 +473,7 @@ def process(root, file):
     log("net", Fore.WHITE, "JavSubs 查询中...")
     r = safe_get(f"https://javsubs.furina.in/api/subtitle?name={code}", source="JavSubs查询")
     if not r:
-        log("err", Fore.YELLOW, "JavSubs查询失败，回退 Manko TW")
+        log("err", Fore.YELLOW, f"JavSubs查询失败{fallback_msg(tw)}")
         failure_notes.append(("网络/接口失败", "JavSubs查询失败"))
     else:
         try:
@@ -481,13 +484,13 @@ def process(root, file):
             failure_notes.append(("接口解析失败", f"JavSubs JSON解析失败: {str(e)[:60]}"))
 
         if not data:
-            log("err", Fore.YELLOW, "JavSubs无返回字幕，回退 Manko TW")
+            log("err", Fore.YELLOW, f"JavSubs无返回字幕{fallback_msg(tw)}")
             failure_notes.append(("无可用字幕", "JavSubs无返回字幕"))
         else:
             matched_subs = [sub for sub in data if code.upper() in sub.get('name', '').upper()]
             
             if not matched_subs:
-                log("err", Fore.YELLOW, f"JavSubs返回 {len(data)} 条，但无明确匹配 {code}，回退 Manko TW")
+                log("err", Fore.YELLOW, f"JavSubs返回 {len(data)} 条，但无明确匹配 {code}{fallback_msg(tw)}")
                 failure_notes.append(("无可用字幕", f"JavSubs返回 {len(data)} 条但无明确匹配"))
             else:
                 ass_subs = [sub for sub in matched_subs if sub.get('ext','').lower() == 'ass']
@@ -518,7 +521,7 @@ def process(root, file):
                         fail_type = "字幕校验失败" if status == "FAIL_INVALID" else "下载失败"
                         failure_notes.append((fail_type, f"JavSubs {sub.get('name','Unknown')} | {reason}"))
 
-                log("err", Fore.YELLOW, "JavSubs匹配结果全部下载或校验失败，回退 Manko TW")
+                log("err", Fore.YELLOW, f"JavSubs匹配结果全部下载或校验失败{fallback_msg(tw)}")
 
     # ====================== 回退 Manko TW ======================
     if tw:
