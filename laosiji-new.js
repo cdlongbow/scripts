@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      1.3.4
+// @version      1.3.5
 // @description  JavBus / JavDB / JavLib 磁力搜索 + 115离线 + 多源预览图(可调序) + Overlay灯箱
 // @author       ZiPenOk
 // @require      https://lib.baomitu.com/jquery/2.2.4/jquery.min.js
@@ -124,6 +124,30 @@
         const m = raw.match(/^([A-Z]+[-_]?)(\d+)$/);
         if (m) return m[1].replace(/[-_]$/, '') + '-' + m[2];
         return raw;
+    }
+
+    function insertAvidCopyBtn(anchor, avid, nativeCopyBtn = null, append = false) {
+        if (!anchor || !avid) return;
+        const code = normalizeAvid(avid);
+        const parent = anchor.parentElement || anchor;
+        parent.querySelectorAll('.jav-avid-copy').forEach(btn => btn.remove());
+        nativeCopyBtn?.style.setProperty('display', 'none', 'important');
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'jav-avid-copy';
+        btn.textContent = '复制番号';
+        btn.title = `复制番号：${code}`;
+        btn.style.cssText = 'display:inline-block;margin-left:8px;padding:2px 8px;font-size:12px;background:#e8f4fd;border:1px solid #90c5e8;border-radius:4px;cursor:pointer;color:#1a6fa8;vertical-align:middle;white-space:nowrap;';
+        btn.addEventListener('click', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            GM_setClipboard(code);
+            btn.textContent = '已复制';
+            setTimeout(() => { btn.textContent = '复制番号'; }, 900);
+        });
+        if (append) anchor.appendChild(btn);
+        else anchor.after(btn);
     }
 
     // =========================================================================
@@ -1311,6 +1335,7 @@
         },
         initPage(avid) {
             document.querySelector('.ad-box')?.remove();
+            this._insertCopyButton(avid);
 
             GM_addStyle(`
                 .container { max-width: 100% !important; width: 100% !important;
@@ -1331,6 +1356,14 @@
             if (document.querySelector('#waterfall div.item') && document.querySelector('.masonry')) return;
 
             this._insertMagnet(avid);
+        },
+        _insertCopyButton(avid) {
+            const infoCol = document.querySelector("div[class='col-md-3 info']");
+            if (!infoCol || !avid) return;
+            const anchor = [...infoCol.querySelectorAll('p, h3, span')].find(el => {
+                return el.textContent.trim().toUpperCase().includes(normalizeAvid(avid));
+            });
+            insertAvidCopyBtn(anchor || infoCol.querySelector('h3'), avid, null, true);
         },
         _insertMagnet(avid) {
             const infoCol = document.querySelector("div[class='col-md-3 info']");
@@ -1358,6 +1391,7 @@
         initPage(avid) {
             document.querySelector('.app-desktop-banner')?.remove();
             document.querySelector('.modal.is-active.over18-modal')?.remove();
+            this._insertCopyButton(avid);
 
             GM_addStyle(`
                 .container { max-width: 100% !important; }
@@ -1368,6 +1402,17 @@
 
             if (!location.pathname.startsWith('/v/')) return;
             this._insertMagnet(avid);
+        },
+        _insertCopyButton(avid) {
+            const infoPanel = document.querySelector('.movie-panel-info');
+            if (!infoPanel || !avid) return;
+
+            const nativeCopy = infoPanel.querySelector('.copy-to-clipboard, [data-clipboard-text]');
+            const anchor = nativeCopy?.closest('.panel-block')?.querySelector('.value')
+                || [...infoPanel.querySelectorAll('.panel-block .value')].find(el => {
+                    return el.textContent.trim().toUpperCase().includes(normalizeAvid(avid));
+                });
+            insertAvidCopyBtn(anchor, avid, nativeCopy);
         },
         _insertMagnet(avid) {
             const coverCol  = document.querySelector('.column.column-video-cover');
@@ -1419,6 +1464,7 @@
             if (!avid) return;
 
             document.querySelector('.socialmedia')?.remove();
+            this._insertCopyButton(avid);
 
             GM_addStyle(`
                 #leftmenu { display: none; }
@@ -1430,6 +1476,10 @@
             `);
 
             this._insertMagnet(avid);
+        },
+        _insertCopyButton(avid) {
+            const codeEl = document.querySelector('#video_id .text');
+            insertAvidCopyBtn(codeEl, avid);
         },
         _insertMagnet(avid) {
             const table = document.getElementById('video_jacket_info');
