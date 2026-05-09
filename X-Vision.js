@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         改 - X-Vision：沉浸式影院播放器
 // @namespace    https://github.com/ZiPenOk
-// @version      2.0.0
+// @version      2.0.1
 // @description  改 - X-Vision：沉浸式影院播放器 - Apple风格设计，支持长按2倍速、智能预加载、手势快捷操作、PiP画中画、智能续播（记住进度）修复背景播放问题
 // @author       ZiPenOK (原作者Luke Liou)
 // @license      MIT
@@ -70,12 +70,17 @@
         html.tiktok-modal-open,
         body.tiktok-modal-open {
             overflow: hidden !important;
-            position: fixed !important;
             width: 100% !important;
             height: 100% !important;
             overscroll-behavior: none !important;
             touch-action: none !important;
             background-color: #000 !important;
+        }
+
+        body.tiktok-modal-open {
+            position: fixed !important;
+            left: 0 !important;
+            right: 0 !important;
         }
  
         .tiktok-modal-overlay {
@@ -1023,7 +1028,10 @@
             this.VOLUME_STORAGE_KEY = 'tiktok_modal_volume';
             this.currentVolume = this.loadSavedVolume();
             this.isMuted = false;
- 
+            this.savedScrollY = 0;
+            this.savedBodyTop = '';
+            this.savedBodyOverflow = '';
+
             this.PERF_MODE_KEY = 'tiktok_modal_perf_mode';
             this.perfModeEnabled = this.loadPerfMode();
  
@@ -2320,15 +2328,34 @@
         isModalOpen() {
             return document.getElementById('tiktok-modal').classList.contains('active');
         }
+
+        lockPageScroll() {
+            this.savedScrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+            this.savedBodyTop = document.body.style.top || '';
+            this.savedBodyOverflow = document.body.style.overflow || '';
+
+            document.body.style.top = `-${this.savedScrollY}px`;
+            document.body.classList.add('tiktok-modal-open');
+            document.documentElement.classList.add('tiktok-modal-open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        unlockPageScroll() {
+            const scrollY = this.savedScrollY || 0;
+
+            document.body.classList.remove('tiktok-modal-open');
+            document.documentElement.classList.remove('tiktok-modal-open');
+            document.body.style.overflow = this.savedBodyOverflow;
+            document.body.style.top = this.savedBodyTop;
+            window.scrollTo(0, scrollY);
+        }
  
         openModal() {
             const modal = document.getElementById('tiktok-modal');
             modal.classList.add('active');
  
             // iOS Safari: 禁用橡皮筋效果和滚动
-            document.body.classList.add('tiktok-modal-open');
-            document.documentElement.classList.add('tiktok-modal-open');
-            document.body.style.overflow = 'hidden';
+            this.lockPageScroll();
  
             // iOS Safari: 设置状态栏颜色
             this.setThemeColor('#000000');
@@ -2370,9 +2397,7 @@
             // iOS Safari: 恢复滚动
             this.isSpeeding = false;
 
-            document.body.classList.remove('tiktok-modal-open');
-            document.documentElement.classList.remove('tiktok-modal-open');
-            document.body.style.overflow = '';
+            this.unlockPageScroll();
  
             // iOS Safari: 恢复状态栏颜色
             this.restoreThemeColor();
