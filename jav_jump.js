@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         番号跳转加预览图
 // @namespace    https://github.com/ZiPenOk
-// @version      5.3.1
+// @version      5.3.2
 // @icon         https://javdb.com/favicon.ico
 // @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择。新增 MissAV 站点适配。增加ProjectJav预览图来源。
 // @author       ZiPenOk
@@ -858,7 +858,7 @@
     // ============================ 搜索引擎数据 ============================
     const SearchEngines = [
         { name: 'BTDigg', color: '#F60', url: (code) => `https://btdig.com/search?q=${code}` },
-        { name: 'CiLiJia', color: '#DE5833', url: (code) => `https://cilijia.net/search?q=${code}` },
+        { name: 'Taocili', color: '#DE5833', url: (code) => `https://taocili.com/search?q=${code}` },
         { name: 'Google', color: '#4285F4', url: (code) => `https://www.google.com/search?q=${code}` },
         { name: 'Bing', color: '#008373', url: (code) => `https://www.bing.com/search?q=${code}` },
         { name: 'DuckGo', color: '#DE5833', url: (code) => `https://duckduckgo.com/?q=${code}` }
