@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         115 Local Rename Lite
 // @namespace    https://github.com/ZiPenOk
-// @version      1.0
+// @version      1.1
 // @description  115 local-only 借鉴115Rename2026 只做本地处理 自用脚本
 // @author       ZiPenOk
 // @match        https://115.com/*
@@ -69,7 +69,7 @@
         "DVAJ", "DVDES", "DVDPS", "DVH", "EBOD", "EDD", "ESK", "EVO", "EYAN", "EZD",
         "FELLATIOJAPAN", "FINH", "FSDSS", "FSET", "FST", "GAR", "GATE", "GDGA", "GDSC", "GEN",
         "GEXP", "GGFH", "GGTB", "GMMD", "GODS", "GOMD", "GOMK", "GPTM", "GRET", "GRYD",
-        "GSAD", "GTRL", "GXXD", "GYD", "HAVD", "HBAD", "HHK", "HITMA", "HND", "HODV",
+        "GSAD", "GTRL", "GXXD", "GYD", "HAVD", "HBAD", "HHK", "HITMA", "HMN", "HND", "HODV",
         "HRDV", "HUNT", "HUNTA", "HUNTB", "HYK", "IBW", "IDBD", "IDOL", "IENE", "IESP",
         "INU", "IPBZ", "IPIT", "IPITD", "IPSD", "IPTD", "IPX", "IPZ", "IPZZ", "JBD",
         "JHZD", "JMSZ", "JOB", "JUC", "JUFE", "JUKD", "JUL", "JULIA", "JUSD", "JUX",
@@ -266,7 +266,7 @@
 
         const upper = text.toUpperCase();
         for (const prefix of KNOWN_PREFIXES) {
-            const m = upper.match(new RegExp(`${escapeRegExp(prefix)}[-_\\s.]*0*(\\d{2,6})(?=$|[^0-9])`, "i"));
+            const m = upper.match(new RegExp(`(?:^|[^A-Z])${escapeRegExp(prefix)}[-_\\s.]*0*(\\d{2,6})(?=$|[^0-9])`, "i"));
             if (m) return `${prefix}-${String(Number(m[1])).padStart(3, "0")}`;
         }
 
