@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         改 - X-Vision：沉浸式影院播放器
 // @namespace    https://github.com/ZiPenOk
-// @version      2.0.5
+// @version      2.0.6
 // @description  改 - X-Vision：沉浸式影院播放器 - Apple风格设计，支持长按2倍速、智能预加载、手势快捷操作、PiP画中画、智能续播（记住进度）修复背景播放问题
 // @author       ZiPenOK (原作者Luke Liou)
 // @license      MIT
 // @match        https://twitter-ero-video-ranking.com/*
 // @match        https://x-ero-anime.com/*
+// @match        https://truvaze.com/*
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
 // @grant        GM_openInTab
@@ -44,7 +45,7 @@
     // 样式定义 - TikTok风格模态框
     // ========================================
     const styles = `
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&display=swap');body{background-color:#000 !important}
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&display=swap');
 body>div.container.mx-auto.mt-3.mb-3.px-2.relative{background-color:#fff !important}
 :root{--primary-red:#FE2C55;--primary-cyan:#25F4EE;--glass-bg:rgba(20,20,20,0.3);--glass-bg-hover:rgba(40,40,40,0.5);--glass-border:rgba(255,255,255,0.08);--glass-blur:blur(20px);--shadow-sm:0 4px 12px rgba(0,0,0,0.2);--shadow-lg:0 8px 32px rgba(0,0,0,0.4);--ease-elastic:cubic-bezier(0.68,-0.6,0.32,1.6);--ease-smooth:cubic-bezier(0.25,0.8,0.25,1)}
 html.tiktok-modal-open,body.tiktok-modal-open{overflow:hidden !important;width:100% !important;height:100% !important;overscroll-behavior:none !important;touch-action:none !important;background-color:#000 !important}
