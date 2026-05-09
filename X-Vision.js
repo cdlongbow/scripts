@@ -1017,6 +1017,9 @@
             // 已观看视频记录 (localStorage)
             this.WATCHED_STORAGE_KEY = 'tiktok_modal_watched_videos';
             this.watchedVideos = this.loadWatchedVideos();
+            this.PROGRESS_STORAGE_KEY = 'tiktok_modal_video_progress';
+            this.videoProgress = this.loadVideoProgress();
+            this.progressSaveThrottle = 0;
  
             // 只看未读模式
             this.unreadOnlyMode = false;
@@ -1716,6 +1719,7 @@
                 const newTime = Math.max(0, Math.min(this.videoElement.duration, this.videoElement.currentTime + seconds));
                 this.videoElement.currentTime = newTime;
                 this.updateProgressBar();
+                this.saveCurrentVideoProgress(true);
             }
         }
  
@@ -1749,6 +1753,7 @@
                 if (!this.isProgressDragging) {
                     this.updateProgressBar();
                 }
+                this.saveCurrentVideoProgressThrottled();
             });
  
             // 视频加载错误处理
@@ -1795,6 +1800,8 @@
  
             videoEl.addEventListener('ended', () => {
                 if (!this.isModalOpen()) return;
+
+                this.clearCurrentVideoProgress();
 
                 if (this.isLooping) {
                     // 循环播放已由 video.loop 属性处理，这里作为备用
@@ -1937,6 +1944,7 @@
             const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
             if (this.videoElement && this.videoElement.duration) {
                 this.videoElement.currentTime = percent * this.videoElement.duration;
+                this.saveCurrentVideoProgress(true);
             }
         }
  
@@ -1997,6 +2005,7 @@
                 // 应用最终位置
                 if (this.videoElement && this.videoElement.duration) {
                     this.videoElement.currentTime = lastPercent * this.videoElement.duration;
+                    this.saveCurrentVideoProgress(true);
                 }
             });
  
@@ -2038,6 +2047,7 @@
                 // 应用最终位置
                 if (this.videoElement && this.videoElement.duration) {
                     this.videoElement.currentTime = lastPercent * this.videoElement.duration;
+                    this.saveCurrentVideoProgress(true);
                 }
             }, { passive: true });
  
@@ -2378,6 +2388,8 @@
             const modal = document.getElementById('tiktok-modal');
             modal.classList.remove('active');
 
+            this.saveCurrentVideoProgress(true);
+
             this.loadVersion++;
 
             if (this.retryTimeoutId) {
@@ -2590,6 +2602,7 @@
                 videoLayer.classList.add('visible');
  
                 this.applyVolumeToVideo();
+                this.restoreCurrentVideoProgress(videoLayer);
                 
                 const playPromise = videoLayer.play();
                 if (playPromise !== undefined) {
@@ -2832,6 +2845,8 @@
         transitionToVideo(newIndex, direction) {
             if (!this.isModalOpen()) return;
 
+            this.saveCurrentVideoProgress(true);
+
             const thumbnailLayer = document.getElementById('tiktok-thumbnail');
             const player = this.videoElement;
  
@@ -2901,6 +2916,7 @@
                 this.videoElement.play();
             } else {
                 this.videoElement.pause();
+                this.saveCurrentVideoProgress(true);
                 this.showPauseIcon();
             }
         }
@@ -3026,6 +3042,86 @@
             }
         }
  
+        loadVideoProgress() {
+            try {
+                const stored = localStorage.getItem(this.PROGRESS_STORAGE_KEY);
+                return stored ? JSON.parse(stored) : {};
+            } catch (e) {
+                console.error('加载播放进度失败:', e);
+                return {};
+            }
+        }
+
+        saveVideoProgress() {
+            try {
+                const entries = Object.entries(this.videoProgress)
+                    .sort((a, b) => (b[1].updatedAt || 0) - (a[1].updatedAt || 0))
+                    .slice(0, 500);
+                this.videoProgress = Object.fromEntries(entries);
+                localStorage.setItem(this.PROGRESS_STORAGE_KEY, JSON.stringify(this.videoProgress));
+            } catch (e) {
+                console.error('保存播放进度失败:', e);
+            }
+        }
+
+        saveCurrentVideoProgress(force = false) {
+            const video = this.getCurrentVideo();
+            const videoEl = this.videoElement;
+            if (!video?.url || !videoEl || !Number.isFinite(videoEl.currentTime) || !Number.isFinite(videoEl.duration) || videoEl.duration <= 0) {
+                return;
+            }
+
+            const now = Date.now();
+            if (!force && now - this.progressSaveThrottle < 5000) return;
+            this.progressSaveThrottle = now;
+
+            const id = this.extractVideoId(video.url);
+            const currentTime = videoEl.currentTime;
+            const duration = videoEl.duration;
+
+            if (currentTime < 3 || currentTime >= duration - 5) {
+                delete this.videoProgress[id];
+            } else {
+                this.videoProgress[id] = {
+                    time: currentTime,
+                    duration,
+                    updatedAt: now
+                };
+            }
+
+            this.saveVideoProgress();
+        }
+
+        saveCurrentVideoProgressThrottled() {
+            this.saveCurrentVideoProgress(false);
+        }
+
+        restoreCurrentVideoProgress(videoEl = this.videoElement) {
+            const video = this.getCurrentVideo();
+            if (!video?.url || !videoEl || !Number.isFinite(videoEl.duration) || videoEl.duration <= 0) return;
+
+            const id = this.extractVideoId(video.url);
+            const saved = this.videoProgress[id];
+            if (!saved || !Number.isFinite(saved.time)) return;
+
+            const restoreTime = Math.min(saved.time, Math.max(0, videoEl.duration - 5));
+            if (restoreTime >= 3) {
+                videoEl.currentTime = restoreTime;
+                this.updateProgressBar();
+            }
+        }
+
+        clearCurrentVideoProgress() {
+            const video = this.getCurrentVideo();
+            if (!video?.url) return;
+
+            const id = this.extractVideoId(video.url);
+            if (this.videoProgress[id]) {
+                delete this.videoProgress[id];
+                this.saveVideoProgress();
+            }
+        }
+
         markVideoAsWatched(videoUrl) {
             if (!videoUrl) return;
             // 使用 movieId 或 URL 作为标识
