@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         115网盘-cookie-扫码登录
 // @namespace    115-qrcode-cookie-login
-// @version      2.0
-// @author       提取自 JAV-JHS
+// @version      3.0
+// @author       提取自 JAV-JHS (并做插入稳定性增强)
 // @namespace    https://github.com/ZiPenOk
 // @description  在115.com登录页面注入"JHS-扫码"面板，支持微信/支付宝小程序扫码登录，以及直接输入Cookie登录；登录后可在右下角悬浮面板复制Cookie
 // @license      MIT
 // @icon         https://115.com/favicon.ico
 // @match        https://115.com/*
+// @match        https://www.115.com/*
 // @connect      qrcodeapi.115.com
 // @connect      passportapi.115.com
 // @connect      115.com
@@ -24,6 +25,60 @@
 (function () {
     'use strict';
 
+    const LOGIN_BOX_SELECTOR = '#js-login_box';
+
+    let loginObserver = null;
+    let loginHookTimer = null;
+    let loginEventsBound = false;
+    let qrEventsBound = false;
+    let cookieInputEventsBound = false;
+    let autoReLoginChecked = false;
+    let qrLoginTimeout = null;
+
+    function runWhenNodeReady(getNode, callback) {
+        const node = getNode();
+        if (node) {
+            callback(node);
+            return;
+        }
+
+        let observer = null;
+        const run = () => {
+            const readyNode = getNode();
+            if (!readyNode) return;
+            document.removeEventListener('DOMContentLoaded', run);
+            if (observer) observer.disconnect();
+            callback(readyNode);
+        };
+
+        document.addEventListener('DOMContentLoaded', run, { once: true });
+        if (window.MutationObserver) {
+            observer = new MutationObserver(run);
+            observer.observe(document.documentElement || document, {
+                childList: true,
+                subtree: true
+            });
+        }
+    }
+
+    function appendToHead(node) {
+        runWhenNodeReady(
+            () => document.head,
+            head => {
+                if (!node.isConnected) head.appendChild(node);
+            }
+        );
+    }
+
+    function appendToBody(node) {
+        runWhenNodeReady(
+            () => document.body,
+            body => {
+                if (!node.isConnected) body.appendChild(node);
+            }
+        );
+    }
+
     // ─────────────────────────────────────────────
     //  工具函数
     // ─────────────────────────────────────────────
@@ -31,10 +86,12 @@
     /** 简易 toast 消息 */
     const show = (() => {
         function importToastifyCss() {
+            if (document.getElementById('jhs-toastify-css')) return;
             const link = document.createElement('link');
+            link.id = 'jhs-toastify-css';
             link.rel = 'stylesheet';
             link.href = 'https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.css';
-            document.head.appendChild(link);
+            appendToHead(link);
         }
         importToastifyCss();
 
@@ -179,6 +236,8 @@
     //  样式注入
     // ─────────────────────────────────────────────
     function injectStyles() {
+        if (document.getElementById('jhs-115-cookie-style')) return;
+
         const css = `
             /* 调整115登录框高度自适应 */
             .login-box .ltab-office {
@@ -265,17 +324,30 @@
             #jhs-copy-btn:hover { background-color: #059669; }
         `;
         const style = document.createElement('style');
+        style.id = 'jhs-115-cookie-style';
         style.textContent = css;
-        document.head.appendChild(style);
+        appendToHead(style);
     }
 
     // ─────────────────────────────────────────────
     //  登录页面：注入 JHS-扫码 面板
     // ─────────────────────────────────────────────
     function hookLoginPage() {
+        const $loginBox = $(LOGIN_BOX_SELECTOR);
+        if ($loginBox.length === 0 || $loginBox.find('#js-login_way').length === 0) return false;
+
         // 添加 Tab 按钮
-        const $cookieTab = $('<a id="jhs-cookie"><s>🔰 JHS-扫码</s></a>');
-        $('.ltab-office').after($cookieTab);
+        if ($loginBox.find('#jhs-cookie').length === 0) {
+            const $cookieTab = $('<a id="jhs-cookie"><s>🔰 JHS-扫码</s></a>');
+            const $officeTab = $loginBox.find('.ltab-office').last();
+            if ($officeTab.length) {
+                $officeTab.after($cookieTab);
+            } else {
+                $loginBox.find('#js-login_way').append($cookieTab);
+            }
+        }
+
+        if ($loginBox.find('#jhs_cookie_box').length > 0) return true;
 
         // 有效期选项
         const expiryOptions = [
@@ -339,49 +411,68 @@
             </div>
         `);
 
-        $('#js-login_box').find('.login-footer').before($cookieScene);
+        const $footer = $loginBox.find('.login-footer').first();
+        if ($footer.length) {
+            $footer.before($cookieScene);
+        } else {
+            $loginBox.append($cookieScene);
+        }
+
+        return true;
     }
 
     // ─────────────────────────────────────────────
     //  Tab 切换点击事件绑定
     // ─────────────────────────────────────────────
     function bindTabClick() {
+        if (loginEventsBound) return;
+        loginEventsBound = true;
+
         // 点击 JHS-扫码 Tab
-        $('#jhs-cookie').on('click', () => {
-            const finishedEl = document.querySelector('[lg_rel="finished"]');
+        $(document).on('click.jhs115', '#jhs-cookie', e => {
+            e.preventDefault();
+            const loginBox = e.currentTarget.closest(LOGIN_BOX_SELECTOR);
+            if (!loginBox) return;
+
+            const finishedEl = loginBox.querySelector('[lg_rel="finished"]');
             if (finishedEl) {
                 finishedEl.style.display = 'none';
             } else {
-                const qrcodeEl = document.querySelector('[lg_rel="qrcode"]');
+                const qrcodeEl = loginBox.querySelector('[lg_rel="qrcode"]');
                 if (qrcodeEl) qrcodeEl.style.display = 'none';
-                const footerEl = document.querySelector('.login-footer');
+                const footerEl = loginBox.querySelector('.login-footer');
                 if (footerEl) footerEl.style.display = 'none';
-                const otherEl = document.querySelector('.list-other-login');
+                const otherEl = loginBox.querySelector('.list-other-login');
                 if (otherEl) otherEl.style.display = 'none';
             }
             // 取消其他 tab 的 current 状态
-            document.querySelectorAll('#js-login_way > *').forEach(tab => tab.classList.remove('current'));
-            document.querySelector('#jhs_cookie_box').style.display = 'block';
-            $('#jhs-cookie').css('background', '#fff');
-            $('.ltab-cloud').addClass('change-bg');
+            loginBox.querySelectorAll('#js-login_way > *').forEach(tab => tab.classList.remove('current'));
+            const cookieBox = loginBox.querySelector('#jhs_cookie_box');
+            if (cookieBox) cookieBox.style.display = 'block';
+            $(loginBox).find('#jhs-cookie').addClass('current').css('background', '#fff');
+            $(loginBox).find('.ltab-cloud').addClass('change-bg');
         });
 
-        // 点击其他 tab（云登录）时恢复
-        $('.ltab-cloud').on('click', () => {
-            document.querySelector('#jhs_cookie_box').style.display = 'none';
-            const finishedEl = document.querySelector('[lg_rel="finished"]');
+        // 点击其他 tab 时恢复
+        $(document).on('click.jhs115', `${LOGIN_BOX_SELECTOR} #js-login_way > *:not(#jhs-cookie)`, function () {
+            const loginBox = this.closest(LOGIN_BOX_SELECTOR);
+            if (!loginBox) return;
+
+            const cookieBox = loginBox.querySelector('#jhs_cookie_box');
+            if (cookieBox) cookieBox.style.display = 'none';
+            const finishedEl = loginBox.querySelector('[lg_rel="finished"]');
             if (finishedEl) {
                 finishedEl.style.display = 'flex';
             } else {
-                const qrcodeEl = document.querySelector('[lg_rel="qrcode"]');
+                const qrcodeEl = loginBox.querySelector('[lg_rel="qrcode"]');
                 if (qrcodeEl) qrcodeEl.style.display = 'block';
-                const footerEl = document.querySelector('.login-footer');
+                const footerEl = loginBox.querySelector('.login-footer');
                 if (footerEl) footerEl.style.display = 'block';
-                const otherEl = document.querySelector('.list-other-login');
+                const otherEl = loginBox.querySelector('.list-other-login');
                 if (otherEl) otherEl.style.display = 'block';
             }
-            $('#jhs-cookie').css('background', '#F9FAFB');
-            $('.ltab-cloud').removeClass('change-bg');
+            $(loginBox).find('#jhs-cookie').removeClass('current').css('background', '#F9FAFB');
+            $(loginBox).find('.ltab-cloud').removeClass('change-bg');
         });
     }
 
@@ -389,10 +480,11 @@
     //  扫码登录逻辑
     // ─────────────────────────────────────────────
     function bindQrCodeLogin() {
-        let loginTimeout = null;
+        if (qrEventsBound) return;
+        qrEventsBound = true;
 
-        $('#login-115-type').on('change', async event => {
-            const login115Type = $('#login-115-type').val();
+        $(document).on('change.jhs115', '#login-115-type', async event => {
+            const login115Type = event.currentTarget.value;
             if (!login115Type) return;
 
             // 1. 获取二维码 token
@@ -421,7 +513,7 @@
             });
 
             // 3. 轮询扫码结果
-            if (loginTimeout) clearTimeout(loginTimeout);
+            if (qrLoginTimeout) clearTimeout(qrLoginTimeout);
 
             const checkLoginRecursive = async () => {
                 try {
@@ -456,10 +548,10 @@
                     }
 
                     // 继续轮询
-                    loginTimeout = setTimeout(checkLoginRecursive, 500);
+                    qrLoginTimeout = setTimeout(checkLoginRecursive, 500);
                 } catch (e) {
                     console.error('[115-Login] 登录检查失败:', e);
-                    loginTimeout = setTimeout(checkLoginRecursive, 1000);
+                    qrLoginTimeout = setTimeout(checkLoginRecursive, 1000);
                 }
             };
 
@@ -471,29 +563,42 @@
     //  手动输入 Cookie 提交逻辑
     // ─────────────────────────────────────────────
     function bindCookieInput() {
+        if (cookieInputEventsBound) return;
+        cookieInputEventsBound = true;
+
         const handleCookie = () => {
-            const cookieStr = document.getElementById('cookie-str-input').value.trim();
+            const cookieInput = document.getElementById('cookie-str-input');
+            const expirySelect = document.getElementById('cookie-expiry-select');
+            if (!cookieInput || !expirySelect) return;
+
+            const cookieStr = cookieInput.value.trim();
             if (!cookieStr) { show.error('请输入 Cookie'); return; }
-            const maxAge = parseInt(document.getElementById('cookie-expiry-select').value);
+            const maxAge = parseInt(expirySelect.value);
             addCookie(cookieStr, { maxAge, domain: '.115.com' });
             window.location.href = 'https://115.com/?cid=0&offset=0&mode=wangpan';
         };
 
-        document.getElementById('cookie-str-input').addEventListener('keydown', e => {
+        $(document).on('keydown.jhs115', '#cookie-str-input', e => {
             if (e.key === 'Enter') { e.preventDefault(); handleCookie(); }
         });
 
-        $('#submit-cookie-btn').on('click', handleCookie);
+        $(document).on('click.jhs115', '#submit-cookie-btn', e => {
+            e.preventDefault();
+            handleCookie();
+        });
     }
 
     // ─────────────────────────────────────────────
     //  自动重登：检测到 localStorage 有缓存 Cookie 时提示
     // ─────────────────────────────────────────────
     function autoReLogin() {
+        if (autoReLoginChecked) return;
+        autoReLoginChecked = true;
+
         loopDetector(
-            () => $('.login-finished').length > 0,
+            () => $(LOGIN_BOX_SELECTOR).length > 0,
             () => {
-                if ($('.login-finished').length > 0 || $('#js-login-box').length === 0) return;
+                if ($('.login-finished').length > 0 || $(LOGIN_BOX_SELECTOR).length === 0) return;
                 const savedCookie = localStorage.getItem(JHS_115_COOKIE);
                 const savedMaxAge = localStorage.getItem(JHS_115_MAX_AGE);
                 if (savedCookie && !document.cookie.includes('SEID')) {
@@ -517,6 +622,9 @@
         const cookieValue = localStorage.getItem(JHS_115_COOKIE);
         if (!cookieValue) return;
 
+        const oldPanel = document.getElementById('jhs-cookie-panel');
+        if (oldPanel) oldPanel.remove();
+
         const panel = document.createElement('div');
         panel.id = 'jhs-cookie-panel';
         panel.innerHTML = `
@@ -529,30 +637,71 @@
                 <button id="jhs-copy-btn">复制 Cookie</button>
             </div>
         `;
-        document.body.appendChild(panel);
+        appendToBody(panel);
 
-        const toggleIcon = document.getElementById('jhs-toggle-icon');
-        document.getElementById('jhs-cookie-header').addEventListener('click', () => {
-            const expanded = panel.classList.toggle('expanded');
-            toggleIcon.textContent = expanded ? '▲' : '▼';
+        runWhenNodeReady(() => document.body && document.getElementById('jhs-cookie-panel'), () => {
+            const toggleIcon = document.getElementById('jhs-toggle-icon');
+            const header = document.getElementById('jhs-cookie-header');
+            const copyBtn = document.getElementById('jhs-copy-btn');
+            if (!toggleIcon || !header || !copyBtn) return;
+
+            header.addEventListener('click', () => {
+                const expanded = panel.classList.toggle('expanded');
+                toggleIcon.textContent = expanded ? '▲' : '▼';
+            });
+
+            copyBtn.addEventListener('click', async e => {
+                e.stopPropagation();
+                try {
+                    await navigator.clipboard.writeText(cookieValue);
+                    show.ok('Cookie 已成功复制到剪贴板！');
+                } catch {
+                    // 降级方案
+                    const ta = document.createElement('textarea');
+                    ta.value = cookieValue;
+                    appendToBody(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    ta.remove();
+                    show.ok('Cookie 已复制！(回退方案)');
+                }
+            });
         });
+    }
 
-        document.getElementById('jhs-copy-btn').addEventListener('click', async e => {
-            e.stopPropagation();
-            try {
-                await navigator.clipboard.writeText(cookieValue);
-                show.ok('Cookie 已成功复制到剪贴板！');
-            } catch {
-                // 降级方案
-                const ta = document.createElement('textarea');
-                ta.value = cookieValue;
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                document.body.removeChild(ta);
-                show.ok('Cookie 已复制！(回退方案)');
+    function setupLoginHooks() {
+        bindTabClick();
+        bindQrCodeLogin();
+        bindCookieInput();
+        autoReLogin();
+        hookLoginPage();
+    }
+
+    function scheduleLoginHooks() {
+        if (loginHookTimer) clearTimeout(loginHookTimer);
+        loginHookTimer = setTimeout(() => {
+            loginHookTimer = null;
+            setupLoginHooks();
+        }, 80);
+    }
+
+    function observeLoginBox() {
+        if (loginObserver || !window.MutationObserver) {
+            scheduleLoginHooks();
+            return;
+        }
+
+        runWhenNodeReady(
+            () => document.body,
+            body => {
+                loginObserver = new MutationObserver(scheduleLoginHooks);
+                loginObserver.observe(body, {
+                    childList: true,
+                    subtree: true
+                });
+                scheduleLoginHooks();
             }
-        });
+        );
     }
 
     // ─────────────────────────────────────────────
@@ -604,18 +753,7 @@
 
         // 115.com 登录页面（排除进入网盘的 userfile 页）
         if (!href.includes('&ac=userfile') && href.includes('115')) {
-            loopDetector(
-                () => $('#js-login-box').length > 0,
-                () => {
-                    if ($('#js-login-box').length === 0) return;
-                    autoReLogin();
-                    hookLoginPage();
-                    bindTabClick();
-                    bindQrCodeLogin();
-                    bindCookieInput();
-                },
-                20, 4000, true
-            );
+            observeLoginBox();
 
             // 进入网盘后也显示悬浮面板
             createCookiePanel();
