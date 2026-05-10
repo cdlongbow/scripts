@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      1.3.5
+// @version      1.3.6
 // @description  JavBus / JavDB / JavLib 磁力搜索 + 115离线 + 多源预览图(可调序) + Overlay灯箱
 // @author       ZiPenOk
 // @require      https://lib.baomitu.com/jquery/2.2.4/jquery.min.js
@@ -1087,7 +1087,10 @@
             .nong-magnet-name {
                 max-width: 320px; white-space: nowrap;
                 overflow: hidden; text-overflow: ellipsis;
-                display: block; text-align: left;
+                display: flex; align-items: center; text-align: left;
+            }
+            .nong-magnet-name a {
+                overflow: hidden; text-overflow: ellipsis;
             }
             #jav-nong-refresh {
                 display: none; margin-left: 8px;
@@ -1176,6 +1179,38 @@
                 const nameSpan = document.createElement('span');
                 nameSpan.className = 'nong-magnet-name';
                 nameSpan.title = item.title;
+                // 检测标题是否含有中字标识：
+                // 1. FHDC 整体出现（前后为分隔符或词边界）
+                // 2. -C 或 _C（后面不跟字母）
+                // 3. 严格匹配「中字」或「中文字幕」
+                const _hasCJK = /[\u4e00-\u9fff]/.test(item.title);
+                const _hasJP  = /[\u3040-\u309f\u30a0-\u30ff]/.test(item.title);
+                const isChinese = /(?:[^A-Za-z]|^)FHDC(?:[^A-Za-z]|$)/i.test(item.title)
+                    || /[-_]CH?(?:[^A-Za-z]|$)/.test(item.title)
+                    || /中字/.test(item.title)
+                    || /中文/.test(item.title)
+                    || (_hasCJK && !_hasJP);
+                const is4K = /(?:[^A-Za-z0-9]|^)4K(?:UHD)?(?:[^A-Za-z0-9]|$)/i.test(item.title);
+                if (isChinese) {
+                    const badge = document.createElement('span');
+                    badge.textContent = '[中字]';
+                    badge.style.cssText = 'display:inline-block;margin-right:4px;padding:0 4px;font-size:11px;font-weight:700;color:#fff;background:#27ae60;border-radius:3px;vertical-align:middle;flex-shrink:0;';
+                    nameSpan.appendChild(badge);
+                    nameSpan.style.background = 'linear-gradient(90deg,#f0fff4 0%,#fff 100%)';
+                    nameSpan.style.borderLeft = '3px solid #27ae60';
+                    nameSpan.style.paddingLeft = '4px';
+                }
+                if (is4K) {
+                    const badge4k = document.createElement('span');
+                    badge4k.textContent = '[4K]';
+                    badge4k.style.cssText = 'display:inline-block;margin-right:4px;padding:0 4px;font-size:11px;font-weight:700;color:#fff;background:#1a6fa8;border-radius:3px;vertical-align:middle;flex-shrink:0;';
+                    nameSpan.insertBefore(badge4k, nameSpan.firstChild);
+                    if (!isChinese) {
+                        nameSpan.style.background = 'linear-gradient(90deg,#f0f7ff 0%,#fff 100%)';
+                        nameSpan.style.borderLeft = '3px solid #1a6fa8';
+                        nameSpan.style.paddingLeft = '4px';
+                    }
+                }
                 const titleLink = document.createElement('a');
                 titleLink.href = item.src || item.maglink;
                 titleLink.target = '_blank';
