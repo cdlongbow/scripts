@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         115 Local Rename Lite
 // @namespace    https://github.com/ZiPenOk
-// @version      1.1
+// @version      2.0
 // @description  115 local-only 借鉴115Rename2026 只做本地处理 自用脚本
 // @author       ZiPenOk
 // @match        https://115.com/*
@@ -358,6 +358,64 @@
         }
     }
 
+    // ========== 改名结果对比 ==========
+    function buildCompareText(list) {
+        const header = "【旧文件名】\t【新文件名】";
+        const rows = list.map(item => `${item.original}\t${item.renamed}`);
+        return [header, ...rows].join("\n");
+    }
+
+    function downloadCompareTxt(list) {
+        const text = buildCompareText(list);
+        const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "Rename_Compare.txt";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast("对比文件已下载", "success", 3000);
+    }
+
+    function copyCompareToClipboard(list) {
+        const text = buildCompareText(list);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text)
+                .then(() => toast("对比结果已复制到剪贴板", "success", 3000))
+                .catch(() => fallbackCopy(text));
+        } else {
+            fallbackCopy(text);
+        }
+    }
+
+    function fallbackCopy(text) {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.cssText = "position:fixed;opacity:0;pointer-events:none;";
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            document.execCommand("copy");
+            toast("对比结果已复制到剪贴板", "success", 3000);
+        } catch {
+            toast("复制失败，请手动保存", "error", 4000);
+        }
+        document.body.removeChild(ta);
+    }
+
+    function showCompareDialog(list) {
+        if (!list.length) return;
+        if (window.confirm("改名已完成，是否导出改名对比？")) {
+            if (window.confirm("导出方式：\n确定 → 下载 TXT 文件\n取消 → 复制到剪贴板")) {
+                downloadCompareTxt(list);
+            } else {
+                copyCompareToClipboard(list);
+            }
+        }
+    }
+
     async function runLocalRename() {
         const items = getSelectedItems();
         if (!items.length) {
@@ -368,6 +426,7 @@
         let changed = 0;
         let skipped = 0;
         let failed = 0;
+        const compareList = [];
 
         toast(`开始本地规范改名：${items.length} 项`, "info");
 
@@ -381,6 +440,7 @@
             const result = await rename115(item.id, newName);
             if (result.ok) {
                 changed++;
+                compareList.push({ original: item.name, renamed: newName });
             } else {
                 failed++;
                 console.warn("[115 Local Rename Lite] rename failed:", item.name, "=>", newName, result.error);
@@ -389,6 +449,10 @@
 
         const type = failed ? "error" : "success";
         toast(`本地改名完成：成功 ${changed}，跳过 ${skipped}，失败 ${failed}`, type, failed ? 5200 : 3200);
+
+        if (compareList.length > 0) {
+            showCompareDialog(compareList);
+        }
     }
 
     function injectMenu() {
