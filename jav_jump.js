@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         番号跳转加预览图
 // @namespace    https://github.com/ZiPenOk
-// @version      5.3.2
+// @version      5.4.0
 // @icon         https://javdb.com/favicon.ico
-// @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择。新增 MissAV 站点适配。增加ProjectJav预览图来源。
+// @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择。新增 MissAV 站点适配。增加ProjectJav预览图来源。新增预告片影院式播放。
 // @author       ZiPenOk
 // @match        *://sukebei.nyaa.si/*
 // @match        *://169bbs.com/*
@@ -35,7 +35,6 @@
 (function() {
     'use strict';
 
-    // ============================ 全局样式 ============================
     GM_addStyle(`
         #emby-config-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); font-family: sans-serif; }
         .emby-config-modal { background: #2d2d2d; border: 1px solid #444; border-radius: 12px; width: 320px; padding: 25px; color: white; box-shadow: 0 10px 50px rgba(0,0,0,0.9); }
@@ -73,7 +72,6 @@
             cursor: zoom-out;
         }
 
-        /* 统一按钮组样式 */
         .jav-jump-btn-group {
             margin-top: 8px;
             margin-bottom: 4px;
@@ -83,7 +81,6 @@
             align-items: center;
         }
 
-        /* JAVLibrary 专用修复 - 只影响该站点的按钮组 */
         body.main .javlibrary-fix {
             display: flex !important;
             flex-wrap: wrap !important;
@@ -110,10 +107,8 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
             box-sizing: border-box !important;
             line-height: normal !important;
-            /* 背景和颜色由内联样式控制，此处不覆盖 */
         }
 
-        /* Emby 专用修复：强制按钮组换行并占满整宽 */
         .emby-fix {
             width: 100% !important;
             flex-basis: 100% !important;
@@ -122,7 +117,6 @@
             margin-bottom: 4px !important;
         }
 
-        //预览图缓存控制
         .mini-switch {
             width: 40px;
             height: 20px;
@@ -152,7 +146,6 @@
             left: calc(100% - 18px);
         }
 
-        /* ========== 按钮特效悬停和动画 ========== */
         @keyframes btnSlideIn {
             from {
                 opacity: 0;
@@ -164,7 +157,6 @@
             }
         }
 
-        /* 通用按钮组样式 */
         .jav-jump-btn-group a,
         .javlibrary-fix a {
             transition: all 0.2s ease-in-out;
@@ -172,7 +164,6 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
 
-        /* 悬停效果（针对 JAVLibrary 使用 !important 覆盖内联样式） */
         .jav-jump-btn-group a:hover,
         .javlibrary-fix a:hover {
             transform: scale(1.05) !important;
@@ -202,7 +193,6 @@
             filter: brightness(1.1);
         }
 
-        /* 预览图工具栏 */
         .preview-toolbar {
             position: fixed;
             top: 20px;
@@ -230,7 +220,7 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: rgba(100, 100, 120, 0.3); /* 统一灰色默认背景 */
+            background: rgba(100, 100, 120, 0.3);
             border: 1px solid rgba(255, 255, 255, 0.05);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             letter-spacing: 0.2px;
@@ -269,9 +259,166 @@
             transform: translateY(0);
             box-shadow: 0 2px 4px rgba(0,0,0,0.15);
         }
+
+        .trailer-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 2147483647;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 34px;
+            background:
+                radial-gradient(circle at 50% 20%, rgba(70, 84, 130, 0.26), transparent 34%),
+                linear-gradient(180deg, rgba(0, 0, 0, 0.92), rgba(0, 0, 0, 0.98));
+            backdrop-filter: blur(14px) saturate(0.75);
+            cursor: default;
+        }
+        .trailer-modal {
+            width: min(1180px, 94vw);
+            max-height: 92vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            color: #f8fafc;
+            background: #060812;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            box-shadow:
+                0 35px 90px rgba(0, 0, 0, 0.72),
+                0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+            cursor: default;
+            animation: trailerFadeIn .18s ease-out;
+        }
+        @keyframes trailerFadeIn {
+            from { opacity: 0; transform: translateY(14px) scale(.985); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .trailer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 13px 16px;
+            background: linear-gradient(180deg, rgba(22, 28, 44, 0.96), rgba(10, 13, 24, 0.92));
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .trailer-title {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font: 600 15px/1.3 Arial, "Microsoft YaHei", sans-serif;
+        }
+        .trailer-code {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            letter-spacing: .4px;
+        }
+        .trailer-source {
+            flex-shrink: 0;
+            padding: 3px 9px;
+            border-radius: 999px;
+            color: #bae6fd;
+            background: rgba(14, 165, 233, 0.14);
+            border: 1px solid rgba(14, 165, 233, 0.24);
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .trailer-close {
+            width: 34px;
+            height: 34px;
+            border: 0;
+            border-radius: 50%;
+            color: #e5e7eb;
+            background: rgba(255, 255, 255, 0.08);
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 34px;
+            transition: transform .15s ease, background .15s ease;
+        }
+        .trailer-close:hover {
+            transform: scale(1.08);
+            background: rgba(248, 113, 113, 0.28);
+        }
+        .trailer-screen {
+            position: relative;
+            aspect-ratio: 16 / 9;
+            width: 100%;
+            background:
+                radial-gradient(circle at center, rgba(31, 41, 55, .75), #000 62%),
+                #000;
+        }
+        .trailer-screen video,
+        .trailer-screen iframe {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border: 0;
+            background: #000;
+        }
+        .trailer-quality-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 10px 16px;
+            background: #070a12;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .trailer-quality-label {
+            color: #9ca3af;
+            font: 12px/1.4 Arial, "Microsoft YaHei", sans-serif;
+            margin-right: 2px;
+        }
+        .trailer-quality-btn {
+            min-width: 58px;
+            padding: 6px 10px;
+            color: #d1d5db;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background .15s ease, color .15s ease, border-color .15s ease;
+        }
+        .trailer-quality-btn:hover {
+            color: #fff;
+            background: rgba(96, 165, 250, 0.22);
+            border-color: rgba(147, 197, 253, 0.45);
+        }
+        .trailer-quality-btn.active {
+            color: #fff;
+            background: #2563eb;
+            border-color: #60a5fa;
+            box-shadow: 0 0 16px rgba(37, 99, 235, .38);
+        }
+        .trailer-footer {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 16px;
+            color: #9ca3af;
+            background: #080b14;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            font: 12px/1.4 Arial, "Microsoft YaHei", sans-serif;
+        }
+        .trailer-footer a {
+            color: #93c5fd;
+            text-decoration: none;
+        }
+        .trailer-footer a:hover {
+            color: #bfdbfe;
+            text-decoration: underline;
+        }
+        @media (max-width: 720px) {
+            .trailer-overlay { padding: 12px; }
+            .trailer-modal { width: 100%; border-radius: 12px; }
+            .trailer-footer { flex-direction: column; }
+        }
     `);
 
-    // ============================ 核心工具模块 ============================
     const Utils = {
         extractCode(text) {
             if (!text) return null;
@@ -308,7 +455,6 @@
             return null;
         },
 
-        // 专为 MissAV 等站点：直接用 <a href target=_blank>，浏览器天然认可为用户手势，不拦截弹窗
         createLinkBtn(text, color, url) {
             const btn = document.createElement('a');
             btn.textContent = text;
@@ -376,11 +522,9 @@
         },
 
         showOverlay(imgUrl, code, source = null) {
-            // 保存原始 overflow 值
             const originalHtmlOverflow = document.documentElement.style.overflow;
             const originalBodyOverflow = document.body.style.overflow;
 
-            // 隐藏 html 和 body 的滚动条
             document.documentElement.style.overflow = 'hidden';
             document.body.style.overflow = 'hidden';
 
@@ -394,10 +538,8 @@
                 img.classList.toggle('zoomed');
             };
 
-            // 带防盗链绕过的图片加载：projectjav 需要 Referer，用 blob URL 规避跨域限制
             let currentBlobUrl = null;
             const loadImg = (url, src) => {
-                // 释放上一个 blob URL
                 if (currentBlobUrl) {
                     URL.revokeObjectURL(currentBlobUrl);
                     currentBlobUrl = null;
@@ -418,14 +560,13 @@
                                 img.src = currentBlobUrl;
                             }
                         },
-                        onerror: () => { img.src = url; } // 降级直接加载
+                        onerror: () => { img.src = url; }
                     });
                 } else {
                     img.src = url;
                 }
             };
 
-            // 初始加载
             loadImg(imgUrl, source);
 
             const toolbar = document.createElement('div');
@@ -495,16 +636,13 @@
             toolbar.appendChild(downloadBtn);
 
             container.appendChild(img);
-            // toolbar 直接挂到 body，脱离遮罩层级，确保 position:fixed 固定在右上角不随图片滚动
 
-            // 定义关闭并恢复滚动条的函数
             const closeOverlay = () => {
                 if (container.parentNode) {
                     container.remove();
                     toolbar.remove();
                     document.documentElement.style.overflow = originalHtmlOverflow;
                     document.body.style.overflow = originalBodyOverflow;
-                    // 释放 blob URL 防止内存泄漏
                     if (currentBlobUrl) {
                         URL.revokeObjectURL(currentBlobUrl);
                         currentBlobUrl = null;
@@ -514,7 +652,6 @@
 
             container.onclick = closeOverlay;
 
-            // ESC键关闭
             const escHandler = (e) => {
                 if (e.key === 'Escape') {
                     closeOverlay();
@@ -525,6 +662,174 @@
 
             document.body.appendChild(container);
             document.body.appendChild(toolbar);
+        },
+
+        showTrailerOverlay({ code, url, type = 'video', source = '预告片', qualities = null, quality = null }) {
+            document.querySelector('.trailer-overlay')?.remove();
+
+            const originalHtmlOverflow = document.documentElement.style.overflow;
+            const originalBodyOverflow = document.body.style.overflow;
+            document.documentElement.style.overflow = 'hidden';
+            document.body.style.overflow = 'hidden';
+
+            const overlay = document.createElement('div');
+            overlay.className = 'trailer-overlay';
+
+            const modal = document.createElement('div');
+            modal.className = 'trailer-modal';
+            modal.onclick = (e) => e.stopPropagation();
+
+            const header = document.createElement('div');
+            header.className = 'trailer-header';
+
+            const title = document.createElement('div');
+            title.className = 'trailer-title';
+            title.innerHTML = `
+                <span>🎞️</span>
+                <span class="trailer-code">${code}</span>
+                <span class="trailer-source">${source}</span>
+            `;
+
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'trailer-close';
+            closeBtn.type = 'button';
+            closeBtn.textContent = '×';
+
+            header.appendChild(title);
+            header.appendChild(closeBtn);
+
+            const screen = document.createElement('div');
+            screen.className = 'trailer-screen';
+            let video = null;
+            let activeUrl = url;
+            let activeQuality = quality;
+
+            if (type === 'iframe') {
+                const iframe = document.createElement('iframe');
+                iframe.src = url;
+                iframe.allow = 'autoplay; fullscreen; picture-in-picture; encrypted-media';
+                iframe.allowFullscreen = true;
+                screen.appendChild(iframe);
+            } else {
+                video = document.createElement('video');
+                video.controls = true;
+                video.autoplay = true;
+                video.loop = true;
+                video.playsInline = true;
+                const savedVolume = Number(GM_getValue('trailer_volume', 0.35));
+                const savedMuted = GM_getValue('trailer_muted', false);
+                video.volume = Number.isFinite(savedVolume) ? Math.min(1, Math.max(0, savedVolume)) : 0.35;
+                video.muted = Boolean(savedMuted);
+                video.src = url;
+                video.addEventListener('volumechange', () => {
+                    GM_setValue('trailer_volume', video.volume);
+                    GM_setValue('trailer_muted', video.muted);
+                });
+                screen.appendChild(video);
+                setTimeout(() => video.play().catch(() => {}), 120);
+            }
+
+            const qualityBar = document.createElement('div');
+            const qualityMap = qualities && typeof qualities === 'object' ? qualities : null;
+            if (type !== 'iframe' && qualityMap && Object.keys(qualityMap).length > 1) {
+                const qualityOrder = ['sm_s', 'dm_s', 'dmb_s', 'dmb_w', 'mhb_w', 'mmb', 'mhb', 'hmb', 'hhb', 'hhbs', '4k', '4ks'];
+                const qualityLabels = {
+                    sm_s: '240p',
+                    dm_s: '360p',
+                    dmb_s: '480p',
+                    dmb_w: '404p宽',
+                    mhb_w: '404p高宽',
+                    mmb: '432p',
+                    mhb: '576p',
+                    hmb: '720p',
+                    hhb: '1080p',
+                    hhbs: '1080p60',
+                    '4k': '4K',
+                    '4ks': '4K60'
+                };
+                const sortedKeys = Object.keys(qualityMap)
+                    .filter(key => qualityMap[key])
+                    .sort((a, b) => qualityOrder.indexOf(b) - qualityOrder.indexOf(a));
+
+                qualityBar.className = 'trailer-quality-bar';
+                const label = document.createElement('span');
+                label.className = 'trailer-quality-label';
+                label.textContent = '画质';
+                qualityBar.appendChild(label);
+
+                const setActiveQuality = (key) => {
+                    activeQuality = key;
+                    activeUrl = qualityMap[key];
+                    qualityBar.querySelectorAll('.trailer-quality-btn').forEach(btn => {
+                        btn.classList.toggle('active', btn.dataset.quality === key);
+                    });
+                };
+
+                sortedKeys.forEach(key => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'trailer-quality-btn';
+                    btn.dataset.quality = key;
+                    btn.textContent = qualityLabels[key] || key;
+                    btn.onclick = async () => {
+                        if (!video || !qualityMap[key] || activeQuality === key) return;
+                        const currentTime = video.currentTime || 0;
+                        const shouldPlay = !video.paused;
+                        video.src = qualityMap[key];
+                        video.load();
+                        video.currentTime = currentTime;
+                        setActiveQuality(key);
+                        sourceLink.href = activeUrl;
+                        if (shouldPlay) {
+                            await video.play().catch(() => {});
+                        }
+                    };
+                    qualityBar.appendChild(btn);
+                });
+
+                setActiveQuality(activeQuality && qualityMap[activeQuality] ? activeQuality : sortedKeys[0]);
+            }
+
+            const footer = document.createElement('div');
+            footer.className = 'trailer-footer';
+            const footerText = document.createElement('span');
+            footerText.textContent = '影院模式播放，按 Esc 或点击右上角关闭。';
+            const sourceLink = document.createElement('a');
+            sourceLink.href = activeUrl;
+            sourceLink.target = '_blank';
+            sourceLink.rel = 'noopener noreferrer';
+            sourceLink.textContent = '新窗口打开源地址';
+            footer.appendChild(footerText);
+            footer.appendChild(sourceLink);
+
+            modal.appendChild(header);
+            modal.appendChild(screen);
+            if (qualityBar.childElementCount) {
+                modal.appendChild(qualityBar);
+            }
+            modal.appendChild(footer);
+            overlay.appendChild(modal);
+
+            const closeOverlay = () => {
+                const video = overlay.querySelector('video');
+                if (video) {
+                    video.pause();
+                    video.removeAttribute('src');
+                    video.load();
+                }
+                overlay.remove();
+                document.documentElement.style.overflow = originalHtmlOverflow;
+                document.body.style.overflow = originalBodyOverflow;
+                document.removeEventListener('keydown', escHandler);
+            };
+
+            const escHandler = (e) => {
+                if (e.key === 'Escape') closeOverlay();
+            };
+
+            closeBtn.onclick = closeOverlay;
+            document.addEventListener('keydown', escHandler);
+            document.body.appendChild(overlay);
         },
 
         getJavBusUrl(code) {
@@ -557,9 +862,7 @@
         }
     };
 
-    // ============================ 预览图模块 ============================
     const Thumbnail = {
-        // ========== 来源1：javfree.me ==========
         async javfree(code) {
             const cacheKey = `thumb_cache_${code}`;
             const cached = sessionStorage.getItem(cacheKey);
@@ -585,18 +888,15 @@
             }
         },
 
-        // ========== 来源2：javstore.net ==========
         async javstore(code) {
             try {
                 const normalizedCode = code.replace(/^fc2-?/i, '').replace(/-/g, '').toLowerCase();
                 console.log(`javstore: searching for code=${code}, normalized=${normalizedCode}`);
 
-                // 1. 搜索页
                 const searchUrl = `https://javstore.net/search?q=${encodeURIComponent(code)}`;
                 const searchHtml = await Utils.request(searchUrl);
                 const searchDoc = new DOMParser().parseFromString(searchHtml, 'text/html');
 
-                // 2. 收集所有匹配番号的详情页链接（不止取第一个）
                 const candidateLinks = searchDoc.querySelectorAll('a[href*="/"]');
                 const detailUrls = [];
                 for (const link of candidateLinks) {
@@ -617,7 +917,6 @@
                     return null;
                 }
 
-                // 3. 依次尝试每个候选链接，找到有预览图的为止
                 for (const detailUrl of detailUrls) {
                     console.log(`javstore: 尝试详情页: ${detailUrl}`);
                     const imgUrl = await this._extractImgFromDetail(detailUrl);
@@ -636,13 +935,11 @@
             }
         },
 
-        // 从 javstore 详情页提取预览图 URL
         async _extractImgFromDetail(detailUrl) {
             try {
                 const detailHtml = await Utils.request(detailUrl);
                 const detailDoc = new DOMParser().parseFromString(detailHtml, 'text/html');
 
-                // 优先：CLICK HERE 直链
                 for (const link of detailDoc.querySelectorAll('a')) {
                     if (link.textContent.includes('CLICK HERE')) {
                         const imgUrl = link.href || link.getAttribute('href') || '';
@@ -650,7 +947,6 @@
                     }
                 }
 
-                // 备用：_s.jpg 缩略图转原图
                 const img = detailDoc.querySelector('img[src*="_s.jpg"]');
                 if (img) {
                     let src = img.getAttribute('src') || '';
@@ -665,11 +961,6 @@
             }
         },
 
-        // ========== 来源3：projectjav.com ==========
-        // 搜索端点：/?searchTerm={code}
-        // GM_xmlhttpRequest 不执行 JS，搜索页返回列表，需两步：
-        //   1. 请求搜索列表页 → 提取第一个 /movie/ 链接
-        //   2. 请求详情页 → 取截图大图（优先）或封面图（备用）
         async projectjav(code) {
             try {
                 const request = (url) => new Promise((resolve, reject) => {
@@ -692,7 +983,6 @@
                     });
                 });
 
-                // 步骤1：搜索列表页
                 const searchUrl = `https://projectjav.com/?searchTerm=${encodeURIComponent(code)}`;
                 console.log('[projectjav] 步骤1 搜索页:', searchUrl);
                 const searchHtml = await request(searchUrl);
@@ -708,33 +998,27 @@
                     return null;
                 }
 
-                // 优先末尾是数字ID的链接，其次取第一个
                 let detailPath = allMovieLinks.find(a => /\/movie\/.+-\d+$/.test(a.getAttribute('href') || ''))?.getAttribute('href')
                     || allMovieLinks[0].getAttribute('href');
                 console.log('[projectjav] 选中链接:', detailPath);
 
-                // 步骤2：详情页
                 const detailUrl = detailPath.startsWith('http') ? detailPath : `https://projectjav.com${detailPath}`;
                 console.log('[projectjav] 步骤2 详情页:', detailUrl);
                 const detailHtml = await request(detailUrl);
                 const detailDoc = new DOMParser().parseFromString(detailHtml, 'text/html');
 
-                // 优先截图（取 data-featherlight 属性值，不是 href）
                 const screenshotLink = detailDoc.querySelector('.thumbnail a[data-featherlight="image"]');
                 console.log('[projectjav] screenshotLink data-src:', screenshotLink?.getAttribute('data-src') , 'featherlight:', screenshotLink?.getAttribute('data-featherlight'));
                 if (screenshotLink) {
-                    // 图片 URL 在 <img src> 子元素上（去掉 ?width=300 参数取原图）
                     const thumbImg = screenshotLink.querySelector('img');
                     if (thumbImg) {
                         const src = (thumbImg.getAttribute('src') || '').replace(/\?.*$/, '');
                         if (src) return src.replace(/^http:/, 'https:');
                     }
-                    // 备用：a 标签自身的 href（部分版本有）
                     const href = screenshotLink.getAttribute('href') || '';
                     if (href && href.startsWith('http')) return href.replace(/^http:/, 'https:');
                 }
 
-                // 备用封面
                 const coverImg = detailDoc.querySelector('.movie-detail .col-md-6 img');
                 console.log('[projectjav] coverImg src:', coverImg?.getAttribute('src'));
                 if (coverImg) {
@@ -750,7 +1034,6 @@
             }
         },
 
-        // ========== 主入口：按用户配置的顺序依次尝试各来源 ==========
         async get(code) {
             const cacheEnabled = Settings.getPreviewCacheEnabled();
             if (cacheEnabled) {
@@ -790,9 +1073,472 @@
         }
     };
 
-    // ============================ 设置管理模块 ============================
+    const Trailer = {
+        normalize(code) {
+            return String(code || '')
+                .trim()
+                .replace(/\s+/g, '-')
+                .replace(/^FC2[-_]?PPV[-_]?/i, 'FC2-')
+                .toUpperCase();
+        },
+
+        normalizeForCompare(text) {
+            return String(text || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        },
+
+        cacheKey(code) {
+            return `trailer_cache_v2_${this.normalize(code)}`;
+        },
+
+        async show(code) {
+            const result = await this.get(code);
+            if (result?.url) {
+                Utils.showTrailerOverlay({
+                    code: this.normalize(code),
+                    url: result.url,
+                    type: result.type || 'video',
+                    source: result.source || '预告片',
+                    qualities: result.qualities,
+                    quality: result.quality
+                });
+            } else {
+                alert(`未找到 ${code} 的可播放预告片`);
+            }
+        },
+
+        async get(code) {
+            const id = this.normalize(code);
+            const cached = sessionStorage.getItem(this.cacheKey(id));
+            if (cached) {
+                try {
+                    return JSON.parse(cached);
+                } catch {
+                    sessionStorage.removeItem(this.cacheKey(id));
+                }
+            }
+
+            const resolvers = [
+                this.fromDirectSamples,
+                this.fromFc2Hub,
+                this.fromDmmApi,
+                this.fromCurrentPage,
+                this.fromJavdb,
+                this.fromJavbus,
+                this.fromDmmHeuristic,
+                this.fromJavSpyl
+            ];
+
+            for (const resolver of resolvers) {
+                try {
+                    const result = await resolver.call(this, id);
+                    if (result?.url) {
+                        sessionStorage.setItem(this.cacheKey(id), JSON.stringify(result));
+                        return result;
+                    }
+                } catch (e) {
+                    console.warn(`Trailer resolver failed: ${resolver.name}`, e);
+                }
+            }
+            return null;
+        },
+
+        request(url, options = {}) {
+            return new Promise((resolve) => {
+                GM_xmlhttpRequest({
+                    method: options.method || 'GET',
+                    url,
+                    data: options.data,
+                    headers: options.headers || {},
+                    timeout: options.timeout || 15000,
+                    onload: (r) => resolve(r),
+                    onerror: () => resolve(null),
+                    ontimeout: () => resolve(null)
+                });
+            });
+        },
+
+        async requestDoc(url, options = {}) {
+            const r = await this.request(url, options);
+            if (!r || r.status < 200 || r.status >= 400 || !r.responseText) return null;
+            return new DOMParser().parseFromString(r.responseText, 'text/html');
+        },
+
+        async head(url) {
+            const r = await this.request(url, { method: 'HEAD', timeout: 5000 });
+            if (!r) return null;
+            if (r.status >= 200 && r.status < 400) return r.finalUrl || url;
+            return null;
+        },
+
+        async firstWorkingUrl(urls, batchSize = 8) {
+            const uniqueUrls = [...new Set(urls.filter(Boolean))];
+            for (let i = 0; i < uniqueUrls.length; i += batchSize) {
+                const batch = uniqueUrls.slice(i, i + batchSize);
+                const results = await Promise.all(batch.map(async (url) => {
+                    const finalUrl = await this.head(url);
+                    return finalUrl ? { url: finalUrl } : null;
+                }));
+                const found = results.find(Boolean);
+                if (found) return found.url;
+            }
+            return null;
+        },
+
+        result(url, source, type = 'video', extra = {}) {
+            return { url, source, type, ...extra };
+        },
+
+        qualityOptions: [
+            { quality: 'sm_s', text: '旧视频源-低画质 (240p)' },
+            { quality: 'dm_s', text: '旧视频源-中画质 (360p)' },
+            { quality: 'dmb_s', text: '旧视频源-中画质 (480p)' },
+            { quality: 'dmb_w', text: '旧视频源-中画质宽版 (404p)' },
+            { quality: 'mhb_w', text: '旧视频源-高画质宽版 (404p)' },
+            { quality: 'mmb', text: '中画质 (432p)' },
+            { quality: 'mhb', text: '高画质 (576p)' },
+            { quality: 'hmb', text: 'HD (720p)' },
+            { quality: 'hhb', text: 'FullHD (1080p)' },
+            { quality: 'hhbs', text: 'FullHD (1080p60fps)' },
+            { quality: '4k', text: '4K (2160p)' },
+            { quality: '4ks', text: '4K (2160p60fps)' }
+        ],
+
+        selectHighestQuality(qualityMap) {
+            const rank = new Map(this.qualityOptions.map((item, index) => [item.quality, index]));
+            return Object.keys(qualityMap || {})
+                .filter(key => qualityMap[key])
+                .sort((a, b) => (rank.get(b) ?? -1) - (rank.get(a) ?? -1))[0] || null;
+        },
+
+        async fromDmmApi(id) {
+            if (!/^[A-Z]{2,10}-\d{2,6}$/i.test(id) || /^FC2-/i.test(id) || id.includes('VR-')) return null;
+
+            const items = await this.searchDmmContentIds(id);
+            if (!items.length) return null;
+
+            for (const item of items) {
+                const qualityMap = await this.extractDmmTrailerLinks(item);
+                const highestQuality = this.selectHighestQuality(qualityMap);
+                if (highestQuality) {
+                    return this.result(qualityMap[highestQuality], 'DMM/FANZA 多画质预告', 'video', {
+                        qualities: qualityMap,
+                        quality: highestQuality
+                    });
+                }
+            }
+            return null;
+        },
+
+        async searchDmmContentIds(id) {
+            const idLower = id.toLowerCase();
+            const idNoHyphen = id.replace(/-/g, '').toLowerCase();
+            const keywordAttempts = [
+                { keyword: id.replace('-', '00'), name: '00 替换关键词' },
+                { keyword: id, name: '原始番号关键词' },
+                { keyword: idNoHyphen, name: '无横杠关键词' }
+            ];
+
+            for (const attempt of keywordAttempts) {
+                const params = new URLSearchParams({
+                    api_id: 'UrwskPfkqQ0DuVry2gYL',
+                    affiliate_id: '10278-996',
+                    output: 'json',
+                    site: 'FANZA',
+                    sort: 'match',
+                    keyword: attempt.keyword
+                });
+                const apiUrl = `https://api.dmm.com/affiliate/v3/ItemList?${params.toString()}`;
+                const r = await this.request(apiUrl, {
+                    timeout: 15000,
+                    headers: { Accept: 'application/json,text/plain,*/*' }
+                });
+                if (!r?.responseText || r.status < 200 || r.status >= 400) continue;
+
+                let data;
+                try {
+                    data = JSON.parse(r.responseText);
+                } catch {
+                    continue;
+                }
+
+                const items = data?.result?.items || [];
+                const matched = [];
+                for (const item of items) {
+                    if (matched.length >= 3) break;
+                    const contentId = String(item.content_id || '').toLowerCase();
+                    const makerProduct = String(item.maker_product || '').toLowerCase();
+                    const attemptNormalized = String(attempt.keyword || '').toLowerCase().replace(/-/g, '');
+                    if (
+                        contentId.includes(attemptNormalized) ||
+                        contentId.includes(idNoHyphen) ||
+                        makerProduct === idLower
+                    ) {
+                        matched.push({
+                            serviceCode: item.service_code,
+                            floorCode: item.floor_code,
+                            contentId: item.content_id,
+                            pageUrl: item.URL
+                        });
+                    }
+                }
+
+                if (matched.length) return matched;
+            }
+            return [];
+        },
+
+        async extractDmmTrailerLinks({ contentId, serviceCode, floorCode }) {
+            if (!contentId || !serviceCode || !floorCode) return null;
+            const playerUrl = `https://www.dmm.co.jp/service/digitalapi/-/html5_player/=/cid=${contentId}/mtype=AhRVShI_/service=${serviceCode}/floor=${floorCode}/mode=/`;
+            const r = await this.request(playerUrl, {
+                timeout: 15000,
+                headers: {
+                    'accept-language': 'ja-JP,ja;q=0.9',
+                    Cookie: 'age_check_done=1'
+                }
+            });
+            if (!r?.responseText || r.status < 200 || r.status >= 400) return null;
+            if (r.responseText.includes('このサービスはお住まいの地域からは')) {
+                console.warn('DMM/FANZA 播放器页提示地区不可用，继续尝试其它来源');
+                return null;
+            }
+
+            const argsMatch = r.responseText.match(/const\s+args\s*=\s*({[\s\S]*?});/);
+            if (!argsMatch) return null;
+
+            let args;
+            try {
+                args = JSON.parse(argsMatch[1]);
+            } catch (e) {
+                console.warn('DMM/FANZA 播放器 args 解析失败:', e);
+                return null;
+            }
+
+            if (!Array.isArray(args.bitrates)) return null;
+
+            const qualityKeys = this.qualityOptions.map(item => item.quality).join('|');
+            const qualityRegex = new RegExp(`(${qualityKeys})\\.mp4(?:[?#].*)?$`);
+            const qualityMap = {};
+
+            args.bitrates.forEach(item => {
+                let videoUrl = item?.src;
+                if (!videoUrl || typeof videoUrl !== 'string') return;
+                const match = videoUrl.match(qualityRegex);
+                if (!match?.[1]) return;
+                videoUrl = videoUrl
+                    .replace(/^http:/, 'https:')
+                    .replace('cc3001.dmm.co.jp', 'cc3001.dmm.com');
+                qualityMap[match[1]] = videoUrl;
+            });
+
+            return Object.keys(qualityMap).length ? qualityMap : null;
+        },
+
+        fromCurrentPage(id) {
+            if (/javdb\d*\.com/i.test(location.hostname)) {
+                const url = this.extractMp4FromDoc(document, location.href);
+                if (url) return this.result(url, '当前 JavDB 页面');
+            }
+
+            if (/javbus\.com/i.test(location.hostname)) {
+                const direct = this.extractMp4FromDoc(document, location.href);
+                if (direct) return this.result(direct, '当前 JavBus 页面');
+
+                const cid = this.extractDmmCid(document.documentElement.innerHTML);
+                if (cid) {
+                    return this.firstWorkingUrl(this.dmmUrlsFromPart(cid))
+                        .then(url => url ? this.result(url, 'JavBus DMM 预告') : null);
+                }
+            }
+
+            return null;
+        },
+
+        async fromDirectSamples(id) {
+            const urls = [];
+            const lower = id.toLowerCase();
+
+            if (/^[01]\d{5}-\d{2,3}$/.test(lower)) {
+                urls.push(`https://smovie.caribbeancom.com/sample/movies/${lower}/480p.mp4`);
+                urls.push(`http://smovie.caribbeancom.com/sample/movies/${lower}/480p.mp4`);
+                urls.push(`https://smovie.1pondo.tv/sample/movies/${lower.replace('-', '_')}/480p.mp4`);
+                urls.push(`http://smovie.1pondo.tv/sample/movies/${lower.replace('-', '_')}/480p.mp4`);
+            }
+
+            if (/^heyzo[-_ ]?\d{4}$/i.test(id)) {
+                const num = id.match(/\d{4}/)?.[0];
+                urls.push(`https://www.heyzo.com/contents/3000/${num}/heyzo_hd_${num}_sample.mp4`);
+            }
+
+            if (/^(?:k|n)\d{4}$/i.test(id)) {
+                urls.push(`https://my.cdn.tokyo-hot.com/media/samples/${lower}.mp4`);
+            }
+
+            const url = await this.firstWorkingUrl(urls, 4);
+            return url ? this.result(url, '无码直连预告') : null;
+        },
+
+        async fromFc2Hub(id) {
+            if (!/^FC2-\d{6,9}$/i.test(id)) return null;
+
+            const searchUrl = `https://fc2hub.com/search?kw=${encodeURIComponent(id)}`;
+            const search = await this.request(searchUrl, { timeout: 15000 });
+            if (!search) return null;
+
+            let detailUrl = search.finalUrl && search.finalUrl !== searchUrl ? search.finalUrl : null;
+            if (!detailUrl && search.responseText) {
+                const doc = new DOMParser().parseFromString(search.responseText, 'text/html');
+                const link = doc.querySelector('a[href*="/id"], a[href*="fc2"]')?.getAttribute('href');
+                if (link) detailUrl = link.startsWith('http') ? link : new URL(link, searchUrl).href;
+            }
+            if (!detailUrl) return null;
+
+            const doc = await this.requestDoc(detailUrl, { timeout: 15000 });
+            const iframe = doc?.querySelector('iframe.lazy[data-src], iframe[src]');
+            const iframeUrl = iframe?.dataset?.src || iframe?.getAttribute('src');
+            if (!iframeUrl) return null;
+
+            return this.result(iframeUrl.startsWith('http') ? iframeUrl : new URL(iframeUrl, detailUrl).href, 'FC2Hub 预告', 'iframe');
+        },
+
+        async fromJavdb(id) {
+            const current = /javdb\d*\.com/i.test(location.hostname) ? this.extractMp4FromDoc(document, location.href) : null;
+            if (current) return this.result(current, 'JavDB 页面预告');
+
+            const searchUrl = `https://javdb.com/search?q=${encodeURIComponent(id)}&f=all`;
+            const doc = await this.requestDoc(searchUrl, { timeout: 15000 });
+            if (!doc) return null;
+
+            const target = this.normalizeForCompare(id);
+            const items = [...doc.querySelectorAll('.movie-list .item, .item')];
+            const item = items.find(el => this.normalizeForCompare(el.textContent).includes(target));
+            if (!item) return null;
+
+            const href = item.querySelector('a[href]')?.getAttribute('href');
+            if (!href) return null;
+
+            const detailUrl = href.startsWith('http') ? href : new URL(href, 'https://javdb.com/').href;
+            const detailDoc = await this.requestDoc(detailUrl, { timeout: 15000 });
+            const videoUrl = detailDoc ? this.extractMp4FromDoc(detailDoc, detailUrl) : null;
+            if (!videoUrl) return null;
+
+            const finalUrl = await this.head(videoUrl);
+            return finalUrl ? this.result(finalUrl, 'JavDB 预告') : null;
+        },
+
+        async fromJavbus(id) {
+            if (!/^[A-Z]{2,10}-\d{2,6}$/i.test(id)) return null;
+
+            const detailUrl = `https://www.javbus.com/${encodeURIComponent(id)}`;
+            const doc = await this.requestDoc(detailUrl, { timeout: 15000 });
+            if (!doc) return null;
+
+            const direct = this.extractMp4FromDoc(doc, detailUrl);
+            if (direct) {
+                const finalUrl = await this.head(direct);
+                if (finalUrl) return this.result(finalUrl, 'JavBus 页面预告');
+            }
+
+            const cid = this.extractDmmCid(doc.documentElement.innerHTML);
+            if (!cid) return null;
+
+            const url = await this.firstWorkingUrl(this.dmmUrlsFromPart(cid));
+            return url ? this.result(url, 'JavBus DMM 预告') : null;
+        },
+
+        async fromDmmHeuristic(id) {
+            if (!/^[A-Z]{2,10}-\d{2,6}$/i.test(id) || /^FC2-/i.test(id)) return null;
+            const urlParts = this.buildDmmUrlParts(id);
+            const urls = urlParts.flatMap(part => this.dmmUrlsFromPart(part));
+            const url = await this.firstWorkingUrl(urls, 10);
+            return url ? this.result(url, 'DMM 通用预告') : null;
+        },
+
+        async fromJavSpyl(id) {
+            const r = await this.request('https://api.javspyl.eu.org/api/', {
+                method: 'POST',
+                timeout: 12000,
+                headers: {
+                    origin: 'https://api.javspyl.eu.org',
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                data: `ID=${encodeURIComponent(id)}`
+            });
+            if (!r?.responseText) return null;
+
+            try {
+                const data = JSON.parse(r.responseText);
+                let url = data?.info?.url;
+                if (!url) return null;
+                if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+                const finalUrl = await this.head(url);
+                return finalUrl ? this.result(finalUrl, 'JavSpyl 预告') : null;
+            } catch {
+                return null;
+            }
+        },
+
+        extractMp4FromDoc(doc, baseUrl = location.href) {
+            const node = doc.querySelector('video source[src], video[src], source[src*=".mp4"]');
+            let url = node?.getAttribute('src') || node?.src;
+            if (!url) {
+                const html = doc.documentElement.innerHTML;
+                url = html.match(/https?:\/\/[^"'\\\s<>]+\.mp4(?:\?[^"'\\\s<>]*)?/i)?.[0];
+            }
+            if (!url) return null;
+            return url.startsWith('http') ? url.replace(/^http:/, 'https:') : new URL(url, baseUrl).href;
+        },
+
+        extractDmmCid(text) {
+            const raw = String(text || '');
+            const match =
+                raw.match(/cid=([a-z0-9_]+)/i) ||
+                raw.match(/\/video\/([a-z0-9_]+)\//i) ||
+                raw.match(/\/cid\/([a-z0-9_]+)/i);
+            return match?.[1]?.toLowerCase() || null;
+        },
+
+        dmmUrlsFromPart(part) {
+            const urlPart = String(part || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+            if (!urlPart || urlPart.length < 5) return [];
+            const infix = 'litevideo/freepv';
+            const hosts = ['cc3001.dmm.com'];
+            const qualities = ['mhb', '_dmb_w'];
+            const first = urlPart[0];
+            const prefix = urlPart.substring(0, 3);
+            const urls = [];
+
+            hosts.forEach(host => {
+                qualities.forEach(q => {
+                    urls.push(`https://${host}/${infix}/${first}/${prefix}/${urlPart}/${urlPart}${q}.mp4`);
+                });
+            });
+            return urls;
+        },
+
+        buildDmmUrlParts(id) {
+            const [corpRaw, numRaw] = id.toLowerCase().split('-');
+            const numPlain = (numRaw || '').replace(/^0+(?=\d)/, '');
+            if (!corpRaw || !numPlain) return [];
+
+            const n3 = numPlain.padStart(3, '0');
+            const n5 = numPlain.padStart(5, '0');
+            const cidPrefixes = [
+                '',
+                '1', '118', '84', '53', '55', '57', '13',
+                'h_086', 'h_237', 'h_1133', 'h_491'
+            ];
+            const parts = [];
+
+            cidPrefixes.forEach(prefix => {
+                parts.push(`${prefix}${corpRaw}${n3}`);
+                parts.push(`${prefix}${corpRaw}${n5}`);
+            });
+            return [...new Set(parts)];
+        }
+    };
+
     const Settings = {
-        // 移除了 getPreviewSource 和 setPreviewSource
         getPreviewCacheEnabled() {
             return GM_getValue('preview_cache_enabled', true);
         },
@@ -846,7 +1592,6 @@
             GM_setValue('default_search_engine', index);
         },
 
-        // 预览图来源顺序
         getSourceOrder() {
             return GM_getValue('thumb_source_order', ['javfree', 'projectjav', 'javstore']);
         },
@@ -855,7 +1600,6 @@
         }
     };
 
-    // ============================ 搜索引擎数据 ============================
     const SearchEngines = [
         { name: 'BTDigg', color: '#F60', url: (code) => `https://btdig.com/search?q=${code}` },
         { name: 'Taocili', color: '#DE5833', url: (code) => `https://taocili.com/search?q=${code}` },
@@ -864,10 +1608,8 @@
         { name: 'DuckGo', color: '#DE5833', url: (code) => `https://duckduckgo.com/?q=${code}` }
     ];
 
-    // 默认搜索引擎索引（可配置）
-    const DEFAULT_SEARCH_ENGINE_INDEX = 0; // BTDigg (根据您定义的顺序)
+    const DEFAULT_SEARCH_ENGINE_INDEX = 0;
 
-    // ============================ 按钮创建辅助函数 ============================
     function addNyaaBtn(code, container, useCapture = false) {
         const btn = Utils.createBtn('🔍 Sukebei', '#17a2b8', () => {
             window.open(`https://sukebei.nyaa.si/?f=0&c=0_0&q=${code}`);
@@ -906,11 +1648,26 @@
         container.appendChild(btn);
     }
 
+    function addTrailerBtn(code, container, useCapture = false) {
+        const btn = Utils.createBtn('🎞️ 预告片', '#111827', async () => {
+            const oldText = btn.textContent;
+            btn.textContent = '🎞️ 解析中...';
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.72';
+            try {
+                await Trailer.show(code);
+            } finally {
+                btn.textContent = oldText;
+                btn.style.pointerEvents = '';
+                btn.style.opacity = '';
+            }
+        }, useCapture);
+        container.appendChild(btn);
+    }
+
     function addSearchMenu(code, container, useCapture = false) {
-        // 获取默认搜索引擎
         const defaultEngine = Settings.getDefaultSearchEngine();
 
-        // 创建菜单容器
         const menuDiv = document.createElement('div');
         menuDiv.className = 'search-menu';
         menuDiv.style.cssText = `
@@ -918,14 +1675,12 @@
             display: inline-block;
         `;
 
-        // 主按钮（默认搜索引擎）
         const mainBtn = Utils.createBtn(`🔍 ${defaultEngine.name}`, defaultEngine.color, () => {
             window.open(defaultEngine.url(code));
         }, useCapture);
         mainBtn.classList.add('search-main-btn');
         menuDiv.appendChild(mainBtn);
 
-        // 子菜单容器
         const subMenu = document.createElement('div');
         subMenu.className = 'search-submenu';
         subMenu.style.cssText = `
@@ -945,9 +1700,8 @@
             backdrop-filter: blur(5px);
         `;
 
-        // 为每个搜索引擎创建子按钮（排除默认引擎）
         SearchEngines.forEach(engine => {
-            if (engine.name === defaultEngine.name) return; // 不重复显示默认引擎
+            if (engine.name === defaultEngine.name) return;
 
             const subBtn = Utils.createBtn(`🔍 ${engine.name}`, engine.color, () => {
                 window.open(engine.url(code));
@@ -960,30 +1714,26 @@
 
         menuDiv.appendChild(subMenu);
 
-        // 悬停逻辑
         let hoverTimer;
         menuDiv.addEventListener('mouseenter', () => {
             clearTimeout(hoverTimer);
             hoverTimer = setTimeout(() => {
                 subMenu.style.display = 'flex';
-                // 添加淡入动画
                 subMenu.style.animation = 'menuFadeIn 0.2s ease';
             }, 1000);
         });
 
         menuDiv.addEventListener('mouseleave', (e) => {
             clearTimeout(hoverTimer);
-            // 如果鼠标移入子菜单，不隐藏
             if (e.relatedTarget && subMenu.contains(e.relatedTarget)) return;
 
             setTimeout(() => {
                 if (!subMenu.matches(':hover')) {
                     subMenu.style.display = 'none';
                 }
-            }, 300); // 给一点缓冲时间
+            }, 300);
         });
 
-        // 子菜单悬停时不隐藏
         subMenu.addEventListener('mouseenter', () => {
             clearTimeout(hoverTimer);
         });
@@ -995,7 +1745,6 @@
         container.appendChild(menuDiv);
     }
 
-    // ============================ 站点定义模块 ============================
     const Sites = [
         {
             id: 'sukebei',
@@ -1060,24 +1809,16 @@
         {
             id: 'missav',
             name: 'MissAV',
-            // 兼容各种路径结构的详情页，包括：
-            //   /ipzz-385
-            //   /dm47/ipzz-385
-            //   /dm32/cn/pppe-166
-            //   /dm32/cn/pppe-166-uncensored-leak （带 -uncensored-leak 等后缀）
-            // 只要 pathname 含 /字母-数字 片段即视为详情页，并排除列表类页面。
             match: (url) => {
                 if (!/missav\.(ws|com)/.test(url)) return false;
                 const pathname = new URL(url).pathname;
                 if (/^\/$|\/search|\/tags|\/actresses|\/genres/.test(pathname)) return false;
                 return /\/[a-z]{2,10}-\d+/i.test(pathname);
             },
-            // h1 带多个 class，用属性含匹配更稳健；fallback 任意 h1
             titleSelector: 'h1[class*="text-nord6"], h1'
         }
     ];
 
-    // ============================ UI 渲染模块 ============================
     function renderButtonsForCurrentPage() {
         const site = Sites.find(s => s.match(window.location.href));
         if (!site) return;
@@ -1093,23 +1834,20 @@
 
         const settings = Settings.get(site.id);
 
-        // 如果该站点被禁用，直接返回
         if (!settings.enabled) return;
 
         const btnGroup = document.createElement('div');
         btnGroup.className = 'jav-jump-btn-group';
 
-        // 区分 JAVLibrary 特殊处理
         if (site.id === 'javlibrary') {
-            // 强制添加所有按钮（忽略设置，确保显示）
             addNyaaBtn(code, btnGroup);
             addJavbusBtn(code, btnGroup);
             addJavdbBtn(code, btnGroup);
             addMissAVBtn(code, btnGroup);
             addSearchMenu(code, btnGroup);
             addPreviewBtn(code, btnGroup);
+            addTrailerBtn(code, btnGroup);
 
-            // 为按钮内联样式添加 !important 防止被覆盖
             btnGroup.querySelectorAll('a').forEach(btn => {
                 let style = btn.getAttribute('style') || '';
                 style = style.replace(/background:\s*([^;]+);/g, 'background: $1 !important;');
@@ -1119,7 +1857,6 @@
 
             btnGroup.classList.add('javlibrary-fix');
 
-            // 插入到 #rightcolumn 顶部
             const rightColumn = document.querySelector('#rightcolumn');
             if (rightColumn) {
                 rightColumn.prepend(btnGroup);
@@ -1127,8 +1864,6 @@
                 titleElem.insertAdjacentElement('afterend', btnGroup);
             }
         } else if (site.id === 'missav') {
-            // MissAV 核心问题：window.open() 会被浏览器弹窗拦截器拦截。
-            // 解决方案：直接用 <a href target=_blank>，这是浏览器唯一不拦截的方式。
             const missavBtns = [
                 { text: '🔍 Sukebei', color: '#17a2b8', url: `https://sukebei.nyaa.si/?f=0&c=0_0&q=${code}` },
                 { text: '🎬 JavBus',  color: '#007bff',  url: Utils.getJavBusUrl(code) },
@@ -1138,7 +1873,6 @@
                 btnGroup.appendChild(Utils.createLinkBtn(text, color, url));
             });
 
-            // 搜索菜单：主按钮也改为 <a>，子菜单同理
             const defaultEngine = Settings.getDefaultSearchEngine();
             const searchMenuDiv = document.createElement('div');
             searchMenuDiv.style.cssText = 'position: relative; display: inline-block;';
@@ -1173,10 +1907,9 @@
             subMenu.addEventListener('mouseleave', () => { subMenu.style.display = 'none'; });
             btnGroup.appendChild(searchMenuDiv);
 
-            // 预览图按钮：不涉及 window.open，用普通 handler 即可
             addPreviewBtn(code, btnGroup);
+            addTrailerBtn(code, btnGroup);
 
-            // 适配 MissAV 深色主题
             btnGroup.style.cssText = `
                 margin: 10px 0 6px 0;
                 display: flex;
@@ -1187,18 +1920,16 @@
                 z-index: 9999;
             `;
 
-            // 与 emby.js 共行由公共层统一处理，这里只负责插入自己的容器
             titleElem.insertAdjacentElement('afterend', btnGroup);
         } else {
-            // 其他站点添加所有按钮（不再按单个功能判断）
             addNyaaBtn(code, btnGroup);
             addJavbusBtn(code, btnGroup);
             addJavdbBtn(code, btnGroup);
             addMissAVBtn(code, btnGroup);
             addSearchMenu(code, btnGroup);
             addPreviewBtn(code, btnGroup);
+            addTrailerBtn(code, btnGroup);
 
-            // Emby 特殊处理
             if (site.id === 'emby') {
                 btnGroup.classList.add('emby-fix');
                 const parent = titleElem.parentNode;
@@ -1212,34 +1943,21 @@
             }
         }
 
-        // ── 公共层：与 emby.js 共行 ──────────────────────────────────────
-        // 无论哪个站点分支，按钮组插入 DOM 后统一处理与 emby.js 的合并。
-        // emby.js 侧已在 BaseProcessor.appendToSharedRow 里做了相同的镜像处理：
-        //   • emby 先到 → emby 独立插入 .emby-button-group，jump 后到时检测并合并进去
-        //   • jump 先到 → jump 插入 .jav-jump-btn-group，emby 后到时检测并追加进来
-        // 这里处理"emby 比 jump 更早插入"的情况：
         const embyGroup = document.querySelector('.emby-button-group');
         if (embyGroup && btnGroup.isConnected) {
-            // 先记录 jump 按钮数量，搬移后 childElementCount 会归零
             const jumpBtnCount = btnGroup.childElementCount;
-            // emby 已独立插入，把 jump 的所有按钮搬进 emby 容器前面
             [...btnGroup.children].forEach(el => embyGroup.insertBefore(el, embyGroup.firstChild));
-            // 在 jump 按钮（前 jumpBtnCount 个）与 emby 按钮之间加分隔线
             const sep = document.createElement('span');
             sep.style.cssText = 'display:inline-block;width:1px;height:16px;background:rgba(128,128,128,0.35);margin:0 4px;align-self:center;flex-shrink:0;';
-            // children[jumpBtnCount] 正好是第一个 emby 按钮（或 null 表示末尾）
             embyGroup.insertBefore(sep, embyGroup.children[jumpBtnCount] || null);
-            // 移除已清空的 jump 容器
             btnGroup.remove();
         }
     }
 
-    // ============================ 管理面板模块 ============================
     function createSettingsPanel() {
         const existing = document.getElementById('jav-jump-settings-panel');
         if (existing) existing.remove();
 
-        // ── 元数据 ─────────────────────────────────────────────────────────
         const SOURCE_META = {
             javfree:    { label: 'javfree.me',     color: '#2ecc71', emoji: '🟢', desc: '二次爬取，速度较快' },
             projectjav: { label: 'projectjav.com', color: '#f1c40f', emoji: '🟡', desc: '高清截图，两步请求' },
@@ -1251,7 +1969,6 @@
             sehuatang:'🌺',hjd2048:'🔢',missav:'🌸',jable:'📺'
         };
 
-        // ── 遮罩 ──────────────────────────────────────────────────────────
         const overlay = document.createElement('div');
         overlay.id = 'jav-jump-settings-overlay';
         overlay.style.cssText = `
@@ -1264,7 +1981,6 @@
         `;
         overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 
-        // ── 面板 ──────────────────────────────────────────────────────────
         const panel = document.createElement('div');
         panel.id = 'jav-jump-settings-panel';
         panel.style.cssText = `
@@ -1274,7 +1990,6 @@
             box-shadow:0 24px 64px rgba(0,0,0,.28);overflow:hidden;
         `;
 
-        // ── 内联样式表 ────────────────────────────────────────────────────
         const style = document.createElement('style');
         style.textContent = `
             #jav-jump-settings-panel *{box-sizing:border-box;}
@@ -1312,7 +2027,6 @@
                 transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
             .jjs-toggle input:checked + .jjs-toggle-track::before{transform:translateX(18px);}
 
-            /* 拖拽排序列表 */
             .jjs-order-list{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
             .jjs-order-item{
                 display:flex;align-items:center;gap:10px;
@@ -1338,7 +2052,6 @@
                 width:8px;height:8px;border-radius:50%;flex-shrink:0;
             }
 
-            /* 站点表格 */
             .jjs-sites-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;}
             .jjs-sites-table thead th{padding:8px 12px;text-align:left;
                 font-size:11px;font-weight:700;color:#9ca3af;
@@ -1372,7 +2085,6 @@
         `;
         panel.appendChild(style);
 
-        // ── Header ────────────────────────────────────────────────────────
         const header = document.createElement('div');
         header.className = 'jjs-header';
         header.innerHTML = `<div class="jjs-title"><span>⚙️</span> 番号跳转设置</div>
@@ -1380,16 +2092,13 @@
         panel.appendChild(header);
         header.querySelector('#jjs-close-btn').onclick = () => overlay.remove();
 
-        // ── Body ──────────────────────────────────────────────────────────
         const body = document.createElement('div');
         body.className = 'jjs-body';
 
-        // —— 通用配置卡片 ——————————————————————————————————————————————————
         body.insertAdjacentHTML('beforeend', '<div class="jjs-section-title">通用配置</div>');
         const configCard = document.createElement('div');
         configCard.className = 'jjs-card';
 
-        // 预览图缓存行
         const cacheRow = document.createElement('div');
         cacheRow.className = 'jjs-row';
         cacheRow.innerHTML = `<div>
@@ -1409,7 +2118,6 @@
         cacheRow.appendChild(cacheToggle);
         configCard.appendChild(cacheRow);
 
-        // 默认搜索引擎行
         const engineRow = document.createElement('div');
         engineRow.className = 'jjs-row';
         engineRow.innerHTML = `<div>
@@ -1430,7 +2138,6 @@
 
         body.appendChild(configCard);
 
-        // —— 预览图来源顺序卡片 ————————————————————————————————————————————
         body.insertAdjacentHTML('beforeend', '<div class="jjs-section-title">预览图来源顺序</div>');
         const orderCard = document.createElement('div');
         orderCard.className = 'jjs-card';
@@ -1445,13 +2152,11 @@
         orderList.className = 'jjs-order-list';
         orderList.id = 'jjs-order-list';
 
-        // 当前顺序
         let currentOrder = Settings.getSourceOrder();
         Object.keys(SOURCE_META).forEach(src => {
             if (!currentOrder.includes(src)) currentOrder.push(src);
         });
 
-        // 构建列表项
         function buildOrderItems() {
             orderList.innerHTML = '';
             currentOrder.forEach((src, idx) => {
@@ -1483,11 +2188,9 @@
             currentOrder = [...orderList.querySelectorAll('.jjs-order-item')].map(el => el.dataset.src);
         }
 
-        // ── mouse-event 拖拽排序 ──────────────────────────────────────────
-        // 完全不依赖 HTML5 drag API，在 Tampermonkey 沙箱中可靠运行
-        let dragging = null;         // 正在拖动的真实 item 元素
-        let ghost    = null;         // 跟随鼠标的幽灵副本
-        let offsetX  = 0, offsetY = 0; // 鼠标在 item 内的偏移
+        let dragging = null;
+        let ghost    = null;
+        let offsetX  = 0, offsetY = 0;
 
         orderList.addEventListener('mousedown', e => {
             const handle = e.target.closest('.jjs-order-handle');
@@ -1501,7 +2204,6 @@
             offsetX = e.clientX - rect.left;
             offsetY = e.clientY - rect.top;
 
-            // 幽灵元素：克隆当前 item，fixed 定位跟随鼠标
             ghost = dragging.cloneNode(true);
             ghost.style.cssText = `
                 position:fixed;
@@ -1519,22 +2221,18 @@
             `;
             document.body.appendChild(ghost);
 
-            // 原始 item 半透明占位
             dragging.style.opacity = '0.3';
         });
 
         document.addEventListener('mousemove', e => {
             if (!ghost || !dragging) return;
 
-            // 移动幽灵
             ghost.style.left = (e.clientX - offsetX) + 'px';
             ghost.style.top  = (e.clientY - offsetY) + 'px';
 
-            // 清除所有高亮
             orderList.querySelectorAll('.jjs-order-item').forEach(el => el.classList.remove('drag-over'));
 
-            // 找到鼠标正下方的目标 item（排除自身）
-            ghost.style.display = 'none'; // 暂时隐藏幽灵，让 elementFromPoint 能穿透
+            ghost.style.display = 'none';
             const elBelow = document.elementFromPoint(e.clientX, e.clientY);
             ghost.style.display = '';
 
@@ -1547,7 +2245,6 @@
         document.addEventListener('mouseup', e => {
             if (!dragging || !ghost) return;
 
-            // 找到释放位置的目标
             ghost.style.display = 'none';
             const elBelow = document.elementFromPoint(e.clientX, e.clientY);
             ghost.style.display = '';
@@ -1555,7 +2252,6 @@
             const target = elBelow?.closest('.jjs-order-item');
 
             if (target && target !== dragging && orderList.contains(target)) {
-                // 判断方向：插到目标前还是后
                 const items = [...orderList.querySelectorAll('.jjs-order-item')];
                 const fromIdx = items.indexOf(dragging);
                 const toIdx   = items.indexOf(target);
@@ -1568,7 +2264,6 @@
                 syncOrderFromDOM();
             }
 
-            // 清理
             dragging.style.opacity = '';
             ghost.remove();
             orderList.querySelectorAll('.jjs-order-item').forEach(el => el.classList.remove('drag-over'));
@@ -1580,7 +2275,6 @@
         orderCard.appendChild(orderList);
         body.appendChild(orderCard);
 
-        // —— 站点管理卡片 ——————————————————————————————————————————————————
         body.insertAdjacentHTML('beforeend', '<div class="jjs-section-title">站点管理</div>');
         const sitesCard = document.createElement('div');
         sitesCard.className = 'jjs-card';
@@ -1603,12 +2297,10 @@
 
             const tr = document.createElement('tr');
 
-            // 名称列
             const nameTd = document.createElement('td');
             nameTd.innerHTML = `<span class="jjs-site-icon">${icon}</span><span class="jjs-site-name">${site.name}</span>`;
             tr.appendChild(nameTd);
 
-            // 状态徽章列
             const badgeTd = document.createElement('td');
             badgeTd.className = 'jjs-site-toggle-cell';
             const badge = document.createElement('span');
@@ -1617,7 +2309,6 @@
             badgeTd.appendChild(badge);
             tr.appendChild(badgeTd);
 
-            // 开关列
             const toggleTd = document.createElement('td');
             toggleTd.className = 'jjs-site-toggle-cell';
             const lbl = document.createElement('label');
@@ -1646,7 +2337,6 @@
         body.appendChild(sitesCard);
         panel.appendChild(body);
 
-        // ── Footer ────────────────────────────────────────────────────────
         const footer = document.createElement('div');
         footer.className = 'jjs-footer';
 
@@ -1659,7 +2349,6 @@
         saveBtn.className = 'jjs-btn jjs-btn-save';
         saveBtn.textContent = '保存设置';
         saveBtn.onclick = () => {
-            // 站点开关
             const newSettingsMap = {};
             panel.querySelectorAll('input[data-site]').forEach(cb => {
                 const sid = cb.dataset.site, feat = cb.dataset.feature;
@@ -1668,11 +2357,9 @@
             });
             Object.keys(newSettingsMap).forEach(sid => Settings.set(sid, newSettingsMap[sid]));
 
-            // 缓存 & 搜索引擎
             Settings.setPreviewCacheEnabled(cacheCheckbox.checked);
             Settings.setDefaultSearchEngine(parseInt(engineSelect.value));
 
-            // 来源顺序
             Settings.setSourceOrder(currentOrder);
 
             overlay.remove();
@@ -1687,7 +2374,6 @@
         document.body.appendChild(overlay);
     }
 
-    // ============================ 初始化 ============================
     const observer = new MutationObserver(() => {
         renderButtonsForCurrentPage();
     });
