@@ -1,7 +1,7 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name         115 Local Rename Lite
 // @namespace    https://github.com/ZiPenOk
-// @version      2.0
+// @version      2.1
 // @description  115 local-only 借鉴115Rename2026 只做本地处理 自用脚本
 // @author       ZiPenOk
 // @match        https://115.com/*
@@ -190,12 +190,12 @@
 
         if (baseCode) {
             const codePattern = codeBodyPattern(baseCode);
-            if (new RegExp(`${codePattern}${SUFFIX_SEP}(?:uc|cu|unc)\\b`, "i").test(text)) {
+            if (new RegExp(`${codePattern}${SUFFIX_SEP}(?:uc|cu|unc)(?=$|[^A-Za-z0-9])`, "i").test(text)) {
                 addSuffix(suffixes, "C");
                 addSuffix(suffixes, "破解");
             } else {
-                if (new RegExp(`${codePattern}${SUFFIX_SEP}(?:c|ch)\\b`, "i").test(text)) addSuffix(suffixes, "C");
-                if (new RegExp(`${codePattern}${SUFFIX_SEP}(?:u|un|unc|uncensored|restored)\\b`, "i").test(text)) addSuffix(suffixes, "破解");
+                if (new RegExp(`${codePattern}${SUFFIX_SEP}(?:c|ch)(?=$|[^A-Za-z0-9])`, "i").test(text)) addSuffix(suffixes, "C");
+                if (new RegExp(`${codePattern}${SUFFIX_SEP}(?:u|un|unc|uncensored|restored)(?=$|[^A-Za-z0-9])`, "i").test(text)) addSuffix(suffixes, "破解");
             }
         }
 
