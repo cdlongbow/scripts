@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         115 Local Rename Lite
 // @namespace    https://github.com/ZiPenOk
-// @version      2.1
+// @version      2.2
 // @description  115 local-only 借鉴115Rename2026 只做本地处理 自用脚本
 // @author       ZiPenOk
 // @match        https://115.com/*
@@ -367,7 +367,7 @@
 
     function downloadCompareTxt(list) {
         const text = buildCompareText(list);
-        const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+        const blob = new Blob(["\uFEFF", text], { type: "text/plain;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -397,8 +397,11 @@
         document.body.appendChild(ta);
         ta.select();
         try {
-            document.execCommand("copy");
-            toast("对比结果已复制到剪贴板", "success", 3000);
+            if (document.execCommand("copy")) {
+                toast("对比结果已复制到剪贴板", "success", 3000);
+            } else {
+                toast("复制失败，请手动保存", "error", 4000);
+            }
         } catch {
             toast("复制失败，请手动保存", "error", 4000);
         }
