@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      1.3.6
+// @version      1.3.7
 // @description  JavBus / JavDB / JavLib 磁力搜索 + 115离线 + 多源预览图(可调序) + Overlay灯箱
 // @author       ZiPenOk
 // @require      https://lib.baomitu.com/jquery/2.2.4/jquery.min.js
@@ -1089,9 +1089,6 @@
                 overflow: hidden; text-overflow: ellipsis;
                 display: flex; align-items: center; text-align: left;
             }
-            .nong-magnet-name a {
-                overflow: hidden; text-overflow: ellipsis;
-            }
             #jav-nong-refresh {
                 display: none; margin-left: 8px;
                 color: #e74c3c; font-weight: bold; cursor: pointer;
@@ -1189,6 +1186,8 @@
                     || /[-_]CH?(?:[^A-Za-z]|$)/.test(item.title)
                     || /中字/.test(item.title)
                     || /中文/.test(item.title)
+                    || /自提/.test(item.title)
+                    || /征用/.test(item.title)
                     || (_hasCJK && !_hasJP);
                 const is4K = /(?:[^A-Za-z0-9]|^)4K(?:UHD)?(?:[^A-Za-z0-9]|$)/i.test(item.title);
                 if (isChinese) {
