@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         (改)根据番号快速搜索
 // @namespace    https://github.com/qxinGitHub/searchAV
-// @version      1.0.0
+// @version      1.0.1
 // @description  划词识别番号并在弹出面板中快速搜索、跳转、预览与查询媒体库
 // @author       iqxin
 // @icon         https://img.sh1nyan.fun/file/1778493368757_searchav.png
@@ -132,6 +132,11 @@
             settingChanged = true;
         }
     });
+    var legacyVideoKey = ["video","Vol","ume"].join("");
+    if(Object.prototype.hasOwnProperty.call(setting,legacyVideoKey)){
+        delete setting[legacyVideoKey];
+        settingChanged = true;
+    }
     if(settingChanged){
         GM_setValue("_setting",setting);
     }
@@ -2739,7 +2744,7 @@
                 let urlIndex = 0;
                 let source = videoSelect.querySelector("source");
                 let skipVolumeRemember = false;
-                videoSelect.volume = Math.max(0, Math.min(1, Number(GM_getValue("_videoVolume", setting.videoVolume ?? 0.2)) || 0));
+                videoSelect.volume = Math.max(0, Math.min(1, Number(GM_getValue("_videoVolume", 0.2)) || 0));
                 videoSelect.muted = !!GM_getValue("_videoMuted", false);
                 videoSelect.addEventListener("volumechange", function(){
                     if(skipVolumeRemember) return;
@@ -3386,6 +3391,7 @@
         ["Appid","Key"].map(function(name){return ["b","ai","du"].join("") + name}).forEach(function(key){
             delete codevalue[key];
         });
+        delete codevalue[["video","Vol","ume"].join("")];
         return codevalue;
     }
     // 关闭菜单
