@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         (改)根据番号快速搜索
-// @namespace    https://github.com/qxinGitHub/searchAV
-// @version      1.0.1
-// @description  划词识别番号并在弹出面板中快速搜索、跳转、预览与查询媒体库
-// @author       iqxin
+// @namespace    https://github.com/ZiPenOk
+// @version      2.0.0
+// @description  划词识别番号并在弹出面板中快速搜索、跳转、预览与查询媒体库 自用修改 原作者(iqxin)
+// @author       ZiPenOK
 // @icon         https://img.sh1nyan.fun/file/1778493368757_searchav.png
 // @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/Search_av.js
 // @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/Search_av.js
@@ -64,7 +64,7 @@
     var javdbTime = []; // 记录访问javdb的时间, 如果短时间内多次访问就限制访问, 默认是5分钟内限制为10次访问。
     var divTarget;  // 鼠标当前经过的番号节点
     var imgErrorSVG = "data:image/svg+xml,%3Csvg class='icon' viewBox='0 0 1024 1024' xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cpath d='M304.128 456.192c48.64 0 88.064-39.424 88.064-88.064s-39.424-88.064-88.064-88.064-88.064 39.424-88.064 88.064 39.424 88.064 88.064 88.064zm0-116.224c15.36 0 28.16 12.288 28.16 28.16s-12.288 28.16-28.16 28.16-28.16-12.288-28.16-28.16 12.288-28.16 28.16-28.16z' fill='%23999'/%3E%3Cpath d='M887.296 159.744H136.704C96.768 159.744 64 192 64 232.448v559.104c0 39.936 32.256 72.704 72.704 72.704h198.144L500.224 688.64l-36.352-222.72 162.304-130.56-61.44 143.872 92.672 214.016-105.472 171.008h335.36C927.232 864.256 960 832 960 791.552V232.448c0-39.936-32.256-72.704-72.704-72.704zm-138.752 71.68v.512H857.6c16.384 0 30.208 13.312 30.208 30.208v399.872L673.28 408.064l75.264-176.64zM304.64 792.064H165.888c-16.384 0-30.208-13.312-30.208-30.208v-9.728l138.752-164.352 104.96 124.416-74.752 79.872zm81.92-355.84l37.376 228.864-.512.512-142.848-169.984c-3.072-3.584-9.216-3.584-12.288 0L135.68 652.8V262.144c0-16.384 13.312-30.208 30.208-30.208h474.624L386.56 436.224zm501.248 325.632c0 16.896-13.312 30.208-29.696 30.208H680.96l57.344-93.184-87.552-202.24 7.168-7.68 229.888 272.896z' fill='%23999'/%3E%3C/svg%3E";
-    var cid = {};  // 用于预告视频的链接转换 
+    var dmmImageCidRules = {};  // DMM 封面兜底路径前缀规则
     var localVideoList = [];    // 获取本地 jellyfin/emby 中所有的视频名称
  
     var allHTML = document.querySelector("body");   // 获取网页
@@ -120,6 +120,11 @@
         ];
         settingChanged = true;
     }
+    var mediaSettingBefore = JSON.stringify([setting.mediaServers, setting.mediaServerIndex, setting.jellyfinHost, setting.jellyfinApiKey, setting.emby]);
+    applyMediaServerSettings(setting);
+    if(mediaSettingBefore !== JSON.stringify([setting.mediaServers, setting.mediaServerIndex, setting.jellyfinHost, setting.jellyfinApiKey, setting.emby])){
+        settingChanged = true;
+    }
     ["Host","Download","NoPopup"].map(function(name){return "q" + "Bit" + name}).forEach(function(key){
         if(Object.prototype.hasOwnProperty.call(setting,key)){
             delete setting[key];
@@ -173,20 +178,120 @@
         console.log("老司机共浏览了" + Object.keys(localInfo).length + "个番号！");
     }
     if(debug) {var searchTimes = 0; var avIDTimes=0};    // 计数, 查看有多少番号。searchTimes: 通过正则搜索到的次数。 avIDTimes:最后的实际匹配的番号数量
+
+    function normalizeMediaServerHost(host){
+        host = String(host || "").trim();
+        if(!host) return "";
+        return host.replace(/\/?$/, "/");
+    }
+    function applyMediaServerSettings(target){
+        target = target || {};
+        var servers = Array.isArray(target.mediaServers) ? target.mediaServers.slice() : [];
+        if(!servers.length && target.jellyfinHost && target.jellyfinApiKey){
+            servers.push({
+                name: target.emby ? "Emby" : "Jellyfin",
+                type: target.emby ? "emby" : "jellyfin",
+                host: target.jellyfinHost,
+                apiKey: target.jellyfinApiKey
+            });
+        }
+        servers = servers.map(function(server,index){
+            server = server || {};
+            var type = String(server.type || (server.emby ? "emby" : "jellyfin")).toLowerCase();
+            if(type !== "emby") type = "jellyfin";
+            var host = normalizeMediaServerHost(server.host || server.jellyfinHost || server.url);
+            var apiKey = String(server.apiKey || server.jellyfinApiKey || server.key || "").trim();
+            var name = String(server.name || (type === "emby" ? "Emby" : "Jellyfin") + " " + (index + 1)).trim();
+            return {name:name, type:type, host:host, apiKey:apiKey};
+        }).filter(function(server){
+            return server.host && server.apiKey;
+        });
+        var serverIndex = Number(target.mediaServerIndex);
+        if(!Number.isInteger(serverIndex) || serverIndex < 0) serverIndex = 0;
+        if(servers.length && serverIndex >= servers.length) serverIndex = 0;
+        target.mediaServers = servers;
+        target.mediaServerIndex = serverIndex;
+        if(servers[serverIndex]){
+            target.jellyfinHost = servers[serverIndex].host;
+            target.jellyfinApiKey = servers[serverIndex].apiKey;
+            target.emby = servers[serverIndex].type === "emby";
+        }else{
+            target.jellyfinHost = "";
+            target.jellyfinApiKey = "";
+            target.emby = false;
+        }
+        return servers;
+    }
+    function getMediaServers(){
+        return applyMediaServerSettings(setting).slice();
+    }
+    function getCurrentMediaServer(){
+        var servers = getMediaServers();
+        return servers[setting.mediaServerIndex || 0] || null;
+    }
+    function getMediaServerLabel(server){
+        if(!server) return "";
+        return server.name || (server.type === "emby" ? "Emby" : "Jellyfin");
+    }
+    function escapeHTML(text){
+        var escapeMap = {
+            "&":"&amp;",
+            "<":"&lt;",
+            ">":"&gt;",
+            '"':"&quot;",
+            "'":"&#39;"
+        }
+        return String(text ?? "").replace(/[&<>"']/g,function(char){
+            return escapeMap[char];
+        });
+    }
+    function mediaServerIcon(server){
+        if(server?.type === "emby"){
+            return '<svg  role="img" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" ><path d="M469.333333 85.333333L256 298.666667l42.666667 42.666666-213.333334 213.333334 213.333334 213.333333 42.666666-42.666667 213.333334 213.333334 213.333333-213.333334-42.666667-42.666666 213.333334-213.333334-213.333334-213.333333-42.666666 42.666667-213.333334-213.333334m-42.666666 277.333334l256 149.333333-256 149.333333v-298.666666z" fill="#05b010" p-id="1934"></path></svg>';
+        }
+        return '<svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"> <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="30%" style="stop-color:#AA5CC3;stop-opacity:1" /><stop offset="100%" style="stop-color:#00A4DC;stop-opacity:1" /></linearGradient><path style="fill:url(#grad3)" d="M12 .002C8.826.002-1.398 18.537.16 21.666c1.56 3.129 22.14 3.094 23.682 0C25.384 18.573 15.177 0 12 0zm7.76 18.949c-1.008 2.028-14.493 2.05-15.514 0C3.224 16.9 9.92 4.755 12.003 4.755c2.081 0 8.77 12.166 7.759 14.196zM12 9.198c-1.054 0-4.446 6.15-3.93 7.189.518 1.04 7.348 1.027 7.86 0 .511-1.027-2.874-7.19-3.93-7.19z"/></svg>';
+    }
+    function setActiveMediaServer(index,avID){
+        var servers = getMediaServers();
+        index = Number(index);
+        if(!Number.isInteger(index) || index < 0 || index >= servers.length) return;
+        setting.mediaServerIndex = index;
+        setting.jellyfinHost = servers[index].host;
+        setting.jellyfinApiKey = servers[index].apiKey;
+        setting.emby = servers[index].type === "emby";
+        GM_setValue("_setting", setting);
+        if(avID){
+            queryMediaServer(avID);
+        }
+    }
+    function queryMediaServer(avID,serverIndex){
+        var servers = getMediaServers();
+        if(serverIndex !== undefined){
+            setting.mediaServerIndex = Number(serverIndex) || 0;
+        }
+        var server = servers[setting.mediaServerIndex || 0];
+        if(!server) return;
+        if(server.type === "emby"){
+            getEmby(avID,server);
+        }else{
+            getJellyfin(avID,server);
+        }
+    }
  
-    // 一般发行番号: 从javbus获取信息
-    // var oRegExp = /[a-zA-Z]{2,6}[-\s]?\d{2,5}/gi; 
-    //             ; --------------------------------------------------------普通番号,带横杠-----------------------------------------------------------------  |--------------------------------------------------------------普通番号, 不带横杠-------------------------------------------------------------------------------------------------                       |-------------字母特别的番号-------------------------|---------字母超长的番号----------------------       |     东京热 n k                |加勒比(-)、一本道(_)、 MuraMura(_):   月日年        |       带前缀 carib|1pondo 的加勒比, 一本道        |       带后缀的 -1pon|-carib|-paco 加勒比 一本道 paco    |Mesubuta メス豚 (也可能是一本道的变种)        ||       HEYZO             
+    // 番号识别规则。这里负责从划词文本或页面文本中找出可能的番号。
+    // oRegExp: 普通发行番号, 覆盖以下常见格式:
+    // 1. ABC-123 / ABC123 / ABC 123, 含 -c、_c、-4k 后缀
+    // 2. PARATHD、STARSBD、HIMEMIX 等特殊长字母前缀
+    // 3. 东京热 k/n、Caribbeancom、1Pondo、一本道、Paco、Mesubuta、HEYZO
     var oRegExp = /(?<!\w|\/|www\.|=|col-|\d-|>|Jukujo-)(?!heyzo|SHINKI|JPNXXX|carib|vps)[a-zA-Z]{2,6}-\d{2,5}(?:-c|_c|-4k)?(?!\d|[A-Za-z]{2,}|-\d|\.com|\.\d)|(?<!\w|\/|\\|\.|【|-|#|@|=|www\.)(?!heyzo|SHINKI|JPNXXX|carib|and|vps|dvd)[a-zA-Z]{2,6}\s{0,2}\d{3,4}(?:-c|_c)?(?!\w|-|\.|\/|×|％|%|@|\s?天| 于| 发表| 發表|歳| 歲|小时|分|系列| Min| day|ml| time|cm| ppi|\.com)|(?<!\w)(?:PARATHD|3DSVR|STARSBD)[-\s]?\d{3,4}(?!\w)|(?<!\w)(?:HIMEMIX|CASMANI|MGSSLND)[-\s]?\d{3}(?!\w)|(?<!\w)(?:k|n)[01]\d{3}(?!\w|-)|(?<!\w|\d-|\/)[01]\d{5}[-_](?:1)?\d{2,3}(?!\w|-\d)|(?<!\w)(?:carib|1pondo)[-_]\d{6}[-_]\d{2,3}(?!\w)|(?<!\w|\d-)\d{6}[-_]\d{2,3}(?:-1pon|-carib|-paco)(?!\w)|(?<!\w|\d-)\d{6}_(?:1)?\d{3}_0[12](?!\w|-\d)|HEYZO[_-\s]?(?:hd_)?\d{4}/gi; 
     // 省略字母, 连续数字的番号 例: abc-001、002、003
     var oRegExp2 = /(?<=(?<!\w|\d-)([a-zA-Z]{2,6})(?:[\s,，、-]?(?!2022|2021|2020|2019)\d{3,4})+(?!\d)[\s,、，和跟]{0,2})\d{3,4}(?!\w|％|%|人|年|歳|万|の|発)/gmi
-    // 一些素人、无码番号: 从javdb获取信息
-    //                  ;--------- mgstage 字母 + 数字 + 字母 -----------------------|--------- FC2 ----------------|     HEYDOUGA                |      T28       | TMA 5位,6位,3位(没匹配)   |         1000girl   数字 + 字母             |MUGEN Entertainmen: MKD-S  MKBD-S |    素人 | 北池袋盗撮倶楽部            | japornXXX: JPNXXX       | xxx-av                   |    crazyasia               | PEWORLD                   |   10Musume  6位数字_01          |熟女俱乐部
+    // oRegExp_wuma: 素人、无码、FC2 等番号, 主要从 JavDB 获取信息。
+    // 覆盖 mgstage、FC2、HEYDOUGA、T28/TMA、1000girl、MUGEN、JPNXXX、xxx-av、CrazyAsia、PEWORLD、10Musume、熟女俱乐部等。
     var oRegExp_wuma = /(?<!\w|-|\/)\d{3}[a-zA-Z]{2,5}[-\s]?\d{3,4}(?!\w|-|.torrent|年)|(?<!\w|\/)FC2[^\d]{0,5}\d{6,7}|HEYDOUGA[_-\s]?\d{4}-\d{3,5}|(?<!\w)T28-\d{3}|(?<!\w)T-2\d{4,5}(?!\w|-)|(?<!\w|-|\/)[01]\d{5}-[a-zA-Z]{2,7}(?!\w|-)|(?<!\w)MK(?:B)?D-S\d{2,3}(?!\w|-)|(?:SHINKI|KITAIKE)[-\s]?\d{3}(?!\w|-)|JPNXXX[-\s]?\d{5}(?!\w|-)|xxx-av[-\s]\d{4,5}(?!\w|-)|(?<!\w)crazyasia\d{5}(?!\w|-)|(?<!\w)PEWORLD\d{5}(?!\w|-)|(?<!\w)[01]\d{5}[-_]?_01(?=-10mu)?|Jukujo-Club-\d{3}/gi;
     // 省略写的fc2番号 例: fc2-123456 567890
     var oRegExp_wuma2 = /(?<=(FC2[^\d]{0,5})(?:[\s,、-]?\d{6,7})+[\s,、]?)\d{6,7}/gmi
-    // 排除在此的番号, 与下面的 Exclude 不同的是: 这个还会判断后面跟的数字, 能够精确排除。
-    //                         | 排除非 fx-0xx          | 数字部分全是0     |                                                                          | 一些国家简称 + 两位数字 sr是黑鸟侦察机               |卡西欧         |细胞相关        |csgo皮肤        |致钛硬盘              | 瑞昱芯片      | soc          | ns530刀片
+    // 精确排除容易误判成番号的技术词、型号、年份、硬件编号等。
     var oRegExp_Exclude_ID = /^(?:fx-?([^0]\d{2}|\d{4})|[a-zA-Z]+-?0{2,6}$|pg-13|crc-32|ea211|fs[\s-]?140|trc-20|erc-20|rs[\s-]?(232|422|485)|(sg|ae|kr|tw|ph|vn|kh|ru|uk|ua|tr|th|fr|in|de|sr)[\s-]\d{2}|(gm|ga)-\d{4}|cd[\s-]?\d{2,4}|seed[\s-]?\d{3}$|pc005|moc-\d{5}|wd-40|rtd[\s-]?\d{4}|cm\d{4}|rk\d{4})|ns[\s-]?\d{3,4}/i
     // 排除在此的关键词。 个别与番号同名的也被排除, 例如 Top-10 这种
     var oRegExp_Exclude_en = new RegExp(
@@ -251,9 +356,8 @@
  
     }
  
-    // 用于预告视频的链接转换, 预览图片的获取 
-    if(!setting.dontGetVideo){
-        cid = {
+    // DMM 封面兜底路径前缀规则。仅用于 JavBus 图片失效时拼接 pics.dmm.co.jp 封面, 不参与预告片播放。
+    dmmImageCidRules = {
             abp: ["118abp"],
             abw:["118abw"],
             aczd:["h_019aczd"],
@@ -458,10 +562,6 @@
             seven:["1seven"],
             ypaa:["h_086ypaa"],
         };
-        // cid_pic ={
-        //     brk:["7brk"],
-        // }
-    }
  
     // 对动态添加的dom进行检测
     var observerTarget = document.querySelector('body');    // 选择目标节点
@@ -502,8 +602,6 @@
     // 0.25 起只在划词后运行。保留 observer 对象供旧函数调用, 但禁止它重新开启整页扫描。
     observer.observe = function(){};
     
-    addStyle()
- 
     // 纯划词模式不再启动整页番号标记和本地库预扫描, 仅在弹出面板中即时查询 Emby/Jellyfin。
  
     // 划词搜索
@@ -801,12 +899,17 @@
             sehuatang_getFormHash();
         }
  
-        // 添加jellyfin按钮
-        if(setting.jellyfinHost && setting.jellyfinApiKey){
-            if(setting.emby){
-                aPattern += "<avdiv class='savlink jellyfin'> Emby </avdiv>"
-            }else{
-                aPattern += "<avdiv class='savlink jellyfin'> Jellyfin </avdiv>"
+        // 添加jellyfin/emby按钮
+        var mediaServers = getMediaServers();
+        var activeMediaServer = mediaServers[setting.mediaServerIndex || 0];
+        if(activeMediaServer){
+            aPattern += "<avdiv class='savlink jellyfin' data-server-index='"+ (setting.mediaServerIndex || 0) +"'> " + escapeHTML(getMediaServerLabel(activeMediaServer)) + " </avdiv>";
+            if(mediaServers.length > 1){
+                aPattern += "<select class='savMediaServerSelect' data-av='"+ escapeHTML(id) +"' title='切换 Emby/Jellyfin 服务器'>";
+                for(let i=0; i<mediaServers.length; i++){
+                    aPattern += "<option value='"+ i +"'"+ (i === (setting.mediaServerIndex || 0) ? " selected" : "") +">" + escapeHTML(getMediaServerLabel(mediaServers[i])) + "</option>";
+                }
+                aPattern += "</select>";
             }
         }
         // 添加额外按钮
@@ -841,6 +944,7 @@
         odiv.addEventListener("mouseenter",savMenuMouseEnter)
         odiv.addEventListener("mouseleave",savMenuMouseLeave)
         odiv.addEventListener("click",savMenuClick)
+        odiv.addEventListener("change",savMenuChange)
         // 鼠标在图片上点击和滚轮放大缩小图片
         if(!setting.dontImgBig){ 
             odiv.addEventListener("wheel",savImgWheel)
@@ -1013,17 +1117,15 @@
         e.target.parentNode.title = "";
         e.target.parentNode.parentNode.title = "";
         settingPostion();  //重置位置
-        if(setting.emby){
-            getEmby(avid);
-        }else{
-            getJellyfin(avid);
-        }
+        queryMediaServer(avid);
     }
  
     // 点击事件, 图片放大缩小, debug中复制番号
     function savMenuClick(e){
         // 测试使用
-        if(e.target.classList.contains("savCopyID")){
+        if(e.target.classList.contains("savMediaServerSelect")){
+            return;
+        } else if(e.target.classList.contains("savCopyID")){
             GM_setClipboard(e.target.dataset.av)
         } else if(e.target.classList.contains("savCloseMenu")){
             closeSavMenu();
@@ -1179,25 +1281,14 @@
         return null;
     }
 
-    function placeSelectionMenu(odiv,e){
-        var selection = window.getSelection();
-        var rangeRect = null;
-        if(selection && selection.rangeCount){
-            rangeRect = selection.getRangeAt(0).getBoundingClientRect();
-        }
-        var winWidth = document.documentElement.clientWidth;
-        var winHeight = document.documentElement.clientHeight;
-        var menuWidth = odiv.offsetWidth || 360;
-        var menuHeight = odiv.offsetHeight || 120;
-        var anchorX = rangeRect && rangeRect.width ? rangeRect.left + rangeRect.width / 2 : e.clientX;
-        var anchorY = rangeRect && rangeRect.height ? rangeRect.bottom : e.clientY;
-        var left = anchorX - menuWidth / 2;
-        var top = anchorY + 8;
-
+    function placeSelectionMenu(odiv){
         odiv.style.position = "fixed";
-        odiv.style.left = Math.max(8, Math.min(left, winWidth - menuWidth - 8)) + "px";
-        odiv.style.top = Math.max(8, Math.min(top, winHeight - menuHeight - 8)) + "px";
-        odiv.style.transformOrigin = "50% 0";
+        odiv.style.left = "50%";
+        odiv.style.top = "50%";
+        odiv.style.right = "";
+        odiv.style.bottom = "";
+        odiv.style.transform = "translate(-50%, -50%)";
+        odiv.style.transformOrigin = "50% 50%";
     }
 
     function loadSelectedAVInfo(avid,isWuma){
@@ -1228,6 +1319,12 @@
                     getInfo(avid,true);
                 }
             }, 260);
+        }
+    }
+    function savMenuChange(e){
+        if(e.target.classList.contains("savMediaServerSelect")){
+            var avid = e.target.dataset.av || document.querySelector(".sav-menu")?.dataset.av;
+            setActiveMediaServer(e.target.value,avid);
         }
     }
 
@@ -1262,20 +1359,16 @@
             addLoading(odiv)
         }
 
+        placeSelectionMenu(odiv);
         var otherInfo = document.createElement('avdivsInfo');
         otherInfo.innerHTML = addOtherInfo(avid);
         odiv.appendChild(otherInfo);
         document.body.appendChild(odiv);
-        placeSelectionMenu(odiv,e);
         settingPostion();
         
         loadSelectedAVInfo(avid, !!parsedAV.wuma);
 
-        if(setting.emby){
-            getEmby(avid);
-        }else{
-            getJellyfin(avid);
-        }
+        queryMediaServer(avid);
     }
  
     // 调整距离底部的距离,以防越界
@@ -1287,6 +1380,10 @@
         // }
         var odiv = document.querySelector(".sav-menu");
         if(!odiv)  return;
+        if(odiv.dataset.selectionOnly === "true"){
+            placeSelectionMenu(odiv);
+            return;
+        }
         var oClient = odiv.getBoundingClientRect()
         var oTop = oClient.top; // 距离顶部举例
         var oHeight = oClient.height;   //自身高度
@@ -1422,33 +1519,6 @@
                 // 链接
                 avInfo.link = javbusLink + avID;
  
-                // 视频链接部分
-                let avIDsplit = avID.toLowerCase().split("-");
-                if(debug){
-                    console.log(avIDsplit)
-                    console.log(cid[avIDsplit[0]])
-                }
-                if(!setting.dontGetVideo && !cid[avIDsplit[0]]){
-                    let videoURL = htmlDoc.querySelector("#sample-waterfall a")?.href;
-                    if(videoURL?.includes("dmm.co.jp")){
-                        videoURL = videoURL.match(/(?<=.*video\/).*?(?=\/)/)
-                        // 1bkynb00008
-                        let corp_finish = videoURL[0].slice(0,-avIDsplit[1].length);
-                        corp_finish = corp_finish.replace("00","");
-                        if(corp_finish.length != avIDsplit[0].length){
-                            // 只作用2015年以后的番号, 防止污染cid
-                            if(avInfo.date && new Date(avInfo.date)>new Date("1/1/2015")){
-                                let setting2 = GM_getValue("_setting2");
-                                setting2.cid_user = setting2.cid_user ?? {};
-                                setting2.cid_user[avIDsplit[0]] = [corp_finish,avID];
-                                //       cid_user[bkynb]        = 1bkynb00
-                                if(debug) console.log("更新用户规则 cid: ",corp_finish,avID );
-                                GM_setValue("_setting2",setting2);
-                            }
-                        }
-                    }
-                }
- 
                 // 如果不是从javbus访问, 则调用dmm的图片
                 // if (window.location.href.indexOf(javbusLink)>-1){
                 //     if(debug)console.log("从javbus访问, 默认用javbus的图片");
@@ -1473,7 +1543,6 @@
     function getPic_dmm(avID){
         // https://pics.dmm.co.jp/mono/movie/adult/1start036/1start036pl.jpg 
         let imgSrc_dmm = "https://pics.dmm.co.jp/mono/movie/adult/"
-        let cid_user = GM_getValue("_setting2").cid_user ?? {};
  
         // 提取番号中的英文和数字
         const movieIdSplit = avID.toLowerCase().split("-");
@@ -1481,25 +1550,11 @@
         const idNum = movieIdSplit[1];    // 返回中的数字
         let urlPart = "";
         // 是否需要特殊处理
-        if (cid[corp]) {
-            if(debug) console.log("图片加载: 在默认URL规则中: ",cid[corp])
-            // if (cid[corp].length>1){
-                // console.log("多个")
-                // 此处只会处理第2个及之后的, 第一个依旧会判断是否含0, 请求两遍
-                // for(let i=0;i<=cid_user.length;i++){
-                //     urlPart = cid[corp][i] + idNum;
-                //     urls.push(`https://${host}/${infix}/${urlPart[0]}/${urlPart.substring(0,3)}/${urlPart}/${urlPart}${quality.p576}.mp4`);
-                //     urls.push(`https://${host}/${infix}/${urlPart[0]}/${urlPart.substring(0,3)}/${urlPart}/${urlPart}${quality.old720}.mp4`);
-                // }
-            // }
-            urlPart = cid[corp][0] + idNum;
- 
-        } else if (cid_user[corp]){
-            if(debug) console.log("图片加载: 在用户学习URL规则中: ",cid_user[corp]);
-            urlPart = cid_user[corp][0].replace("00","") + idNum;
-            // corp = cid_user[corp][0]
+        if (dmmImageCidRules[corp]) {
+            if(debug) console.log("图片加载: 在默认DMM图片规则中: ",dmmImageCidRules[corp])
+            urlPart = dmmImageCidRules[corp][0] + idNum;
         } else {
-            if(debug) console.log("图片加载: URL规则,默认");
+            if(debug) console.log("图片加载: DMM图片默认规则");
             urlPart = corp + idNum;
         }
         imgSrc_dmm +=  urlPart + "/" + urlPart + "pl.jpg"
@@ -2958,26 +3013,42 @@
     }
  
     // 查看本地 jellyfin 中是否存在
-    function getJellyfin(avID){
-        if(setting.jellyfinHost && setting.jellyfinApiKey){
-            if(debug){console.log("查询本地jellyfin: getJellyfin");};
+    function resetMediaButtonState(server,avID){
+        var div_jellyfin = document.querySelector(".jellyfin");
+        if(!div_jellyfin) return null;
+        div_jellyfin.classList.remove("yesJellyfin","noJellyfin","errJellyfin");
+        div_jellyfin.dataset.url = "";
+        div_jellyfin.dataset.avid = avID || "";
+        div_jellyfin.dataset.serverHost = server?.host || "";
+        div_jellyfin.dataset.serverIndex = String(setting.mediaServerIndex || 0);
+        div_jellyfin.textContent = " " + getMediaServerLabel(server) + " ";
+        return div_jellyfin;
+    }
+
+    function getJellyfin(avID,server){
+        server = server || getCurrentMediaServer();
+        if(server?.host && server?.apiKey){
+            if(debug){console.log("查询本地jellyfin: getJellyfin", server.name);};
         } else {
-            if(debug){console.log("退出jellfin函数, 其中host和apiKey: ", setting.jellyfinHost , setting.jellyfinApiKey)}
+            if(debug){console.log("退出jellfin函数, 其中host和apiKey: ", server?.host , server?.apiKey)}
             return;
         }
+        var div_jellyfin = resetMediaButtonState(server,avID);
+        if(!div_jellyfin) return;
  
         GM_xmlhttpRequest({
             method: 'get',
-            url: setting.jellyfinHost + "emby/Search/Hints?searchTerm=" + avID,
+            url: server.host + "emby/Search/Hints?searchTerm=" + encodeURIComponent(avID),
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
-                "X-Emby-Token":setting.jellyfinApiKey
+                "X-Emby-Token":server.apiKey
             },
             data: "",
             timeout: 1000, 
             onload: function (r) {
                 var div_jellyfin = document.querySelector(".jellyfin");
                 if(!div_jellyfin){return};
+                if(div_jellyfin.dataset.serverHost !== server.host) return;
  
                 // ApiKey输入错误的情况下, 会出现401错误, 身份验证错误
                 if(r.status == 401){
@@ -2988,10 +3059,10 @@
                 var data = JSON.parse(r.responseText);
                 if(data.SearchHints[0]){
                     if(debug){console.log("jellyfin中的标题: ", data.SearchHints[0].Name)};
-                    div_jellyfin.dataset.url = setting.jellyfinHost + "web/index.html#!/details?id=" + data.SearchHints[0].Id;
+                    div_jellyfin.dataset.url = server.host + "web/index.html#!/details?id=" + data.SearchHints[0].Id;
                     div_jellyfin.classList.add("yesJellyfin");
                 } else {
-                    div_jellyfin.dataset.url = setting.jellyfinHost + "web/index.html#!/search.html";
+                    div_jellyfin.dataset.url = server.host + "web/index.html#!/search.html";
                     div_jellyfin.dataset.avid = avID;
                     div_jellyfin.classList.add("noJellyfin");
                 }
@@ -2999,25 +3070,29 @@
             ontimeout(data){
                 console.log("jellyfin访问超时")
                 console.log(data)
-                document.querySelector(".jellyfin")?.classList.add("errJellyfin")
+                var div_jellyfin = document.querySelector(".jellyfin");
+                if(div_jellyfin?.dataset.serverHost === server.host) div_jellyfin.classList.add("errJellyfin")
             }
         });
     }
  
-    function getEmby(avID){
-        if(setting.jellyfinHost && setting.jellyfinApiKey){
-            if(debug){console.log("查询本地 Emby : getEmby");};
+    function getEmby(avID,server){
+        server = server || getCurrentMediaServer();
+        if(server?.host && server?.apiKey){
+            if(debug){console.log("查询本地 Emby : getEmby", server.name);};
         } else {
-            if(debug){console.log("退出 Emby 函数, 其中host和apiKey: ", setting.jellyfinHost , setting.jellyfinApiKey)}
+            if(debug){console.log("退出 Emby 函数, 其中host和apiKey: ", server?.host , server?.apiKey)}
             return;
         }
+        var div_jellyfin = resetMediaButtonState(server,avID);
+        if(!div_jellyfin) return;
  
         GM_xmlhttpRequest({
             method: "GET",
             // url:
                 // setting.jellyfinHost+"emby/Users/"+setting.jellyfinApiKey+"/Items?api_key="+setting.jellyfinApiKey+
                 // "&Recursive=true&IncludeItemTypes=Movie&SearchTerm="+avID,
-            url: setting.jellyfinHost+"emby/Items?api_key="+setting.jellyfinApiKey+"&Recursive=true&IncludeItemTypes=Movie&SearchTerm="+avID,
+            url: server.host+"emby/Items?api_key="+encodeURIComponent(server.apiKey)+"&Recursive=true&IncludeItemTypes=Movie&SearchTerm="+encodeURIComponent(avID),
             headers: {
               accept: "application/json",
             },
@@ -3026,11 +3101,12 @@
                 // console.log(data)
                 var div_jellyfin = document.querySelector(".jellyfin");
                 if(!div_jellyfin){return};
+                if(div_jellyfin.dataset.serverHost !== server.host) return;
                 if(data.Items[0]){
-                    div_jellyfin.dataset.url = ` ${setting.jellyfinHost}web/index.html#!/item?id=${data.Items[0].Id}&serverId=${data.Items[0].ServerId} `;
+                    div_jellyfin.dataset.url = `${server.host}web/index.html#!/item?id=${data.Items[0].Id}&serverId=${data.Items[0].ServerId}`;
                     div_jellyfin.classList.add("yesJellyfin");
                 } else {
-                    div_jellyfin.dataset.url = setting.jellyfinHost + "web/index.html#!/list/list.html?type=search";
+                    div_jellyfin.dataset.url = server.host + "web/index.html#!/list/list.html?type=search";
                     div_jellyfin.dataset.avid = avID;
                     div_jellyfin.classList.add("noJellyfin");
                 }
@@ -3040,13 +3116,15 @@
  
     // 查看本地 jellyfin 演员
     function getJellyfin_Actor(name,index){
-        if(debug){console.log("jellyfin/emby 演员查询: ", index, name);};
+        var server = getCurrentMediaServer();
+        if(!server) return;
+        if(debug){console.log("jellyfin/emby 演员查询: ", index, name, server.name);};
         GM_xmlhttpRequest({
             method: 'get',
-            url: setting.jellyfinHost + "Persons?searchTerm=" + name,
+            url: server.host + "Persons?searchTerm=" + encodeURIComponent(name),
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
-                "X-Emby-Token":setting.jellyfinApiKey
+                "X-Emby-Token":server.apiKey
             },
             data: '',
             onload: function (r) {
@@ -3057,12 +3135,10 @@
                     var div_actor = document.querySelector(".sav-actors-"+ index)
                     if(div_actor){
                         var div_jellyfin = document.createElement("avspan");
-                        if(setting.emby){
-                            var jellyfin_ico =  '<svg  role="img" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" ><path d="M469.333333 85.333333L256 298.666667l42.666667 42.666666-213.333334 213.333334 213.333334 213.333333 42.666666-42.666667 213.333334 213.333334 213.333333-213.333334-42.666667-42.666666 213.333334-213.333334-213.333334-213.333333-42.666666 42.666667-213.333334-213.333334m-42.666666 277.333334l256 149.333333-256 149.333333v-298.666666z" fill="#05b010" p-id="1934"></path></svg>'
-                            div_jellyfin.innerHTML = "<a class='actor-jellyfin' target='_blank' title='' href= '"+ setting.jellyfinHost + "web/index.html#!/item?id=" + data.Items[0].Id  + "&serverId="+ data.Items[0].ServerId +"'>"+ jellyfin_ico + "</a>";
+                        if(server.type === "emby"){
+                            div_jellyfin.innerHTML = "<a class='actor-jellyfin' target='_blank' title='' href= '"+ server.host + "web/index.html#!/item?id=" + data.Items[0].Id  + "&serverId="+ data.Items[0].ServerId +"'>"+ mediaServerIcon(server) + "</a>";
                         }else{
-                            var jellyfin_ico =  '<svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"> <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="30%" style="stop-color:#AA5CC3;stop-opacity:1" /><stop offset="100%" style="stop-color:#00A4DC;stop-opacity:1" /></linearGradient><path style="fill:url(#grad3)" d="M12 .002C8.826.002-1.398 18.537.16 21.666c1.56 3.129 22.14 3.094 23.682 0C25.384 18.573 15.177 0 12 0zm7.76 18.949c-1.008 2.028-14.493 2.05-15.514 0C3.224 16.9 9.92 4.755 12.003 4.755c2.081 0 8.77 12.166 7.759 14.196zM12 9.198c-1.054 0-4.446 6.15-3.93 7.189.518 1.04 7.348 1.027 7.86 0 .511-1.027-2.874-7.19-3.93-7.19z"/></svg>'
-                            div_jellyfin.innerHTML = "<a class='actor-jellyfin' target='_blank' title='' href= '"+ setting.jellyfinHost + "web/index.html#!/details?id=" + data.Items[0].Id  + "&serverId="+ data.Items[0].ServerId +"'>"+ jellyfin_ico + "</a>";
+                            div_jellyfin.innerHTML = "<a class='actor-jellyfin' target='_blank' title='' href= '"+ server.host + "web/index.html#!/details?id=" + data.Items[0].Id  + "&serverId="+ data.Items[0].ServerId +"'>"+ mediaServerIcon(server) + "</a>";
                         }
                         // 插入到演员dom的后面
                         var div_parent = div_actor.parentNode;
@@ -3083,11 +3159,13 @@
     function localVideo_search(){
         // actor_search()
         // console.log("localVideo_search")
+        var server = getCurrentMediaServer();
+        if(!server) return;
         let url;
-        if(setting.emby){
-            url = setting.jellyfinHost+"emby/Items?Recursive=true&IsMovie=true&IsFolder=false&api_key=" + setting.jellyfinApiKey;
+        if(server.type === "emby"){
+            url = server.host+"emby/Items?Recursive=true&IsMovie=true&IsFolder=false&api_key=" + encodeURIComponent(server.apiKey);
         }else{
-            url = setting.jellyfinHost + "Items?recursive=true&filters=IsNotFolder&includeItemTypes=Movie&api_key=" + setting.jellyfinApiKey;
+            url = server.host + "Items?recursive=true&filters=IsNotFolder&includeItemTypes=Movie&api_key=" + encodeURIComponent(server.apiKey);
         }
         GM_xmlhttpRequest({
             method: "GET",
@@ -3119,19 +3197,20 @@
     }
  
     function actor_search(){
+        var server = getCurrentMediaServer();
+        if(!server) return;
         // const fetch = require('node-fetch');
  
         // Jellyfin API端点和身份验证令牌
-        const baseUrl = setting.jellyfinHost + 'api/';
-        const apiKey = setting.jellyfinApiKey;
+        const baseUrl = server.host + 'api/';
+        const apiKey = server.apiKey;
  
         // // 构建API请求
         // const endpoint = baseUrl + 'Persons';
         // const headers = {
         // 'X-Emby-Token': apiKey,
         // };
-        var url = setting.jellyfinHost + "api/Persons&api_key=" + setting.jellyfinApiKey;
-        url = "http://192.168.31.6:8096/Persons?IsMovie=true&api_key=e4c35ab15f9347a0916fe049de870e61"
+        var url = server.host + "Persons?IsMovie=true&api_key=" + encodeURIComponent(server.apiKey);
         GM_xmlhttpRequest({
             method: "GET",
             url: url,
@@ -3176,6 +3255,8 @@
  
     // 对本地视频(jellyfin/emby)已有的番号添加额外样式
     function localVideo_addStyle(){
+        var server = getCurrentMediaServer();
+        if(!server) return;
         let avdivs = document.querySelectorAll('.sav-id');
         for(let i=0;i<avdivs.length;i++){
             // 判断本地有没有相关视频
@@ -3184,12 +3265,11 @@
                 if(setting.LocalVideoSearchExtraButton){
                     let exDiv = document.createElement("savdiv");
                     let url;
-                    if(setting.emby){
-                        exDiv.innerHTML =  '<svg  role="img" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" ><path d="M469.333333 85.333333L256 298.666667l42.666667 42.666666-213.333334 213.333334 213.333334 213.333333 42.666666-42.666667 213.333334 213.333334 213.333333-213.333334-42.666667-42.666666 213.333334-213.333334-213.333334-213.333333-42.666666 42.666667-213.333334-213.333334m-42.666666 277.333334l256 149.333333-256 149.333333v-298.666666z" fill="#05b010" p-id="1934"></path></svg>'
-                        url = ` ${setting.jellyfinHost}web/index.html#!/item?id=${localVideoExist.Id}&serverId=${localVideoExist.ServerId} `
+                    exDiv.innerHTML = mediaServerIcon(server);
+                    if(server.type === "emby"){
+                        url = `${server.host}web/index.html#!/item?id=${localVideoExist.Id}&serverId=${localVideoExist.ServerId}`;
                     }else{
-                        exDiv.innerHTML =  '<svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"> <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="30%" style="stop-color:#AA5CC3;stop-opacity:1" /><stop offset="100%" style="stop-color:#00A4DC;stop-opacity:1" /></linearGradient><path style="fill:url(#grad3)" d="M12 .002C8.826.002-1.398 18.537.16 21.666c1.56 3.129 22.14 3.094 23.682 0C25.384 18.573 15.177 0 12 0zm7.76 18.949c-1.008 2.028-14.493 2.05-15.514 0C3.224 16.9 9.92 4.755 12.003 4.755c2.081 0 8.77 12.166 7.759 14.196zM12 9.198c-1.054 0-4.446 6.15-3.93 7.189.518 1.04 7.348 1.027 7.86 0 .511-1.027-2.874-7.19-3.93-7.19z"/></svg>'
-                        url = setting.jellyfinHost + "web/index.html#!/details?id=" + localVideoExist.Id;;
+                        url = server.host + "web/index.html#!/details?id=" + localVideoExist.Id;
                     }
                     exDiv.classList.add("jellyfin_openPage");
                     exDiv.addEventListener("click",function(e){
@@ -3224,13 +3304,14 @@
             oldBox.parentNode.removeChild(oldBox);
         }
         var currentSetting = GM_getValue("_setting") || setting || {};
+        applyMediaServerSettings(currentSetting);
         var editbox = document.createElement("div");
         editbox.id = "sav-editCodeBox";
         var innerH = `
             <div class="sav-settings-dialog" role="dialog" aria-modal="true" aria-label="SearchAV 设置">
                 <div class="sav-settings-header">
                     <div>
-                        <div class="sav-settings-eyebrow">SearchAV 0.25</div>
+                        <div class="sav-settings-eyebrow">SearchAV 2.0.0</div>
                         <h2>划词模式设置</h2>
                         <p>脚本现在只在选中文本后弹出面板；搜索、跳转、预告片、翻译开关和 Emby/Jellyfin 查询都保留在弹窗里。</p>
                     </div>
@@ -3266,9 +3347,9 @@
                     </section>
                     <section class="sav-settings-card">
                         <h3>Emby / Jellyfin</h3>
-                        <label class="sav-switch"><input id="savSetEmby" type="checkbox"><span>使用 Emby 跳转格式</span></label>
-                        <label class="sav-field"><span>服务器地址</span><input id="savSetJellyfinHost" type="url" spellcheck="false"></label>
-                        <label class="sav-field"><span>API Key</span><input id="savSetJellyfinApiKey" type="password" spellcheck="false"></label>
+                        <label class="sav-field"><span>默认服务器</span><select id="savSetMediaServerIndex"></select></label>
+                        <label class="sav-field"><span>服务器列表 JSON</span><textarea id="savSetMediaServers" rows="7" spellcheck="false"></textarea></label>
+                        <p class="sav-settings-note">格式: [{"name":"家里 Emby","type":"emby","host":"http://localhost:8096/","apiKey":"..."}]</p>
                     </section>
                 </div>
                 <details class="sav-settings-advanced">
@@ -3308,7 +3389,11 @@
     function savBoxSave(){
         var codevalue = savBoxGetValue();
         if(codevalue){
-            codevalue = savBoxApplyFormValue(codevalue);
+            try{
+                codevalue = savBoxApplyFormValue(codevalue);
+            }catch(err){
+                return;
+            }
             setting = codevalue;
             javbusLink = setting.javbus? setting.javbus: "https://www.javbus.com/"
             javDBLink = setting.javdb? setting.javdb: "https://javdb.com/"
@@ -3346,9 +3431,29 @@
             input.value = value ?? "";
         }
     }
+    function savBoxFillMediaServerOptions(servers,index){
+        var select = document.querySelector("#savSetMediaServerIndex");
+        if(!select) return;
+        select.innerHTML = "";
+        if(!servers.length){
+            var option = document.createElement("option");
+            option.value = "0";
+            option.textContent = "未配置";
+            select.appendChild(option);
+            return;
+        }
+        servers.forEach(function(server,i){
+            var option = document.createElement("option");
+            option.value = String(i);
+            option.textContent = getMediaServerLabel(server);
+            option.selected = i === index;
+            select.appendChild(option);
+        });
+    }
     function syncModernSettingForm(source){
         if(!document.querySelector("#sav-editCodeBox")) return;
         source = source || {};
+        applyMediaServerSettings(source);
         savBoxSetValue("savSetSelectLength", Number(source.selectLength) || 32);
         savBoxSetValue("savSetInfoReload", source.infoReload);
         savBoxSetValue("savSetRelatedPage", source.close_Related_Page);
@@ -3359,9 +3464,8 @@
         savBoxSetValue("savSetJavbus", source.javbus ?? "https://www.javbus.com/");
         savBoxSetValue("savSetJavdb", source.javdb ?? "https://javdb.com/");
         savBoxSetValue("savSetGetInfoFromJavDB", source.getInfoFromJavDB);
-        savBoxSetValue("savSetEmby", source.emby);
-        savBoxSetValue("savSetJellyfinHost", source.jellyfinHost ?? "");
-        savBoxSetValue("savSetJellyfinApiKey", source.jellyfinApiKey ?? "");
+        savBoxFillMediaServerOptions(source.mediaServers || [], source.mediaServerIndex || 0);
+        savBoxSetValue("savSetMediaServers", JSON.stringify(source.mediaServers || [], false, 4));
     }
     function savBoxCheckbox(id){
         return !!document.querySelector("#" + id)?.checked;
@@ -3382,9 +3486,14 @@
         codevalue.javbus = savBoxInputValue("savSetJavbus") || "https://www.javbus.com/";
         codevalue.javdb = savBoxInputValue("savSetJavdb") || "https://javdb.com/";
         codevalue.getInfoFromJavDB = savBoxCheckbox("savSetGetInfoFromJavDB");
-        codevalue.emby = savBoxCheckbox("savSetEmby");
-        codevalue.jellyfinHost = savBoxInputValue("savSetJellyfinHost");
-        codevalue.jellyfinApiKey = savBoxInputValue("savSetJellyfinApiKey");
+        try{
+            codevalue.mediaServers = JSON.parse(savBoxInputValue("savSetMediaServers") || "[]");
+        }catch(err){
+            alert("Emby/Jellyfin 服务器列表 JSON 解析失败\n" + err);
+            throw err;
+        }
+        codevalue.mediaServerIndex = Number(savBoxInputValue("savSetMediaServerIndex")) || 0;
+        applyMediaServerSettings(codevalue);
         ["Host","Download","NoPopup"].map(function(name){return "q" + "Bit" + name}).forEach(function(key){
             delete codevalue[key];
         });
@@ -3437,9 +3546,21 @@
             "close_Related_Page":false, // 关闭相关页面的按钮(第一个按钮)
             "addOtherButton":false, // 添加3个额外的按钮: 1,设置按钮; 2,番号按钮,点击复制; 3,关闭按钮
             "sehuatang":false,  // 添加色花堂的搜索按钮
-            "emby":false,   // 将 Jellyfin 替换成 Emby, 如果使用 emby, 必须改为true
-            "jellyfinHost":"http://localhost:8096/",    // 本地的jellyfin/emby的地址
-            "jellyfinApiKey":"",    // 外部程序需要密钥才能和jellyfin/emby通信。  “设置 - 控制台 - API密钥” 点击加号生成一个
+            "mediaServerIndex":0,   // 默认使用第几个 Emby/Jellyfin 服务器, 从 0 开始
+            "mediaServers":[
+                {
+                    "name":"本地 Jellyfin",
+                    "type":"jellyfin",
+                    "host":"http://localhost:8096/",
+                    "apiKey":""
+                },
+                {
+                    "name":"远程 Emby",
+                    "type":"emby",
+                    "host":"https://example.com/",
+                    "apiKey":""
+                }
+            ],
             "LocalVideoSearch":false,    // 如果在本地有相关视频, 显示样式为 “infoLocalVideoStyle”, 该样式的优先级最高
             "LocalVideoSearchExtraButton": false,   // 如果在本地有相关视频, 会直接在番号后面显示跳转按钮
             "linkStyle":{   // 没浏览的番号
@@ -3567,6 +3688,11 @@
             .savCloseAnim{
                 animation: savCloseAnim 0.15s;
             }
+            .sav-menu[data-selection-only="true"]{
+                transition: none;
+                animation: none;
+                transform: translate(-50%, -50%);
+            }
             @keyframes savOpenAnim {
                 0% {
                     transform:scale(0.5);
@@ -3612,6 +3738,18 @@
             .sav-menu .savlink:not(.RPdisabled):hover a {
                 color: #039cff;
                 text-shadow: 0 0 #7cfb80;
+            }
+            .savMediaServerSelect{
+                margin: 4px;
+                max-width: 160px;
+                border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                padding: 3px 6px;
+                background: #fff;
+                color: #334155;
+                font-size: 13px;
+                cursor: pointer;
+                vertical-align: middle;
             }
             avdivsinfo a,
             avdivsinfo a:visited,
@@ -4037,7 +4175,9 @@
                 color: #334155;
                 font-size: 13px;
             }
-            .sav-field input{
+            .sav-field input,
+            .sav-field select,
+            .sav-field textarea{
                 width: 100%;
                 box-sizing: border-box;
                 border: 1px solid #cbd5e1;
@@ -4047,10 +4187,26 @@
                 color: #0f172a;
                 outline: none;
             }
-            .sav-field input:focus{
+            .sav-field textarea{
+                min-height: 132px;
+                resize: vertical;
+                font-family: Consolas, "Cascadia Mono", monospace;
+                font-size: 12px;
+                line-height: 1.45;
+            }
+            .sav-field input:focus,
+            .sav-field select:focus,
+            .sav-field textarea:focus{
                 border-color: #0f766e;
                 box-shadow: 0 0 0 3px rgba(15,118,110,.14);
                 background: #ffffff;
+            }
+            .sav-settings-note{
+                margin: 0;
+                color: #64748b;
+                font-size: 12px;
+                line-height: 1.5;
+                overflow-wrap: anywhere;
             }
             .sav-switch{
                 display: flex;
@@ -4234,5 +4390,6 @@
         styleText += styleAVID;
         GM_addStyle(styleText);
     }
+    addStyle();
  
-})();
+}());
