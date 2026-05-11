@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         番号跳转加预览图
 // @namespace    https://github.com/ZiPenOk
-// @version      5.4.0
+// @version      5.4.1
 // @icon         https://javdb.com/favicon.ico
 // @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择。新增 MissAV 站点适配。增加ProjectJav预览图来源。新增预告片影院式播放。
 // @author       ZiPenOk
@@ -1641,13 +1641,6 @@
         container.appendChild(btn);
     }
 
-    function addPreviewBtn(code, container, useCapture = false) {
-        const btn = Utils.createBtn('🖼️ 预览图', '#28a745', async () => {
-            await Thumbnail.show(code);
-        }, useCapture);
-        container.appendChild(btn);
-    }
-
     function addTrailerBtn(code, container, useCapture = false) {
         const btn = Utils.createBtn('🎞️ 预告片', '#111827', async () => {
             const oldText = btn.textContent;
@@ -1661,6 +1654,13 @@
                 btn.style.pointerEvents = '';
                 btn.style.opacity = '';
             }
+        }, useCapture);
+        container.appendChild(btn);
+    }
+
+    function addPreviewBtn(code, container, useCapture = false) {
+        const btn = Utils.createBtn('🖼️ 预览图', '#28a745', async () => {
+            await Thumbnail.show(code);
         }, useCapture);
         container.appendChild(btn);
     }
@@ -1845,8 +1845,8 @@
             addJavdbBtn(code, btnGroup);
             addMissAVBtn(code, btnGroup);
             addSearchMenu(code, btnGroup);
-            addPreviewBtn(code, btnGroup);
             addTrailerBtn(code, btnGroup);
+            addPreviewBtn(code, btnGroup);
 
             btnGroup.querySelectorAll('a').forEach(btn => {
                 let style = btn.getAttribute('style') || '';
@@ -1907,8 +1907,8 @@
             subMenu.addEventListener('mouseleave', () => { subMenu.style.display = 'none'; });
             btnGroup.appendChild(searchMenuDiv);
 
-            addPreviewBtn(code, btnGroup);
             addTrailerBtn(code, btnGroup);
+            addPreviewBtn(code, btnGroup);
 
             btnGroup.style.cssText = `
                 margin: 10px 0 6px 0;
@@ -1927,8 +1927,8 @@
             addJavdbBtn(code, btnGroup);
             addMissAVBtn(code, btnGroup);
             addSearchMenu(code, btnGroup);
-            addPreviewBtn(code, btnGroup);
             addTrailerBtn(code, btnGroup);
+            addPreviewBtn(code, btnGroup);
 
             if (site.id === 'emby') {
                 btnGroup.classList.add('emby-fix');
