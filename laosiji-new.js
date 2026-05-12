@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.0.0
-// @description  JavBus / JavDB / JavLib 磁力搜索与番号助手，集成 115 离线、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板
+// @version      2.1.0
+// @description  JavBus / JavDB / JavLib 磁力搜索与番号助手，集成 115 离线、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
 // @author       ZiPenOk
 
@@ -43,20 +43,20 @@
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
-        get btsowUrl()         { return GM_getValue('cfg_btsow_url',         'btsow.pics'); },
+        get ciligouUrl()       { return GM_getValue('cfg_ciligou_url',       'clg55.top'); },
         get btdigUrl()         { return GM_getValue('cfg_btdig_url',         'btdig.com'); },
         get sukebeiUrl()          { return GM_getValue('cfg_sukebei_url',          'sukebei.nyaa.si'); },
-        get torrentkittyUrl()  { return GM_getValue('cfg_torrentkitty_url',  'www.torrentkitty.tv'); },
+        get sokittyUrl()       { return GM_getValue('cfg_sokitty_url',       'w1.sokitty.me'); },
 
         get defaultEngine()    { return GM_getValue('cfg_default_engine', 'javdb.com'); },
 
         get thumbSourceOrder() { return GM_getValue('thumb_source_order', ['javfree', 'projectjav', 'javstore']); },
 
         set javdbSearchUrl(v)   { GM_setValue('cfg_javdb_search_url', v); },
-        set btsowUrl(v)         { GM_setValue('cfg_btsow_url', v); },
+        set ciligouUrl(v)       { GM_setValue('cfg_ciligou_url', v); },
         set btdigUrl(v)         { GM_setValue('cfg_btdig_url', v); },
         set sukebeiUrl(v)          { GM_setValue('cfg_sukebei_url', v); },
-        set torrentkittyUrl(v)  { GM_setValue('cfg_torrentkitty_url', v); },
+        set sokittyUrl(v)       { GM_setValue('cfg_sokitty_url', v); },
         set defaultEngine(v)    { GM_setValue('cfg_default_engine', v); },
         set thumbSourceOrder(v) { GM_setValue('thumb_source_order', v); },
     };
@@ -465,10 +465,10 @@
     const SettingsPanel = (() => {
         const MAGNET_ENGINES = [
             { key: 'javdbSearchUrl',  label: 'JavDB',        placeholder: 'javdb.com' },
-            { key: 'btsowUrl',        label: 'BtSow',        placeholder: 'btsow.pics' },
+            { key: 'ciligouUrl',      label: 'CiliGou',      placeholder: 'clg55.top' },
             { key: 'btdigUrl',        label: 'BtDig',        placeholder: 'btdig.com' },
             { key: 'sukebeiUrl',      label: 'Sukebei',      placeholder: 'sukebei.nyaa.si' },
-            { key: 'torrentkittyUrl', label: 'TorrentKitty', placeholder: 'www.torrentkitty.tv' },
+            { key: 'sokittyUrl',      label: 'SoKitty',       placeholder: 'w1.sokitty.me' },
         ];
         const JUMP_SEARCH_ENGINES = ['BTDigg', 'Taocili', 'Google', 'Bing', 'DuckGo'];
         const THUMB_META = {
@@ -720,14 +720,22 @@
 
     const Magnet = (() => {
 
+        const ENGINE_LABELS = () => ({
+            [CFG.javdbSearchUrl]: 'JavDB',
+            [CFG.ciligouUrl]:     'CiliGou',
+            [CFG.btdigUrl]:       'BtDig',
+            [CFG.sukebeiUrl]:     'Sukebei',
+            [CFG.sokittyUrl]:     'SoKitty',
+        });
+
         const Engines = {
             getAll() {
                 return {
                     [CFG.javdbSearchUrl]: _searchJavDB,
-                    [CFG.btsowUrl]:       _searchBtsow,
+                    [CFG.ciligouUrl]:     _searchCiligou,
                     [CFG.btdigUrl]:       _searchBtdig,
-                    [CFG.sukebeiUrl]:        _searchsukebei,
-                    [CFG.torrentkittyUrl]:_searchTorrentkitty,
+                    [CFG.sukebeiUrl]:     _searchsukebei,
+                    [CFG.sokittyUrl]:     _searchSokitty,
                 };
             },
             getCurrent() {
@@ -808,47 +816,50 @@
             return { url: r2.finalUrl || detailUrl, data: extractMagnets(doc2, r2.finalUrl || detailUrl) };
         }
 
-        async function _searchBtsow(kw) {
-            const base = 'https://' + CFG.btsowUrl;
-            const searchUrl = `${base}/search/${kw}`;
+        async function _searchCiligou(kw) {
+            const base = 'https://' + CFG.ciligouUrl;
+            // ciligou 搜索词需 Base64 编码（去掉 = 填充）
+            const encoded = btoa(unescape(encodeURIComponent(kw))).replace(/=+$/, '');
+            const searchUrl = `${base}/search?word=${encoded}`;
 
-            // btsow 页面壳子不吐结果，只能借 token 调接口。
-            const pageR = await gmFetch(searchUrl);
-            if (!pageR.loadstuts) return { url: searchUrl, data: [] };
-            const csrfMatch = pageR.responseText.match(/name="csrf-token"[^>]*content="([^"]+)"/);
-            const csrfToken = csrfMatch ? csrfMatch[1] : '';
-
-            const apiUrl = `${base}/bts/data/api/search`;
-            const apiR = await gmFetch(apiUrl, {
-                method: 'POST',
+            // 该站启用了反调试 debugger，GM_xmlhttpRequest 可绕过，直接抓 HTML 解析。
+            // 结构：#Search_list_wrapper li
+            //   标题：.SearchListTitle_result_title（含 <em> 高亮）
+            //   详情链接：a.SearchListTitle_result_title[href="/information/{hash}"]
+            //   hash 即路径最后一段，可直接构造磁链，无需再请求详情页。
+            //   大小：.Search_list_info 文本中"文件大小：X"
+            const r = await gmFetch(searchUrl, {
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json, text/plain, */*',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-Token': csrfToken,
-                    'Referer': searchUrl,
+                    'Referer': base + '/',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 },
-                data: JSON.stringify([{ search: kw }, 50, 1]),
             });
-            if (!apiR.loadstuts) return { url: searchUrl, data: [] };
+            if (!r.loadstuts) return { url: searchUrl, data: [] };
+            const doc = parseHTML(r.responseText);
 
-            let json;
-            try { json = JSON.parse(apiR.responseText); } catch(e) { return { url: searchUrl, data: [] }; }
-            if (json.code !== 200 || !Array.isArray(json.data)) return { url: searchUrl, data: [] };
+            const data = [];
+            doc.querySelectorAll('#Search_list_wrapper li').forEach(li => {
+                const titleA = li.querySelector('a.SearchListTitle_result_title');
+                if (!titleA) return;
 
-            const fmtSize = bytes => {
-                if (!bytes) return '';
-                if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
-                if (bytes >= 1048576)    return (bytes / 1048576).toFixed(2) + ' MB';
-                return (bytes / 1024).toFixed(2) + ' KB';
-            };
+                // hash 是 /information/{hash} 路径的最后一段
+                const href = titleA.getAttribute('href') || '';
+                const hash = href.split('/').pop();
+                if (!hash) return;
 
-            const data = json.data.map(item => ({
-                title:   item.name.replace(/<[^>]+>/g, '').trim(),
-                maglink: `magnet:?xt=urn:btih:${item.hash}`,
-                size:    fmtSize(item.size),
-                src:     `${base}/magnet/detail/${item.hash}`,
-            }));
+                const maglink = `magnet:?xt=urn:btih:${hash}`;
+                const src = base + href;
+
+                // 标题：innerText 去掉 <em> 标签干扰
+                const title = titleA.textContent.trim();
+
+                // 大小：从 .Search_list_info 文本提取"文件大小：X"后面的值
+                const infoText = li.querySelector('.Search_list_info')?.textContent || '';
+                const sizeMatch = infoText.match(/文件大小：([^\s]+)/);
+                const size = sizeMatch ? sizeMatch[1] : '';
+
+                data.push({ title, maglink, size, src });
+            });
 
             return { url: searchUrl, data };
         }
@@ -883,23 +894,50 @@
             return { url: r.finalUrl || base, data };
         }
 
-        async function _searchTorrentkitty(kw) {
-            const base = 'https://' + CFG.torrentkittyUrl;
-            const r = await gmFetch(`${base}/search/${kw}`);
-            if (!r.loadstuts) return { url: base, data: [] };
+        async function _searchSokitty(kw) {
+            const base = 'https://' + CFG.sokittyUrl;
+            // SoKitty: 搜索参数为明文 key，结果在 .panel.search-panel
+            // 有磁链的条目：a.list-title[href^="/bt/{hash}"]，hash 即 BT infohash
+            // href 指向 click.sokitty.me 的是流媒体播放入口，无磁链，跳过
+            const searchUrl = `${base}/search?key=${encodeURIComponent(kw)}`;
+            const r = await gmFetch(searchUrl, {
+                headers: { 'Referer': base + '/' },
+            });
+            if (!r.loadstuts) return { url: searchUrl, data: [] };
             const doc = parseHTML(r.responseText);
-            const rows = [...doc.querySelectorAll('#archiveResult tr:not(:first-child)')];
-            const data = rows
-                .filter(el => !/(No result)/i.test(el.querySelector('.name')?.textContent || ''))
-                .map(el => ({
-                    title:   el.querySelector('.name')?.textContent?.trim() || '',
-                    maglink: el.querySelector('.action>a:nth-child(2)')?.href || '',
-                    size:    el.querySelector('.size')?.textContent?.trim() || '',
-                    src:     base + (el.querySelector('.action>a:nth-child(1)')?.getAttribute('href') || ''),
-                }));
-            return { url: r.finalUrl || base, data };
-        }
 
+            // 标准化番号用于过滤：去掉分隔符、转大写，如 "ABF-350" -> "ABF350"
+            const normalize = s => s.toUpperCase().replace(/[-_\s]/g, '');
+            const kwNorm = normalize(kw);
+
+            const data = [];
+            doc.querySelectorAll('.panel.search-panel').forEach(panel => {
+                const titleA = panel.querySelector('h3.panel-title > a.list-title');
+                if (!titleA) return;
+
+                const href = titleA.getAttribute('href') || '';
+                // 跳过流媒体播放链接（指向 click.sokitty.me）
+                if (!href.startsWith('/bt/')) return;
+
+                const hash = href.replace('/bt/', '');
+                if (!hash) return;
+
+                const title = titleA.textContent.trim();
+
+                // 精确过滤：标准化后的标题必须包含标准化后的关键词
+                if (!normalize(title).includes(kwNorm)) return;
+
+                const maglink = `magnet:?xt=urn:btih:${hash}`;
+                const src = base + href;
+
+                // 大小在 footer 第一个 .info-item
+                const size = panel.querySelector('.panel-footer .info-item')?.textContent?.trim() || '';
+
+                data.push({ title, maglink, size, src });
+            });
+
+            return { url: searchUrl, data };
+        }
         async function offline115(maglink) {
             maglink = maglink.substring(0, 60);
             const tokenR = await gmFetch(`http://115.com/?ct=offline&ac=space&_=${Date.now()}`);
@@ -977,16 +1015,25 @@
             const allEngines = Engines.getAll();
             const curKey = CFG.defaultEngine;
             const sel = document.createElement('select');
-            sel.style.cssText = 'font-size:12px;border:1px solid #ddd;border-radius:4px;padding:2px 4px;';
+            sel.style.cssText = 'font-size:12px;border:1px solid #ddd;border-radius:4px;padding:2px 4px;min-width:80px;';
+            const labels = ENGINE_LABELS();
             Object.keys(allEngines).forEach(k => {
                 const op = document.createElement('option');
                 op.value = k;
-                op.textContent = k;
+                op.textContent = labels[k] || k;
                 if (k === curKey) op.selected = true;
                 sel.appendChild(op);
             });
+            // 每次切换后重新量自然宽度，自适应但不低于 80px
+            const fitSelWidth = () => {
+                sel.style.width = '';
+                const natural = sel.offsetWidth;
+                sel.style.width = Math.max(natural, 80) + 'px';
+            };
+            requestAnimationFrame(fitSelWidth);
             sel.addEventListener('change', () => {
                 runSearch(table, avid, sel.value);
+                requestAnimationFrame(fitSelWidth);
             });
             thEngine.appendChild(sel);
             headRow.appendChild(thEngine);
@@ -1439,7 +1486,7 @@
 // jump runtime
 (function() {
     'use strict';
- 
+
     GM_addStyle(`
         #emby-config-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); font-family: sans-serif; }
         .emby-config-modal { background: #2d2d2d; border: 1px solid #444; border-radius: 12px; width: 320px; padding: 25px; color: white; box-shadow: 0 10px 50px rgba(0,0,0,0.9); }
@@ -1450,7 +1497,7 @@
         .emby-config-btn { flex: 1; padding: 10px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; font-size: 14px; }
         .emby-config-save { background: #00a4dc; color: white; }
         .emby-config-cancel { background: #444; color: #ccc; }
- 
+
         .preview-overlay {
             position: fixed;
             inset: 0;
@@ -1476,7 +1523,7 @@
             max-height: none;
             cursor: zoom-out;
         }
- 
+
         .jav-jump-btn-group {
             margin-top: 8px;
             margin-bottom: 4px;
@@ -1485,7 +1532,7 @@
             gap: 8px;
             align-items: center;
         }
- 
+
         body.main .javlibrary-fix {
             display: flex !important;
             flex-wrap: wrap !important;
@@ -1513,7 +1560,7 @@
             box-sizing: border-box !important;
             line-height: normal !important;
         }
- 
+
         .emby-fix {
             width: 100% !important;
             flex-basis: 100% !important;
@@ -1521,7 +1568,7 @@
             margin-top: 8px !important;
             margin-bottom: 4px !important;
         }
- 
+
         .mini-switch {
             width: 40px;
             height: 20px;
@@ -1550,7 +1597,7 @@
         .mini-switch:checked::before {
             left: calc(100% - 18px);
         }
- 
+
         @keyframes btnSlideIn {
             from {
                 opacity: 0;
@@ -1561,14 +1608,14 @@
                 transform: translateX(0);
             }
         }
- 
+
         .jav-jump-btn-group a,
         .javlibrary-fix a {
             transition: all 0.2s ease-in-out;
             animation: btnSlideIn 0.3s ease-out;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
- 
+
         .jav-jump-btn-group a:hover,
         .javlibrary-fix a:hover {
             transform: scale(1.05) !important;
@@ -1576,7 +1623,7 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
             text-decoration: none !important;
         }
- 
+
         @keyframes menuFadeIn {
             from {
                 opacity: 0;
@@ -1587,17 +1634,17 @@
                 transform: translateY(0);
             }
         }
- 
+
         .search-submenu a {
             transition: all 0.2s ease;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
         }
- 
+
         .search-submenu a:hover {
             transform: translateX(5px) scale(1.02);
             filter: brightness(1.1);
         }
- 
+
         .preview-toolbar {
             position: fixed;
             top: 20px;
@@ -1612,7 +1659,7 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
         }
- 
+
         .preview-btn {
             border: none;
             color: #eee;
@@ -1630,13 +1677,13 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             letter-spacing: 0.2px;
         }
- 
+
         .preview-btn:hover {
             background: rgba(140, 140, 160, 0.4);
             transform: translateY(-2px);
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
         }
- 
+
         .preview-btn.javfree.active {
             background: #2ecc71;
             color: white;
@@ -1644,7 +1691,7 @@
             box-shadow: 0 0 16px rgba(46, 204, 113, 0.6);
             font-weight: 500;
         }
- 
+
         .preview-btn.javstore.active {
             background: #e74c3c;
             color: white;
@@ -1652,19 +1699,19 @@
             box-shadow: 0 0 16px rgba(231, 76, 60, 0.6);
             font-weight: 500;
         }
- 
+
         .preview-btn.action {
             background: rgba(100, 100, 120, 0.3);
         }
         .preview-btn.action:hover {
             background: rgba(140, 140, 160, 0.5);
         }
- 
+
         .preview-btn:active {
             transform: translateY(0);
             box-shadow: 0 2px 4px rgba(0,0,0,0.15);
         }
- 
+
         .trailer-overlay {
             position: fixed;
             inset: 0;
@@ -1885,11 +1932,11 @@
             }
         }
     `);
- 
+
     const Utils = {
         extractCode(text) {
             if (!text) return null;
- 
+
             const patterns = [
                 { regex: /([A-Z]{2,15})[-_\s]([A-Z]{1,2}\d{2,10})/i, type: 'alphanum' },
                 { regex: /([A-Z]{2,15})[-_\s](\d{2,10})(?:[-_](\d{1,3}))?/i, type: 'standard' },
@@ -1898,14 +1945,14 @@
                 { regex: /\b([A-Z]{2,10})(\d{3,6})\b/i, type: 'compactStandard' },
                 { regex: /([A-Z]{1,2})(\d{3,4})/i, type: 'compact' }
             ];
- 
+
             const ignoreList = ['FULLHD', 'H264', 'H265', '1080P', '720P', 'PART', 'DISC', '10BIT'];
- 
+
             for (let i = 0; i < patterns.length; i++) {
                 const { regex, type } = patterns[i];
                 const match = text.match(regex);
                 if (!match) continue;
- 
+
                 if (type === 'alphanum') {
                     return match[0].trim();
                 } else if (type === 'standard') {
@@ -1927,7 +1974,7 @@
             }
             return null;
         },
- 
+
         createLinkBtn(text, color, url) {
             const btn = document.createElement('a');
             btn.textContent = text;
@@ -1950,7 +1997,7 @@
             `;
             return btn;
         },
- 
+
         createBtn(text, color, handler, useCapture = false) {
             const btn = document.createElement('a');
             btn.textContent = text;
@@ -1982,7 +2029,7 @@
             }
             return btn;
         },
- 
+
         request(url) {
             return new Promise((resolve) => {
                 GM_xmlhttpRequest({
@@ -2028,24 +2075,24 @@
                 setTimeout(() => toast.remove(), 220);
             }, duration);
         },
- 
+
         showOverlay(imgUrl, code, source = null) {
             const originalHtmlOverflow = document.documentElement.style.overflow;
             const originalBodyOverflow = document.body.style.overflow;
- 
+
             document.documentElement.style.overflow = 'hidden';
             document.body.style.overflow = 'hidden';
- 
+
             const container = document.createElement('div');
             container.className = 'preview-overlay';
- 
+
             const img = document.createElement('img');
             img.className = 'preview-img';
             img.onclick = (e) => {
                 e.stopPropagation();
                 img.classList.toggle('zoomed');
             };
- 
+
             let currentBlobUrl = null;
             const loadImg = (url, src) => {
                 if (currentBlobUrl) {
@@ -2074,9 +2121,9 @@
                     img.src = url;
                 }
             };
- 
+
             loadImg(imgUrl, source);
- 
+
             const toolbar = document.createElement('div');
             toolbar.className = 'preview-toolbar';
             toolbar.style.cssText = `
@@ -2087,7 +2134,7 @@
                 gap: 12px;
                 z-index: 2147483648;
             `;
- 
+
             const createButton = (text, icon, className, onClick) => {
                 const btn = document.createElement('button');
                 btn.className = `preview-btn ${className}`;
@@ -2095,56 +2142,56 @@
                 btn.onclick = onClick;
                 return btn;
             };
- 
+
             const setActiveSource = (activeSource) => {
                 javfreeBtn.classList.toggle('active', activeSource === 'javfree');
                 projectjavBtn.classList.toggle('active', activeSource === 'projectjav');
                 javstoreBtn.classList.toggle('active', activeSource === 'javstore');
             };
- 
+
             const javfreeBtn = createButton('javfree', '🟢', 'javfree', async (e) => {
                 e.stopPropagation();
                 const newUrl = await Thumbnail.javfree(code);
                 if (newUrl) { loadImg(newUrl, 'javfree'); setActiveSource('javfree'); }
                 else alert('javfree 未找到预览图');
             });
- 
+
             const projectjavBtn = createButton('projectjav', '🟡', 'javstore', async (e) => {
                 e.stopPropagation();
                 const newUrl = await Thumbnail.projectjav(code);
                 if (newUrl) { loadImg(newUrl, 'projectjav'); setActiveSource('projectjav'); }
                 else alert('projectjav 未找到预览图');
             });
- 
+
             const javstoreBtn = createButton('javstore', '🔴', 'javstore', async (e) => {
                 e.stopPropagation();
                 const newUrl = await Thumbnail.javstore(code);
                 if (newUrl) { loadImg(newUrl, 'javstore'); setActiveSource('javstore'); }
                 else alert('javstore 未找到预览图');
             });
- 
+
             const newWindowBtn = createButton('新窗口', '🌐', 'action', (e) => {
                 e.stopPropagation();
                 window.open(img.src);
             });
- 
+
             const downloadBtn = createButton('下载', '⬇️', 'action', (e) => {
                 e.stopPropagation();
                 GM_download(img.src, `${code}.jpg`);
             });
- 
+
             if (source === 'javfree') javfreeBtn.classList.add('active');
             else if (source === 'projectjav') projectjavBtn.classList.add('active');
             else if (source === 'javstore') javstoreBtn.classList.add('active');
- 
+
             toolbar.appendChild(javfreeBtn);
             toolbar.appendChild(projectjavBtn);
             toolbar.appendChild(javstoreBtn);
             toolbar.appendChild(newWindowBtn);
             toolbar.appendChild(downloadBtn);
- 
+
             container.appendChild(img);
- 
+
             const closeOverlay = () => {
                 if (container.parentNode) {
                     container.remove();
@@ -2157,9 +2204,9 @@
                     }
                 }
             };
- 
+
             container.onclick = closeOverlay;
- 
+
             const escHandler = (e) => {
                 if (e.key === 'Escape') {
                     closeOverlay();
@@ -2167,29 +2214,29 @@
                 }
             };
             document.addEventListener('keydown', escHandler);
- 
+
             document.body.appendChild(container);
             document.body.appendChild(toolbar);
         },
- 
+
         showTrailerOverlay({ code, url, type = 'video', source = '预告片', qualities = null, quality = null, urls = null }) {
             document.querySelector('.trailer-overlay')?.remove();
- 
+
             const originalHtmlOverflow = document.documentElement.style.overflow;
             const originalBodyOverflow = document.body.style.overflow;
             document.documentElement.style.overflow = 'hidden';
             document.body.style.overflow = 'hidden';
- 
+
             const overlay = document.createElement('div');
             overlay.className = 'trailer-overlay';
- 
+
             const modal = document.createElement('div');
             modal.className = 'trailer-modal';
             modal.onclick = (e) => e.stopPropagation();
- 
+
             const header = document.createElement('div');
             header.className = 'trailer-header';
- 
+
             const title = document.createElement('div');
             title.className = 'trailer-title';
             title.innerHTML = `
@@ -2197,15 +2244,15 @@
                 <span class="trailer-code">${code}</span>
                 <span class="trailer-source">${source}</span>
             `;
- 
+
             const closeBtn = document.createElement('button');
             closeBtn.className = 'trailer-close';
             closeBtn.type = 'button';
             closeBtn.textContent = '×';
- 
+
             header.appendChild(title);
             header.appendChild(closeBtn);
- 
+
             const screen = document.createElement('div');
             screen.className = 'trailer-screen';
             let video = null;
@@ -2215,7 +2262,7 @@
                 ? [...new Set(urls.filter(Boolean))]
                 : [url].filter(Boolean);
             let fallbackIndex = Math.max(0, fallbackUrls.indexOf(url));
- 
+
             if (type === 'iframe') {
                 const iframe = document.createElement('iframe');
                 iframe.src = url;
@@ -2249,7 +2296,7 @@
                 screen.appendChild(video);
                 setTimeout(() => video.play().catch(() => {}), 120);
             }
- 
+
             const qualityBar = document.createElement('div');
             const qualityMap = qualities && typeof qualities === 'object' ? qualities : null;
             if (type !== 'iframe' && qualityMap && Object.keys(qualityMap).length > 1) {
@@ -2273,13 +2320,13 @@
                 const sortedKeys = Object.keys(qualityMap)
                     .filter(key => qualityMap[key])
                     .sort((a, b) => qualityOrder.indexOf(b) - qualityOrder.indexOf(a));
- 
+
                 qualityBar.className = 'trailer-quality-bar';
                 const label = document.createElement('span');
                 label.className = 'trailer-quality-label';
                 label.textContent = '画质';
                 qualityBar.appendChild(label);
- 
+
                 const setActiveQuality = (key) => {
                     activeQuality = key;
                     activeUrl = qualityMap[key];
@@ -2287,7 +2334,7 @@
                         btn.classList.toggle('active', btn.dataset.quality === key);
                     });
                 };
- 
+
                 sortedKeys.forEach(key => {
                     const btn = document.createElement('button');
                     btn.type = 'button';
@@ -2310,10 +2357,10 @@
                     };
                     qualityBar.appendChild(btn);
                 });
- 
+
                 setActiveQuality(activeQuality && qualityMap[activeQuality] ? activeQuality : sortedKeys[0]);
             }
- 
+
             const footer = document.createElement('div');
             footer.className = 'trailer-footer';
             const footerText = document.createElement('span');
@@ -2325,7 +2372,7 @@
             sourceLink.textContent = '新窗口打开源地址';
             footer.appendChild(footerText);
             footer.appendChild(sourceLink);
- 
+
             modal.appendChild(header);
             modal.appendChild(screen);
             if (qualityBar.childElementCount) {
@@ -2333,7 +2380,7 @@
             }
             modal.appendChild(footer);
             overlay.appendChild(modal);
- 
+
             const closeOverlay = () => {
                 const video = overlay.querySelector('video');
                 if (video) {
@@ -2346,19 +2393,19 @@
                 document.body.style.overflow = originalBodyOverflow;
                 document.removeEventListener('keydown', escHandler);
             };
- 
+
             const escHandler = (e) => {
                 if (e.key === 'Escape') closeOverlay();
             };
- 
+
             closeBtn.onclick = closeOverlay;
             document.addEventListener('keydown', escHandler);
             document.body.appendChild(overlay);
         },
- 
+
         getJavBusUrl(code) {
             const codeLower = code.toLowerCase();
- 
+
             const isUncensored =
                 /^\d{6}[-_\s]\d{3}$/.test(code) ||
                 codeLower.startsWith('heyzo') ||
@@ -2378,14 +2425,14 @@
                 /^n\d{4}$/.test(codeLower) ||
                 codeLower.startsWith('k_') ||
                 /^k\d{4}$/.test(codeLower);
- 
+
             if (isUncensored) {
                 return `https://www.javbus.com/uncensored/search/${encodeURIComponent(code)}&type=1`;
             }
             return `https://www.javbus.com/search/${encodeURIComponent(code)}&type=&parent=ce`;
         }
     };
- 
+
     const Thumbnail = {
         async javfree(code) {
             const cacheKey = `thumb_cache_${code}`;
@@ -2394,17 +2441,17 @@
                 const cached = sessionStorage.getItem(cacheKey);
                 if (cached) return cached;
             }
- 
+
             try {
                 const html = await Utils.request(`https://javfree.me/search/${code}`);
                 const doc = new DOMParser().parseFromString(html, 'text/html');
                 const link = doc.querySelector('.entry-title>a')?.href;
                 if (!link) return null;
- 
+
                 const dHtml = await Utils.request(link);
                 const dDoc = new DOMParser().parseFromString(dHtml, 'text/html');
                 const url = dDoc.querySelectorAll('p>img')[1]?.src || dDoc.querySelectorAll('p>img')[0]?.src;
- 
+
                 if (url && cacheEnabled) {
                     sessionStorage.setItem(cacheKey, url);
                     return url;
@@ -2415,16 +2462,16 @@
                 return null;
             }
         },
- 
+
         async javstore(code) {
             try {
                 const normalizedCode = code.replace(/^fc2-?/i, '').replace(/-/g, '').toLowerCase();
                 console.log(`javstore: searching for code=${code}, normalized=${normalizedCode}`);
- 
+
                 const searchUrl = `https://javstore.net/search?q=${encodeURIComponent(code)}`;
                 const searchHtml = await Utils.request(searchUrl);
                 const searchDoc = new DOMParser().parseFromString(searchHtml, 'text/html');
- 
+
                 const candidateLinks = searchDoc.querySelectorAll('a[href*="/"]');
                 const detailUrls = [];
                 for (const link of candidateLinks) {
@@ -2439,12 +2486,12 @@
                         console.log(`javstore: 候选链接 [${detailUrls.length}]: ${fullUrl}`);
                     }
                 }
- 
+
                 if (detailUrls.length === 0) {
                     console.warn('javstore: 未找到匹配的详情页');
                     return null;
                 }
- 
+
                 for (const detailUrl of detailUrls) {
                     console.log(`javstore: 尝试详情页: ${detailUrl}`);
                     const imgUrl = await this._extractImgFromDetail(detailUrl);
@@ -2454,7 +2501,7 @@
                     }
                     console.log(`javstore: 该页无预览图，尝试下一个`);
                 }
- 
+
                 console.warn('javstore: 所有候选页均无预览图');
                 return null;
             } catch (e) {
@@ -2462,33 +2509,33 @@
                 return null;
             }
         },
- 
+
         async _extractImgFromDetail(detailUrl) {
             try {
                 const detailHtml = await Utils.request(detailUrl);
                 const detailDoc = new DOMParser().parseFromString(detailHtml, 'text/html');
- 
+
                 for (const link of detailDoc.querySelectorAll('a')) {
                     if (link.textContent.includes('CLICK HERE')) {
                         const imgUrl = link.href || link.getAttribute('href') || '';
                         if (imgUrl) return imgUrl.replace(/^http:/, 'https:');
                     }
                 }
- 
+
                 const img = detailDoc.querySelector('img[src*="_s.jpg"]');
                 if (img) {
                     let src = img.getAttribute('src') || '';
                     if (!src.startsWith('http')) src = new URL(src, detailUrl).href;
                     return src.replace(/_s\.jpg$/, '_l.jpg').replace(/^http:/, 'https:');
                 }
- 
+
                 return null;
             } catch (e) {
                 console.warn('javstore: 详情页请求失败', detailUrl, e.message);
                 return null;
             }
         },
- 
+
         async projectjav(code) {
             try {
                 const request = (url) => new Promise((resolve, reject) => {
@@ -2510,31 +2557,31 @@
                         ontimeout: () => { console.warn('[projectjav] 请求超时'); reject(new Error('请求超时')); }
                     });
                 });
- 
+
                 const searchUrl = `https://projectjav.com/?searchTerm=${encodeURIComponent(code)}`;
                 console.log('[projectjav] 搜索页:', searchUrl);
                 const searchHtml = await request(searchUrl);
                 const searchDoc = new DOMParser().parseFromString(searchHtml, 'text/html');
- 
+
                 const allMovieLinks = [...searchDoc.querySelectorAll('a[href*="/movie/"]')];
                 console.log(`[projectjav] /movie/ 链接数: ${allMovieLinks.length}`);
                 allMovieLinks.slice(0, 5).forEach(a => console.log('  ', a.getAttribute('href')));
- 
+
                 if (allMovieLinks.length === 0) {
                     console.warn('[projectjav] 无结果，页面标题:', searchDoc.title);
                     console.warn('[projectjav] 页面前800字符:', searchHtml.slice(0, 800));
                     return null;
                 }
- 
+
                 let detailPath = allMovieLinks.find(a => /\/movie\/.+-\d+$/.test(a.getAttribute('href') || ''))?.getAttribute('href')
                     || allMovieLinks[0].getAttribute('href');
                 console.log('[projectjav] 选中链接:', detailPath);
- 
+
                 const detailUrl = detailPath.startsWith('http') ? detailPath : `https://projectjav.com${detailPath}`;
                 console.log('[projectjav] 详情页:', detailUrl);
                 const detailHtml = await request(detailUrl);
                 const detailDoc = new DOMParser().parseFromString(detailHtml, 'text/html');
- 
+
                 const screenshotLink = detailDoc.querySelector('.thumbnail a[data-featherlight="image"]');
                 console.log('[projectjav] screenshotLink data-src:', screenshotLink?.getAttribute('data-src') , 'featherlight:', screenshotLink?.getAttribute('data-featherlight'));
                 if (screenshotLink) {
@@ -2546,14 +2593,14 @@
                     const href = screenshotLink.getAttribute('href') || '';
                     if (href && href.startsWith('http')) return href.replace(/^http:/, 'https:');
                 }
- 
+
                 const coverImg = detailDoc.querySelector('.movie-detail .col-md-6 img');
                 console.log('[projectjav] coverImg src:', coverImg?.getAttribute('src'));
                 if (coverImg) {
                     const src = coverImg.getAttribute('src') || '';
                     if (src) return src.replace(/^http:/, 'https:');
                 }
- 
+
                 console.warn('[projectjav] 详情页未找到图片，页面标题:', detailDoc.title);
                 return null;
             } catch (e) {
@@ -2561,17 +2608,17 @@
                 return null;
             }
         },
- 
+
         async get(code) {
             const cacheEnabled = Settings.getPreviewCacheEnabled();
             if (cacheEnabled) {
                 const cached = sessionStorage.getItem(`thumb_cache_${code}`);
                 if (cached) return { url: cached, source: null };
             }
- 
+
             const order = Settings.getSourceOrder();
             let url = null, source = null;
- 
+
             for (const src of order) {
                 if (typeof this[src] !== 'function') continue;
                 try {
@@ -2583,14 +2630,14 @@
                 if (url) { source = src; break; }
                 console.log(`${src} 无结果，尝试下一个来源`);
             }
- 
+
             console.log('预览图最终结果:', url ? `有图 (${source})` : '无图');
             if (url && cacheEnabled) {
                 sessionStorage.setItem(`thumb_cache_${code}`, url);
             }
             return { url, source };
         },
- 
+
         async show(code) {
             const result = await this.get(code);
             if (result.url) {
@@ -2600,7 +2647,7 @@
             }
         }
     };
- 
+
     const Trailer = {
         normalize(code) {
             const normalized = String(code || '')
@@ -2618,15 +2665,15 @@
             if (trimmed) return trimmed[1];
             return normalized;
         },
- 
+
         normalizeForCompare(text) {
             return String(text || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         },
- 
+
         cacheKey(code) {
             return `trailer_cache_v3_${this.normalize(code)}`;
         },
- 
+
         async show(code) {
             const result = await this.get(code);
             if (result?.url) {
@@ -2643,7 +2690,7 @@
                 Utils.showToast('未找到可用的视频源。', '节点不可用，请将DMM域名分流到日本ip', 3000);
             }
         },
- 
+
         async get(code) {
             const id = this.normalize(code);
             const cacheEnabled = Settings.getTrailerCacheEnabled();
@@ -2658,7 +2705,7 @@
                     sessionStorage.removeItem(this.cacheKey(id));
                 }
             }
- 
+
             const resolvers = [
                 this.fromDirectSamples,
                 this.fromFc2Hub,
@@ -2668,7 +2715,7 @@
                 this.fromDmmHeuristic,
                 this.fromJavSpyl
             ];
- 
+
             for (const resolver of resolvers) {
                 try {
                     const result = await resolver.call(this, id);
@@ -2682,7 +2729,7 @@
             }
             return null;
         },
- 
+
         request(url, options = {}) {
             return new Promise((resolve) => {
                 GM_xmlhttpRequest({
@@ -2697,20 +2744,20 @@
                 });
             });
         },
- 
+
         async requestDoc(url, options = {}) {
             const r = await this.request(url, options);
             if (!r || r.status < 200 || r.status >= 400 || !r.responseText) return null;
             return new DOMParser().parseFromString(r.responseText, 'text/html');
         },
- 
+
         async head(url) {
             const r = await this.request(url, { method: 'HEAD', timeout: 5000 });
             if (!r) return null;
             if (r.status >= 200 && r.status < 400) return r.finalUrl || url;
             return null;
         },
- 
+
         async firstWorkingUrl(urls, batchSize = 8) {
             const uniqueUrls = [...new Set(urls.filter(Boolean))];
             for (let i = 0; i < uniqueUrls.length; i += batchSize) {
@@ -2724,11 +2771,11 @@
             }
             return null;
         },
- 
+
         result(url, source, type = 'video', extra = {}) {
             return { url, source, type, ...extra };
         },
- 
+
         qualityOptions: [
             { quality: 'sm', text: '低画质' },
             { quality: 'dm', text: '中画质' },
@@ -2745,7 +2792,7 @@
             { quality: '4k', text: '4K (2160p)' },
             { quality: '4ks', text: '4K (2160p60fps)' }
         ],
- 
+
         selectHighestQuality(qualityMap) {
             return this.sortQualityKeys(qualityMap)[0] || null;
         },
@@ -2756,13 +2803,13 @@
                 .filter(key => qualityMap[key])
                 .sort((a, b) => (rank.get(b) ?? -1) - (rank.get(a) ?? -1));
         },
- 
+
         async fromDmmApi(id) {
             if (!/^[A-Z]{2,10}-\d{2,6}$/i.test(id) || /^FC2-/i.test(id) || id.includes('VR-')) return null;
- 
+
             const items = await this.searchDmmContentIds(id);
             if (!items.length) return null;
- 
+
             for (const item of items) {
                 const qualityMap = await this.extractDmmTrailerLinks(item);
                 const highestQuality = this.selectHighestQuality(qualityMap);
@@ -2776,7 +2823,7 @@
             }
             return null;
         },
- 
+
         async searchDmmContentIds(id) {
             const idLower = id.toLowerCase();
             const idNoHyphen = id.replace(/-/g, '').toLowerCase();
@@ -2785,7 +2832,7 @@
                 { keyword: id, name: '原始番号关键词' },
                 { keyword: idNoHyphen, name: '无横杠关键词' }
             ];
- 
+
             for (const attempt of keywordAttempts) {
                 const params = new URLSearchParams({
                     api_id: 'UrwskPfkqQ0DuVry2gYL',
@@ -2801,14 +2848,14 @@
                     headers: { Accept: 'application/json,text/plain,*/*' }
                 });
                 if (!r?.responseText || r.status < 200 || r.status >= 400) continue;
- 
+
                 let data;
                 try {
                     data = JSON.parse(r.responseText);
                 } catch {
                     continue;
                 }
- 
+
                 const items = data?.result?.items || [];
                 const matched = [];
                 for (const item of items) {
@@ -2829,12 +2876,12 @@
                         });
                     }
                 }
- 
+
                 if (matched.length) return matched;
             }
             return [];
         },
- 
+
         async extractDmmTrailerLinks({ contentId, serviceCode, floorCode }) {
             if (!contentId || !serviceCode || !floorCode) return null;
             const playerUrl = `https://www.dmm.co.jp/service/digitalapi/-/html5_player/=/cid=${contentId}/mtype=AhRVShI_/service=${serviceCode}/floor=${floorCode}/mode=/`;
@@ -2850,10 +2897,10 @@
                 console.warn('DMM/FANZA 播放器页提示地区不可用，继续尝试其它来源');
                 return null;
             }
- 
+
             const argsMatch = r.responseText.match(/const\s+args\s*=\s*({[\s\S]*?});/);
             if (!argsMatch) return null;
- 
+
             let args;
             try {
                 args = JSON.parse(argsMatch[1]);
@@ -2861,13 +2908,13 @@
                 console.warn('DMM/FANZA 播放器 args 解析失败:', e);
                 return null;
             }
- 
+
             if (!Array.isArray(args.bitrates)) return null;
- 
+
             const qualityKeys = this.qualityOptions.map(item => item.quality).join('|');
             const qualityRegex = new RegExp(`(${qualityKeys})\\.mp4(?:[?#].*)?$`);
             const qualityMap = {};
- 
+
             args.bitrates.forEach(item => {
                 let videoUrl = item?.src;
                 if (!videoUrl || typeof videoUrl !== 'string') return;
@@ -2879,7 +2926,7 @@
                     .replace('cc3001.dmm.co.jp', 'cc3001.dmm.com');
                 qualityMap[match[1]] = videoUrl;
             });
- 
+
             return Object.keys(qualityMap).length ? qualityMap : null;
         },
 
@@ -2887,48 +2934,48 @@
             if (/javbus\.com/i.test(location.hostname)) {
                 const direct = this.extractMp4FromDoc(document, location.href);
                 if (direct) return this.result(direct, '当前 JavBus 页面');
- 
+
                 const cid = this.extractDmmCid(document.documentElement.innerHTML);
                 if (cid) {
                     return this.firstWorkingUrl(this.dmmUrlsFromPart(cid))
                         .then(url => url ? this.result(url, 'JavBus DMM 预告') : null);
                 }
             }
- 
+
             return null;
         },
- 
+
         async fromDirectSamples(id) {
             const urls = [];
             const lower = id.toLowerCase();
- 
+
             if (/^[01]\d{5}-\d{2,3}$/.test(lower)) {
                 urls.push(`https://smovie.caribbeancom.com/sample/movies/${lower}/480p.mp4`);
                 urls.push(`http://smovie.caribbeancom.com/sample/movies/${lower}/480p.mp4`);
                 urls.push(`https://smovie.1pondo.tv/sample/movies/${lower.replace('-', '_')}/480p.mp4`);
                 urls.push(`http://smovie.1pondo.tv/sample/movies/${lower.replace('-', '_')}/480p.mp4`);
             }
- 
+
             if (/^heyzo[-_ ]?\d{4}$/i.test(id)) {
                 const num = id.match(/\d{4}/)?.[0];
                 urls.push(`https://www.heyzo.com/contents/3000/${num}/heyzo_hd_${num}_sample.mp4`);
             }
- 
+
             if (/^(?:k|n)\d{4}$/i.test(id)) {
                 urls.push(`https://my.cdn.tokyo-hot.com/media/samples/${lower}.mp4`);
             }
- 
+
             const url = await this.firstWorkingUrl(urls, 4);
             return url ? this.result(url, '无码直连预告') : null;
         },
- 
+
         async fromFc2Hub(id) {
             if (!/^FC2-\d{6,9}$/i.test(id)) return null;
- 
+
             const searchUrl = `https://fc2hub.com/search?kw=${encodeURIComponent(id)}`;
             const search = await this.request(searchUrl, { timeout: 15000 });
             if (!search) return null;
- 
+
             let detailUrl = search.finalUrl && search.finalUrl !== searchUrl ? search.finalUrl : null;
             if (!detailUrl && search.responseText) {
                 const doc = new DOMParser().parseFromString(search.responseText, 'text/html');
@@ -2936,35 +2983,35 @@
                 if (link) detailUrl = link.startsWith('http') ? link : new URL(link, searchUrl).href;
             }
             if (!detailUrl) return null;
- 
+
             const doc = await this.requestDoc(detailUrl, { timeout: 15000 });
             const iframe = doc?.querySelector('iframe.lazy[data-src], iframe[src]');
             const iframeUrl = iframe?.dataset?.src || iframe?.getAttribute('src');
             if (!iframeUrl) return null;
- 
+
             return this.result(iframeUrl.startsWith('http') ? iframeUrl : new URL(iframeUrl, detailUrl).href, 'FC2Hub 预告', 'iframe');
         },
 
         async fromJavbus(id) {
             if (!/^[A-Z]{2,10}-\d{2,6}$/i.test(id)) return null;
- 
+
             const detailUrl = `https://www.javbus.com/${encodeURIComponent(id)}`;
             const doc = await this.requestDoc(detailUrl, { timeout: 15000 });
             if (!doc) return null;
- 
+
             const direct = this.extractMp4FromDoc(doc, detailUrl);
             if (direct) {
                 const finalUrl = await this.head(direct);
                 if (finalUrl) return this.result(finalUrl, 'JavBus 页面预告');
             }
- 
+
             const cid = this.extractDmmCid(doc.documentElement.innerHTML);
             if (!cid) return null;
- 
+
             const url = await this.firstWorkingUrl(this.dmmUrlsFromPart(cid));
             return url ? this.result(url, 'JavBus DMM 预告') : null;
         },
- 
+
         async fromDmmHeuristic(id) {
             if (!/^[A-Z]{2,10}-\d{2,6}$/i.test(id) || /^FC2-/i.test(id)) return null;
             const urlParts = this.buildDmmUrlParts(id);
@@ -2972,7 +3019,7 @@
             const url = await this.firstWorkingUrl(urls, 10);
             return url ? this.result(url, 'DMM 通用预告') : null;
         },
- 
+
         async fromJavSpyl(id) {
             const r = await this.request('https://api.javspyl.eu.org/api/', {
                 method: 'POST',
@@ -2984,7 +3031,7 @@
                 data: `ID=${encodeURIComponent(id)}`
             });
             if (!r?.responseText) return null;
- 
+
             try {
                 const data = JSON.parse(r.responseText);
                 let url = data?.info?.url;
@@ -2996,7 +3043,7 @@
                 return null;
             }
         },
- 
+
         extractMp4FromDoc(doc, baseUrl = location.href) {
             const node = doc.querySelector('video source[src], video[src], source[src*=".mp4"]');
             let url = node?.getAttribute('src') || node?.src;
@@ -3007,7 +3054,7 @@
             if (!url) return null;
             return url.startsWith('http') ? url.replace(/^http:/, 'https:') : new URL(url, baseUrl).href;
         },
- 
+
         extractDmmCid(text) {
             const raw = String(text || '');
             const match =
@@ -3016,7 +3063,7 @@
                 raw.match(/\/cid\/([a-z0-9_]+)/i);
             return match?.[1]?.toLowerCase() || null;
         },
- 
+
         dmmUrlsFromPart(part) {
             const urlPart = String(part || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
             if (!urlPart || urlPart.length < 5) return [];
@@ -3026,7 +3073,7 @@
             const first = urlPart[0];
             const prefix = urlPart.substring(0, 3);
             const urls = [];
- 
+
             hosts.forEach(host => {
                 qualities.forEach(q => {
                     urls.push(`https://${host}/${infix}/${first}/${prefix}/${urlPart}/${urlPart}${q}.mp4`);
@@ -3034,12 +3081,12 @@
             });
             return urls;
         },
- 
+
         buildDmmUrlParts(id) {
             const [corpRaw, numRaw] = id.toLowerCase().split('-');
             const numPlain = (numRaw || '').replace(/^0+(?=\d)/, '');
             if (!corpRaw || !numPlain) return [];
- 
+
             const n3 = numPlain.padStart(3, '0');
             const n5 = numPlain.padStart(5, '0');
             const cidPrefixes = [
@@ -3048,7 +3095,7 @@
                 'h_086', 'h_237', 'h_1133', 'h_491'
             ];
             const parts = [];
- 
+
             cidPrefixes.forEach(prefix => {
                 parts.push(`${prefix}${corpRaw}${n3}`);
                 parts.push(`${prefix}${corpRaw}${n5}`);
@@ -3056,7 +3103,7 @@
             return [...new Set(parts)];
         }
     };
- 
+
     const Settings = {
         getPreviewCacheEnabled() {
             return GM_getValue('preview_cache_enabled', true);
@@ -3083,7 +3130,7 @@
             'hjd2048':    { enabled: true },
             'missav':     { enabled: true }
         },
- 
+
         get(siteId) {
             const saved = GM_getValue(`settings_${siteId}`, null);
             const defaults = this.defaults[siteId] || { enabled: true };
@@ -3092,31 +3139,31 @@
             }
             return { ...defaults };
         },
- 
+
         set(siteId, settings) {
             GM_setValue(`settings_${siteId}`, JSON.stringify(settings));
         },
- 
+
         getAllFeatures() {
             return ['enabled'];
         },
- 
+
         getFeatureName(feature) {
             const map = {
                 enabled: '启用本站点功能'
             };
             return map[feature] || feature;
         },
- 
+
         getDefaultSearchEngine() {
             const index = GM_getValue('default_search_engine', 0);
             return SearchEngines[index] || SearchEngines[0];
         },
- 
+
         setDefaultSearchEngine(index) {
             GM_setValue('default_search_engine', index);
         },
- 
+
         getSourceOrder() {
             return GM_getValue('thumb_source_order', ['javfree', 'projectjav', 'javstore']);
         },
@@ -3124,7 +3171,7 @@
             GM_setValue('thumb_source_order', order);
         }
     };
- 
+
     const SearchEngines = [
         { name: 'BTDigg', color: '#F60', url: (code) => `https://btdig.com/search?q=${code}` },
         { name: 'Taocili', color: '#DE5833', url: (code) => `https://taocili.com/search?q=${code}` },
@@ -3132,16 +3179,16 @@
         { name: 'Bing', color: '#008373', url: (code) => `https://www.bing.com/search?q=${code}` },
         { name: 'DuckGo', color: '#DE5833', url: (code) => `https://duckduckgo.com/?q=${code}` }
     ];
- 
+
     const DEFAULT_SEARCH_ENGINE_INDEX = 0;
- 
+
     function addNyaaBtn(code, container, useCapture = false) {
         const btn = Utils.createBtn('🔍 Sukebei', '#17a2b8', () => {
             window.open(`https://sukebei.nyaa.si/?f=0&c=0_0&q=${code}`);
         }, useCapture);
         container.appendChild(btn);
     }
- 
+
     function addJavbusBtn(code, container, useCapture = false) {
         const url = Utils.getJavBusUrl(code);
         const btn = Utils.createBtn('🎬 JavBus', '#007bff', () => {
@@ -3149,14 +3196,14 @@
         }, useCapture);
         container.appendChild(btn);
     }
- 
+
     function addJavdbBtn(code, container, useCapture = false) {
         const btn = Utils.createBtn('📀 JavDB', '#6f42c1', () => {
             window.open(`https://javdb.com/search?q=${code}`);
         }, useCapture);
         container.appendChild(btn);
     }
- 
+
     function addMissAVBtn(code, container, useCapture = false) {
         const codeLower = code.toLowerCase();
         const directUrl = `https://missav.ws/${codeLower}`;
@@ -3165,7 +3212,7 @@
         }, useCapture);
         container.appendChild(btn);
     }
- 
+
     function addTrailerBtn(code, container, useCapture = false) {
         const btn = Utils.createBtn('🎞️ 预告片', '#111827', async () => {
             const oldText = btn.textContent;
@@ -3182,30 +3229,30 @@
         }, useCapture);
         container.appendChild(btn);
     }
- 
+
     function addPreviewBtn(code, container, useCapture = false) {
         const btn = Utils.createBtn('🖼️ 预览图', '#28a745', async () => {
             await Thumbnail.show(code);
         }, useCapture);
         container.appendChild(btn);
     }
- 
+
     function addSearchMenu(code, container, useCapture = false) {
         const defaultEngine = Settings.getDefaultSearchEngine();
- 
+
         const menuDiv = document.createElement('div');
         menuDiv.className = 'search-menu';
         menuDiv.style.cssText = `
             position: relative;
             display: inline-block;
         `;
- 
+
         const mainBtn = Utils.createBtn(`🔍 ${defaultEngine.name}`, defaultEngine.color, () => {
             window.open(defaultEngine.url(code));
         }, useCapture);
         mainBtn.classList.add('search-main-btn');
         menuDiv.appendChild(mainBtn);
- 
+
         const subMenu = document.createElement('div');
         subMenu.className = 'search-submenu';
         subMenu.style.cssText = `
@@ -3224,10 +3271,10 @@
             min-width: 120px;
             backdrop-filter: blur(5px);
         `;
- 
+
         SearchEngines.forEach(engine => {
             if (engine.name === defaultEngine.name) return;
- 
+
             const subBtn = Utils.createBtn(`🔍 ${engine.name}`, engine.color, () => {
                 window.open(engine.url(code));
             }, useCapture);
@@ -3236,9 +3283,9 @@
             subBtn.style.textAlign = 'left';
             subMenu.appendChild(subBtn);
         });
- 
+
         menuDiv.appendChild(subMenu);
- 
+
         let hoverTimer;
         menuDiv.addEventListener('mouseenter', () => {
             clearTimeout(hoverTimer);
@@ -3247,29 +3294,29 @@
                 subMenu.style.animation = 'menuFadeIn 0.2s ease';
             }, 1000);
         });
- 
+
         menuDiv.addEventListener('mouseleave', (e) => {
             clearTimeout(hoverTimer);
             if (e.relatedTarget && subMenu.contains(e.relatedTarget)) return;
- 
+
             setTimeout(() => {
                 if (!subMenu.matches(':hover')) {
                     subMenu.style.display = 'none';
                 }
             }, 300);
         });
- 
+
         subMenu.addEventListener('mouseenter', () => {
             clearTimeout(hoverTimer);
         });
- 
+
         subMenu.addEventListener('mouseleave', () => {
             subMenu.style.display = 'none';
         });
- 
+
         container.appendChild(menuDiv);
     }
- 
+
     const Sites = [
         {
             id: 'sukebei',
@@ -3343,23 +3390,23 @@
             titleSelector: 'h1[class*="text-nord6"], h1'
         }
     ];
- 
+
     function renderButtonsForCurrentPage() {
         const site = Sites.find(s => s.match(window.location.href));
         if (!site) return;
- 
+
         const titleElem = document.querySelector(site.titleSelector);
         if (!titleElem) return;
- 
+
         if (titleElem.dataset.enhanced === '1') return;
         titleElem.dataset.enhanced = '1';
- 
+
         const code = Utils.extractCode(titleElem.textContent);
         if (!code) return;
- 
+
         const btnGroup = document.createElement('div');
         btnGroup.className = 'jav-jump-btn-group';
- 
+
         if (site.id === 'javlibrary') {
             addNyaaBtn(code, btnGroup);
             addJavbusBtn(code, btnGroup);
@@ -3368,16 +3415,16 @@
             addSearchMenu(code, btnGroup);
             addTrailerBtn(code, btnGroup);
             addPreviewBtn(code, btnGroup);
- 
+
             btnGroup.querySelectorAll('a').forEach(btn => {
                 let style = btn.getAttribute('style') || '';
                 style = style.replace(/background:\s*([^;]+);/g, 'background: $1 !important;');
                 style = style.replace(/color:\s*([^;]+);/g, 'color: $1 !important;');
                 btn.setAttribute('style', style);
             });
- 
+
             btnGroup.classList.add('javlibrary-fix');
- 
+
             const rightColumn = document.querySelector('#rightcolumn');
             if (rightColumn) {
                 rightColumn.prepend(btnGroup);
@@ -3393,14 +3440,14 @@
             missavBtns.forEach(({ text, color, url }) => {
                 btnGroup.appendChild(Utils.createLinkBtn(text, color, url));
             });
- 
+
             const defaultEngine = Settings.getDefaultSearchEngine();
             const searchMenuDiv = document.createElement('div');
             searchMenuDiv.style.cssText = 'position: relative; display: inline-block;';
- 
+
             const mainSearchBtn = Utils.createLinkBtn(`🔍 ${defaultEngine.name}`, defaultEngine.color, defaultEngine.url(code));
             searchMenuDiv.appendChild(mainSearchBtn);
- 
+
             const subMenu = document.createElement('div');
             subMenu.style.cssText = `
                 position: absolute; top: 100%; left: 0; display: none;
@@ -3415,7 +3462,7 @@
                 subMenu.appendChild(subBtn);
             });
             searchMenuDiv.appendChild(subMenu);
- 
+
             let hoverTimer;
             searchMenuDiv.addEventListener('mouseenter', () => {
                 clearTimeout(hoverTimer);
@@ -3427,10 +3474,10 @@
             });
             subMenu.addEventListener('mouseleave', () => { subMenu.style.display = 'none'; });
             btnGroup.appendChild(searchMenuDiv);
- 
+
             addTrailerBtn(code, btnGroup);
             addPreviewBtn(code, btnGroup);
- 
+
             btnGroup.style.cssText = `
                 margin: 10px 0 6px 0;
                 display: flex;
@@ -3440,7 +3487,7 @@
                 position: relative;
                 z-index: 9999;
             `;
- 
+
             titleElem.insertAdjacentElement('afterend', btnGroup);
         } else {
             addNyaaBtn(code, btnGroup);
@@ -3450,7 +3497,7 @@
             addSearchMenu(code, btnGroup);
             addTrailerBtn(code, btnGroup);
             addPreviewBtn(code, btnGroup);
- 
+
             if (site.id === 'emby') {
                 btnGroup.classList.add('emby-fix');
                 const parent = titleElem.parentNode;
@@ -3463,7 +3510,7 @@
                 titleElem.insertAdjacentElement('afterend', btnGroup);
             }
         }
- 
+
         const embyGroup = document.querySelector('.emby-button-group');
         if (embyGroup && btnGroup.isConnected) {
             const jumpBtnCount = btnGroup.childElementCount;
@@ -3474,12 +3521,12 @@
             btnGroup.remove();
         }
     }
- 
+
     const observer = new MutationObserver(() => {
         renderButtonsForCurrentPage();
     });
     observer.observe(document.body, { childList: true, subtree: true });
- 
+
     renderButtonsForCurrentPage();
- 
+
 })();
