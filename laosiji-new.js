@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.1.0
+// @version      2.1.1
 // @description  JavBus / JavDB / JavLib 磁力搜索与番号助手，集成 115 离线、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
 // @author       ZiPenOk
@@ -818,16 +818,10 @@
 
         async function _searchCiligou(kw) {
             const base = 'https://' + CFG.ciligouUrl;
-            // ciligou 搜索词需 Base64 编码（去掉 = 填充）
+            // ciligou 搜索词需 Base64 编码
             const encoded = btoa(unescape(encodeURIComponent(kw))).replace(/=+$/, '');
             const searchUrl = `${base}/search?word=${encoded}`;
 
-            // 该站启用了反调试 debugger，GM_xmlhttpRequest 可绕过，直接抓 HTML 解析。
-            // 结构：#Search_list_wrapper li
-            //   标题：.SearchListTitle_result_title（含 <em> 高亮）
-            //   详情链接：a.SearchListTitle_result_title[href="/information/{hash}"]
-            //   hash 即路径最后一段，可直接构造磁链，无需再请求详情页。
-            //   大小：.Search_list_info 文本中"文件大小：X"
             const r = await gmFetch(searchUrl, {
                 headers: {
                     'Referer': base + '/',
@@ -842,7 +836,6 @@
                 const titleA = li.querySelector('a.SearchListTitle_result_title');
                 if (!titleA) return;
 
-                // hash 是 /information/{hash} 路径的最后一段
                 const href = titleA.getAttribute('href') || '';
                 const hash = href.split('/').pop();
                 if (!hash) return;
@@ -850,10 +843,8 @@
                 const maglink = `magnet:?xt=urn:btih:${hash}`;
                 const src = base + href;
 
-                // 标题：innerText 去掉 <em> 标签干扰
                 const title = titleA.textContent.trim();
 
-                // 大小：从 .Search_list_info 文本提取"文件大小：X"后面的值
                 const infoText = li.querySelector('.Search_list_info')?.textContent || '';
                 const sizeMatch = infoText.match(/文件大小：([^\s]+)/);
                 const size = sizeMatch ? sizeMatch[1] : '';
@@ -896,9 +887,7 @@
 
         async function _searchSokitty(kw) {
             const base = 'https://' + CFG.sokittyUrl;
-            // SoKitty: 搜索参数为明文 key，结果在 .panel.search-panel
-            // 有磁链的条目：a.list-title[href^="/bt/{hash}"]，hash 即 BT infohash
-            // href 指向 click.sokitty.me 的是流媒体播放入口，无磁链，跳过
+
             const searchUrl = `${base}/search?key=${encodeURIComponent(kw)}`;
             const r = await gmFetch(searchUrl, {
                 headers: { 'Referer': base + '/' },
@@ -906,7 +895,6 @@
             if (!r.loadstuts) return { url: searchUrl, data: [] };
             const doc = parseHTML(r.responseText);
 
-            // 标准化番号用于过滤：去掉分隔符、转大写，如 "ABF-350" -> "ABF350"
             const normalize = s => s.toUpperCase().replace(/[-_\s]/g, '');
             const kwNorm = normalize(kw);
 
@@ -916,7 +904,6 @@
                 if (!titleA) return;
 
                 const href = titleA.getAttribute('href') || '';
-                // 跳过流媒体播放链接（指向 click.sokitty.me）
                 if (!href.startsWith('/bt/')) return;
 
                 const hash = href.replace('/bt/', '');
@@ -924,13 +911,11 @@
 
                 const title = titleA.textContent.trim();
 
-                // 精确过滤：标准化后的标题必须包含标准化后的关键词
                 if (!normalize(title).includes(kwNorm)) return;
 
                 const maglink = `magnet:?xt=urn:btih:${hash}`;
                 const src = base + href;
 
-                // 大小在 footer 第一个 .info-item
                 const size = panel.querySelector('.panel-footer .info-item')?.textContent?.trim() || '';
 
                 data.push({ title, maglink, size, src });
