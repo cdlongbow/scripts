@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         番号跳转加预览图
 // @namespace    https://github.com/ZiPenOk
-// @version      5.4.2
+// @version      5.4.3
 // @icon         https://javdb.com/favicon.ico
 // @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择。新增 MissAV 站点适配。增加ProjectJav预览图来源。新增预告片影院式播放。
 // @author       ZiPenOk
@@ -28,8 +28,6 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_addStyle
 // @connect      *
-// @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/jav_jump.js
-// @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/jav_jump.js
 // ==/UserScript==
  
 (function() {
@@ -487,9 +485,10 @@
  
             const patterns = [
                 { regex: /([A-Z]{2,15})[-_\s]([A-Z]{1,2}\d{2,10})/i, type: 'alphanum' },
-                { regex: /([A-Z]{2,15})[-_\s](\d{2,10})(?:[-_\s](\d+))?/i, type: 'standard' },
+                { regex: /([A-Z]{2,15})[-_\s](\d{2,10})(?:[-_](\d{1,3}))?/i, type: 'standard' },
                 { regex: /FC2[-\s_]?(?:PPV)?[-\s_]?(\d{6,9})/i, type: 'fc2' },
                 { regex: /(\d{6})[-_\s]?(\d{2,3})/, type: 'numeric' },
+                { regex: /\b([A-Z]{2,10})(\d{3,6})\b/i, type: 'compactStandard' },
                 { regex: /([A-Z]{1,2})(\d{3,4})/i, type: 'compact' }
             ];
  
@@ -510,6 +509,11 @@
                     return `FC2-PPV-${match[1]}`;
                 } else if (type === 'numeric') {
                     return `${match[1]}-${match[2]}`;
+                } else if (type === 'compactStandard') {
+                    const prefix = match[1].toUpperCase();
+                    if (ignoreList.includes(prefix)) continue;
+                    const number = match[2].replace(/^0+(?=\d{3})/, '');
+                    return `${prefix}-${number}`;
                 } else if (type === 'compact') {
                     return match[0].toUpperCase();
                 }
@@ -761,7 +765,7 @@
             document.body.appendChild(toolbar);
         },
  
-        showTrailerOverlay({ code, url, type = 'video', source = '预告片', qualities = null, quality = null }) {
+        showTrailerOverlay({ code, url, type = 'video', source = '预告片', qualities = null, quality = null, urls = null }) {
             document.querySelector('.trailer-overlay')?.remove();
  
             const originalHtmlOverflow = document.documentElement.style.overflow;
@@ -800,6 +804,10 @@
             let video = null;
             let activeUrl = url;
             let activeQuality = quality;
+            const fallbackUrls = Array.isArray(urls)
+                ? [...new Set(urls.filter(Boolean))]
+                : [url].filter(Boolean);
+            let fallbackIndex = Math.max(0, fallbackUrls.indexOf(url));
  
             if (type === 'iframe') {
                 const iframe = document.createElement('iframe');
@@ -817,10 +825,19 @@
                 const savedMuted = GM_getValue('trailer_muted', false);
                 video.volume = Number.isFinite(savedVolume) ? Math.min(1, Math.max(0, savedVolume)) : 0.35;
                 video.muted = Boolean(savedMuted);
-                video.src = url;
+                video.src = fallbackUrls[fallbackIndex] || url;
                 video.addEventListener('volumechange', () => {
                     GM_setValue('trailer_volume', video.volume);
                     GM_setValue('trailer_muted', video.muted);
+                });
+                video.addEventListener('error', () => {
+                    if (fallbackIndex >= fallbackUrls.length - 1) return;
+                    fallbackIndex += 1;
+                    activeUrl = fallbackUrls[fallbackIndex];
+                    sourceLink.href = activeUrl;
+                    video.src = activeUrl;
+                    video.load();
+                    video.play().catch(() => {});
                 });
                 screen.appendChild(video);
                 setTimeout(() => video.play().catch(() => {}), 120);
@@ -829,9 +846,11 @@
             const qualityBar = document.createElement('div');
             const qualityMap = qualities && typeof qualities === 'object' ? qualities : null;
             if (type !== 'iframe' && qualityMap && Object.keys(qualityMap).length > 1) {
-                const qualityOrder = ['sm_s', 'dm_s', 'dmb_s', 'dmb_w', 'mhb_w', 'mmb', 'mhb', 'hmb', 'hhb', 'hhbs', '4k', '4ks'];
+                const qualityOrder = ['sm', 'sm_s', 'dm', 'dm_s', 'dmb_s', 'dmb_w', 'mhb_w', 'mmb', 'mhb', 'hmb', 'hhb', 'hhbs', '4k', '4ks'];
                 const qualityLabels = {
+                    sm: '低画质',
                     sm_s: '240p',
+                    dm: '中画质',
                     dm_s: '360p',
                     dmb_s: '480p',
                     dmb_w: '404p宽',
@@ -873,6 +892,7 @@
                         const currentTime = video.currentTime || 0;
                         const shouldPlay = !video.paused;
                         video.src = qualityMap[key];
+                        fallbackIndex = Math.max(0, fallbackUrls.indexOf(qualityMap[key]));
                         video.load();
                         video.currentTime = currentTime;
                         setActiveQuality(key);
@@ -1172,11 +1192,20 @@
  
     const Trailer = {
         normalize(code) {
-            return String(code || '')
+            const normalized = String(code || '')
                 .trim()
                 .replace(/\s+/g, '-')
                 .replace(/^FC2[-_]?PPV[-_]?/i, 'FC2-')
                 .toUpperCase();
+            const compact = normalized.match(/^([A-Z]{2,10})(\d{3,6})$/);
+            if (compact) {
+                const number = compact[2].replace(/^0+(?=\d{3})/, '');
+                return `${compact[1]}-${number}`;
+            }
+            // 截断多余的尾部数字段，如 JUR-664-30000 → JUR-664
+            const trimmed = normalized.match(/^([A-Z]{2,10}-\d{2,6})/);
+            if (trimmed) return trimmed[1];
+            return normalized;
         },
  
         normalizeForCompare(text) {
@@ -1184,7 +1213,7 @@
         },
  
         cacheKey(code) {
-            return `trailer_cache_v2_${this.normalize(code)}`;
+            return `trailer_cache_v3_${this.normalize(code)}`;
         },
  
         async show(code) {
@@ -1196,7 +1225,8 @@
                     type: result.type || 'video',
                     source: result.source || '预告片',
                     qualities: result.qualities,
-                    quality: result.quality
+                    quality: result.quality,
+                    urls: result.urls
                 });
             } else {
                 Utils.showToast('未找到可用的视频源。', '节点不可用，请将DMM域名分流到日本ip', 3000);
@@ -1208,10 +1238,11 @@
             const cached = sessionStorage.getItem(this.cacheKey(id));
             if (cached) {
                 try {
-                    return JSON.parse(cached);
+                    const cachedResult = JSON.parse(cached);
+                    if (cachedResult?.url) return cachedResult;
                 } catch {
-                    sessionStorage.removeItem(this.cacheKey(id));
                 }
+                sessionStorage.removeItem(this.cacheKey(id));
             }
  
             const resolvers = [
@@ -1285,6 +1316,8 @@
         },
  
         qualityOptions: [
+            { quality: 'sm', text: '低画质' },
+            { quality: 'dm', text: '中画质' },
             { quality: 'sm_s', text: '旧视频源-低画质 (240p)' },
             { quality: 'dm_s', text: '旧视频源-中画质 (360p)' },
             { quality: 'dmb_s', text: '旧视频源-中画质 (480p)' },
@@ -1300,10 +1333,14 @@
         ],
  
         selectHighestQuality(qualityMap) {
+            return this.sortQualityKeys(qualityMap)[0] || null;
+        },
+
+        sortQualityKeys(qualityMap) {
             const rank = new Map(this.qualityOptions.map((item, index) => [item.quality, index]));
             return Object.keys(qualityMap || {})
                 .filter(key => qualityMap[key])
-                .sort((a, b) => (rank.get(b) ?? -1) - (rank.get(a) ?? -1))[0] || null;
+                .sort((a, b) => (rank.get(b) ?? -1) - (rank.get(a) ?? -1));
         },
  
         async fromDmmApi(id) {
@@ -1318,7 +1355,8 @@
                 if (highestQuality) {
                     return this.result(qualityMap[highestQuality], 'DMM/FANZA 多画质预告', 'video', {
                         qualities: qualityMap,
-                        quality: highestQuality
+                        quality: highestQuality,
+                        urls: this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
                     });
                 }
             }
@@ -1422,6 +1460,7 @@
                 const match = videoUrl.match(qualityRegex);
                 if (!match?.[1]) return;
                 videoUrl = videoUrl
+                    .replace(/^\/\//, 'https://')
                     .replace(/^http:/, 'https:')
                     .replace('cc3001.dmm.co.jp', 'cc3001.dmm.com');
                 qualityMap[match[1]] = videoUrl;
