@@ -40,6 +40,7 @@
 
 (function () {
     'use strict';
+    const SCRIPT_VERSION = '2.1.2';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -249,6 +250,8 @@
                             <a class="sp-footer-link" href="https://github.com/ZiPenOk" target="_blank" rel="noopener noreferrer">Github</a>
                             <span class="sp-footer-sep"></span>
                             <a class="sp-footer-link" href="https://github.com/ZiPenOk/scripts/issues" target="_blank" rel="noopener noreferrer">反馈</a>
+                            <span class="sp-footer-sep"></span>
+                            <span class="sp-footer-link" style="cursor:default;color:#94a3b8;">v${SCRIPT_VERSION}</span>
                         </div>
                         <button class="sp-btn sp-btn-clear" id="sp-clear-cache" type="button">清空缓存</button>
                         <span class="sp-cache-feedback" id="sp-cache-feedback"></span>
