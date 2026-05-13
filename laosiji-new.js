@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.1.5
+// @version      2.1.6
 // @description  JavBus / JavDB / JavLib 磁力搜索与番号助手，集成 115 离线、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
 // @author       ZiPenOk
@@ -42,7 +42,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.1.5';
+    const SCRIPT_VERSION = '2.1.6';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -1599,7 +1599,7 @@
                 { regex: /([A-Z]{2,15})[-_\s]([A-Z]{1,2}\d{2,10})/i, type: 'alphanum' },
                 { regex: /([A-Z]{2,15})[-_\s](\d{2,10})(?:[-_](\d{1,3}))?/i, type: 'standard' },
                 { regex: /FC2[-\s_]?(?:PPV)?[-\s_]?(\d{6,9})/i, type: 'fc2' },
-                { regex: /(\d{6})[-_\s]?(\d{2,3})/, type: 'numeric' },
+                { regex: /(\d{6})([-_\s]?)(\d{2,3})/, type: 'numeric' },
                 { regex: /\b([A-Z]{2,10})(\d{3,6})\b/i, type: 'compactStandard' },
                 { regex: /([A-Z]{1,2})(\d{3,4})/i, type: 'compact' }
             ];
@@ -1620,7 +1620,8 @@
                 } else if (type === 'fc2') {
                     return `FC2-PPV-${match[1]}`;
                 } else if (type === 'numeric') {
-                    return `${match[1]}-${match[2]}`;
+                    if (match[2] === '_') return `${match[1]}_${match[3]}`;
+                    return `${match[1]}-${match[3]}`;
                 } else if (type === 'compactStandard') {
                     const prefix = match[1].toUpperCase();
                     if (ignoreList.includes(prefix)) continue;
@@ -2318,8 +2319,8 @@
                 const number = compact[2].replace(/^0+(?=\d{3})/, '');
                 return `${compact[1]}-${number}`;
             }
-            // 有些站会塞尾巴，先按主番号收。
-            const trimmed = normalized.match(/^([A-Z]{2,10}-\d{2,6})/);
+            // 保留下划线，避免把一本道这类番号误归到横杠形式。
+            const trimmed = normalized.match(/^([A-Z0-9]{2,15}[-_]\d{2,6})/);
             if (trimmed) return trimmed[1];
             return normalized;
         },
@@ -2350,9 +2351,11 @@
         },
 
         async get(code) {
+            const rawCode = String(code || '').trim();
             const id = this.normalize(code);
             const cacheEnabled = Settings.getTrailerCacheEnabled();
-            if (cacheEnabled) {
+            const isPondoUnderscore = /^\d{6}_\d{3}$/.test(rawCode.toLowerCase());
+            if (cacheEnabled && !isPondoUnderscore) {
                 const cached = sessionStorage.getItem(this.cacheKey(id));
                 if (cached) {
                     try {
@@ -2362,6 +2365,10 @@
                     }
                     sessionStorage.removeItem(this.cacheKey(id));
                 }
+            }
+
+            if (isPondoUnderscore) {
+                return this.result(`https://smovie.1pondo.tv/sample/movies/${rawCode.toLowerCase()}/480p.mp4`, '无码直连预告');
             }
 
             const resolvers = [
@@ -2605,14 +2612,25 @@
 
 
         async fromDirectSamples(id) {
-            const urls = [];
             const lower = id.toLowerCase();
+
+            // 一本道这类下划线番号优先直接返回 1pondo；不要先做 HEAD 探测，避免被加勒比兜底抢走。
+            if (/^\d{6}_\d{3}$/.test(lower)) {
+                return this.result(`https://smovie.1pondo.tv/sample/movies/${lower}/480p.mp4`, '无码直连预告');
+            }
+
+            const urls = [];
+            if (/^\d{6}_\d{3}$/.test(lower)) {
+                urls.push(`https://smovie.1pondo.tv/sample/movies/${lower}/480p.mp4`);
+                urls.push(`http://smovie.1pondo.tv/sample/movies/${lower}/480p.mp4`);
+            }
 
             if (/^[01]\d{5}-\d{2,3}$/.test(lower)) {
                 urls.push(`https://smovie.caribbeancom.com/sample/movies/${lower}/480p.mp4`);
                 urls.push(`http://smovie.caribbeancom.com/sample/movies/${lower}/480p.mp4`);
-                urls.push(`https://smovie.1pondo.tv/sample/movies/${lower.replace('-', '_')}/480p.mp4`);
-                urls.push(`http://smovie.1pondo.tv/sample/movies/${lower.replace('-', '_')}/480p.mp4`);
+                const pondoCode = lower.replace('-', '_');
+                urls.push(`https://smovie.1pondo.tv/sample/movies/${pondoCode}/480p.mp4`);
+                urls.push(`http://smovie.1pondo.tv/sample/movies/${pondoCode}/480p.mp4`);
             }
 
             if (/^heyzo[-_ ]?\d{4}$/i.test(id)) {
