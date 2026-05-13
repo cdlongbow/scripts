@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.1.2
+// @version      2.1.4
 // @description  JavBus / JavDB / JavLib 磁力搜索与番号助手，集成 115 离线、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
 // @author       ZiPenOk
@@ -40,7 +40,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.1.2';
+    const SCRIPT_VERSION = '2.1.4';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -719,6 +719,16 @@
         }
 
         function fillTable(table, data, engineUrl) {
+            // 按文件大小由高到低排序
+            const parseSize = s => {
+                if (!s) return 0;
+                const m = s.replace(/,/g, '').match(/([\d.]+)\s*(GiB|MiB|KiB|GB|MB|KB|B)?/i);
+                if (!m) return 0;
+                const n = parseFloat(m[1]);
+                const u = (m[2] || 'B').toUpperCase();
+                return n * ({ GIB: 1073741824, MIB: 1048576, KIB: 1024, GB: 1073741824, MB: 1048576, KB: 1024, B: 1 }[u] || 1);
+            };
+            data = [...data].sort((a, b) => parseSize(b.size) - parseSize(a.size));
 
             const notice = table.querySelector('#jav-nong-notice');
             if (notice) notice.parentElement.remove();
@@ -2361,7 +2371,7 @@
                 this.fromDmmApi,
                 this.fromCurrentPage,
                 this.fromJavbus,
-                this.fromDmmHeuristic,
+                this.fromJavPackApi,
                 this.fromJavSpyl
             ];
 
@@ -2661,12 +2671,20 @@
             return url ? this.result(url, 'JavBus DMM 预告') : null;
         },
 
-        async fromDmmHeuristic(id) {
-            if (!/^[A-Z]{2,10}-\d{2,6}$/i.test(id) || /^FC2-/i.test(id)) return null;
-            const urlParts = this.buildDmmUrlParts(id);
-            const urls = urlParts.flatMap(part => this.dmmUrlsFromPart(part));
-            const url = await this.firstWorkingUrl(urls, 10);
-            return url ? this.result(url, 'DMM 通用预告') : null;
+        async fromJavPackApi(id) {
+            // jav-pack-api: 直接返回 DMM 预告片地址，无需 API key
+            // https://jav-pack-api.bolin.workers.dev/trailers/{番号}
+            if (/^FC2-/i.test(id)) return null;
+            const apiUrl = `https://jav-pack-api.bolin.workers.dev/trailers/${encodeURIComponent(id)}`;
+            const r = await this.request(apiUrl, { timeout: 10000 });
+            if (!r?.responseText || r.status < 200 || r.status >= 400) return null;
+
+            let json;
+            try { json = JSON.parse(r.responseText); } catch { return null; }
+            const url = json?.trailer;
+            if (!url) return null;
+
+            return this.result(url, 'DMM 预告', 'video', { urls: [url] });
         },
 
         async fromJavSpyl(id) {
@@ -2731,26 +2749,7 @@
             return urls;
         },
 
-        buildDmmUrlParts(id) {
-            const [corpRaw, numRaw] = id.toLowerCase().split('-');
-            const numPlain = (numRaw || '').replace(/^0+(?=\d)/, '');
-            if (!corpRaw || !numPlain) return [];
 
-            const n3 = numPlain.padStart(3, '0');
-            const n5 = numPlain.padStart(5, '0');
-            const cidPrefixes = [
-                '',
-                '1', '118', '84', '53', '55', '57', '13',
-                'h_086', 'h_237', 'h_1133', 'h_491'
-            ];
-            const parts = [];
-
-            cidPrefixes.forEach(prefix => {
-                parts.push(`${prefix}${corpRaw}${n3}`);
-                parts.push(`${prefix}${corpRaw}${n5}`);
-            });
-            return [...new Set(parts)];
-        }
     };
 
     const Settings = {
