@@ -6,8 +6,10 @@
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
 // @author       ZiPenOk
 
-// @match        *://*javlibrary.com/*
-// @match        *://*javbus.com/*
+// @match        *://*.javlibrary.com/*
+// @match        *://javlibrary.com/*
+// @match        *://*.javbus.com/*
+// @match        *://javbus.com/*
 // @include      *://*javdb*.com/*
 
 // Jav Jump merged sites
