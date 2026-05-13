@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.1.4
+// @version      2.1.5
 // @description  JavBus / JavDB / JavLib 磁力搜索与番号助手，集成 115 离线、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
 // @author       ZiPenOk
@@ -40,7 +40,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.1.4';
+    const SCRIPT_VERSION = '2.1.5';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -673,7 +673,7 @@
                 if (k === curKey) op.selected = true;
                 sel.appendChild(op);
             });
-            // 每次切换后重新量自然宽度，自适应但不低于 80px
+
             const fitSelWidth = () => {
                 sel.style.width = '';
                 const natural = sel.offsetWidth;
@@ -719,7 +719,6 @@
         }
 
         function fillTable(table, data, engineUrl) {
-            // 按文件大小由高到低排序
             const parseSize = s => {
                 if (!s) return 0;
                 const m = s.replace(/,/g, '').match(/([\d.]+)\s*(GiB|MiB|KiB|GB|MB|KB|B)?/i);
@@ -761,7 +760,6 @@
                 const nameSpan = document.createElement('span');
                 nameSpan.className = 'nong-magnet-name';
                 nameSpan.title = item.title;
-                // 中字别判太松，误伤普通标题很烦。
                 const _hasCJK = /[\u4e00-\u9fff]/.test(item.title);
                 const _hasJP  = /[\u3040-\u309f\u30a0-\u30ff]/.test(item.title);
                 const isChinese = /(?:[^A-Za-z]|^)FHDC(?:[^A-Za-z]|$)/i.test(item.title)
@@ -888,7 +886,6 @@
                 const fn = allEngines[engineKey] || Object.values(allEngines)[0];
                 const { url, data } = await fn(avid);
                 clearTimeout(timer);
-                // 超时后的刷新入口别被空结果顶掉。
                 if (timedOut) return;
                 fillTable(table, data, url);
             } catch(e) {
@@ -2369,9 +2366,7 @@
                 this.fromDirectSamples,
                 this.fromFc2Hub,
                 this.fromDmmApi,
-                this.fromCurrentPage,
-                this.fromJavbus,
-                this.fromJavPackApi,
+                this.fromDmmPlayerPage,
                 this.fromJavSpyl
             ];
 
@@ -2568,41 +2563,44 @@
                 return null;
             }
 
-            if (!Array.isArray(args.bitrates)) return null;
-
             const qualityKeys = this.qualityOptions.map(item => item.quality).join('|');
             const qualityRegex = new RegExp(`(${qualityKeys})\\.mp4(?:[?#].*)?$`);
             const qualityMap = {};
 
-            args.bitrates.forEach(item => {
-                let videoUrl = item?.src;
-                if (!videoUrl || typeof videoUrl !== 'string') return;
+            const normalizeVideoUrl = (url) => String(url || '')
+                .replace(/^\/\//, 'https://')
+                .replace(/^http:/, 'https:')
+                .replace('cc3001.dmm.co.jp', 'cc3001.dmm.com');
+            const resolveQuality = (videoUrl) => {
                 const match = videoUrl.match(qualityRegex);
-                if (!match?.[1]) return;
-                videoUrl = videoUrl
-                    .replace(/^\/\//, 'https://')
-                    .replace(/^http:/, 'https:')
-                    .replace('cc3001.dmm.co.jp', 'cc3001.dmm.com');
-                qualityMap[match[1]] = videoUrl;
-            });
+                if (match?.[1]) return match[1];
+                const filename = decodeURIComponent(videoUrl.split(/[?#]/)[0].split('/').pop() || '')
+                    .replace(/\.mp4$/i, '')
+                    .toLowerCase();
+                const suffix = filename
+                    .replace(String(contentId).toLowerCase(), '')
+                    .replace(/^[_-]+/, '');
+                return this.qualityOptions.some(item => item.quality === suffix) ? suffix : '';
+            };
+            const addVideoUrl = (rawUrl, fallbackQuality = '') => {
+                if (!rawUrl || typeof rawUrl !== 'string') return;
+                const videoUrl = normalizeVideoUrl(rawUrl);
+                const quality = resolveQuality(videoUrl) || fallbackQuality;
+                if (!quality) return;
+                qualityMap[quality] = videoUrl;
+            };
+
+            if (Array.isArray(args.bitrates)) {
+                args.bitrates.forEach(item => addVideoUrl(item?.src));
+            }
+            if (!Object.keys(qualityMap).length && args.src) {
+                addVideoUrl(args.src, 'mhb');
+            }
 
             return Object.keys(qualityMap).length ? qualityMap : null;
         },
 
-        fromCurrentPage(id) {
-            if (/javbus\.com/i.test(location.hostname)) {
-                const direct = this.extractMp4FromDoc(document, location.href);
-                if (direct) return this.result(direct, '当前 JavBus 页面');
 
-                const cid = this.extractDmmCid(document.documentElement.innerHTML);
-                if (cid) {
-                    return this.firstWorkingUrl(this.dmmUrlsFromPart(cid))
-                        .then(url => url ? this.result(url, 'JavBus DMM 预告') : null);
-                }
-            }
-
-            return null;
-        },
 
         async fromDirectSamples(id) {
             const urls = [];
@@ -2651,40 +2649,57 @@
             return this.result(iframeUrl.startsWith('http') ? iframeUrl : new URL(iframeUrl, detailUrl).href, 'FC2Hub 预告', 'iframe');
         },
 
-        async fromJavbus(id) {
-            if (!/^[A-Z]{2,10}-\d{2,6}$/i.test(id)) return null;
 
-            const detailUrl = `https://www.javbus.com/${encodeURIComponent(id)}`;
-            const doc = await this.requestDoc(detailUrl, { timeout: 15000 });
-            if (!doc) return null;
 
-            const direct = this.extractMp4FromDoc(doc, detailUrl);
-            if (direct) {
-                const finalUrl = await this.head(direct);
-                if (finalUrl) return this.result(finalUrl, 'JavBus 页面预告');
-            }
+        async fromDmmPlayerPage(id) {
 
-            const cid = this.extractDmmCid(doc.documentElement.innerHTML);
-            if (!cid) return null;
+            if (!/^[A-Z]{2,10}-\d{2,6}$/i.test(id) || /^FC2-/i.test(id)) return null;
 
-            const url = await this.firstWorkingUrl(this.dmmUrlsFromPart(cid));
-            return url ? this.result(url, 'JavBus DMM 预告') : null;
-        },
+            const headers = {
+                'accept-language': 'ja-JP,ja;q=0.9',
+                Cookie: 'age_check_done=1',
+                Referer: 'https://www.dmm.co.jp/',
+            };
 
-        async fromJavPackApi(id) {
-            // jav-pack-api: 直接返回 DMM 预告片地址，无需 API key
-            // https://jav-pack-api.bolin.workers.dev/trailers/{番号}
-            if (/^FC2-/i.test(id)) return null;
-            const apiUrl = `https://jav-pack-api.bolin.workers.dev/trailers/${encodeURIComponent(id)}`;
-            const r = await this.request(apiUrl, { timeout: 10000 });
-            if (!r?.responseText || r.status < 200 || r.status >= 400) return null;
+            const searchUrl = `https://www.dmm.co.jp/mono/-/search/=/searchstr=${encodeURIComponent(id)}/`;
+            const sr = await this.request(searchUrl, { timeout: 15000, headers });
+            if (!sr?.responseText || sr.status < 200 || sr.status >= 400) return null;
 
-            let json;
-            try { json = JSON.parse(r.responseText); } catch { return null; }
-            const url = json?.trailer;
-            if (!url) return null;
+            const cidMatch = sr.responseText.match(/\/detail\/=\/cid=([a-z0-9_]+)\//i);
+            if (!cidMatch) return null;
+            const cid = cidMatch[1].toLowerCase();
 
-            return this.result(url, 'DMM 预告', 'video', { urls: [url] });
+            const ajaxUrl = `https://www.dmm.co.jp/mono/dvd/-/detail/ajax-movie/=/cid=${cid}/`;
+            const ar = await this.request(ajaxUrl, {
+                timeout: 15000,
+                headers: {
+                    'accept': 'text/html, */*; q=0.01',
+                    'accept-language': 'ja-JP,ja;q=0.9',
+                    'x-requested-with': 'XMLHttpRequest',
+                    Cookie: 'age_check_done=1',
+                    Referer: `https://www.dmm.co.jp/mono/dvd/-/detail/=/cid=${cid}/`,
+                }
+            });
+            if (!ar?.responseText || ar.status < 200 || ar.status >= 400) return null;
+
+            const iframeMatch = ar.responseText.match(/service=([A-Za-z0-9_-]+)\/floor=([A-Za-z0-9_-]+)\//);
+            if (!iframeMatch) return null;
+            const serviceCode = iframeMatch[1];
+            const floorCode   = iframeMatch[2];
+
+            const qualityMap = await this.extractDmmTrailerLinks({
+                contentId: cid,
+                serviceCode,
+                floorCode
+            });
+            const highestQuality = this.selectHighestQuality(qualityMap);
+            if (!highestQuality) return null;
+
+            return this.result(qualityMap[highestQuality], 'DMM 预告', 'video', {
+                qualities: qualityMap,
+                quality: highestQuality,
+                urls: this.sortQualityKeys(qualityMap).map(k => qualityMap[k])
+            });
         },
 
         async fromJavSpyl(id) {
@@ -2731,23 +2746,7 @@
             return match?.[1]?.toLowerCase() || null;
         },
 
-        dmmUrlsFromPart(part) {
-            const urlPart = String(part || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
-            if (!urlPart || urlPart.length < 5) return [];
-            const infix = 'litevideo/freepv';
-            const hosts = ['cc3001.dmm.com'];
-            const qualities = ['mhb', '_dmb_w'];
-            const first = urlPart[0];
-            const prefix = urlPart.substring(0, 3);
-            const urls = [];
 
-            hosts.forEach(host => {
-                qualities.forEach(q => {
-                    urls.push(`https://${host}/${infix}/${first}/${prefix}/${urlPart}/${urlPart}${q}.mp4`);
-                });
-            });
-            return urls;
-        },
 
 
     };
