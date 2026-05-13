@@ -2861,6 +2861,13 @@
         container.appendChild(btn);
     }
 
+    function addDmmBtn(code, container, useCapture = false) {
+        const btn = Utils.createBtn('▶ FANZA', '#c0392b', () => {
+            window.open(`https://www.dmm.co.jp/mono/-/search/=/searchstr=${encodeURIComponent(code)}/`);
+        }, useCapture);
+        container.appendChild(btn);
+    }
+
     function addTrailerBtn(code, container, useCapture = false) {
         const btn = Utils.createBtn('🎞️ 预告片', '#111827', async () => {
             const oldText = btn.textContent;
@@ -3060,6 +3067,7 @@
             addJavbusBtn(code, btnGroup);
             addJavdbBtn(code, btnGroup);
             addMissAVBtn(code, btnGroup);
+            addDmmBtn(code, btnGroup);
             addSearchMenu(code, btnGroup);
             addTrailerBtn(code, btnGroup);
             addPreviewBtn(code, btnGroup);
@@ -3142,6 +3150,7 @@
             addJavbusBtn(code, btnGroup);
             addJavdbBtn(code, btnGroup);
             addMissAVBtn(code, btnGroup);
+            addDmmBtn(code, btnGroup);
             addSearchMenu(code, btnGroup);
             addTrailerBtn(code, btnGroup);
             addPreviewBtn(code, btnGroup);
