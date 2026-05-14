@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.5.5
+// @version      5.6.0
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -562,39 +562,101 @@
         batchComplete(foundCount) { Status.success(`✅ Emby查询完成，找到 ${foundCount} 项`, true); }
     };
 
-    // 统一番号提取规则（从文本中提取）
+    function normalizeCode(code) {
+        const raw = String(code || '').trim();
+        if (!raw) return '';
+
+        const normalized = raw
+            .replace(/\s+/g, '-')
+            .replace(/^FC2[-_]?PPV[-_]?/i, 'FC2-')
+            .toUpperCase();
+
+        const uncensoredHit = normalized.match(/(?:PACOPACOMAMA|1PONDO|CARIBBEANCOM|CARIB|HEYZO)?[-_\s]*(\d{6})([-_])(\d{2,3})/i);
+        if (uncensoredHit) {
+            return `${uncensoredHit[1]}${uncensoredHit[2]}${uncensoredHit[3]}`;
+        }
+
+        const compact = normalized.match(/^([A-Z]{2,10})(\d{3,6})$/);
+        if (compact) {
+            const number = compact[2].replace(/^0+(?=\d{3})/, '');
+            return `${compact[1]}-${number}`;
+        }
+
+        const trimmed = normalized.match(/^([A-Z0-9]{2,15}[-_]\d{2,6})/);
+        if (trimmed) return trimmed[1];
+
+        return normalized;
+    }
+
     function extractCodeFromText(text) {
         if (!text) return null;
 
+        const uncensoredHit = String(text).match(/(?:PACOPACOMAMA|1PONDO|CARIBBEANCOM|CARIB|HEYZO)?[-_\s]*(\d{6})([-_])(\d{2,3})/i);
+        if (uncensoredHit) {
+            return normalizeCode(`${uncensoredHit[1]}${uncensoredHit[2]}${uncensoredHit[3]}`);
+        }
+
         const patterns = [
-            /FC2[-\s_]?(?:PPV)?[-\s_]?(\d{6,9})/i,
-            /([A-Z]{2,15})-(\d{2,10})(?:-(\d+))?/i,
-            /([A-Z]{2,15})-([A-Z]{0,2}\d{2,10})/i,
-            /^[A-Z0-9]+[-_](\d{6}[-_]\d{2,3})/i,
-            /(\d{6}[-_]\d{2,3})[-_][A-Z0-9]+$/i,
-            /(?<!\w)(\d{6}[-_]\d{2,3})(?!\w)/,
-            /([A-Z]{1,2})(\d{3,4})/i
+            { regex: /([A-Z]{2,15})[-_\s]([A-Z]{1,2}\d{2,10})/i, type: 'alphanum' },
+            { regex: /([A-Z]{2,15})[-_\s](\d{2,10})(?:[-_](\d{1,3}))?/i, type: 'standard' },
+            { regex: /FC2[-\s_]?(?:PPV)?[-\s_]?(\d{6,9})/i, type: 'fc2' },
+            { regex: /(\d{6})([-_\s]?)(\d{2,3})/, type: 'numeric' },
+            { regex: /\b([A-Z]{2,10})(\d{3,6})\b/i, type: 'compactStandard' },
+            { regex: /([A-Z]{1,2})(\d{3,4})/i, type: 'compact' }
         ];
 
-        for (let i = 0; i < patterns.length; i++) {
-            const match = text.match(patterns[i]);
-            if (match) {
-                if (i === 0) { // FC2
-                    return `FC2-PPV-${match[1]}`;
-                } else if (i === 1) {
-                    return match[3] ? `${match[1]}-${match[2]}-${match[3]}` : `${match[1]}-${match[2]}`;
-                } else if (i === 2) {
-                    return match[0];
-                } else if (i === 3 || i === 4) {
-                    return match[1];
-                } else if (i === 5) {
-                    return match[1];
-                } else if (i === 6) {
-                    return match[0];
-                }
+        const ignoreList = ['FULLHD', 'H264', 'H265', '1080P', '720P', 'PART', 'DISC', '10BIT'];
+
+        for (const { regex, type } of patterns) {
+            const match = String(text).match(regex);
+            if (!match) continue;
+
+            if (type === 'alphanum') {
+                return normalizeCode(match[0].trim());
+            } else if (type === 'standard') {
+                const prefix = match[1].toUpperCase();
+                if (ignoreList.includes(prefix)) continue;
+                return normalizeCode(match[3] ? `${prefix}-${match[2]}-${match[3]}` : `${prefix}-${match[2]}`);
+            } else if (type === 'fc2') {
+                return normalizeCode(`FC2-PPV-${match[1]}`);
+            } else if (type === 'numeric') {
+                return normalizeCode(match[2] === '_' ? `${match[1]}_${match[3]}` : `${match[1]}-${match[3]}`);
+            } else if (type === 'compactStandard') {
+                const prefix = match[1].toUpperCase();
+                if (ignoreList.includes(prefix)) continue;
+                const number = match[2].replace(/^0+(?=\d{3})/, '');
+                return normalizeCode(`${prefix}-${number}`);
+            } else if (type === 'compact') {
+                return normalizeCode(match[0].toUpperCase());
             }
         }
+
         return null;
+    }
+
+    function getUncensoredFamilyFromParts(sep, tail) {
+        if (sep === '_' && tail === '100') return 'paco';
+        if (sep === '_' && tail === '001') return '1pondo';
+        if (sep === '-' && tail === '001') return 'carib';
+        return sep === '_' ? 'underscore' : 'hyphen';
+    }
+
+    function parseUncensoredCode(code) {
+        const value = String(code || '').toUpperCase();
+        const hit = value.match(/(\d{6})([-_])(\d{2,3})/);
+        if (!hit) return null;
+        return {
+            digits: hit[1],
+            sep: hit[2],
+            tail: hit[3],
+            core: `${hit[1]}${hit[3]}`,
+            code: `${hit[1]}${hit[2]}${hit[3]}`,
+            family: getUncensoredFamilyFromParts(hit[2], hit[3])
+        };
+    }
+
+    function getUncensoredFamily(code) {
+        return parseUncensoredCode(code)?.family || null;
     }
 
     // 设置面板 - 多服务器版（新增深色模式切换）
@@ -1151,6 +1213,14 @@
                             `${Config.embyBaseUrl}emby/Items/${cached.itemId}?api_key=${Config.embyAPI}`;
                         const res = await this.request(checkUrl);
                         const item = JSON.parse(res.responseText);
+                        if (parseUncensoredCode(clean)) {
+                            const best = this.findBestMatch([item], c, clean);
+                            if (!best) {
+                                EmbyCache.remove(c);
+                                continue;
+                            }
+                            return { Items: [best], _searchCode: c, _fromCache: true };
+                        }
                         return { Items: [item], _searchCode: c, _fromCache: true };
                     } catch {
                         EmbyCache.remove(c);
@@ -1173,7 +1243,7 @@
                     data._searchCode = c;
 
                     if (data.Items?.length) {
-                        const best = this.findBestMatch(data.Items, c);
+                        const best = this.findBestMatch(data.Items, c, clean);
                         if (best) EmbyCache.set(c, best);
                         return data;
                     }
@@ -1190,41 +1260,61 @@
             if (!code) return null;
 
             const clean = code.trim().toUpperCase();
+            const tryCodes = [];
+            const addCode = (value) => {
+                const v = String(value || '').trim().toUpperCase();
+                if (!v || tryCodes.includes(v)) return;
+                tryCodes.push(v);
+            };
 
-            let tryCodes = [clean];
+            addCode(clean);
+
+            const isUncensored = /^\d{6}[-_]\d{2,3}$/i.test(clean);
+            const uncensoredFamily = getUncensoredFamily(clean);
+            const isUncensoredWithPrefix = /(?:PACOPACOMAMA|PACO|1PONDO|CARIBBEANCOM|CARIB|HEYZO)[-_ ]+\d{6}[-_]\d{2,3}/i.test(clean);
 
             // 处理 FC2 变体
             const fc2PPVMatch = clean.match(/^FC2-PPV-(\d+)$/i);
             const fc2Match = clean.match(/^FC2-(\d+)$/i);
             if (fc2PPVMatch) {
-                tryCodes.push(`FC2-${fc2PPVMatch[1]}`);
+                addCode(`FC2-${fc2PPVMatch[1]}`);
             } else if (fc2Match) {
-                tryCodes.push(`FC2-PPV-${fc2Match[1]}`);
+                addCode(`FC2-PPV-${fc2Match[1]}`);
             }
 
             // 标准番号降级（如 IPZZ-777-2 -> IPZZ-777）
             const mainMatch = clean.match(/^([A-Z]+-\d+)/);
-            if (mainMatch && mainMatch[1] !== clean) {
-                tryCodes.push(mainMatch[1]);
+            if (mainMatch && mainMatch[1] !== clean && !isUncensored) {
+                addCode(mainMatch[1]);
             }
 
-            // 如果原始番号是纯数字核心（即提取后的结果），只生成无分隔符版本作为备选（保留原始分隔符）
-            const pureDigitMatch = clean.match(/^\d{6}[-_]\d{2,3}$/);
-            if (pureDigitMatch) {
-                // 原始格式已在 tryCodes 中，只需添加无分隔符版本
-                tryCodes.push(clean.replace(/[-_]/, ''));
+            if (isUncensored || isUncensoredWithPrefix) {
+                const core = clean.match(/(\d{6})[-_](\d{2,3})/);
+                if (core) {
+                    const head = core[1];
+                    const tail = core[2];
+                    const sep = clean.match(/[-_]/)?.[0] || '_';
+
+                    // 只查“输入同形态” + 无分隔符兜底
+                    addCode(`${head}${sep}${tail}`);
+                    addCode(`${head}${tail}`);
+                }
+
+                // 带站点前缀时同样保持原样，不再互转分隔符
+                const prefixMatch = clean.match(/^(PACOPACOMAMA|PACO|1PONDO|CARIBBEANCOM|CARIB|HEYZO)[-_ ]+(\d{6}[-_]\d{2,3})/i);
+                if (prefixMatch) {
+                    addCode(prefixMatch[2]);
+                    addCode(prefixMatch[2].replace(/[-_]/g, ''));
+                }
             }
 
             // 如果原始番号带厂商后缀，提取纯数字核心（使用原始分隔符）作为备选
             const suffixDigitMatch = clean.match(/^(\d{6})([-_])(\d{2,3})[-_][A-Z0-9]+$/i);
             if (suffixDigitMatch) {
                 const base = `${suffixDigitMatch[1]}${suffixDigitMatch[2]}${suffixDigitMatch[3]}`; // 保留原始分隔符
-                tryCodes.push(base);
-                tryCodes.push(base.replace(/[-_]/, '')); // 无分隔符版本
+                addCode(base);
+                addCode(base.replace(/[-_]/, '')); // 无分隔符版本
             }
-
-            // 去重
-            tryCodes = [...new Set(tryCodes)];
 
             // 先查缓存
             for (const c of tryCodes) {
@@ -1234,6 +1324,15 @@
                         const checkUrl = `${Config.embyBaseUrl}emby/Items/${cached.itemId}?api_key=${Config.embyAPI}`;
                         const res = await this.request(checkUrl);
                         const item = JSON.parse(res.responseText);
+
+                        // 无码场景：缓存命中也要走同一套匹配规则，避免 _ / - 串号
+                        if (parseUncensoredCode(clean)) {
+                            const best = this.findBestMatch([item], c, code);
+                            if (best) return best;
+                            EmbyCache.remove(c);
+                            continue;
+                        }
+
                         return item;
                     } catch {
                         EmbyCache.remove(c);
@@ -1393,9 +1492,15 @@
 
             // 从番号中提取数字部分（SNOS-180 → 180），用于精确数字验证
             const targetNumPart = target.match(/(\d+)$/)?.[1] || '';
+            const targetParsed = parseUncensoredCode(target);
+            const originalParsed = parseUncensoredCode(originalCode);
+            const effectiveUncensored = targetParsed || originalParsed;
+            const targetFamily = targetParsed?.family || originalParsed?.family || null;
 
             // 判断原始番号是否带厂商后缀
-            const hasSuffix = /^\d{6}[-_]\d{2,3}[-_][A-Z0-9]+$/i.test(originalCode);
+            const hasSuffix = /^\d{6}[-_]\d{2,3}[-_][A-Z0-9]+$/i.test(originalCode) && !/^\d{6}[-_]\d{2,3}$/.test(originalCode);
+            const originalFamily = originalParsed?.family || null;
+            const originalSep = originalParsed?.sep || originalCode.match(/[-_]/)?.[0] || '';
             let originalSuffix = null;
             if (hasSuffix) {
                 originalSuffix = originalCode.replace(/^\d{6}[-_]\d{2,3}[-_]/, '').toUpperCase();
@@ -1419,20 +1524,35 @@
 
                 const normalizedName = name.replace(/_/g, '-');
                 const normalizedTarget = target.replace(/_/g, '-');
+                const nameParsed = parseUncensoredCode(name);
+                const targetSep = targetParsed?.sep || target.match(/[-_]/)?.[0] || '';
+                const nameSep = nameParsed?.sep || name.match(/[-_]/)?.[0] || '';
 
-                if (name === target) score = 100;
-                else if (nameClean === targetClean) score = 95;
-                // 只有当分隔符相同时，才允许忽略分隔符差异的包含匹配
-                else if (normalizedName.includes(normalizedTarget) && target.includes('_') === name.includes('_')) score = 92;
-                else if (name === mainTarget) score = 90;
-                else if (nameClean === cleanStr(mainTarget)) score = 88;
-                // score 85/80：必须包含完整的 targetClean（含数字部分），仅前缀相同不够
-                // 防止 SNOS-097 因标题含"180天"而误匹配 SNOS-180
-                else if (normalizedName.includes(normalizedTarget) && targetPrefix === namePrefix) score = 85;
-                else if (nameClean.includes(targetClean) && targetPrefix === namePrefix) score = 80;
-                else if (nameAlphaNum === targetAlphaNum) score = 75;
+                if (targetFamily) {
+                    const targetDigits = effectiveUncensored?.digits || '';
+                    const targetTail = effectiveUncensored?.tail || '';
+                    const expectedSep = effectiveUncensored?.sep || targetSep;
+                    const nameDigits = nameParsed?.digits || '';
+                    const nameTail = nameParsed?.tail || '';
+                    if (targetDigits && nameDigits === targetDigits && nameTail === targetTail && name === target) {
+                        score = 100;
+                    } else if (targetDigits && nameDigits === targetDigits && nameTail === targetTail) {
+                        if (expectedSep && expectedSep !== nameSep) {
+                            score = 60;
+                        } else {
+                            score = 98;
+                        }
+                    }
+                }
 
-                // 如果分数为75（宽松匹配），检查分隔符是否一致，若不一致则降分
+                if (score === 0 && name === target) score = 100;
+                else if (score === 0 && nameClean === targetClean) score = 95;
+                else if (score === 0 && normalizedName.includes(normalizedTarget) && target.includes('_') === name.includes('_')) score = 92;
+                else if (score === 0 && name === mainTarget) score = 90;
+                else if (score === 0 && nameClean === cleanStr(mainTarget)) score = 88;
+                else if (score === 0 && normalizedName.includes(normalizedTarget) && targetPrefix === namePrefix) score = 85;
+                else if (score === 0 && nameClean.includes(targetClean) && targetPrefix === namePrefix) score = 80;
+                else if (score === 0 && nameAlphaNum === targetAlphaNum) score = 75;
                 if (score === 75 && queryCode === originalCode) {
                     const targetHasUnderscore = target.includes('_');
                     const nameHasUnderscore = name.includes('_');
@@ -1441,15 +1561,22 @@
                     }
                 }
 
-                // 如果原始番号带后缀，且名称中也包含一个不同的后缀，则降分
                 if (hasSuffix && score > 0 && nameSuffix && nameSuffix !== originalSuffix) {
                     score = 50;
                 }
 
-                // 额外保护：对于有数字部分的番号，验证 name 里确实含有该番号的完整字母+数字组合
-                // 防止标题内容中恰好包含番号数字的情况（如 SNOS-097 标题含"180天"误匹配 SNOS-180）
-                if (score >= 75 && score < 95 && targetNumPart) {
-                    // 要求 nameClean 中包含 targetClean（完整番号字母+数字），而不仅仅是前缀
+                if (targetFamily) {
+                    const nameFamily = nameParsed?.family || getUncensoredFamily(name);
+                    const targetCore = effectiveUncensored?.core || target.replace(/[^0-9]/g, '');
+                    const nameCore = nameParsed?.core || name.replace(/[^0-9]/g, '');
+                    if (nameFamily && nameFamily !== targetFamily) score = 0;
+                    else if (nameCore && targetCore && nameCore !== targetCore) score = 0;
+                    else if (!nameFamily && originalFamily && originalFamily !== targetFamily) score = 0;
+                    else if (originalSep && nameSep && originalSep === nameSep && name === target) score = 100;
+                    else if (originalSep && nameSep && originalSep !== nameSep && nameCore === targetCore) score = Math.min(score, 90);
+                }
+
+                if (score >= 75 && score < 95 && targetNumPart && !targetFamily) {
                     if (!nameClean.includes(targetClean)) {
                         score = 0;
                     }
@@ -1461,7 +1588,7 @@
                 }
             }
 
-            return bestScore >= 75 ? best : null;
+            return bestScore >= 70 ? best : null;
         }
     }
 
@@ -1472,10 +1599,6 @@
             return this;
         },
 
-        // 公共方法：将 Emby 按钮插入到与 jump.js 共享的行容器。
-        // 若 .jav-jump-btn-group 已存在则追加（加分隔线），
-        // 否则等 600ms 重试（给 jump.js 足够时间先插入按钮行），
-        // 还是没有才在 fallbackAnchor 后独立插入 .emby-button-group。
         appendToSharedRow(link, copyBtn, fallbackAnchor) {
             if (!link && !copyBtn) return;
 
@@ -1494,7 +1617,6 @@
 
             if (doAppend()) return;
 
-            // 600ms 给 jump.js 更充裕的时间插入 .jav-jump-btn-group
             setTimeout(() => {
                 if (doAppend()) return;
                 const container = document.createElement('span');
