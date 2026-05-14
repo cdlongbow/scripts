@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.6.0
+// @version      5.6.1
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -39,7 +39,7 @@
 (function () {
     'use strict';
 
-    // 全局配置对象（多服务器版）—— 新增 darkMode 配置
+    // 全局配置对象
     const Config = {
         // 服务器列表
         get embyServers() {
@@ -48,7 +48,6 @@
         set embyServers(val) {
             GM_setValue('embyServers', val);
         },
-        // 当前活动服务器索引
         get activeServerIndex() {
             return GM_getValue('activeServerIndex', 0);
         },
@@ -56,7 +55,6 @@
             GM_setValue('activeServerIndex', val);
         },
 
-        // 兼容原有单服务器属性（从当前活动服务器读取）
         get embyBaseUrl() {
             const servers = this.embyServers;
             if (servers.length > 0 && this.activeServerIndex < servers.length) {
@@ -71,7 +69,6 @@
             }
             return '';
         },
-        // 设置时更新当前活动服务器
         set embyBaseUrl(val) {
             let servers = this.embyServers;
             if (servers.length === 0) {
@@ -95,7 +92,6 @@
             }
         },
 
-        // 徽章相关配置
         get highlightColor() {
             return GM_getValue('highlightColor', '#52b54b');
         },
@@ -133,7 +129,6 @@
             }
             return saved;
         },
-        // ===== 新增深色模式配置 =====
         get darkMode() {
             return GM_getValue('darkMode', false);
         },
@@ -149,7 +144,6 @@
         set badgeSize(val) { GM_setValue('badgeSize', val); },
         set enabledSites(val) { GM_setValue('enabledSites', val); },
 
-        // 迁移旧数据（如果存在）
         _migrateOldConfig() {
             const oldBaseUrl = GM_getValue('embyBaseUrl', '');
             const oldApiKey = GM_getValue('embyAPI', '');
@@ -173,10 +167,8 @@
         }
     };
 
-    // 立即执行迁移
     Config._migrateOldConfig();
 
-    // 获取徽章尺寸样式
     function getBadgeSizeStyle() {
         switch (Config.badgeSize) {
             case 'small':
@@ -189,7 +181,6 @@
         }
     }
 
-    // 初始化 DOM 样式
     const badgeSize = getBadgeSizeStyle();
 
     GM_addStyle(`
@@ -202,7 +193,6 @@
             --text-dark: #1e2a3a;
         }
 
-        /* 设置面板基础定位 */
         .emby-jump-settings-panel {
             position: fixed;
             top: 50%;
@@ -212,7 +202,6 @@
             display: none;
         }
 
-        /* 状态指示器 */
         .emby-jump-status-indicator {
             position: fixed; bottom: 20px; right: 20px;
             background: rgba(0,0,0,0.7); color: white;
@@ -234,7 +223,6 @@
         .emby-jump-status-indicator.error { background-color: rgba(220,53,69,0.9) !important; }
         .emby-jump-status-indicator .close-btn { margin-left: 10px; cursor: pointer; font-size: 16px; font-weight: bold; }
 
-        /* 徽章样式 */
         .emby-badge {
             position: absolute; top: 5px; right: 5px;
             color: ${Config.badgeTextColor}; padding: ${badgeSize.padding}; font-size: ${badgeSize.fontSize};
@@ -259,7 +247,6 @@
         }
         @keyframes embyFadeIn { to { opacity: 1; } }
 
-        /* 现代化设置面板 */
         .emby-jump-settings-panel.modern {
             font-family: system-ui, sans-serif;
             background: var(--bg-light); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
@@ -320,28 +307,155 @@
         }
         .modern .test-btn:hover { background: #d1dbe8; }
 
-        /* 服务器管理表格 */
-        .modern .servers-table { width: 100%; margin-top: 8px; }
-        .modern .servers-table-header,
-        .modern .server-row { display: flex; padding: 8px 12px; border-bottom: 1px solid var(--border); }
-        .modern .servers-table-header {
-            font-weight: 600; background-color: #e6edf5; border-bottom-width: 2px; border-bottom-color: #b9c7d9;
+        .modern .servers-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 10px;
+            align-items: start;
         }
-        .modern .servers-table-header > div:first-child { flex: 2; }
-        .modern .servers-table-header > div:last-child { flex: 1; text-align: center; }
-        .modern .server-row { align-items: center; }
-        .modern .server-info { flex: 2; display: flex; flex-direction: column; gap: 4px; }
-        .modern .server-name { font-weight: 500; color: #1e293b; font-size: 16px; }
-        .modern .server-url { font-size: 14px; color: #5a6f88; word-break: break-all; }
-        .modern .server-api { font-size: 14px; color: #5a6f88; font-family: monospace; }
-        .modern .server-actions { flex: 1; display: flex; justify-content: center; gap: 8px; }
+        .modern .servers-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 0;
+            max-height: 220px;
+            overflow: auto;
+            padding-right: 4px;
+        }
+        .modern .servers-empty {
+            padding: 14px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 12px;
+            text-align: center;
+            color: #7c8b9c;
+            background: rgba(255,255,255,0.55);
+        }
+        .modern .server-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 12px;
+            background: #fff;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+        .modern .server-row:hover {
+            box-shadow: 0 4px 12px rgba(15,23,42,0.05);
+            border-color: #b9c7d9;
+        }
+        .modern .server-row.editing {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(82,181,75,0.12);
+        }
+        .modern .server-main { min-width: 0; flex: 1; }
+        .modern .server-topline {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 3px;
+            flex-wrap: wrap;
+        }
+        .modern .server-name { font-weight: 700; color: #1e293b; font-size: 14px; }
+        .modern .server-meta {
+            font-size: 12px;
+            color: #64748b;
+            word-break: break-all;
+            line-height: 1.35;
+        }
+        .modern .server-meta.api { margin-top: 2px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+        .modern .server-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+            min-width: 0;
+            justify-content: flex-end;
+        }
         .modern .server-btn {
-            background: none; border: none; font-size: 1.2rem; cursor: pointer;
-            padding: 4px; border-radius: 4px; line-height: 1;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            color: #1e293b;
+            padding: 7px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s ease;
         }
-        .modern .server-btn:hover:not(:disabled) { background-color: #d9e1e8; }
-        .modern .server-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-        .modern .active-badge { font-size: 1.2rem; color: var(--primary); padding: 4px; }
+        .modern .server-btn:hover:not(:disabled) { background: #edf4ff; border-color: #94a3b8; }
+        .modern .server-btn.danger:hover:not(:disabled) { background: #fff1f2; border-color: #fda4af; color: #be123c; }
+        .modern .server-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .modern .server-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            background: #e2e8f0;
+            color: #334155;
+        }
+        .modern .server-chip.active { background: rgba(82,181,75,0.14); color: var(--primary); }
+        .modern .server-chip.editing { background: rgba(59,130,246,0.14); color: #2563eb; }
+        .modern .server-menu-wrap { position: relative; }
+        .modern .server-menu {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 6px);
+            z-index: 10002;
+            min-width: 180px;
+            background: #fff;
+            border: 1px solid #d6e1ee;
+            border-radius: 12px;
+            box-shadow: 0 12px 24px rgba(15,23,42,0.12);
+            padding: 6px;
+            display: none;
+        }
+        .modern .server-menu.open { display: block; }
+        .modern .server-menu button {
+            width: 100%;
+            text-align: left;
+            border: 0;
+            background: transparent;
+            padding: 8px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #1e293b;
+        }
+        .modern .server-menu button:hover { background: #edf4ff; }
+        .modern .server-menu button.danger:hover { background: #fff1f2; color: #be123c; }
+        .modern .server-form-popover {
+            border: 1px solid #d6e1ee;
+            border-radius: 14px;
+            padding: 12px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+            box-shadow: 0 8px 18px rgba(15,23,42,0.06);
+        }
+        .modern .server-form-popover[hidden] { display: none !important; }
+        .modern .server-form-card {
+            display: block;
+        }
+        .modern .server-form-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .modern .server-form-title { font-size: 16px; font-weight: 700; color: #0f172a; }
+        .modern .server-form-subtitle { margin-top: 2px; font-size: 12px; color: #64748b; line-height: 1.4; }
+        .modern .server-form-grid { display: grid; gap: 10px; }
+        .modern .server-api-field small { margin-top: 1px; }
+        .modern .server-form-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .modern .server-form-actions-right { display: flex; gap: 8px; flex-wrap: wrap; }
         .modern .btn.secondary {
             background: #e2e8f0; color: #1e293b; border: 1px solid #b9c7d9;
             padding: 8px 16px; border-radius: 30px; font-weight: 500; cursor: pointer; font-size: 15px;
@@ -362,7 +476,6 @@
         .modern input:checked + .slider { background-color: var(--primary); }
         .modern input:checked + .slider:before { transform: translateX(20px); }
 
-        /* 站点开关表头 */
         .modern .sites-header-fixed,
         .modern .sites-row-flex { display: flex; padding: 8px 12px; border-bottom: 1px solid var(--border); align-items: center; }
         .modern .sites-header-fixed {
@@ -389,11 +502,9 @@
         .modern .btn.save { background: var(--primary); color: white; }
         .modern .btn.save:hover { background: #3e9e37; }
 
-        /* 深色模式切换 */
         .modern .dark-mode-toggle { font-size: 26px; cursor: pointer; line-height: 1; padding: 0 4px; user-select: none; transition: transform 0.2s; }
         .modern .dark-mode-toggle:hover { transform: scale(1.1); }
 
-        /* 深色模式（仅覆盖颜色） */
         .emby-jump-settings-panel.modern.dark-mode,
         .modern.dark-mode .settings-header,
         .modern.dark-mode .settings-footer,
@@ -410,9 +521,19 @@
         .modern.dark-mode .field input,
         .modern.dark-mode .field select { background: #1e1e30; border-color: #4a4a60; color: #e0e0f0; }
         .modern.dark-mode .field input:focus { border-color: var(--primary); }
+        .modern.dark-mode .server-row,
+        .modern.dark-mode .server-form-popover { background: #1e1e30; border-color: #40405a; }
+        .modern.dark-mode .servers-empty { background: rgba(255,255,255,0.03); border-color: #40405a; color: #a0a0b8; }
+        .modern.dark-mode .server-name { color: #f8fafc; }
+        .modern.dark-mode .server-form-title { color: #f4f4ff; }
         .modern.dark-mode .server-url,
-        .modern.dark-mode .server-api { color: #a0a0b8; }
-        .modern.dark-mode .server-btn:hover:not(:disabled) { background: #3a3a50; }
+        .modern.dark-mode .server-meta,
+        .modern.dark-mode .server-form-subtitle { color: #a0a0b8; }
+        .modern.dark-mode .server-menu { background: #1e1e30; border-color: #40405a; }
+        .modern.dark-mode .server-menu button { color: #e5e7eb; }
+        .modern.dark-mode .server-menu button:hover { background: #2e2e42; }
+        .modern.dark-mode .server-btn:hover:not(:disabled) { background: #2e2e42; border-color: #5a5a78; }
+        .modern.dark-mode .server-btn.danger:hover:not(:disabled) { background: #3a2230; border-color: #7c2d43; color: #fecdd3; }
         .modern.dark-mode .btn.secondary,
         .modern.dark-mode .test-btn { background: #2e2e42; border-color: #5a5a78; color: #ddd; }
         .modern.dark-mode .btn.secondary:hover,
@@ -421,19 +542,13 @@
         .modern.dark-mode .btn.save { background: #3e9e37; }
         .modern.dark-mode .close-btn { color: #aaa; }
 
-        /* JAVLibrary 列表页高亮 */
         .video.emby-highlight { position: relative !important; background: linear-gradient(to bottom, rgba(82,181,75,0.12) 0%, rgba(82,181,75,0.04) 100%) !important; transition: background 0.25s ease !important; }
-        /* 伪元素负责内光晕，不画边框线 */
         .video.emby-highlight::before { content: ''; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 6px 2px rgba(82,181,75,0.5); border-radius: 4px; z-index: 1; opacity: 0.7; }
-        /* 悬停加强（光晕更明显） */
         .video.emby-highlight:hover::before { box-shadow: inset 0 0 12px 4px rgba(82,181,75,0.8); }
         .video.emby-highlight:hover { background: linear-gradient(to bottom, rgba(82,181,75,0.18) 0%, rgba(82,181,75,0.08) 100%) !important; }
-        /* 防偏移 */
         .videothumblist .videos .video:first-child.emby-highlight { transform: translateY(0) !important; margin-top: 0 !important; }
-        /* 标题和 ID 变色 */
         .emby-title-exists, .emby-id-exists { color: #4CAF50 !important; font-weight: 700 !important; text-shadow: 0 0 3px rgba(76,175,80,0.6) !important; }
 
-        /* 统一按钮系统 */
         .emby-btn {
             display: inline-flex; align-items: center; justify-content: center;
             border-radius: 6px; font-weight: 600; cursor: pointer;
@@ -461,7 +576,6 @@
         .emby-button-group { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; }
         }
 
-        /* Sukebei 列表页标题栏按钮布局 */
         .sukebei-list-td {
             display: flex !important;
             align-items: center !important;
@@ -479,7 +593,6 @@
             margin-left: 8px;
         }
 
-        /* MissAV 列表页高亮 */
         .missav .thumbnail.group.emby-highlight {
             outline: 4px solid ${Config.highlightColor} !important;
             outline-offset: -4px !important;
@@ -659,7 +772,6 @@
         return parseUncensoredCode(code)?.family || null;
     }
 
-    // 设置面板 - 多服务器版（新增深色模式切换）
     const SettingsUI = {
         show() {
             let panel = document.getElementById('emby-jump-settings-panel');
@@ -671,12 +783,10 @@
             panel = document.createElement('div');
             panel.id = 'emby-jump-settings-panel';
             panel.className = 'emby-jump-settings-panel modern';
-            // 根据保存的深色模式设置初始类
             if (Config.darkMode) {
                 panel.classList.add('dark-mode');
             }
 
-            // 读取当前配置
             const currentConfig = {
                 embyServers: Config.embyServers,
                 activeServerIndex: Config.activeServerIndex,
@@ -692,34 +802,92 @@
             const initialActiveIndex = Config.activeServerIndex;
             const initialSites = JSON.parse(JSON.stringify(Config.enabledSites));
 
-            // 生成服务器列表HTML
+            const escapeHtml = (str) => String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+
+            const normalizeServer = (server = {}) => ({
+                name: (server.name || '').trim() || '未命名服务器',
+                baseUrl: (server.baseUrl || '').trim(),
+                apiKey: (server.apiKey || '').trim()
+            });
+
+            const emptyServer = () => ({ name: '', baseUrl: '', apiKey: '' });
+
+            let editingServerIndex = -1;
+            let draftServer = emptyServer();
+
             function generateServersHTML() {
                 const servers = Config.embyServers;
                 if (!servers || servers.length === 0) {
-                    return '<div style="padding: 12px; text-align: center; color: #999;">暂无服务器，请添加</div>';
+                    return '<div class="servers-empty">暂无服务器，请先在下方添加</div>';
                 }
-                let rows = '';
-                servers.forEach((server, index) => {
+                return servers.map((server, index) => {
                     const isActive = index === Config.activeServerIndex;
-                    rows += `
-                        <div class="server-row" data-index="${index}">
-                            <div class="server-info">
-                                <span class="server-name">${server.name || '未命名'}</span>
-                                <span class="server-url">${server.baseUrl}</span>
-                                <span class="server-api">${server.apiKey ? '••••••' + server.apiKey.slice(-4) : '未设置'}</span>
+                    const apiTail = server.apiKey ? `•••• ${server.apiKey.slice(-4)}` : '未设置';
+                    return `
+                        <div class="server-row ${index === editingServerIndex ? 'editing' : ''}" data-index="${index}">
+                            <div class="server-main">
+                                <div class="server-topline">
+                                    <span class="server-name">${escapeHtml(server.name || '未命名服务器')}</span>
+                                    ${isActive ? '<span class="server-chip active">当前默认</span>' : ''}
+                                </div>
+                                <div class="server-meta">${escapeHtml(server.baseUrl || '未填写地址')}</div>
+                                <div class="server-meta api">API：${escapeHtml(apiTail)}</div>
                             </div>
                             <div class="server-actions">
-                                ${!isActive ? '<button class="server-btn set-active" title="设为默认">⭐</button>' : '<span class="active-badge" title="当前默认">✅</span>'}
-                                <button class="server-btn edit-server" title="编辑">✏️</button>
-                                <button class="server-btn delete-server" title="删除" ${servers.length === 1 ? 'disabled' : ''}>🗑️</button>
+                                <button class="server-btn set-active" title="设为默认" ${isActive ? 'disabled' : ''}>设为默认</button>
+                                <button class="server-btn edit-server" title="编辑">编辑</button>
+                                <button class="server-btn delete-server danger" title="删除" ${servers.length === 1 ? 'disabled' : ''}>删除</button>
                             </div>
                         </div>
                     `;
-                });
-                return rows;
+                }).join('');
             }
 
-            // 图标显示：深色模式开启时显示☀️（点击切回浅色），关闭时显示🌙（点击切深色）
+            function renderServerForm() {
+                const isEditing = editingServerIndex >= 0;
+                const title = isEditing ? '编辑服务器' : '添加新服务器';
+                const btnText = isEditing ? '保存修改' : '添加服务器';
+                const cancelText = isEditing ? '取消编辑' : '清空';
+                return `
+                    <div class="server-form-card ${isEditing ? 'editing' : ''}">
+                        <div class="server-form-header">
+                            <div>
+                                <div class="server-form-title">${title}</div>
+                                <div class="server-form-subtitle">直接在面板中完成添加、编辑和删除</div>
+                            </div>
+                            ${isEditing ? '<span class="server-chip editing">编辑中</span>' : '<span class="server-chip">新建模式</span>'}
+                        </div>
+                        <div class="server-form-grid">
+                            <div class="field">
+                                <label for="server-name">服务器名称</label>
+                                <input id="server-name" type="text" placeholder="例如：家庭影院" value="${escapeHtml(draftServer.name)}">
+                            </div>
+                            <div class="field">
+                                <label for="server-url">服务器地址</label>
+                                <input id="server-url" type="text" placeholder="https://emby.example.com/" value="${escapeHtml(draftServer.baseUrl)}">
+                            </div>
+                            <div class="field server-api-field">
+                                <label for="server-api-key">API 密钥</label>
+                                <input id="server-api-key" type="password" placeholder="Emby API Key" value="${escapeHtml(draftServer.apiKey)}">
+                                <small>建议填写完整的 Emby API Key，支持粘贴后立即保存。</small>
+                            </div>
+                        </div>
+                        <div class="server-form-actions">
+                            <button class="btn secondary" id="server-form-reset">${cancelText}</button>
+                            <div class="server-form-actions-right">
+                                <button class="btn secondary" id="server-form-fill-current">填入当前默认</button>
+                                <button class="btn save" id="server-form-submit">${btnText}</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
             const darkModeIcon = Config.darkMode ? '☀️' : '🌙';
             const darkModeTitle = Config.darkMode ? '切换浅色模式' : '切换深色模式';
 
@@ -762,26 +930,28 @@
                     <span class="close-btn">&times;</span>
                 </div>
                 <div class="settings-content">
-                    <!-- 服务器管理卡片（跨列，默认折叠） -->
+                    <!-- 服务器管理卡片（跨列） -->
                     <div class="settings-card" style="grid-column: 1 / -1;">
-                        <div class="card-title collapsible" id="servers-toggle-header">
+                        <div class="card-title">
                             <span>🖥️ 服务器管理</span>
-                            <span class="toggle-icon" id="servers-toggle-icon">▶</span>
+                            <span style="font-size: 13px; color: #7c8b9c; font-weight: 500;"></span>
                         </div>
-                        <div class="card-body" id="servers-grid" style="display: none;">
-                            <div class="servers-table">
-                                <div class="servers-table-header">
-                                    <div>服务器列表</div>
-                                    <div>操作</div>
-                                </div>
-                                <div id="servers-list-container">
+                        <div class="card-body">
+                            <div class="servers-grid">
+                                <div class="servers-list" id="servers-list-container">
                                     ${generateServersHTML()}
                                 </div>
                             </div>
-                            <div style="margin-top: 12px; display: flex; gap: 8px; align-items: center;">
-                                <button class="btn secondary" id="add-server-btn">➕ 添加服务器</button>
-                                <span style="flex:1;"></span>
-                                <button class="test-btn" id="test-connection" type="button">测试当前连接</button>
+                            <div class="server-form-popover" id="server-form-popover" hidden>
+                                <div id="server-form-container">
+                                    ${renderServerForm()}
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px; display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                    <button class="btn secondary" id="add-server-btn">➕ 新建服务器</button>
+                                    <button class="test-btn" id="test-connection" type="button">测试当前连接</button>
+                                </div>
                                 <span id="test-result" style="font-size: 0.9rem;"></span>
                             </div>
                         </div>
@@ -846,8 +1016,8 @@
                     <div class="dark-mode-toggle" id="dark-mode-toggle" title="${darkModeTitle}">${darkModeIcon}</div>
                     <!-- 右侧：按钮组 -->
                     <div>
-                        <button class="btn cancel">取消</button>
-                        <button class="btn save">保存</button>
+                        <button class="btn cancel" id="panel-cancel-btn">取消</button>
+                        <button class="btn save" id="panel-save-btn">保存</button>
                     </div>
                 </div>
                 <div id="save-message" style="display:none; position:absolute; bottom:20px; left:50%; transform:translateX(-50%); background:#52b54b; color:white; padding:8px 16px; border-radius:4px; z-index:10001; font-size:14px; box-shadow:0 2px 8px rgba(0,0,0,0.2);"></div>
@@ -855,73 +1025,129 @@
 
             document.body.appendChild(panel);
 
-            // 服务器卡片折叠/展开功能
-            const serversHeader = panel.querySelector('#servers-toggle-header');
-            const serversGrid = panel.querySelector('#servers-grid');
-            const serversIcon = panel.querySelector('#servers-toggle-icon');
-            let serversVisible = false; // 默认折叠
-
-            serversHeader.addEventListener('click', () => {
-                if (serversVisible) {
-                    serversGrid.style.display = 'none';
-                    serversIcon.textContent = '▶';
-                } else {
-                    serversGrid.style.display = 'block';
-                    serversIcon.textContent = '▼';
-                }
-                serversVisible = !serversVisible;
-            });
-
-            // 服务器管理功能
+            const serverFormContainer = panel.querySelector('#server-form-container');
+            const serverFormPopover = panel.querySelector('#server-form-popover');
             const serversListContainer = panel.querySelector('#servers-list-container');
+
+            function syncDraftFromInputs() {
+                const nameInput = panel.querySelector('#server-name');
+                const urlInput = panel.querySelector('#server-url');
+                const apiInput = panel.querySelector('#server-api-key');
+                draftServer = {
+                    name: nameInput?.value ?? '',
+                    baseUrl: urlInput?.value ?? '',
+                    apiKey: apiInput?.value ?? ''
+                };
+            }
+
+            function setDraft(server = emptyServer(), index = -1) {
+                editingServerIndex = index;
+                draftServer = normalizeServer(server);
+                refreshServerForm();
+                if (serverFormPopover) serverFormPopover.hidden = false;
+            }
 
             function refreshServersList() {
                 serversListContainer.innerHTML = generateServersHTML();
                 attachServerEvents();
+                updateServerRowStates();
+            }
+
+            function refreshServerForm() {
+                serverFormContainer.innerHTML = renderServerForm();
+                attachFormEvents();
+                updateServerRowStates();
+            }
+
+            function hideServerEditor() {
+                if (serverFormPopover) serverFormPopover.hidden = true;
+            }
+
+            function showServerEditor() {
+                if (serverFormPopover) serverFormPopover.hidden = false;
+            }
+
+            function resetDraft() {
+                setDraft(emptyServer(), -1);
+                hideServerEditor();
+            }
+
+            function updateServerRowStates() {
+                panel.querySelectorAll('.server-row').forEach(row => {
+                    row.classList.toggle('editing', parseInt(row.dataset.index, 10) === editingServerIndex);
+                });
+            }
+
+            function attachFormEvents() {
+                const nameInput = panel.querySelector('#server-name');
+                const urlInput = panel.querySelector('#server-url');
+                const apiInput = panel.querySelector('#server-api-key');
+
+                [nameInput, urlInput, apiInput].forEach(input => {
+                    if (!input) return;
+                    input.addEventListener('input', syncDraftFromInputs);
+                });
+
+                panel.querySelector('#server-form-reset')?.addEventListener('click', () => {
+                    resetDraft();
+                    refreshServerForm();
+                });
+
+                panel.querySelector('#server-form-fill-current')?.addEventListener('click', () => {
+                    const current = Config.embyServers[Config.activeServerIndex] || Config.embyServers[0] || emptyServer();
+                    setDraft(current, editingServerIndex);
+                });
+
+                panel.querySelector('#server-form-submit')?.addEventListener('click', () => {
+                    syncDraftFromInputs();
+                    const payload = normalizeServer(draftServer);
+                    if (!payload.baseUrl || !payload.apiKey) {
+                        alert('请填写服务器地址和 API 密钥');
+                        return;
+                    }
+                    const servers = Config.embyServers.slice();
+                    if (editingServerIndex >= 0 && editingServerIndex < servers.length) {
+                        servers[editingServerIndex] = payload;
+                    } else {
+                        servers.push(payload);
+                        editingServerIndex = servers.length - 1;
+                    }
+                    Config.embyServers = servers;
+                    if (Config.activeServerIndex >= servers.length) Config.activeServerIndex = 0;
+                    refreshServersList();
+                    hideServerEditor();
+                    refreshServerForm();
+                });
             }
 
             function attachServerEvents() {
-                // 设为默认
                 panel.querySelectorAll('.set-active').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const row = e.target.closest('.server-row');
-                        const index = parseInt(row.dataset.index);
+                        const index = parseInt(row.dataset.index, 10);
                         Config.activeServerIndex = index;
                         refreshServersList();
+                        refreshServerForm();
                     });
                 });
 
-                // 编辑服务器
                 panel.querySelectorAll('.edit-server').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const row = e.target.closest('.server-row');
-                        const index = parseInt(row.dataset.index);
-                        const servers = Config.embyServers;
-                        const server = servers[index];
-                        const newName = prompt('请输入服务器名称', server.name || '');
-                        if (newName === null) return;
-                        const newUrl = prompt('请输入服务器地址 (以/结尾)', server.baseUrl);
-                        if (newUrl === null) return;
-                        const newApi = prompt('请输入API密钥', server.apiKey);
-                        if (newApi === null) return;
-
-                        servers[index] = {
-                            name: newName.trim() || '未命名',
-                            baseUrl: newUrl.trim(),
-                            apiKey: newApi.trim()
-                        };
-                        Config.embyServers = servers;
-                        refreshServersList();
+                        const index = parseInt(row.dataset.index, 10);
+                        const server = Config.embyServers[index];
+                        setDraft(server, index);
+                        showServerEditor();
+                        serverFormPopover?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     });
                 });
 
-                // 删除服务器
                 panel.querySelectorAll('.delete-server').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         if (btn.disabled) return;
                         const row = e.target.closest('.server-row');
-                        const index = parseInt(row.dataset.index);
-                        const servers = Config.embyServers;
+                        const index = parseInt(row.dataset.index, 10);
+                        const servers = Config.embyServers.slice();
                         if (servers.length <= 1) {
                             alert('至少保留一个服务器');
                             return;
@@ -934,30 +1160,26 @@
                             Config.activeServerIndex--;
                         }
                         Config.embyServers = servers;
+                        if (editingServerIndex === index) {
+                            resetDraft();
+                            if (serverFormPopover) serverFormPopover.hidden = true;
+                        } else {
+                            refreshServerForm();
+                        }
                         refreshServersList();
                     });
                 });
             }
 
             panel.querySelector('#add-server-btn').addEventListener('click', () => {
-                const name = prompt('请输入服务器名称', '新服务器');
-                if (!name) return;
-                const url = prompt('请输入服务器地址 (以/结尾)', 'http://');
-                if (!url) return;
-                const api = prompt('请输入API密钥', '');
-                if (api === null) return;
-
-                const servers = Config.embyServers;
-                servers.push({
-                    name: name.trim(),
-                    baseUrl: url.trim(),
-                    apiKey: api.trim()
-                });
-                Config.embyServers = servers;
-                refreshServersList();
+                resetDraft();
+                refreshServerForm();
+                showServerEditor();
+                serverFormPopover?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             });
 
-            attachServerEvents();
+            refreshServersList();
+            refreshServerForm();
 
             // 测试连接按钮
             panel.querySelector('#test-connection').addEventListener('click', async () => {
@@ -1011,7 +1233,6 @@
                 }
             });
 
-            // ===== 深色模式切换逻辑 =====
             const darkModeToggle = panel.querySelector('#dark-mode-toggle');
             darkModeToggle.addEventListener('click', () => {
                 const isDark = panel.classList.contains('dark-mode');
@@ -1028,23 +1249,23 @@
                 }
             });
 
-            // 关闭面板
             const closePanel = () => {
+                hideServerEditor();
                 panel.style.display = 'none';
             };
             panel.querySelector('.close-btn').addEventListener('click', closePanel);
-            panel.querySelector('.btn.cancel').addEventListener('click', closePanel);
+            panel.querySelector('#panel-cancel-btn').addEventListener('click', closePanel);
 
-            // 保存设置
-            panel.querySelector('.btn.save').addEventListener('click', () => {
-                // 保存外观设置
+            panel.querySelector('#panel-save-btn').addEventListener('click', () => {
+                syncDraftFromInputs();
+                hideServerEditor();
+
                 Config.highlightColor = document.getElementById('highlight-color').value;
                 Config.maxConcurrentRequests = parseInt(document.getElementById('max-requests').value, 10);
                 Config.badgeSize = document.getElementById('badge-size').value;
                 Config.badgeColor = document.getElementById('badge-color').value;
                 Config.badgeTextColor = document.getElementById('badge-text-color').value;
 
-                // 收集站点开关新状态
                 const updatedSites = { ...Config.enabledSites };
                 panel.querySelectorAll('[data-site]').forEach(input => {
                     const site = input.dataset.site;
@@ -1056,14 +1277,15 @@
                 });
                 Config.enabledSites = updatedSites;
 
-                // 显示保存成功消息
+                refreshServersList();
+                refreshServerForm();
+
                 const msgEl = document.getElementById('save-message');
                 if (msgEl) {
                     msgEl.textContent = '✅ 设置已保存';
                     msgEl.style.display = 'block';
                 }
 
-                // 判断是否需要刷新
                 const serversChanged = JSON.stringify(initialServers) !== JSON.stringify(Config.embyServers) ||
                                        initialActiveIndex !== Config.activeServerIndex;
                 const currentSite = detectSite();
@@ -1073,14 +1295,12 @@
                 );
 
                 if (serversChanged || siteChanged) {
-                    // 有相关变化，刷新页面
                     setTimeout(() => location.reload(), 300);
                 } else {
-                    // 无变化，仅显示消息后关闭面板
                     setTimeout(() => {
                         if (msgEl) msgEl.style.display = 'none';
-                        panel.style.display = 'none'; // 关闭面板
-                    }, 1500);
+                        panel.style.display = 'none';
+                    }, 500);
                 }
             });
 
@@ -1197,7 +1417,6 @@
 
             const clean = code.trim().toUpperCase();
 
-            // 自动降级搜索：MDSR-0005-2 → 先搜自己 → 再搜 MDSR-0005
             const tryCodes = [clean];
             const mainMatch = clean.match(/^([A-Z]+-\d+)/);
             if (mainMatch && mainMatch[1] !== clean) {
@@ -1255,7 +1474,6 @@
             return { Items: [] };
         }
 
-        /*** 检查指定番号在 Emby 中是否存在，返回最佳匹配项（或 null）*/
         async checkExists(code) {
             if (!code) return null;
 
@@ -1273,7 +1491,6 @@
             const uncensoredFamily = getUncensoredFamily(clean);
             const isUncensoredWithPrefix = /(?:PACOPACOMAMA|PACO|1PONDO|CARIBBEANCOM|CARIB|HEYZO)[-_ ]+\d{6}[-_]\d{2,3}/i.test(clean);
 
-            // 处理 FC2 变体
             const fc2PPVMatch = clean.match(/^FC2-PPV-(\d+)$/i);
             const fc2Match = clean.match(/^FC2-(\d+)$/i);
             if (fc2PPVMatch) {
@@ -1282,7 +1499,6 @@
                 addCode(`FC2-PPV-${fc2Match[1]}`);
             }
 
-            // 标准番号降级（如 IPZZ-777-2 -> IPZZ-777）
             const mainMatch = clean.match(/^([A-Z]+-\d+)/);
             if (mainMatch && mainMatch[1] !== clean && !isUncensored) {
                 addCode(mainMatch[1]);
@@ -1295,12 +1511,10 @@
                     const tail = core[2];
                     const sep = clean.match(/[-_]/)?.[0] || '_';
 
-                    // 只查“输入同形态” + 无分隔符兜底
                     addCode(`${head}${sep}${tail}`);
                     addCode(`${head}${tail}`);
                 }
 
-                // 带站点前缀时同样保持原样，不再互转分隔符
                 const prefixMatch = clean.match(/^(PACOPACOMAMA|PACO|1PONDO|CARIBBEANCOM|CARIB|HEYZO)[-_ ]+(\d{6}[-_]\d{2,3})/i);
                 if (prefixMatch) {
                     addCode(prefixMatch[2]);
@@ -1308,15 +1522,13 @@
                 }
             }
 
-            // 如果原始番号带厂商后缀，提取纯数字核心（使用原始分隔符）作为备选
             const suffixDigitMatch = clean.match(/^(\d{6})([-_])(\d{2,3})[-_][A-Z0-9]+$/i);
             if (suffixDigitMatch) {
-                const base = `${suffixDigitMatch[1]}${suffixDigitMatch[2]}${suffixDigitMatch[3]}`; // 保留原始分隔符
+                const base = `${suffixDigitMatch[1]}${suffixDigitMatch[2]}${suffixDigitMatch[3]}`;
                 addCode(base);
-                addCode(base.replace(/[-_]/, '')); // 无分隔符版本
+                addCode(base.replace(/[-_]/, ''));
             }
 
-            // 先查缓存
             for (const c of tryCodes) {
                 const cached = EmbyCache.get(c);
                 if (cached && !EmbyCache.isExpired(cached)) {
@@ -1325,7 +1537,6 @@
                         const res = await this.request(checkUrl);
                         const item = JSON.parse(res.responseText);
 
-                        // 无码场景：缓存命中也要走同一套匹配规则，避免 _ / - 串号
                         if (parseUncensoredCode(clean)) {
                             const best = this.findBestMatch([item], c, code);
                             if (best) return best;
@@ -1340,7 +1551,6 @@
                 }
             }
 
-            // 执行搜索
             for (let i = 0; i < tryCodes.length; i++) {
                 const c = tryCodes[i];
                 try {
@@ -1363,7 +1573,6 @@
                     }
                 } catch (e) {
                     console.error(`Emby 查询失败 ${c}`, e);
-                    // 仅当这是第一个尝试的番号（原始番号）时，显示错误提示
                     if (i === 0) {
                         Prompt.queryError(code, e.message);
                     }
@@ -1484,20 +1693,18 @@
             if (!items || items.length === 0) return null;
 
             const target = queryCode.trim().toUpperCase();
-            const targetClean = target.replace(/[-_]/g, '');           // SNOS180
-            const mainTarget = target.replace(/-\d+$/, '');            // SNOS（去掉末尾数字段，仅用于前缀判断）
+            const targetClean = target.replace(/[-_]/g, '');
+            const mainTarget = target.replace(/-\d+$/, '');
             const cleanStr = s => (s || '').toUpperCase().replace(/[-_]/g, '');
-            const targetAlphaNum = target.replace(/[^A-Z0-9]/g, '');   // SNOS180
-            const targetPrefix = target.split(/[-_\s]/)[0];            // SNOS
+            const targetAlphaNum = target.replace(/[^A-Z0-9]/g, '');
+            const targetPrefix = target.split(/[-_\s]/)[0];
 
-            // 从番号中提取数字部分（SNOS-180 → 180），用于精确数字验证
             const targetNumPart = target.match(/(\d+)$/)?.[1] || '';
             const targetParsed = parseUncensoredCode(target);
             const originalParsed = parseUncensoredCode(originalCode);
             const effectiveUncensored = targetParsed || originalParsed;
             const targetFamily = targetParsed?.family || originalParsed?.family || null;
 
-            // 判断原始番号是否带厂商后缀
             const hasSuffix = /^\d{6}[-_]\d{2,3}[-_][A-Z0-9]+$/i.test(originalCode) && !/^\d{6}[-_]\d{2,3}$/.test(originalCode);
             const originalFamily = originalParsed?.family || null;
             const originalSep = originalParsed?.sep || originalCode.match(/[-_]/)?.[0] || '';
@@ -1511,7 +1718,7 @@
 
             for (const it of items) {
                 const name = (it.Name || '').toUpperCase();
-                const nameClean = cleanStr(name);                       // 去掉所有 -_
+                const nameClean = cleanStr(name);
                 const nameAlphaNum = name.replace(/[^A-Z0-9]/g, '');
                 const namePrefix = name.split(/[-_\s]/)[0];
 
@@ -1978,11 +2185,9 @@
                     const bestItem = bestItems[i];
 
                     if (bestItem) {
-                        // 标题变色
                         element.classList.add('emby-exists');
                         if (item) item.classList.add('emby-processed');
 
-                        // 创建跳转按钮（仅当存在时）
                         const jumpBtn = this.api.createLink(bestItem);
                         if (jumpBtn) {
                             jumpBtn.style.marginLeft = '8px';
@@ -2004,12 +2209,10 @@
                 const siteConfig = this.__siteConfig;
                 if (!siteConfig) return;
 
-                // 列表页处理
                 if (siteConfig.list) {
                     await this.processListPage();
                 }
 
-                // 详情页处理：统一使用 appendToSharedRow，与 jump.js 共享按钮行
                 if (siteConfig.detail) {
                     if (document.querySelector('.emby-jump-link, .emby-badge, .emby-copy-btn')) return;
 
@@ -2031,7 +2234,6 @@
                             const bestItem = bestItems[i];
                             const link = bestItem ? this.api.createLink(bestItem) : null;
                             const copyBtn = this.api.createCopyButton(code);
-                            // 第一个番号追加到共享行，后续番号也追加进去
                             this.appendToSharedRow(link, copyBtn, titleEl);
                             if (bestItem) foundAny = true;
                         }
@@ -2064,7 +2266,6 @@
         sukebei: Object.assign(Object.create(BaseProcessor), {
             listSelector: 'table tbody tr',
 
-            // ✅ 关键修复：明确选中标题链接（排除评论链接）
             extractCode(item) {
                 const linkEl = item.querySelector('td:nth-child(2) a:not(.comments)');
                 return linkEl ? extractCodeFromText(linkEl.textContent) : null;
@@ -2109,13 +2310,12 @@
                     const items = [];
 
                     for (const row of rows) {
-                        // ✅ 这里也改成同一个选择器，保证一致
                         const linkEl = row.querySelector('td:nth-child(2) a:not(.comments)');
                         if (!linkEl || linkEl.dataset.embyChecked) continue;
 
                         linkEl.dataset.embyChecked = "1";
 
-                        const code = extractCodeFromText(linkEl.textContent);   // 现在一定能拿到 SNOS-xxx
+                        const code = extractCodeFromText(linkEl.textContent);
                         if (!code) continue;
 
                         const td = linkEl.parentNode;
@@ -2209,7 +2409,6 @@
                 });
             }
 
-            // 详情页维护函数
             function maintainDetailPage(api) {
                 const siteConfig = typeof GM_getValue !== 'undefined' ? Config.enabledSites.javlibrary : { detail: true };
                 if (!siteConfig || !siteConfig.detail) return;
@@ -2418,7 +2617,6 @@
             },
 
             findImgContainer: item => {
-                // 返回相对定位的容器，用于放置徽章
                 return item.querySelector('.mgn-box') || item;
             },
 
@@ -2426,7 +2624,6 @@
                 const siteConfig = this.__siteConfig;
                 if (!siteConfig) return;
 
-                // 列表页处理
                 if (siteConfig.list && this.listSelector) {
                     const items = document.querySelectorAll(this.listSelector);
                     if (items.length > 0) {
@@ -2434,7 +2631,6 @@
                     }
                 }
 
-                // 详情页处理
                 if (siteConfig.detail) {
                     await this.processDetailPage();
                 }
@@ -2507,7 +2703,6 @@
                         if (bestItems[i]) {
                             const { element, item } = toProcess[i];
 
-                            // 为标题添加高亮类（变色）
                             element.classList.add('emby-exists');
                             if (item) item.classList.add('emby-processed');
 
@@ -2515,7 +2710,6 @@
                             if (link) {
                                 link.style.marginLeft = '8px';
 
-                                // 可选：为父容器添加边框高亮（如需要）
                                 let current = element;
                                 const containerClasses = ['item', 'masonry-brick', 'grid-item', 'movie-list', 'post'];
                                 while (current && current !== document.body) {
@@ -2582,7 +2776,7 @@
         }),
 
         'hjd2048': Object.assign(Object.create(BaseProcessor), {
-            listSelector: 'tr.tr3.t_one',   // 每个帖子所在的行
+            listSelector: 'tr.tr3.t_one',
 
             extractCode: function(item) {
                 const link = item.querySelector('a.subject');
@@ -2591,7 +2785,6 @@
 
             getElement: item => item.querySelector('a.subject'),
 
-            // 列表页处理：标题变色 + 插入跳转按钮（仅当存在时）
             async processItemsWithLink(items) {
                 if (!items?.length) return;
 
@@ -2626,7 +2819,6 @@
                     const bestItem = bestItems[i];
 
                     if (bestItem) {
-                        // 标题变色（左边框 + 加粗，颜色由浏览器控制）
                         element.classList.add('emby-exists');
                         if (item) item.classList.add('emby-processed');
 
@@ -2700,7 +2892,6 @@
 
             getElement: item => item.querySelector('.my-2 a') || item.querySelector('a'),
 
-            // 列表页使用标题旁按钮 + 卡片高亮（不再依赖图片上的徽章）
             async processItemsWithBadge(items) {
                 if (!items?.length) return;
 
@@ -2771,7 +2962,6 @@
             },
 
             async processDetailPage() {
-                // 详情页保持原来逻辑（标题下方按钮）
                 if (document.querySelector('.emby-jump-link, .emby-badge, .emby-copy-btn')) return;
 
                 const titleElement = document.querySelector('h1') || document.querySelector('title');
@@ -2792,7 +2982,6 @@
         }),
     };
 
-    // 站点自动识别
     function detectSite() {
         const host = location.hostname;
         const url = location.href;
