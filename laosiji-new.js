@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.1.6
+// @version      2.1.7
 // @description  JavBus / JavDB / JavLib 磁力搜索与番号助手，集成 115 离线、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
 // @author       ZiPenOk
@@ -1592,8 +1592,40 @@
     `);
 
     const Utils = {
+        normalizeCode(code) {
+            const raw = String(code || '').trim();
+            if (!raw) return '';
+
+            const normalized = raw
+                .replace(/\s+/g, '-')
+                .replace(/^FC2[-_]?PPV[-_]?/i, 'FC2-')
+                .toUpperCase();
+
+            const uncensoredNumeric = normalized.match(/(\d{6})[-_](\d{2,3})/);
+            if (uncensoredNumeric) {
+                const sep = uncensoredNumeric[0].includes('_') ? '_' : '-';
+                return `${uncensoredNumeric[1]}${sep}${uncensoredNumeric[2]}`;
+            }
+
+            const compact = normalized.match(/^([A-Z]{2,10})(\d{3,6})$/);
+            if (compact) {
+                const number = compact[2].replace(/^0+(?=\d{3})/, '');
+                return `${compact[1]}-${number}`;
+            }
+
+            const trimmed = normalized.match(/^([A-Z0-9]{2,15}[-_]\d{2,6})/);
+            if (trimmed) return trimmed[1];
+
+            return normalized;
+        },
+
         extractCode(text) {
             if (!text) return null;
+
+            const uncensoredHit = String(text).match(/(?:PACOPACOMAMA|1PONDO|CARIBBEANCOM|CARIB|HEYZO)?[-_\s]*(\d{6})([-_])(\d{2,3})/i);
+            if (uncensoredHit) {
+                return Utils.normalizeCode(`${uncensoredHit[1]}_${uncensoredHit[3]}`);
+            }
 
             const patterns = [
                 { regex: /([A-Z]{2,15})[-_\s]([A-Z]{1,2}\d{2,10})/i, type: 'alphanum' },
@@ -1612,23 +1644,23 @@
                 if (!match) continue;
 
                 if (type === 'alphanum') {
-                    return match[0].trim();
+                    return Utils.normalizeCode(match[0].trim());
                 } else if (type === 'standard') {
                     const prefix = match[1].toUpperCase();
                     if (ignoreList.includes(prefix)) continue;
-                    return match[3] ? `${prefix}-${match[2]}-${match[3]}` : `${prefix}-${match[2]}`;
+                    return Utils.normalizeCode(match[3] ? `${prefix}-${match[2]}-${match[3]}` : `${prefix}-${match[2]}`);
                 } else if (type === 'fc2') {
-                    return `FC2-PPV-${match[1]}`;
+                    return Utils.normalizeCode(`FC2-PPV-${match[1]}`);
                 } else if (type === 'numeric') {
-                    if (match[2] === '_') return `${match[1]}_${match[3]}`;
-                    return `${match[1]}-${match[3]}`;
+                    if (match[2] === '_') return Utils.normalizeCode(`${match[1]}_${match[3]}`);
+                    return Utils.normalizeCode(`${match[1]}-${match[3]}`);
                 } else if (type === 'compactStandard') {
                     const prefix = match[1].toUpperCase();
                     if (ignoreList.includes(prefix)) continue;
                     const number = match[2].replace(/^0+(?=\d{3})/, '');
-                    return `${prefix}-${number}`;
+                    return Utils.normalizeCode(`${prefix}-${number}`);
                 } else if (type === 'compact') {
-                    return match[0].toUpperCase();
+                    return Utils.normalizeCode(match[0].toUpperCase());
                 }
             }
             return null;
@@ -1922,6 +1954,7 @@
                 : [url].filter(Boolean);
             let fallbackIndex = Math.max(0, fallbackUrls.indexOf(url));
 
+            const isM3U8 = /\.m3u8(?:[?#].*)?$/i.test(url);
             if (type === 'iframe') {
                 const iframe = document.createElement('iframe');
                 iframe.src = url;
@@ -1938,7 +1971,137 @@
                 const savedMuted = GM_getValue('trailer_muted', false);
                 video.volume = Number.isFinite(savedVolume) ? Math.min(1, Math.max(0, savedVolume)) : 0.35;
                 video.muted = Boolean(savedMuted);
-                video.src = fallbackUrls[fallbackIndex] || url;
+
+                const attachVideoSrc = (src) => {
+                    if (!src) return;
+                    const isM3u8 = /\.m3u8(?:[?#].*)?$/i.test(src);
+                    if (isM3u8) {
+                        // m3u8 优先走 hls.js + GM loader；若当前不可用则回退原生播放，避免直接无画面
+                        if (!(window.Hls && window.Hls.isSupported && window.Hls.isSupported())) {
+                            video.src = src;
+                            return;
+                        }
+                        class GMHlsLoader {
+                            constructor(config) {
+                                this.config = config;
+                                this.context = null;
+                                this.callbacks = null;
+                                this.loader = null;
+                            }
+                            destroy() {
+                                this.abort();
+                            }
+                            abort() {
+                                this.loader?.abort?.();
+                                this.loader = null;
+                            }
+                            load(context, config, callbacks) {
+                                this.context = context;
+                                this.callbacks = callbacks;
+                                const url = context.url;
+                                this.loader = GM_xmlhttpRequest({
+                                    method: 'GET',
+                                    url,
+                                    responseType: context.responseType === 'arraybuffer' ? 'arraybuffer' : 'text',
+                                    timeout: config?.timeout || 20000,
+                                    onload: (r) => {
+                                        const data = context.responseType === 'arraybuffer' ? r.response : (r.responseText || '');
+                                        callbacks.onSuccess?.({ data, url: r.finalUrl || url }, { trequest: Date.now(), tfirst: Date.now(), tload: Date.now() }, context);
+                                    },
+                                    onerror: () => callbacks.onError?.({ code: 0, text: 'network error' }, context, null),
+                                    ontimeout: () => callbacks.onTimeout?.(Date.now(), context, null)
+                                });
+                            }
+                        }
+                        const hls = new window.Hls({
+                            enableWorker: false,
+                            lowLatencyMode: true,
+                            loader: GMHlsLoader,
+                            autoStartLoad: true,
+                            startPosition: 0,
+                            capLevelToPlayerSize: true,
+                            testBandwidth: false,
+                            preferManagedMediaSource: false,
+                            maxBufferLength: 6,
+                            maxMaxBufferLength: 12,
+                            backBufferLength: 30,
+                            maxBufferHole: 0.5,
+                            nudgeOffset: 0.1,
+                            manifestLoadingMaxRetry: 2,
+                            levelLoadingMaxRetry: 2,
+                            fragLoadingMaxRetry: 2,
+                            manifestLoadingTimeOut: 12000,
+                            levelLoadingTimeOut: 12000,
+                            fragLoadingTimeOut: 12000,
+                            abrEwmaFastLive: 3,
+                            abrEwmaSlowLive: 9,
+                        });
+                        hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+                            hls.startLoad(0);
+                            video.play().catch(() => {});
+                        });
+                        hls.on(window.Hls.Events.ERROR, (_, data) => {
+                            if (!data?.fatal) return;
+                            if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR && fallbackIndex < fallbackUrls.length - 1) {
+                                fallbackIndex += 1;
+                                const next = fallbackUrls[fallbackIndex];
+                                activeUrl = next;
+                                sourceLink.href = next;
+                                hls.loadSource(next);
+                                hls.startLoad(0);
+                                return;
+                            }
+                            if (fallbackIndex >= fallbackUrls.length - 1) {
+                                // 最后兜底：销毁 hls，尝试原生直连
+                                try { hls.destroy(); } catch {}
+                                video._hls = null;
+                                video.src = src;
+                                video.load?.();
+                                video.play().catch(() => {});
+                            }
+                        });
+                        hls.loadSource(src);
+                        hls.attachMedia(video);
+                        video._hls = hls;
+                        return;
+                    }
+                    video.src = src;
+                };
+
+                if (isM3U8 && !window.Hls) {
+                    const hlsScript = document.createElement('script');
+                    hlsScript.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js';
+                    hlsScript.async = true;
+                    hlsScript.onload = () => attachVideoSrc(fallbackUrls[fallbackIndex] || url);
+                    hlsScript.onerror = () => {
+                        video.src = fallbackUrls[fallbackIndex] || url;
+                    };
+                    document.head.appendChild(hlsScript);
+                } else {
+                    attachVideoSrc(fallbackUrls[fallbackIndex] || url);
+                }
+
+                // 兜底：如果 2.5 秒仍未进入可播放状态，强制回退原生 src，避免一直黑屏
+                if (isM3U8) {
+                    const initialSrc = fallbackUrls[fallbackIndex] || url;
+                    setTimeout(() => {
+                        if (!video || !video.isConnected) return;
+                        const notReady = video.readyState < 2;
+                        if (notReady && !video.error) {
+                            try {
+                                if (video._hls) {
+                                    video._hls.destroy();
+                                    video._hls = null;
+                                }
+                            } catch {}
+                            video.src = initialSrc;
+                            video.play().catch(() => {});
+                        }
+                    }, 2500);
+                }
+
+                video.preload = 'auto';
+
                 video.addEventListener('volumechange', () => {
                     GM_setValue('trailer_volume', video.volume);
                     GM_setValue('trailer_muted', video.muted);
@@ -1948,8 +2111,12 @@
                     fallbackIndex += 1;
                     activeUrl = fallbackUrls[fallbackIndex];
                     sourceLink.href = activeUrl;
-                    video.src = activeUrl;
-                    video.load();
+                    if (video._hls) {
+                        video._hls.destroy();
+                        video._hls = null;
+                    }
+                    attachVideoSrc(activeUrl);
+                    video.load?.();
                     video.play().catch(() => {});
                 });
                 screen.appendChild(video);
@@ -2309,20 +2476,7 @@
 
     const Trailer = {
         normalize(code) {
-            const normalized = String(code || '')
-                .trim()
-                .replace(/\s+/g, '-')
-                .replace(/^FC2[-_]?PPV[-_]?/i, 'FC2-')
-                .toUpperCase();
-            const compact = normalized.match(/^([A-Z]{2,10})(\d{3,6})$/);
-            if (compact) {
-                const number = compact[2].replace(/^0+(?=\d{3})/, '');
-                return `${compact[1]}-${number}`;
-            }
-            // 保留下划线，避免把一本道这类番号误归到横杠形式。
-            const trimmed = normalized.match(/^([A-Z0-9]{2,15}[-_]\d{2,6})/);
-            if (trimmed) return trimmed[1];
-            return normalized;
+            return Utils.normalizeCode(code);
         },
 
         normalizeForCompare(text) {
@@ -2330,7 +2484,7 @@
         },
 
         cacheKey(code) {
-            return `trailer_cache_v3_${this.normalize(code)}`;
+            return `trailer_cache_v4_${this.normalize(code)}`;
         },
 
         async show(code) {
@@ -2367,10 +2521,6 @@
                 }
             }
 
-            if (isPondoUnderscore) {
-                return this.result(`https://smovie.1pondo.tv/sample/movies/${rawCode.toLowerCase()}/480p.mp4`, '无码直连预告');
-            }
-
             const resolvers = [
                 this.fromDirectSamples,
                 this.fromFc2Hub,
@@ -2381,7 +2531,7 @@
 
             for (const resolver of resolvers) {
                 try {
-                    const result = await resolver.call(this, id);
+                    const result = await resolver.call(this, id, rawCode);
                     if (result?.url) {
                         if (cacheEnabled) sessionStorage.setItem(this.cacheKey(id), JSON.stringify(result));
                         return result;
@@ -2419,6 +2569,22 @@
             if (!r) return null;
             if (r.status >= 200 && r.status < 400) return r.finalUrl || url;
             return null;
+        },
+
+        async buildDirectQualityMap(baseUrls) {
+            const qualities = ['1080p', '720p', '480p', '360p', '240p'];
+            const qualityMap = {};
+            for (const quality of qualities) {
+                for (const baseUrl of baseUrls) {
+                    const url = baseUrl.replace('__QUALITY__', quality);
+                    const finalUrl = await this.head(url);
+                    if (finalUrl) {
+                        qualityMap[quality] = finalUrl;
+                        break;
+                    }
+                }
+            }
+            return qualityMap;
         },
 
         async firstWorkingUrl(urls, batchSize = 8) {
@@ -2611,39 +2777,141 @@
 
 
 
-        async fromDirectSamples(id) {
-            const lower = id.toLowerCase();
-
-            // 一本道这类下划线番号优先直接返回 1pondo；不要先做 HEAD 探测，避免被加勒比兜底抢走。
-            if (/^\d{6}_\d{3}$/.test(lower)) {
-                return this.result(`https://smovie.1pondo.tv/sample/movies/${lower}/480p.mp4`, '无码直连预告');
+        async fromDirectSamples(id, rawCode = '') {
+            const normalizedRaw = this.normalize(rawCode || id || '');
+            const lower = normalizedRaw.toLowerCase();
+            if (/^\d{6}_\d{2}$/.test(lower)) {
+                const q1080 = `https://fms.10musume.com/hls/sample/10musume.com/${lower}/1080p.mp4`;
+                const q720  = `https://fms.10musume.com/hls/sample/10musume.com/${lower}/720p.mp4`;
+                const q480  = `https://fms.10musume.com/hls/sample/10musume.com/${lower}/480p.mp4`;
+                const q360  = `https://fms.10musume.com/hls/sample/10musume.com/${lower}/360p.mp4`;
+                const q240  = `https://fms.10musume.com/hls/sample/10musume.com/${lower}/240p.mp4`;
+                const qualities = {
+                    '1080p': q1080,
+                    '720p': q720,
+                    '480p': q480,
+                    '360p': q360,
+                    '240p': q240
+                };
+                return this.result(q1080, '无码直连预告 / 10MU', 'video', {
+                    sourceName: '10MU',
+                    sourceLabel: '无码直连预告 / 10MU',
+                    sourceTag: '10MU',
+                    trailerSource: '10MU',
+                    qualities,
+                    quality: '1080p',
+                    urls: [q1080, q720, q480, q360, q240]
+                });
             }
 
-            const urls = [];
+            if (/^\d{6}_100$/.test(lower)) {
+                const q1080 = `https://fms.pacopacomama.com/hls/sample/pacopacomama.com/${lower}/1080p.mp4`;
+                const q720  = `https://fms.pacopacomama.com/hls/sample/pacopacomama.com/${lower}/720p.mp4`;
+                const q480  = `https://fms.pacopacomama.com/hls/sample/pacopacomama.com/${lower}/480p.mp4`;
+                const q360  = `https://fms.pacopacomama.com/hls/sample/pacopacomama.com/${lower}/360p.mp4`;
+                const q240  = `https://fms.pacopacomama.com/hls/sample/pacopacomama.com/${lower}/240p.mp4`;
+                const qualities = {
+                    '1080p': q1080,
+                    '720p': q720,
+                    '480p': q480,
+                    '360p': q360,
+                    '240p': q240
+                };
+                return this.result(q1080, '无码直连预告 / PACO', 'video', {
+                    sourceName: 'PACO',
+                    sourceLabel: '无码直连预告 / PACO',
+                    sourceTag: 'PACO',
+                    trailerSource: 'PACO',
+                    qualities,
+                    quality: '1080p',
+                    urls: [q1080, q720, q480, q360, q240]
+                });
+            }
+
             if (/^\d{6}_\d{3}$/.test(lower)) {
-                urls.push(`https://smovie.1pondo.tv/sample/movies/${lower}/480p.mp4`);
-                urls.push(`http://smovie.1pondo.tv/sample/movies/${lower}/480p.mp4`);
+                const q1080 = `https://sample-1pondo.eroxjapanz.com/sample/movies/${lower}/1080p.mp4`;
+                const q720  = `https://sample-1pondo.eroxjapanz.com/sample/movies/${lower}/720p.mp4`;
+                const q480  = `https://sample-1pondo.eroxjapanz.com/sample/movies/${lower}/480p.mp4`;
+                const q360  = `https://sample-1pondo.eroxjapanz.com/sample/movies/${lower}/360p.mp4`;
+                const q240  = `https://sample-1pondo.eroxjapanz.com/sample/movies/${lower}/240p.mp4`;
+                const qualities = {
+                    '1080p': q1080,
+                    '720p': q720,
+                    '480p': q480,
+                    '360p': q360,
+                    '240p': q240
+                };
+                return this.result(q1080, '无码直连预告 / 一本道', 'video', {
+                    sourceName: '一本道',
+                    sourceLabel: '无码直连预告 / 一本道',
+                    sourceTag: '一本道',
+                    trailerSource: '一本道',
+                    qualities,
+                    quality: '1080p',
+                    urls: [q1080, q720, q480, q360, q240]
+                });
             }
 
             if (/^[01]\d{5}-\d{2,3}$/.test(lower)) {
-                urls.push(`https://smovie.caribbeancom.com/sample/movies/${lower}/480p.mp4`);
-                urls.push(`http://smovie.caribbeancom.com/sample/movies/${lower}/480p.mp4`);
-                const pondoCode = lower.replace('-', '_');
-                urls.push(`https://smovie.1pondo.tv/sample/movies/${pondoCode}/480p.mp4`);
-                urls.push(`http://smovie.1pondo.tv/sample/movies/${pondoCode}/480p.mp4`);
+                const q1080 = `https://smovie.caribbeancom.com/sample/movies/${lower}/1080p.mp4`;
+                const q720  = `https://smovie.caribbeancom.com/sample/movies/${lower}/720p.mp4`;
+                const q480  = `https://smovie.caribbeancom.com/sample/movies/${lower}/480p.mp4`;
+                const q360  = `https://smovie.caribbeancom.com/sample/movies/${lower}/360p.mp4`;
+                const q240  = `https://smovie.caribbeancom.com/sample/movies/${lower}/240p.mp4`;
+                const qualities = {
+                    '1080p': q1080,
+                    '720p': q720,
+                    '480p': q480,
+                    '360p': q360,
+                    '240p': q240
+                };
+                return this.result(q1080, '无码直连预告 / 加勒比', 'video', {
+                    sourceName: '加勒比',
+                    sourceLabel: '无码直连预告 / 加勒比',
+                    sourceTag: '加勒比',
+                    trailerSource: '加勒比',
+                    qualities,
+                    quality: '1080p',
+                    urls: [q1080, q720, q480, q360, q240]
+                });
             }
 
             if (/^heyzo[-_ ]?\d{4}$/i.test(id)) {
                 const num = id.match(/\d{4}/)?.[0];
-                urls.push(`https://www.heyzo.com/contents/3000/${num}/heyzo_hd_${num}_sample.mp4`);
+                const qualityMap = {
+                    '1080p': `https://www.heyzo.com/contents/3000/${num}/heyzo_hd_${num}_sample.mp4`,
+                    '540p':  `https://www.heyzo.com/contents/3000/${num}/sample.mp4`,
+                    '396p':  `https://www.heyzo.com/contents/3000/${num}/sample_low.mp4`
+                };
+                const highestQuality = this.selectHighestQuality(qualityMap);
+                if (highestQuality) {
+                    return this.result(qualityMap[highestQuality], '无码直连预告 / HEYZO', 'video', {
+                        sourceName: 'HEYZO',
+                        sourceLabel: '无码直连预告 / HEYZO',
+                        sourceTag: 'HEYZO',
+                        trailerSource: 'HEYZO',
+                        qualities: qualityMap,
+                        quality: highestQuality,
+                        urls: this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
+                    });
+                }
             }
 
             if (/^(?:k|n)\d{4}$/i.test(id)) {
-                urls.push(`https://my.cdn.tokyo-hot.com/media/samples/${lower}.mp4`);
+                const qualityMap = await this.buildDirectQualityMap([
+                    `https://my.cdn.tokyo-hot.com/media/samples/${lower}.mp4`
+                ]);
+                const highestQuality = this.selectHighestQuality(qualityMap);
+                if (highestQuality) {
+                    return this.result(qualityMap[highestQuality], '无码直连预告', 'video', {
+                        qualities: qualityMap,
+                        quality: highestQuality,
+                        urls: this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
+                    });
+                }
             }
 
-            const url = await this.firstWorkingUrl(urls, 4);
-            return url ? this.result(url, '无码直连预告') : null;
+            return null;
         },
 
         async fromFc2Hub(id) {
