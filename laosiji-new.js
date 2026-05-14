@@ -42,7 +42,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.1.6';
+    const SCRIPT_VERSION = '2.1.7';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
