@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.6.1
+// @version      5.6.2
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -287,10 +287,10 @@
         }
         .modern .card-body.two-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
         .modern .field { display: flex; flex-direction: column; gap: 4px; }
-        .modern .field label { font-size: 16px; font-weight: 500; color: #4a5a6e; }
+        .modern .field label { font-size: 13px; font-weight: 500; color: #4a5a6e; }
         .modern .field input, .modern .field select {
-            padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px;
-            font-size: 16px; transition: border-color 0.15s; box-sizing: border-box; background: #fff;
+            padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+            font-size: 13px; transition: border-color 0.15s; box-sizing: border-box; background: #fff;
         }
         .modern .field input:focus, .modern .field select:focus {
             outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(82,181,75,0.15);
@@ -302,8 +302,9 @@
             width: 60px; height: 36px; padding: 2px; border-radius: 6px; border: 1px solid #cbd5e1;
         }
         .modern .test-btn {
-            background: #e2e8f0; border: 1px solid #b9c7d9; border-radius: 30px;
-            padding: 8px 16px; font-size: 15px; cursor: pointer; color: #1e293b;
+            background: #e2e8f0; border: 1px solid #b9c7d9; border-radius: 999px;
+            padding: 6px 12px; font-size: 13px; font-weight: 500; cursor: pointer; color: #1e293b;
+            line-height: 1.2;
         }
         .modern .test-btn:hover { background: #d1dbe8; }
 
@@ -428,8 +429,8 @@
         .modern .server-menu button.danger:hover { background: #fff1f2; color: #be123c; }
         .modern .server-form-popover {
             border: 1px solid #d6e1ee;
-            border-radius: 14px;
-            padding: 12px;
+            border-radius: 12px;
+            padding: 10px;
             background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
             box-shadow: 0 8px 18px rgba(15,23,42,0.06);
         }
@@ -441,24 +442,24 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 10px;
+            gap: 8px;
+            margin-bottom: 8px;
         }
-        .modern .server-form-title { font-size: 16px; font-weight: 700; color: #0f172a; }
-        .modern .server-form-subtitle { margin-top: 2px; font-size: 12px; color: #64748b; line-height: 1.4; }
-        .modern .server-form-grid { display: grid; gap: 10px; }
-        .modern .server-api-field small { margin-top: 1px; }
+        .modern .server-form-title { font-size: 14px; font-weight: 700; color: #0f172a; }
+        .modern .server-form-subtitle { margin-top: 2px; font-size: 11px; color: #64748b; line-height: 1.35; }
+        .modern .server-form-grid { display: grid; gap: 8px; }
+        .modern .server-api-field small { margin-top: 0; font-size: 11px; }
         .modern .server-form-actions {
             display: flex;
             justify-content: space-between;
-            gap: 10px;
-            margin-top: 12px;
+            gap: 8px;
+            margin-top: 10px;
             flex-wrap: wrap;
         }
-        .modern .server-form-actions-right { display: flex; gap: 8px; flex-wrap: wrap; }
+        .modern .server-form-actions-right { display: flex; gap: 6px; flex-wrap: wrap; }
         .modern .btn.secondary {
             background: #e2e8f0; color: #1e293b; border: 1px solid #b9c7d9;
-            padding: 8px 16px; border-radius: 30px; font-weight: 500; cursor: pointer; font-size: 15px;
+            padding: 6px 12px; border-radius: 999px; font-weight: 500; cursor: pointer; font-size: 13px;
         }
         .modern .btn.secondary:hover { background: #d1dbe8; }
 
@@ -495,8 +496,9 @@
             align-items: center; gap: 12px;
         }
         .modern .btn {
-            padding: 8px 20px; border-radius: 30px; border: none;
-            font-weight: 500; cursor: pointer; font-size: 15px;
+            padding: 6px 12px; border-radius: 999px; border: none;
+            font-weight: 500; cursor: pointer; font-size: 13px;
+            line-height: 1.2;
         }
         .modern .btn.cancel { background: #e2e8f0; color: #1e293b; border: 1px solid #b9c7d9; }
         .modern .btn.save { background: var(--primary); color: white; }
@@ -533,6 +535,7 @@
         .modern.dark-mode .server-menu button { color: #e5e7eb; }
         .modern.dark-mode .server-menu button:hover { background: #2e2e42; }
         .modern.dark-mode .server-btn:hover:not(:disabled) { background: #2e2e42; border-color: #5a5a78; }
+        .modern.dark-mode .server-form-title { color: #f8fafc; }
         .modern.dark-mode .server-btn.danger:hover:not(:disabled) { background: #3a2230; border-color: #7c2d43; color: #fecdd3; }
         .modern.dark-mode .btn.secondary,
         .modern.dark-mode .test-btn { background: #2e2e42; border-color: #5a5a78; color: #ddd; }
@@ -1279,6 +1282,7 @@
 
                 refreshServersList();
                 refreshServerForm();
+                hideServerEditor();
 
                 const msgEl = document.getElementById('save-message');
                 if (msgEl) {
