@@ -1497,43 +1497,42 @@
             background: #000;
         }
         .trailer-quality-bar {
+            min-width: 140px;
             display: flex;
             align-items: center;
             gap: 8px;
-            flex-wrap: wrap;
-            padding: 10px 16px;
-            background: #070a12;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 0;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            backdrop-filter: none;
         }
         .trailer-quality-label {
             color: #9ca3af;
             font: 12px/1.4 Arial, "Microsoft YaHei", sans-serif;
             margin-right: 2px;
+            flex: 0 0 auto;
         }
-        .trailer-quality-btn {
-            min-width: 58px;
-            padding: 6px 10px;
-            color: #d1d5db;
+        .trailer-quality-select {
+            min-width: 92px;
+            max-width: 180px;
+            height: 28px;
+            padding: 0 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
             background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 999px;
-            cursor: pointer;
+            color: #f8fafc;
+            outline: none;
             font-size: 12px;
-            transition: background .15s ease, color .15s ease, border-color .15s ease;
+            appearance: none;
         }
-        .trailer-quality-btn:hover {
-            color: #fff;
-            background: rgba(96, 165, 250, 0.22);
-            border-color: rgba(147, 197, 253, 0.45);
-        }
-        .trailer-quality-btn.active {
-            color: #fff;
-            background: #2563eb;
-            border-color: #60a5fa;
-            box-shadow: 0 0 16px rgba(37, 99, 235, .38);
+        .trailer-quality-select option {
+            background: #0b1020;
+            color: #f8fafc;
         }
         .trailer-footer {
             display: flex;
+            align-items: center;
             justify-content: space-between;
             gap: 12px;
             padding: 10px 16px;
@@ -2163,26 +2162,17 @@
             const qualityBar = document.createElement('div');
             const qualityMap = qualities && typeof qualities === 'object' ? qualities : null;
             if (type !== 'iframe' && qualityMap && Object.keys(qualityMap).length > 1) {
-                const qualityOrder = ['sm', 'sm_s', 'dm', 'dm_s', 'dmb_s', 'dmb_w', 'mhb_w', 'mmb', 'mhb', 'hmb', 'hhb', 'hhbs', '4k', '4ks'];
+                const qualityOrder = ['4k', 'hhb', 'hmb', 'mhb', 'mmb', 'dm', 'sm'];
                 const qualityLabels = {
-                    sm: '低画质',
-                    sm_s: '240p',
-                    dm: '中画质',
-                    dm_s: '360p',
-                    dmb_s: '480p',
-                    dmb_w: '404p宽',
-                    mhb_w: '404p高宽',
-                    mmb: '432p',
-                    mhb: '576p',
-                    hmb: '720p',
-                    hhb: '1080p',
-                    hhbs: '1080p60',
                     '4k': '4K',
-                    '4ks': '4K60'
+                    hhb: '1080P',
+                    hmb: '720P',
+                    mhb: '576P',
+                    mmb: '432P'
                 };
                 const sortedKeys = Object.keys(qualityMap)
                     .filter(key => qualityMap[key])
-                    .sort((a, b) => qualityOrder.indexOf(b) - qualityOrder.indexOf(a));
+                    .sort((a, b) => qualityOrder.indexOf(a) - qualityOrder.indexOf(b));
 
                 qualityBar.className = 'trailer-quality-bar';
                 const label = document.createElement('span');
@@ -2190,57 +2180,57 @@
                 label.textContent = '画质';
                 qualityBar.appendChild(label);
 
+                const select = document.createElement('select');
+                select.className = 'trailer-quality-select';
+
                 const setActiveQuality = (key) => {
                     activeQuality = key;
                     activeUrl = qualityMap[key];
-                    qualityBar.querySelectorAll('.trailer-quality-btn').forEach(btn => {
-                        btn.classList.toggle('active', btn.dataset.quality === key);
-                    });
+                    select.value = key;
                 };
 
                 sortedKeys.forEach(key => {
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = 'trailer-quality-btn';
-                    btn.dataset.quality = key;
-                    btn.textContent = qualityLabels[key] || key;
-                    btn.onclick = async () => {
-                        if (!video || !qualityMap[key] || activeQuality === key) return;
-                        const currentTime = video.currentTime || 0;
-                        const shouldPlay = !video.paused;
-                        video.src = qualityMap[key];
-                        fallbackIndex = Math.max(0, fallbackUrls.indexOf(qualityMap[key]));
-                        video.load();
-                        video.currentTime = currentTime;
-                        setActiveQuality(key);
-                        sourceLink.href = activeUrl;
-                        if (shouldPlay) {
-                            await video.play().catch(() => {});
-                        }
-                    };
-                    qualityBar.appendChild(btn);
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.textContent = qualityLabels[key] || key;
+                    select.appendChild(opt);
                 });
 
+                select.addEventListener('change', async () => {
+                    const key = select.value;
+                    if (!video || !qualityMap[key] || activeQuality === key) return;
+                    const currentTime = video.currentTime || 0;
+                    const shouldPlay = !video.paused;
+                    video.src = qualityMap[key];
+                    fallbackIndex = Math.max(0, fallbackUrls.indexOf(qualityMap[key]));
+                    video.load();
+                    video.currentTime = currentTime;
+                    setActiveQuality(key);
+                    sourceLink.href = activeUrl;
+                    if (shouldPlay) {
+                        await video.play().catch(() => {});
+                    }
+                });
+
+                qualityBar.appendChild(select);
                 setActiveQuality(activeQuality && qualityMap[activeQuality] ? activeQuality : sortedKeys[0]);
             }
 
             const footer = document.createElement('div');
             footer.className = 'trailer-footer';
-            const footerText = document.createElement('span');
-            footerText.textContent = '影院模式播放，按 Esc 或点击右上角关闭。';
+            const footerLeft = document.createElement('div');
+            footerLeft.style.cssText = 'display:flex;align-items:center;gap:12px;min-width:0;padding-left:6px;';
+            footerLeft.appendChild(qualityBar);
             const sourceLink = document.createElement('a');
             sourceLink.href = activeUrl;
             sourceLink.target = '_blank';
             sourceLink.rel = 'noopener noreferrer';
             sourceLink.textContent = '新窗口打开源地址';
-            footer.appendChild(footerText);
+            footer.appendChild(footerLeft);
             footer.appendChild(sourceLink);
 
             modal.appendChild(header);
             modal.appendChild(screen);
-            if (qualityBar.childElementCount) {
-                modal.appendChild(qualityBar);
-            }
             modal.appendChild(footer);
             overlay.appendChild(modal);
 
@@ -2562,6 +2552,7 @@
             const resolvers = [
                 this.fromDirectSamples,
                 this.fromFc2Hub,
+                this.fromJavpCcCd,
                 this.fromDmmApi,
                 this.fromDmmPlayerPage,
                 this.fromJavSpyl
@@ -2644,20 +2635,11 @@
         },
 
         qualityOptions: [
-            { quality: 'sm', text: '低画质' },
-            { quality: 'dm', text: '中画质' },
-            { quality: 'sm_s', text: '旧视频源-低画质 (240p)' },
-            { quality: 'dm_s', text: '旧视频源-中画质 (360p)' },
-            { quality: 'dmb_s', text: '旧视频源-中画质 (480p)' },
-            { quality: 'dmb_w', text: '旧视频源-中画质宽版 (404p)' },
-            { quality: 'mhb_w', text: '旧视频源-高画质宽版 (404p)' },
-            { quality: 'mmb', text: '中画质 (432p)' },
-            { quality: 'mhb', text: '高画质 (576p)' },
-            { quality: 'hmb', text: 'HD (720p)' },
-            { quality: 'hhb', text: 'FullHD (1080p)' },
-            { quality: 'hhbs', text: 'FullHD (1080p60fps)' },
-            { quality: '4k', text: '4K (2160p)' },
-            { quality: '4ks', text: '4K (2160p60fps)' }
+            { quality: '4k', text: '4K' },
+            { quality: 'hhb', text: '1080p' },
+            { quality: 'hmb', text: '720p' },
+            { quality: 'mhb', text: '576p' },
+            { quality: 'mmb', text: '432p' }
         ],
 
         selectHighestQuality(qualityMap) {
@@ -2668,7 +2650,51 @@
             const rank = new Map(this.qualityOptions.map((item, index) => [item.quality, index]));
             return Object.keys(qualityMap || {})
                 .filter(key => qualityMap[key])
-                .sort((a, b) => (rank.get(b) ?? -1) - (rank.get(a) ?? -1));
+                .sort((a, b) => (rank.get(a) ?? -1) - (rank.get(b) ?? -1));
+        },
+
+        async fromJavpCcCd(id) {
+            const query = String(id || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+            if (!query) return null;
+
+            const apiUrl = `https://javp.cc.cd/trailers/${encodeURIComponent(query)}`;
+            const r = await this.request(apiUrl, {
+                timeout: 12000,
+                headers: { Accept: 'application/json,text/plain,*/*' }
+            });
+            if (!r?.responseText || r.status < 200 || r.status >= 400) return null;
+
+            let data;
+            try {
+                data = JSON.parse(r.responseText);
+            } catch {
+                return null;
+            }
+
+            const trailerUrl = String(data?.trailer || '').trim();
+            if (!trailerUrl) return null;
+
+            const qualityMap = {};
+            const suffixes = ['4k', '4ks', '1080p', '720p', '480p', '360p', '240p'];
+            const matched = trailerUrl.match(/^(.*?)(4k|4ks|1080p|720p|480p|360p|240p)\.mp4(?:[?#].*)?$/i);
+
+            if (!matched) {
+                return this.result(trailerUrl, 'JAVP / DMM', 'video');
+            }
+
+            const [ , prefix ] = matched;
+            suffixes.forEach(q => {
+                qualityMap[q] = `${prefix}${q}.mp4`;
+            });
+
+            const highestQuality = this.selectHighestQuality(qualityMap);
+            if (!highestQuality) return null;
+
+            return this.result(qualityMap[highestQuality], 'JAVP / DMM', 'video', {
+                qualities: qualityMap,
+                quality: highestQuality,
+                urls: this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
+            });
         },
 
         async fromDmmApi(id) {
@@ -2994,6 +3020,58 @@
             }
 
             return null;
+        },
+
+        async fromJavpCcCd(id, rawCode = '') {
+            const searchCode = String(rawCode || id || '').trim();
+            if (!searchCode) return null;
+
+            const apiUrl = `https://javp.cc.cd/trailers/${encodeURIComponent(searchCode)}`;
+            const r = await this.request(apiUrl, {
+                timeout: 15000,
+                headers: { Accept: 'application/json,text/plain,*/*' }
+            });
+            if (!r?.responseText || r.status < 200 || r.status >= 400) return null;
+
+            let data;
+            try {
+                data = JSON.parse(r.responseText);
+            } catch {
+                return null;
+            }
+
+            const trailerUrl = String(data?.trailer || '').trim();
+            if (!trailerUrl) return null;
+
+            const matched = trailerUrl.match(/^(.*?)(4k|hhb|hmb|mhb|mmb)\.mp4(?:[?#].*)?$/i);
+            if (!matched) return this.result(trailerUrl, 'JAVP / DMM', 'video');
+
+            const prefix = matched[1];
+            const qualities = ['4k', 'hhb', 'hmb', 'mhb', 'mmb'];
+            const qualityCandidates = qualities.map(quality => ({
+                quality,
+                url: `${prefix}${quality}.mp4`
+            }));
+
+            const checks = await Promise.all(qualityCandidates.map(async item => ({
+                ...item,
+                ok: Boolean(await this.head(item.url))
+            })));
+            const qualityMap = {};
+            checks.forEach(item => {
+                if (item.ok) qualityMap[item.quality] = item.url;
+            });
+
+            if (!Object.keys(qualityMap).length) {
+                return this.result(trailerUrl, 'JAVP / DMM', 'video');
+            }
+
+            const highestQuality = this.qualityOptions.map(item => item.quality).find(q => qualityMap[q]);
+            return this.result(qualityMap[highestQuality], 'JAVP / DMM', 'video', {
+                qualities: qualityMap,
+                quality: highestQuality,
+                urls: this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
+            });
         },
 
         async fromFc2Hub(id) {
