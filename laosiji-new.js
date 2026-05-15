@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.1.7
+// @version      2.1.8
 // @description  JavBus / JavDB / JavLib 磁力搜索与番号助手，集成 115 离线、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
 // @author       ZiPenOk
@@ -42,7 +42,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.1.7';
+    const SCRIPT_VERSION = '2.1.8';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -1619,12 +1619,16 @@
             return normalized;
         },
 
-        extractCode(text) {
+        extractCode(text, options = {}) {
             if (!text) return null;
 
-            const uncensoredHit = String(text).match(/(?:PACOPACOMAMA|1PONDO|CARIBBEANCOM|CARIB|HEYZO)?[-_\s]*(\d{6})([-_])(\d{2,3})/i);
+            const uncensoredHit = String(text).match(/(?:(PACOPACOMAMA|PACO|10MUSUME|10MU|1PONDO|CARIBBEANCOM|CARIB|HEYZO)[-_\s]*)?(\d{6})([-_])(\d{2,3})/i);
             if (uncensoredHit) {
-                return Utils.normalizeCode(`${uncensoredHit[1]}_${uncensoredHit[3]}`);
+                const code = Utils.normalizeCode(`${uncensoredHit[2]}${uncensoredHit[3]}${uncensoredHit[4]}`);
+                if (options.keepUncensoredSource && uncensoredHit[1]) {
+                    return `${uncensoredHit[1].toUpperCase()}_${code}`;
+                }
+                return code;
             }
 
             const patterns = [
@@ -1955,6 +1959,138 @@
             let fallbackIndex = Math.max(0, fallbackUrls.indexOf(url));
 
             const isM3U8 = /\.m3u8(?:[?#].*)?$/i.test(url);
+            const createHlsLoader = () => class GMHlsLoader {
+                constructor(config) {
+                    this.config = config;
+                    this.context = null;
+                    this.callbacks = null;
+                    this.loader = null;
+                }
+                destroy() {
+                    this.abort();
+                }
+                abort() {
+                    this.loader?.abort?.();
+                    this.loader = null;
+                }
+                load(context, config, callbacks) {
+                    this.context = context;
+                    this.callbacks = callbacks;
+                    const requestUrl = context.url;
+                    this.loader = GM_xmlhttpRequest({
+                        method: 'GET',
+                        url: requestUrl,
+                        responseType: context.responseType === 'arraybuffer' ? 'arraybuffer' : 'text',
+                        timeout: config?.timeout || 20000,
+                        onload: (r) => {
+                            const data = context.responseType === 'arraybuffer' ? r.response : (r.responseText || '');
+                            callbacks.onSuccess?.({ data, url: r.finalUrl || requestUrl }, { trequest: Date.now(), tfirst: Date.now(), tload: Date.now() }, context);
+                        },
+                        onerror: () => callbacks.onError?.({ code: 0, text: 'network error' }, context, null),
+                        ontimeout: () => callbacks.onTimeout?.(Date.now(), context, null)
+                    });
+                }
+            };
+
+            const attachMp4Src = (src) => {
+                if (!src) return;
+                video.src = src;
+            };
+
+            const attachM3u8Src = (src) => {
+                if (!src) return;
+                if (!(window.Hls && window.Hls.isSupported && window.Hls.isSupported())) {
+                    video.src = src;
+                    return;
+                }
+                const hls = new window.Hls({
+                    enableWorker: false,
+                    lowLatencyMode: true,
+                    loader: createHlsLoader(),
+                    autoStartLoad: true,
+                    startPosition: 0,
+                    capLevelToPlayerSize: true,
+                    testBandwidth: false,
+                    preferManagedMediaSource: false,
+                    maxBufferLength: 6,
+                    maxMaxBufferLength: 12,
+                    backBufferLength: 30,
+                    maxBufferHole: 0.5,
+                    nudgeOffset: 0.1,
+                    manifestLoadingMaxRetry: 2,
+                    levelLoadingMaxRetry: 2,
+                    fragLoadingMaxRetry: 2,
+                    manifestLoadingTimeOut: 12000,
+                    levelLoadingTimeOut: 12000,
+                    fragLoadingTimeOut: 12000,
+                    abrEwmaFastLive: 3,
+                    abrEwmaSlowLive: 9,
+                });
+                hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+                    hls.startLoad(0);
+                    video.play().catch(() => {});
+                });
+                hls.on(window.Hls.Events.ERROR, (_, data) => {
+                    if (!data?.fatal) return;
+                    if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR && fallbackIndex < fallbackUrls.length - 1) {
+                        fallbackIndex += 1;
+                        const next = fallbackUrls[fallbackIndex];
+                        activeUrl = next;
+                        sourceLink.href = next;
+                        hls.loadSource(next);
+                        hls.startLoad(0);
+                        return;
+                    }
+                    if (fallbackIndex >= fallbackUrls.length - 1) {
+                        try { hls.destroy(); } catch {}
+                        video._hls = null;
+                        video.src = src;
+                        video.load?.();
+                        video.play().catch(() => {});
+                    }
+                });
+                hls.loadSource(src);
+                hls.attachMedia(video);
+                video._hls = hls;
+            };
+
+            const attachVideoSrc = (src) => {
+                if (!src) return;
+                if (/\.m3u8(?:[?#].*)?$/i.test(src)) attachM3u8Src(src);
+                else attachMp4Src(src);
+            };
+
+            const initTrailerVideo = (src) => {
+                if (isM3U8 && !window.Hls) {
+                    const hlsScript = document.createElement('script');
+                    hlsScript.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js';
+                    hlsScript.async = true;
+                    hlsScript.onload = () => attachVideoSrc(src);
+                    hlsScript.onerror = () => attachMp4Src(src);
+                    document.head.appendChild(hlsScript);
+                } else {
+                    attachVideoSrc(src);
+                }
+
+                if (isM3U8) {
+                    const initialSrc = src;
+                    setTimeout(() => {
+                        if (!video || !video.isConnected) return;
+                        const notReady = video.readyState < 2;
+                        if (notReady && !video.error) {
+                            try {
+                                if (video._hls) {
+                                    video._hls.destroy();
+                                    video._hls = null;
+                                }
+                            } catch {}
+                            video.src = initialSrc;
+                            video.play().catch(() => {});
+                        }
+                    }, 2500);
+                }
+            };
+
             if (type === 'iframe') {
                 const iframe = document.createElement('iframe');
                 iframe.src = url;
@@ -1972,134 +2108,7 @@
                 video.volume = Number.isFinite(savedVolume) ? Math.min(1, Math.max(0, savedVolume)) : 0.35;
                 video.muted = Boolean(savedMuted);
 
-                const attachVideoSrc = (src) => {
-                    if (!src) return;
-                    const isM3u8 = /\.m3u8(?:[?#].*)?$/i.test(src);
-                    if (isM3u8) {
-                        // m3u8 优先走 hls.js + GM loader；若当前不可用则回退原生播放，避免直接无画面
-                        if (!(window.Hls && window.Hls.isSupported && window.Hls.isSupported())) {
-                            video.src = src;
-                            return;
-                        }
-                        class GMHlsLoader {
-                            constructor(config) {
-                                this.config = config;
-                                this.context = null;
-                                this.callbacks = null;
-                                this.loader = null;
-                            }
-                            destroy() {
-                                this.abort();
-                            }
-                            abort() {
-                                this.loader?.abort?.();
-                                this.loader = null;
-                            }
-                            load(context, config, callbacks) {
-                                this.context = context;
-                                this.callbacks = callbacks;
-                                const url = context.url;
-                                this.loader = GM_xmlhttpRequest({
-                                    method: 'GET',
-                                    url,
-                                    responseType: context.responseType === 'arraybuffer' ? 'arraybuffer' : 'text',
-                                    timeout: config?.timeout || 20000,
-                                    onload: (r) => {
-                                        const data = context.responseType === 'arraybuffer' ? r.response : (r.responseText || '');
-                                        callbacks.onSuccess?.({ data, url: r.finalUrl || url }, { trequest: Date.now(), tfirst: Date.now(), tload: Date.now() }, context);
-                                    },
-                                    onerror: () => callbacks.onError?.({ code: 0, text: 'network error' }, context, null),
-                                    ontimeout: () => callbacks.onTimeout?.(Date.now(), context, null)
-                                });
-                            }
-                        }
-                        const hls = new window.Hls({
-                            enableWorker: false,
-                            lowLatencyMode: true,
-                            loader: GMHlsLoader,
-                            autoStartLoad: true,
-                            startPosition: 0,
-                            capLevelToPlayerSize: true,
-                            testBandwidth: false,
-                            preferManagedMediaSource: false,
-                            maxBufferLength: 6,
-                            maxMaxBufferLength: 12,
-                            backBufferLength: 30,
-                            maxBufferHole: 0.5,
-                            nudgeOffset: 0.1,
-                            manifestLoadingMaxRetry: 2,
-                            levelLoadingMaxRetry: 2,
-                            fragLoadingMaxRetry: 2,
-                            manifestLoadingTimeOut: 12000,
-                            levelLoadingTimeOut: 12000,
-                            fragLoadingTimeOut: 12000,
-                            abrEwmaFastLive: 3,
-                            abrEwmaSlowLive: 9,
-                        });
-                        hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
-                            hls.startLoad(0);
-                            video.play().catch(() => {});
-                        });
-                        hls.on(window.Hls.Events.ERROR, (_, data) => {
-                            if (!data?.fatal) return;
-                            if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR && fallbackIndex < fallbackUrls.length - 1) {
-                                fallbackIndex += 1;
-                                const next = fallbackUrls[fallbackIndex];
-                                activeUrl = next;
-                                sourceLink.href = next;
-                                hls.loadSource(next);
-                                hls.startLoad(0);
-                                return;
-                            }
-                            if (fallbackIndex >= fallbackUrls.length - 1) {
-                                // 最后兜底：销毁 hls，尝试原生直连
-                                try { hls.destroy(); } catch {}
-                                video._hls = null;
-                                video.src = src;
-                                video.load?.();
-                                video.play().catch(() => {});
-                            }
-                        });
-                        hls.loadSource(src);
-                        hls.attachMedia(video);
-                        video._hls = hls;
-                        return;
-                    }
-                    video.src = src;
-                };
-
-                if (isM3U8 && !window.Hls) {
-                    const hlsScript = document.createElement('script');
-                    hlsScript.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js';
-                    hlsScript.async = true;
-                    hlsScript.onload = () => attachVideoSrc(fallbackUrls[fallbackIndex] || url);
-                    hlsScript.onerror = () => {
-                        video.src = fallbackUrls[fallbackIndex] || url;
-                    };
-                    document.head.appendChild(hlsScript);
-                } else {
-                    attachVideoSrc(fallbackUrls[fallbackIndex] || url);
-                }
-
-                // 兜底：如果 2.5 秒仍未进入可播放状态，强制回退原生 src，避免一直黑屏
-                if (isM3U8) {
-                    const initialSrc = fallbackUrls[fallbackIndex] || url;
-                    setTimeout(() => {
-                        if (!video || !video.isConnected) return;
-                        const notReady = video.readyState < 2;
-                        if (notReady && !video.error) {
-                            try {
-                                if (video._hls) {
-                                    video._hls.destroy();
-                                    video._hls = null;
-                                }
-                            } catch {}
-                            video.src = initialSrc;
-                            video.play().catch(() => {});
-                        }
-                    }, 2500);
-                }
-
+                initTrailerVideo(fallbackUrls[fallbackIndex] || url);
                 video.preload = 'auto';
 
                 video.addEventListener('volumechange', () => {
@@ -2484,7 +2493,7 @@
         },
 
         cacheKey(code) {
-            return `trailer_cache_v4_${this.normalize(code)}`;
+            return `trailer_cache_v6_${this.normalize(code)}`;
         },
 
         async show(code) {
@@ -2508,8 +2517,9 @@
             const rawCode = String(code || '').trim();
             const id = this.normalize(code);
             const cacheEnabled = Settings.getTrailerCacheEnabled();
-            const isPondoUnderscore = /^\d{6}_\d{3}$/.test(rawCode.toLowerCase());
-            if (cacheEnabled && !isPondoUnderscore) {
+            const directSample = this.classifyDirectSample(id, rawCode);
+            const skipCache = directSample?.source === '1pondo';
+            if (cacheEnabled && !skipCache) {
                 const cached = sessionStorage.getItem(this.cacheKey(id));
                 if (cached) {
                     try {
@@ -2777,138 +2787,182 @@
 
 
 
-        async fromDirectSamples(id, rawCode = '') {
-            const normalizedRaw = this.normalize(rawCode || id || '');
-            const lower = normalizedRaw.toLowerCase();
-            if (/^\d{6}_\d{2}$/.test(lower)) {
-                const q1080 = `https://fms.10musume.com/hls/sample/10musume.com/${lower}/1080p.mp4`;
-                const q720  = `https://fms.10musume.com/hls/sample/10musume.com/${lower}/720p.mp4`;
-                const q480  = `https://fms.10musume.com/hls/sample/10musume.com/${lower}/480p.mp4`;
-                const q360  = `https://fms.10musume.com/hls/sample/10musume.com/${lower}/360p.mp4`;
-                const q240  = `https://fms.10musume.com/hls/sample/10musume.com/${lower}/240p.mp4`;
-                const qualities = {
-                    '1080p': q1080,
-                    '720p': q720,
-                    '480p': q480,
-                    '360p': q360,
-                    '240p': q240
-                };
-                return this.result(q1080, '无码直连预告 / 10MU', 'video', {
-                    sourceName: '10MU',
-                    sourceLabel: '无码直连预告 / 10MU',
-                    sourceTag: '10MU',
-                    trailerSource: '10MU',
-                    qualities,
-                    quality: '1080p',
-                    urls: [q1080, q720, q480, q360, q240]
-                });
+        getDirectSampleSourceHint(rawCode = '') {
+            const raw = String(rawCode || '').toLowerCase();
+            if (/(?:caribbeancom|carib)/.test(raw)) return 'caribbean';
+            if (/(?:pacopacomama|paco)/.test(raw)) return 'paco';
+            if (/(?:10musume|10mu)/.test(raw)) return '10mu';
+            if (/(?:1pondo|1pon)/.test(raw)) return '1pondo';
+            return '';
+        },
+
+        classifyDirectSample(id, rawCode = '') {
+            const normalized = this.normalize(rawCode || id || '');
+            const hint = this.getDirectSampleSourceHint(rawCode);
+            const hintedSourceChecks = {
+                caribbean: /^[01]\d{5}-\d{2,3}$/.test(normalized),
+                paco: /^\d{6}_100$/.test(normalized),
+                '10mu': /^\d{6}_\d{2}$/.test(normalized),
+                '1pondo': /^\d{6}_\d{3}$/.test(normalized)
+            };
+            const sourceChecks = {
+                caribbean: /^[01]\d{5}-\d{2,3}$/.test(normalized),
+                paco: /^\d{6}_100$/.test(normalized),
+                '10mu': /^\d{6}_\d{2}$/.test(normalized),
+                '1pondo': /^\d{6}_(?!100$)\d{3}$/.test(normalized)
+            };
+
+            if (hint) {
+                return hintedSourceChecks[hint] ? { source: hint, id: normalized } : null;
             }
 
-            if (/^\d{6}_100$/.test(lower)) {
-                const q1080 = `https://fms.pacopacomama.com/hls/sample/pacopacomama.com/${lower}/1080p.mp4`;
-                const q720  = `https://fms.pacopacomama.com/hls/sample/pacopacomama.com/${lower}/720p.mp4`;
-                const q480  = `https://fms.pacopacomama.com/hls/sample/pacopacomama.com/${lower}/480p.mp4`;
-                const q360  = `https://fms.pacopacomama.com/hls/sample/pacopacomama.com/${lower}/360p.mp4`;
-                const q240  = `https://fms.pacopacomama.com/hls/sample/pacopacomama.com/${lower}/240p.mp4`;
-                const qualities = {
-                    '1080p': q1080,
-                    '720p': q720,
-                    '480p': q480,
-                    '360p': q360,
-                    '240p': q240
-                };
-                return this.result(q1080, '无码直连预告 / PACO', 'video', {
-                    sourceName: 'PACO',
-                    sourceLabel: '无码直连预告 / PACO',
-                    sourceTag: 'PACO',
-                    trailerSource: 'PACO',
-                    qualities,
-                    quality: '1080p',
-                    urls: [q1080, q720, q480, q360, q240]
-                });
-            }
+            const matches = Object.keys(sourceChecks).filter(source => sourceChecks[source]);
+            if (matches.length !== 1) return null;
+            return { source: matches[0], id: normalized };
+        },
 
-            if (/^\d{6}_\d{3}$/.test(lower)) {
-                const q1080 = `https://sample-1pondo.eroxjapanz.com/sample/movies/${lower}/1080p.mp4`;
-                const q720  = `https://sample-1pondo.eroxjapanz.com/sample/movies/${lower}/720p.mp4`;
-                const q480  = `https://sample-1pondo.eroxjapanz.com/sample/movies/${lower}/480p.mp4`;
-                const q360  = `https://sample-1pondo.eroxjapanz.com/sample/movies/${lower}/360p.mp4`;
-                const q240  = `https://sample-1pondo.eroxjapanz.com/sample/movies/${lower}/240p.mp4`;
-                const qualities = {
-                    '1080p': q1080,
-                    '720p': q720,
-                    '480p': q480,
-                    '360p': q360,
-                    '240p': q240
-                };
-                return this.result(q1080, '无码直连预告 / 一本道', 'video', {
-                    sourceName: '一本道',
-                    sourceLabel: '无码直连预告 / 一本道',
-                    sourceTag: '一本道',
-                    trailerSource: '一本道',
-                    qualities,
-                    quality: '1080p',
-                    urls: [q1080, q720, q480, q360, q240]
-                });
+        buildDirectSampleBySource(classification, rawCode = '') {
+            if (!classification?.source || !classification.id) return null;
+            switch (classification.source) {
+                case 'caribbean':
+                    return this._buildCaribbeanDirect(classification.id, rawCode);
+                case 'paco':
+                    return this._buildPacoDirect(classification.id, rawCode);
+                case '10mu':
+                    return this._build10MuDirect(classification.id, rawCode);
+                case '1pondo':
+                    return this._build1PondoDirect(classification.id, rawCode);
+                default:
+                    return null;
             }
+        },
 
-            if (/^[01]\d{5}-\d{2,3}$/.test(lower)) {
-                const q1080 = `https://smovie.caribbeancom.com/sample/movies/${lower}/1080p.mp4`;
-                const q720  = `https://smovie.caribbeancom.com/sample/movies/${lower}/720p.mp4`;
-                const q480  = `https://smovie.caribbeancom.com/sample/movies/${lower}/480p.mp4`;
-                const q360  = `https://smovie.caribbeancom.com/sample/movies/${lower}/360p.mp4`;
-                const q240  = `https://smovie.caribbeancom.com/sample/movies/${lower}/240p.mp4`;
-                const qualities = {
-                    '1080p': q1080,
-                    '720p': q720,
-                    '480p': q480,
-                    '360p': q360,
-                    '240p': q240
-                };
-                return this.result(q1080, '无码直连预告 / 加勒比', 'video', {
+        _buildFixedQualityResult({ urlBase, sourceName, sourceLabel, sourceTag, ext = 'mp4' }) {
+            const q1080 = `${urlBase}/1080p.${ext}`;
+            const q720  = `${urlBase}/720p.${ext}`;
+            const q480  = `${urlBase}/480p.${ext}`;
+            const q360  = `${urlBase}/360p.${ext}`;
+            const q240  = `${urlBase}/240p.${ext}`;
+            const qualities = {
+                '1080p': q1080,
+                '720p': q720,
+                '480p': q480,
+                '360p': q360,
+                '240p': q240
+            };
+            return this.result(q1080, sourceLabel, 'video', {
+                sourceName,
+                sourceLabel,
+                sourceTag,
+                trailerSource: sourceName,
+                qualities,
+                quality: '1080p',
+                urls: [q1080, q720, q480, q360, q240]
+            });
+        },
+
+        _build10MuDirect(id, rawCode = '') {
+            if (!/^\d{6}_\d{2}$/.test(id)) return null;
+            return this._buildFixedQualityResult({
+                urlBase: `https://fms.10musume.com/hls/sample/10musume.com/${id}`,
+                sourceName: '10MU',
+                sourceLabel: '无码直连预告 / 10MU',
+                sourceTag: '10MU'
+            });
+        },
+
+        _buildPacoDirect(id, rawCode = '') {
+            if (!/^\d{6}_100$/.test(id)) return null;
+            return this._buildFixedQualityResult({
+                urlBase: `https://fms.pacopacomama.com/hls/sample/pacopacomama.com/${id}`,
+                sourceName: 'PACO',
+                sourceLabel: '无码直连预告 / PACO',
+                sourceTag: 'PACO'
+            });
+        },
+
+        _build1PondoDirect(id, rawCode = '') {
+            const hasPondoHint = this.getDirectSampleSourceHint(rawCode) === '1pondo';
+            if (!/^\d{6}_\d{3}$/.test(id)) return null;
+            if (!hasPondoHint && /^\d{6}_100$/.test(id)) return null;
+            if (!hasPondoHint && rawCode && /-/.test(rawCode)) return null;
+            return this._buildFixedQualityResult({
+                urlBase: `https://sample-1pondo.eroxjapanz.com/sample/movies/${id}`,
+                sourceName: '一本道',
+                sourceLabel: '无码直连预告 / 一本道',
+                sourceTag: '一本道'
+            });
+        },
+
+        _buildCaribbeanDirect(id, rawCode = '') {
+            const raw = String(rawCode || id || '');
+            const canonical = /^[01]\d{5}-\d{2,3}$/.test(raw) ? raw : id;
+            if (/^[01]\d{5}-\d{2,3}$/.test(canonical)) {
+                return this._buildFixedQualityResult({
+                    urlBase: `https://smovie.caribbeancom.com/sample/movies/${canonical}`,
                     sourceName: '加勒比',
                     sourceLabel: '无码直连预告 / 加勒比',
-                    sourceTag: '加勒比',
-                    trailerSource: '加勒比',
-                    qualities,
-                    quality: '1080p',
-                    urls: [q1080, q720, q480, q360, q240]
+                    sourceTag: '加勒比'
                 });
             }
+            return null;
+        },
 
-            if (/^heyzo[-_ ]?\d{4}$/i.test(id)) {
-                const num = id.match(/\d{4}/)?.[0];
-                const qualityMap = {
-                    '1080p': `https://www.heyzo.com/contents/3000/${num}/heyzo_hd_${num}_sample.mp4`,
-                    '540p':  `https://www.heyzo.com/contents/3000/${num}/sample.mp4`,
-                    '396p':  `https://www.heyzo.com/contents/3000/${num}/sample_low.mp4`
-                };
-                const highestQuality = this.selectHighestQuality(qualityMap);
-                if (highestQuality) {
-                    return this.result(qualityMap[highestQuality], '无码直连预告 / HEYZO', 'video', {
-                        sourceName: 'HEYZO',
-                        sourceLabel: '无码直连预告 / HEYZO',
-                        sourceTag: 'HEYZO',
-                        trailerSource: 'HEYZO',
-                        qualities: qualityMap,
-                        quality: highestQuality,
-                        urls: this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
-                    });
-                }
-            }
+        _buildHeyzoDirect(id) {
+            if (!/^heyzo[-_ ]?\d{4}$/i.test(id)) return null;
+            const num = id.match(/\d{4}/)?.[0];
+            const qualityMap = {
+                '1080p': `https://www.heyzo.com/contents/3000/${num}/heyzo_hd_${num}_sample.mp4`,
+                '540p':  `https://www.heyzo.com/contents/3000/${num}/sample.mp4`,
+                '396p':  `https://www.heyzo.com/contents/3000/${num}/sample_low.mp4`
+            };
+            const highestQuality = this.selectHighestQuality(qualityMap);
+            if (!highestQuality) return null;
+            return this.result(qualityMap[highestQuality], '无码直连预告 / HEYZO', 'video', {
+                sourceName: 'HEYZO',
+                sourceLabel: '无码直连预告 / HEYZO',
+                sourceTag: 'HEYZO',
+                trailerSource: 'HEYZO',
+                qualities: qualityMap,
+                quality: highestQuality,
+                urls: this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
+            });
+        },
 
-            if (/^(?:k|n)\d{4}$/i.test(id)) {
-                const qualityMap = await this.buildDirectQualityMap([
-                    `https://my.cdn.tokyo-hot.com/media/samples/${lower}.mp4`
-                ]);
+        _buildTokyoHotDirect(id) {
+            if (!/^(?:k|n)\d{4}$/i.test(id)) return null;
+            const lower = id.toLowerCase();
+            return this.buildDirectQualityMap([
+                `https://my.cdn.tokyo-hot.com/media/samples/${lower}.mp4`
+            ]).then(qualityMap => {
                 const highestQuality = this.selectHighestQuality(qualityMap);
-                if (highestQuality) {
-                    return this.result(qualityMap[highestQuality], '无码直连预告', 'video', {
-                        qualities: qualityMap,
-                        quality: highestQuality,
-                        urls: this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
-                    });
-                }
+                if (!highestQuality) return null;
+                return this.result(qualityMap[highestQuality], '无码直连预告', 'video', {
+                    sourceName: 'Tokyo-Hot',
+                    sourceLabel: '无码直连预告 / Tokyo-Hot',
+                    sourceTag: 'Tokyo-Hot',
+                    trailerSource: 'Tokyo-Hot',
+                    qualities: qualityMap,
+                    quality: highestQuality,
+                    urls: this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
+                });
+            });
+        },
+
+        async fromDirectSamples(id, rawCode = '') {
+            const normalizedRaw = this.normalize(rawCode || id || '');
+            const directSample = this.classifyDirectSample(normalizedRaw, rawCode);
+            const directResult = this.buildDirectSampleBySource(directSample, rawCode);
+            if (directResult?.url) return directResult;
+
+            const builders = [
+                this._buildHeyzoDirect,
+                this._buildTokyoHotDirect
+            ];
+
+            for (const build of builders) {
+                const result = await build.call(this, normalizedRaw, rawCode);
+                if (result?.url) return result;
             }
 
             return null;
@@ -3343,8 +3397,10 @@
         if (titleElem.dataset.enhanced === '1') return;
         titleElem.dataset.enhanced = '1';
 
-        const code = Utils.extractCode(titleElem.textContent);
+        const titleText = titleElem.textContent;
+        const code = Utils.extractCode(titleText);
         if (!code) return;
+        const trailerCode = Utils.extractCode(titleText, { keepUncensoredSource: true }) || code;
 
         const btnGroup = document.createElement('div');
         btnGroup.className = 'jav-jump-btn-group';
@@ -3356,7 +3412,7 @@
             addMissAVBtn(code, btnGroup);
             addDmmBtn(code, btnGroup);
             addSearchMenu(code, btnGroup);
-            addTrailerBtn(code, btnGroup);
+            addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
 
             btnGroup.querySelectorAll('a').forEach(btn => {
@@ -3418,7 +3474,7 @@
             subMenu.addEventListener('mouseleave', () => { subMenu.style.display = 'none'; });
             btnGroup.appendChild(searchMenuDiv);
 
-            addTrailerBtn(code, btnGroup);
+            addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
 
             btnGroup.style.cssText = `
@@ -3439,7 +3495,7 @@
             addMissAVBtn(code, btnGroup);
             addDmmBtn(code, btnGroup);
             addSearchMenu(code, btnGroup);
-            addTrailerBtn(code, btnGroup);
+            addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
 
             if (site.id === 'emby') {
