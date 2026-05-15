@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         (改)根据番号快速搜索
 // @namespace    https://github.com/ZiPenOk
-// @version      2.0.0
+// @version      2.0.1
 // @description  划词识别番号并在弹出面板中快速搜索、跳转、预览与查询媒体库 自用修改 原作者(iqxin)
 // @author       ZiPenOK
 // @icon         https://img.sh1nyan.fun/file/1778493368757_searchav.png
@@ -3348,8 +3348,20 @@
                     <section class="sav-settings-card">
                         <h3>Emby / Jellyfin</h3>
                         <label class="sav-field"><span>默认服务器</span><select id="savSetMediaServerIndex"></select></label>
-                        <label class="sav-field"><span>服务器列表 JSON</span><textarea id="savSetMediaServers" rows="7" spellcheck="false"></textarea></label>
-                        <p class="sav-settings-note">格式: [{"name":"家里 Emby","type":"emby","host":"http://localhost:8096/","apiKey":"..."}]</p>
+                        <label class="sav-field"><span>服务器列表 JSON</span><textarea id="savSetMediaServers" rows="9" spellcheck="false">[
+    {
+        "name": "Emby",
+        "type": "emby",
+        "host": "",
+        "apiKey": ""
+    },
+    {
+        "name": "Jellyfin",
+        "type": "jellyfin",
+        "host": "",
+        "apiKey": ""
+    }
+]</textarea></label>
                     </section>
                 </div>
                 <details class="sav-settings-advanced">
@@ -3465,7 +3477,21 @@
         savBoxSetValue("savSetJavdb", source.javdb ?? "https://javdb.com/");
         savBoxSetValue("savSetGetInfoFromJavDB", source.getInfoFromJavDB);
         savBoxFillMediaServerOptions(source.mediaServers || [], source.mediaServerIndex || 0);
-        savBoxSetValue("savSetMediaServers", JSON.stringify(source.mediaServers || [], false, 4));
+        var mediaServersTemplate = `[
+    {
+        "name": "Emby",
+        "type": "emby",
+        "host": "",
+        "apiKey": ""
+    },
+    {
+        "name": "Jellyfin",
+        "type": "jellyfin",
+        "host": "",
+        "apiKey": ""
+    }
+]`;
+        savBoxSetValue("savSetMediaServers", (source.mediaServers && source.mediaServers.length) ? JSON.stringify(source.mediaServers, false, 4) : mediaServersTemplate);
     }
     function savBoxCheckbox(id){
         return !!document.querySelector("#" + id)?.checked;
