@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.1.8
+// @version      2.1.9
 // @description  JavBus / JavDB / JavLib 磁力搜索与番号助手，集成 115 离线、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
 // @author       ZiPenOk
@@ -42,7 +42,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.1.8';
+    const SCRIPT_VERSION = '2.1.9';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -1073,9 +1073,24 @@
             GM_addStyle(`
                 #leftmenu { display: none; }
                 #rightcolumn { margin: 0 !important; width: 100% !important; float: none !important; }
-                #content { padding-top: 0; width: 100%; }
+                #content { padding-top: 0; width: 100%; margin: 0 !important; }
                 #video_jacket img { max-width: 100%; height: auto; }
-                #video_info { text-align: left; font: 14px Arial; overflow: hidden; word-break: break-word; }
+                #video_info { text-align: left; font: 14px Arial; overflow: hidden; word-break: break-word; margin: 0 !important; width: 100% !important; float: none !important; }
+                #video_info .item,
+                #video_info table,
+                #video_info tr,
+                #video_info td,
+                #video_info .header,
+                #video_info .text {
+                    text-align: left !important;
+                }
+                #video_info table {
+                    margin-left: 0 !important;
+                    margin-right: auto !important;
+                }
+                #video_info .jav-jump-btn-group {
+                    justify-content: flex-start !important;
+                }
                 .jav-nong-slot .jav-nong-wrapper { max-width: 100%; margin-top: 16px; }
             `);
 
@@ -1097,7 +1112,7 @@
             row.style.cssText = 'display:flex;gap:20px;align-items:flex-start;width:100%;';
 
             const tds = row.querySelectorAll('td');
-            if (tds[0]) tds[0].style.cssText = 'flex:1.5 1 0;min-width:0;vertical-align:top;';
+            if (tds[0]) tds[0].style.cssText = 'flex:1 1 0;min-width:0;vertical-align:top;';
             if (tds[1]) tds[1].style.cssText = 'flex:1 1 0;min-width:0;vertical-align:top;overflow:hidden;word-break:break-word;';
 
             const jacketImg = document.getElementById('video_jacket_img');
@@ -1191,33 +1206,6 @@
             align-items: center;
         }
 
-        body.main .javlibrary-fix {
-            display: flex !important;
-            flex-wrap: wrap !important;
-            gap: 8px !important;
-            margin: 15px 0 10px !important;
-            padding: 0 !important;
-            background: transparent !important;
-            border: none !important;
-            width: 100% !important;
-            position: relative !important;
-            z-index: 9999 !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-        }
-        body.main .javlibrary-fix a {
-            display: inline-block !important;
-            padding: 4px 8px !important;
-            border-radius: 4px !important;
-            font-size: 13px !important;
-            font-weight: bold !important;
-            font-family: Arial, "Microsoft YaHei", sans-serif !important;
-            text-decoration: none !important;
-            border: none !important;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
-            box-sizing: border-box !important;
-            line-height: normal !important;
-        }
 
         .emby-fix {
             width: 100% !important;
@@ -1267,15 +1255,13 @@
             }
         }
 
-        .jav-jump-btn-group a,
-        .javlibrary-fix a {
+        .jav-jump-btn-group a {
             transition: all 0.2s ease-in-out;
             animation: btnSlideIn 0.3s ease-out;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
 
-        .jav-jump-btn-group a:hover,
-        .javlibrary-fix a:hover {
+        .jav-jump-btn-group a:hover {
             transform: scale(1.05) !important;
             filter: brightness(1.2) !important;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
@@ -1293,15 +1279,57 @@
             }
         }
 
-        .search-submenu a {
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        .search-menu {
+            position: relative;
+            display: inline-block;
+            border-radius: 4px;
         }
-
-        .search-submenu a:hover {
-            transform: translateX(5px) scale(1.02);
-            filter: brightness(1.1);
+        .search-main-btn {
+            padding-right: 28px !important;
         }
+        .search-toggle-btn {
+            position: absolute;
+            right: 4px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            padding: 0 !important;
+            margin: 0 !important;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 10px !important;
+            line-height: 1;
+            opacity: 0.9;
+            background: rgba(255,255,255,0.14) !important;
+            color: inherit !important;
+            border: none !important;
+            border-radius: 999px !important;
+            box-shadow: none !important;
+            cursor: pointer;
+        }
+        .search-toggle-btn:hover { filter: brightness(1.08); background: rgba(255,255,255,0.22) !important; }
+        .search-toggle-btn .search-arrow { display: inline-block; transform: translateY(-1px); pointer-events: none; }
+        .search-submenu {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            padding: 4px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 10000;
+            min-width: 120px;
+            backdrop-filter: blur(5px);
+        }
+        .search-submenu.is-open { display: flex; }
+        .search-submenu a { transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; }
+        .search-submenu a:hover { transform: translateX(5px) scale(1.02); filter: brightness(1.1); }
 
         .preview-toolbar {
             position: fixed;
@@ -3238,10 +3266,6 @@
 
         const menuDiv = document.createElement('div');
         menuDiv.className = 'search-menu';
-        menuDiv.style.cssText = `
-            position: relative;
-            display: inline-block;
-        `;
 
         const mainBtn = Utils.createBtn(`🔍 ${defaultEngine.name}`, defaultEngine.color, () => {
             window.open(defaultEngine.url(code));
@@ -3249,30 +3273,22 @@
         mainBtn.classList.add('search-main-btn');
         menuDiv.appendChild(mainBtn);
 
+        const toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'search-toggle-btn';
+        toggleBtn.title = '展开搜索引擎';
+        toggleBtn.innerHTML = '<span class="search-arrow">▾</span>';
+        menuDiv.appendChild(toggleBtn);
+
         const subMenu = document.createElement('div');
         subMenu.className = 'search-submenu';
-        subMenu.style.cssText = `
-            position: absolute;
-            top: 100%;
-            left: 0;
-            display: none;
-            flex-direction: column;
-            gap: 4px;
-            margin-top: 4px;
-            padding: 4px;
-            background: rgba(255,255,255,0.95);
-            border-radius: 6px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            z-index: 10000;
-            min-width: 120px;
-            backdrop-filter: blur(5px);
-        `;
 
         SearchEngines.forEach(engine => {
             if (engine.name === defaultEngine.name) return;
 
             const subBtn = Utils.createBtn(`🔍 ${engine.name}`, engine.color, () => {
                 window.open(engine.url(code));
+                subMenu.classList.remove('is-open');
             }, useCapture);
             subBtn.style.margin = '2px 0';
             subBtn.style.width = '100%';
@@ -3282,35 +3298,25 @@
 
         menuDiv.appendChild(subMenu);
 
-        let hoverTimer;
-        menuDiv.addEventListener('mouseenter', () => {
-            clearTimeout(hoverTimer);
-            hoverTimer = setTimeout(() => {
-                subMenu.style.display = 'flex';
-                subMenu.style.animation = 'menuFadeIn 0.2s ease';
-            }, 1000);
+        const closeMenu = () => subMenu.classList.remove('is-open');
+        toggleBtn.addEventListener('click', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            subMenu.classList.toggle('is-open');
         });
-
-        menuDiv.addEventListener('mouseleave', (e) => {
-            clearTimeout(hoverTimer);
-            if (e.relatedTarget && subMenu.contains(e.relatedTarget)) return;
-
-            setTimeout(() => {
-                if (!subMenu.matches(':hover')) {
-                    subMenu.style.display = 'none';
-                }
-            }, 300);
-        });
-
-        subMenu.addEventListener('mouseenter', () => {
-            clearTimeout(hoverTimer);
-        });
-
-        subMenu.addEventListener('mouseleave', () => {
-            subMenu.style.display = 'none';
+        mainBtn.addEventListener('click', closeMenu);
+        document.addEventListener('click', e => {
+            if (!menuDiv.contains(e.target)) closeMenu();
         });
 
         container.appendChild(menuDiv);
+    }
+
+    function addJumpLineBreak(container) {
+        const lineBreak = document.createElement('span');
+        lineBreak.className = 'jav-jump-line-break';
+        lineBreak.style.cssText = 'flex-basis:100%;height:0;padding:0;margin:0;';
+        container.appendChild(lineBreak);
     }
 
     const Sites = [
@@ -3394,6 +3400,12 @@
         const titleElem = document.querySelector(site.titleSelector);
         if (!titleElem) return;
 
+        const existingBtnGroup = document.querySelector('.jav-jump-btn-group[data-laosiji-jump="1"]');
+        if (existingBtnGroup) {
+            placeJumpButtonGroup(site, titleElem, existingBtnGroup);
+            return;
+        }
+
         if (titleElem.dataset.enhanced === '1') return;
         titleElem.dataset.enhanced = '1';
 
@@ -3404,6 +3416,7 @@
 
         const btnGroup = document.createElement('div');
         btnGroup.className = 'jav-jump-btn-group';
+        btnGroup.dataset.laosijiJump = '1';
 
         if (site.id === 'javlibrary') {
             addNyaaBtn(code, btnGroup);
@@ -3412,6 +3425,7 @@
             addMissAVBtn(code, btnGroup);
             addDmmBtn(code, btnGroup);
             addSearchMenu(code, btnGroup);
+            addJumpLineBreak(btnGroup);
             addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
 
@@ -3422,14 +3436,7 @@
                 btn.setAttribute('style', style);
             });
 
-            btnGroup.classList.add('javlibrary-fix');
-
-            const rightColumn = document.querySelector('#rightcolumn');
-            if (rightColumn) {
-                rightColumn.prepend(btnGroup);
-            } else {
-                titleElem.insertAdjacentElement('afterend', btnGroup);
-            }
+            placeJumpButtonGroup(site, titleElem, btnGroup);
         } else if (site.id === 'missav') {
             const missavBtns = [
                 { text: '🔍 Sukebei', color: '#17a2b8', url: `https://sukebei.nyaa.si/?f=0&c=0_0&q=${code}` },
@@ -3442,18 +3449,21 @@
 
             const defaultEngine = Settings.getDefaultSearchEngine();
             const searchMenuDiv = document.createElement('div');
-            searchMenuDiv.style.cssText = 'position: relative; display: inline-block;';
+            searchMenuDiv.className = 'search-menu';
 
             const mainSearchBtn = Utils.createLinkBtn(`🔍 ${defaultEngine.name}`, defaultEngine.color, defaultEngine.url(code));
+            mainSearchBtn.classList.add('search-main-btn');
             searchMenuDiv.appendChild(mainSearchBtn);
 
+            const toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';
+            toggleBtn.className = 'search-toggle-btn';
+            toggleBtn.title = '展开搜索引擎';
+            toggleBtn.innerHTML = '<span class="search-arrow">▾</span>';
+            searchMenuDiv.appendChild(toggleBtn);
+
             const subMenu = document.createElement('div');
-            subMenu.style.cssText = `
-                position: absolute; top: 100%; left: 0; display: none;
-                flex-direction: column; gap: 4px; margin-top: 4px; padding: 4px;
-                background: rgba(30,30,30,0.95); border-radius: 6px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 10000; min-width: 120px;
-            `;
+            subMenu.className = 'search-submenu';
             SearchEngines.forEach(engine => {
                 if (engine.name === defaultEngine.name) return;
                 const subBtn = Utils.createLinkBtn(`🔍 ${engine.name}`, engine.color, engine.url(code));
@@ -3462,16 +3472,16 @@
             });
             searchMenuDiv.appendChild(subMenu);
 
-            let hoverTimer;
-            searchMenuDiv.addEventListener('mouseenter', () => {
-                clearTimeout(hoverTimer);
-                hoverTimer = setTimeout(() => { subMenu.style.display = 'flex'; }, 800);
+            const closeMenu = () => subMenu.classList.remove('is-open');
+            toggleBtn.addEventListener('click', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                subMenu.classList.toggle('is-open');
             });
-            searchMenuDiv.addEventListener('mouseleave', () => {
-                clearTimeout(hoverTimer);
-                setTimeout(() => { if (!subMenu.matches(':hover')) subMenu.style.display = 'none'; }, 300);
+            mainSearchBtn.addEventListener('click', closeMenu);
+            document.addEventListener('click', e => {
+                if (!searchMenuDiv.contains(e.target)) closeMenu();
             });
-            subMenu.addEventListener('mouseleave', () => { subMenu.style.display = 'none'; });
             btnGroup.appendChild(searchMenuDiv);
 
             addTrailerBtn(trailerCode, btnGroup);
@@ -3487,7 +3497,7 @@
                 z-index: 9999;
             `;
 
-            titleElem.insertAdjacentElement('afterend', btnGroup);
+            placeJumpButtonGroup(site, titleElem, btnGroup);
         } else {
             addNyaaBtn(code, btnGroup);
             addJavbusBtn(code, btnGroup);
@@ -3495,6 +3505,7 @@
             addMissAVBtn(code, btnGroup);
             addDmmBtn(code, btnGroup);
             addSearchMenu(code, btnGroup);
+            if (site.id === 'javdb') addJumpLineBreak(btnGroup);
             addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
 
@@ -3507,7 +3518,7 @@
                     titleElem.insertAdjacentElement('afterend', btnGroup);
                 }
             } else {
-                titleElem.insertAdjacentElement('afterend', btnGroup);
+                placeJumpButtonGroup(site, titleElem, btnGroup);
             }
         }
 
@@ -3520,6 +3531,47 @@
             embyGroup.insertBefore(sep, embyGroup.children[jumpBtnCount] || null);
             btnGroup.remove();
         }
+    }
+
+    function getJhsLikeJumpTarget(site) {
+        if (site.id === 'javdb') return document.querySelector('.movie-panel-info');
+        if (site.id === 'javbus') return document.querySelector('.container .info');
+        if (site.id === 'javlibrary') return document.querySelector('#video_info');
+        return null;
+    }
+
+    function placeJumpButtonGroup(site, titleElem, btnGroup) {
+        const target = getJhsLikeJumpTarget(site);
+        if (target) {
+            allowJumpMenuOverflow(target);
+            if (site.id === 'javlibrary') {
+                if (btnGroup.parentElement !== target || btnGroup.nextElementSibling) target.appendChild(btnGroup);
+            } else if (btnGroup.parentElement !== target) {
+                target.appendChild(btnGroup);
+            }
+        } else if (btnGroup.parentElement !== titleElem.parentElement || btnGroup.previousElementSibling !== titleElem) {
+            titleElem.insertAdjacentElement('afterend', btnGroup);
+        }
+    }
+
+    function allowJumpMenuOverflow(target) {
+        const elements = [
+            target,
+            target.closest('td'),
+            target.closest('tr'),
+            target.closest('#video_jacket_info'),
+            target.closest('.movie-panel-info'),
+            target.closest('.container .info'),
+            target.closest('.col-md-3.info'),
+            target.closest('.jav-flex-container'),
+            target.closest('.row.movie')
+        ];
+
+        [...new Set(elements.filter(Boolean))].forEach(el => {
+            el.style.setProperty('overflow', 'visible', 'important');
+            el.style.setProperty('overflow-x', 'visible', 'important');
+            el.style.setProperty('overflow-y', 'visible', 'important');
+        });
     }
 
     const observer = new MutationObserver(() => {
