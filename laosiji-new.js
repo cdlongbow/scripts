@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.1.9
+// @version      2.1.10
 // @description  JavBus / JavDB / JavLib 磁力搜索与番号助手，集成 115 离线、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
 // @author       ZiPenOk
@@ -42,7 +42,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.1.9';
+    const SCRIPT_VERSION = '2.1.10';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -952,10 +952,10 @@
                     align-items: flex-start !important; flex-wrap: nowrap !important; margin: 0 !important; }
                 .col-md-9.screencap { flex: 1.5 1 0 !important; min-width: 0 !important;
                     width: auto !important; float: none !important; padding: 0 !important; }
-                .col-md-3.info { flex: 0.7 1 0 !important; min-width: 0 !important;
+                .col-md-3.info { flex: 0.8 1 0 !important; min-width: 0 !important;
                     width: auto !important; float: none !important;
                     overflow: hidden !important; word-break: break-word !important; }
-                .jav-nong-slot { flex: 1.3 1 0 !important; min-width: 0 !important; align-self: flex-start !important; overflow: hidden !important; }
+                .jav-nong-slot { flex: 1.2 1 0 !important; min-width: 0 !important; align-self: flex-start !important; overflow: hidden !important; }
                 .jav-nong-wrapper { max-width: 100%; }
                 .screencap img { width: 100%; max-width: 100%; }
                 .footer { padding: 20px 0; }
@@ -1034,7 +1034,7 @@
                 flexContainer.className = 'jav-flex-container';
                 flexContainer.style.cssText = 'display:flex;gap:20px;align-items:flex-start;width:100%;margin-top:16px;';
                 coverCol.style.cssText  += ';flex:1 1 0;min-width:0;';
-                infoPanel.style.cssText += ';flex:1 1 0;min-width:0;overflow:hidden;word-break:break-word;';
+                infoPanel.style.cssText += ';flex:0.8 1 0;min-width:0;overflow:hidden;word-break:break-word;';
                 flexContainer.appendChild(coverCol);
                 flexContainer.appendChild(infoPanel);
                 parent.appendChild(flexContainer);
@@ -1042,7 +1042,7 @@
 
             const slot = document.createElement('div');
             slot.className = 'jav-nong-slot';
-            slot.style.cssText = 'flex:1 1 0;min-width:0;align-self:flex-start;overflow:hidden;';
+            slot.style.cssText = 'flex:1.2 1 0;min-width:0;align-self:flex-start;overflow:hidden;';
             const widget = Magnet.createMagnetWidget(avid);
             slot.appendChild(widget);
             flexContainer.appendChild(slot);
@@ -1112,8 +1112,8 @@
             row.style.cssText = 'display:flex;gap:20px;align-items:flex-start;width:100%;';
 
             const tds = row.querySelectorAll('td');
-            if (tds[0]) tds[0].style.cssText = 'flex:1 1 0;min-width:0;vertical-align:top;';
-            if (tds[1]) tds[1].style.cssText = 'flex:1 1 0;min-width:0;vertical-align:top;overflow:hidden;word-break:break-word;';
+            if (tds[0]) tds[0].style.cssText = 'flex:1.1 1 0;min-width:0;vertical-align:top;';
+            if (tds[1]) tds[1].style.cssText = 'flex:0.8 1 0;min-width:0;vertical-align:top;overflow:hidden;word-break:break-word;';
 
             const jacketImg = document.getElementById('video_jacket_img');
             if (jacketImg) {
@@ -1124,7 +1124,7 @@
 
             const magnetTd = document.createElement('td');
             magnetTd.className = 'jav-nong-slot';
-            magnetTd.style.cssText = 'flex:1 1 0;min-width:0;vertical-align:top;align-self:flex-start;';
+            magnetTd.style.cssText = 'flex:1.1 1 0;min-width:0;vertical-align:top;align-self:flex-start;';
 
             const innerWrap = document.createElement('div');
             innerWrap.style.cssText = 'display:inline-block;';
