@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.1.10
+// @version      2.2.0
 // @description  JavBus / JavDB / JavLib 磁力搜索与番号助手，集成 115 离线、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
 // @author       ZiPenOk
@@ -42,13 +42,13 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.1.10';
+    const SCRIPT_VERSION = '2.2.0';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
         get ciligouUrl()       { return GM_getValue('cfg_ciligou_url',       'clg55.top'); },
         get btdigUrl()         { return GM_getValue('cfg_btdig_url',         'btdig.com'); },
-        get sukebeiUrl()          { return GM_getValue('cfg_sukebei_url',          'sukebei.nyaa.si'); },
+        get sukebeiUrl()       { return GM_getValue('cfg_sukebei_url',       'sukebei.nyaa.si'); },
         get sokittyUrl()       { return GM_getValue('cfg_sokitty_url',       'w1.sokitty.me'); },
 
         get defaultEngine()    { return GM_getValue('cfg_default_engine', 'javdb.com'); },
@@ -58,10 +58,28 @@
         set javdbSearchUrl(v)   { GM_setValue('cfg_javdb_search_url', v); },
         set ciligouUrl(v)       { GM_setValue('cfg_ciligou_url', v); },
         set btdigUrl(v)         { GM_setValue('cfg_btdig_url', v); },
-        set sukebeiUrl(v)          { GM_setValue('cfg_sukebei_url', v); },
+        set sukebeiUrl(v)       { GM_setValue('cfg_sukebei_url', v); },
         set sokittyUrl(v)       { GM_setValue('cfg_sokitty_url', v); },
         set defaultEngine(v)    { GM_setValue('cfg_default_engine', v); },
         set thumbSourceOrder(v) { GM_setValue('thumb_source_order', v); },
+
+        get btnShowNyaa()    { return GM_getValue('btn_show_nyaa',    true); },
+        get btnShowJavbus()  { return GM_getValue('btn_show_javbus',  true); },
+        get btnShowJavdb()   { return GM_getValue('btn_show_javdb',   true); },
+        get btnShowMissav()  { return GM_getValue('btn_show_missav',  true); },
+        get btnShowFanza()   { return GM_getValue('btn_show_fanza',   true); },
+        get btnShowSearch()  { return GM_getValue('btn_show_search',  true); },
+        get btnShowTrailer() { return GM_getValue('btn_show_trailer', true); },
+        get btnShowPreview() { return GM_getValue('btn_show_preview', true); },
+
+        set btnShowNyaa(v)    { GM_setValue('btn_show_nyaa',    v); },
+        set btnShowJavbus(v)  { GM_setValue('btn_show_javbus',  v); },
+        set btnShowJavdb(v)   { GM_setValue('btn_show_javdb',   v); },
+        set btnShowMissav(v)  { GM_setValue('btn_show_missav',  v); },
+        set btnShowFanza(v)   { GM_setValue('btn_show_fanza',   v); },
+        set btnShowSearch(v)  { GM_setValue('btn_show_search',  v); },
+        set btnShowTrailer(v) { GM_setValue('btn_show_trailer', v); },
+        set btnShowPreview(v) { GM_setValue('btn_show_preview', v); },
     };
 
     const log = (...args) => console.log('[老司机]', ...args);
@@ -132,7 +150,7 @@
             { key: 'ciligouUrl',      label: 'CiliGou',      placeholder: 'clg55.top' },
             { key: 'btdigUrl',        label: 'BtDig',        placeholder: 'btdig.com' },
             { key: 'sukebeiUrl',      label: 'Sukebei',      placeholder: 'sukebei.nyaa.si' },
-            { key: 'sokittyUrl',      label: 'SoKitty',       placeholder: 'w1.sokitty.me' },
+            { key: 'sokittyUrl',      label: 'SoKitty',      placeholder: 'w1.sokitty.me' },
         ];
         const JUMP_SEARCH_ENGINES = ['BTDigg', 'Taocili', 'Google', 'Bing', 'DuckGo'];
         const THUMB_META = {
@@ -245,6 +263,28 @@
                         <div class="sp-card-title">预览图来源顺序</div>
                         <div class="sp-order-list" id="sp-thumb-order"></div>
                     </section>
+                    <section class="sp-card" style="--card-color:#6366f1;">
+                        <style>
+                            #jav-settings-panel .sp-card:has(#sp-btn-nyaa)::before{background:#6366f1;}
+                            #jav-settings-panel .sp-chip-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
+                            #jav-settings-panel .sp-chip input{display:none;}
+                            #jav-settings-panel .sp-chip-label{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;border:0.5px solid var(--color-border-secondary,#cbd5e1);background:var(--color-background-secondary,#f8fafc);color:var(--color-text-secondary,#64748b);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;user-select:none;}
+                            #jav-settings-panel .sp-chip input:checked + .sp-chip-label{border-color:#6366f1;background:#eef2ff;color:#4338ca;}
+                            #jav-settings-panel .sp-chip-label:hover{border-color:#a5b4fc;background:#f0f4ff;color:#4338ca;}
+                            #jav-settings-panel .sp-chip-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:0.6;flex:0 0 auto;}
+                        </style>
+                        <div class="sp-card-title">跳转按钮控制</div>
+                        <div class="sp-chip-group">
+                            <label class="sp-chip"><input id="sp-btn-nyaa" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>Sukebei</span></label>
+                            <label class="sp-chip"><input id="sp-btn-javbus" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavBus</span></label>
+                            <label class="sp-chip"><input id="sp-btn-javdb" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavDB</span></label>
+                            <label class="sp-chip"><input id="sp-btn-missav" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>MissAV</span></label>
+                            <label class="sp-chip"><input id="sp-btn-fanza" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>FANZA</span></label>
+                            <label class="sp-chip"><input id="sp-btn-search" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>搜索组</span></label>
+                            <label class="sp-chip"><input id="sp-btn-trailer" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>预告片</span></label>
+                            <label class="sp-chip"><input id="sp-btn-preview" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>预览图</span></label>
+                        </div>
+                    </section>
                 </div>
                 <div class="sp-footer">
                     <div class="sp-cache-actions">
@@ -272,6 +312,16 @@
             const jumpEngineSelect = panel.querySelector('#sp-jump-engine');
             const cacheCheckbox = panel.querySelector('#sp-preview-cache');
             const trailerCacheCheckbox = panel.querySelector('#sp-trailer-cache');
+            const btnToggles = {
+                nyaa:    panel.querySelector('#sp-btn-nyaa'),
+                javbus:  panel.querySelector('#sp-btn-javbus'),
+                javdb:   panel.querySelector('#sp-btn-javdb'),
+                missav:  panel.querySelector('#sp-btn-missav'),
+                fanza:   panel.querySelector('#sp-btn-fanza'),
+                search:  panel.querySelector('#sp-btn-search'),
+                trailer: panel.querySelector('#sp-btn-trailer'),
+                preview: panel.querySelector('#sp-btn-preview'),
+            };
             const clearCacheBtn = panel.querySelector('#sp-clear-cache');
             const cacheFeedback = panel.querySelector('#sp-cache-feedback');
             const orderList = panel.querySelector('#sp-thumb-order');
@@ -319,6 +369,14 @@
             jumpEngineSelect.value = String(GM_getValue('default_search_engine', 0));
             cacheCheckbox.checked = GM_getValue('preview_cache_enabled', true);
             trailerCacheCheckbox.checked = GM_getValue('trailer_cache_enabled', true);
+            btnToggles.nyaa.checked    = CFG.btnShowNyaa;
+            btnToggles.javbus.checked  = CFG.btnShowJavbus;
+            btnToggles.javdb.checked   = CFG.btnShowJavdb;
+            btnToggles.missav.checked  = CFG.btnShowMissav;
+            btnToggles.fanza.checked   = CFG.btnShowFanza;
+            btnToggles.search.checked  = CFG.btnShowSearch;
+            btnToggles.trailer.checked = CFG.btnShowTrailer;
+            btnToggles.preview.checked = CFG.btnShowPreview;
 
             const renderOrder = () => {
                 orderList.innerHTML = '';
@@ -374,6 +432,14 @@
                 GM_setValue('default_search_engine', parseInt(jumpEngineSelect.value, 10) || 0);
                 GM_setValue('preview_cache_enabled', cacheCheckbox.checked);
                 GM_setValue('trailer_cache_enabled', trailerCacheCheckbox.checked);
+                CFG.btnShowNyaa    = btnToggles.nyaa.checked;
+                CFG.btnShowJavbus  = btnToggles.javbus.checked;
+                CFG.btnShowJavdb   = btnToggles.javdb.checked;
+                CFG.btnShowMissav  = btnToggles.missav.checked;
+                CFG.btnShowFanza   = btnToggles.fanza.checked;
+                CFG.btnShowSearch  = btnToggles.search.checked;
+                CFG.btnShowTrailer = btnToggles.trailer.checked;
+                CFG.btnShowPreview = btnToggles.preview.checked;
                 GM_setValue('thumb_source_order', currentOrder);
                 closePanel();
                 location.reload();
@@ -3275,9 +3341,9 @@
         { name: 'DuckGo', color: '#DE5833', url: (code) => `https://duckduckgo.com/?q=${code}` }
     ];
 
-    const DEFAULT_SEARCH_ENGINE_INDEX = 0;
-
     function addNyaaBtn(code, container, useCapture = false) {
+        if (!GM_getValue('btn_show_nyaa', true)) return;
+        if (/sukebei\.nyaa/i.test(location.hostname)) return;
         const btn = Utils.createBtn('🔍 Sukebei', '#17a2b8', () => {
             window.open(`https://sukebei.nyaa.si/?f=0&c=0_0&q=${code}`);
         }, useCapture);
@@ -3285,6 +3351,8 @@
     }
 
     function addJavbusBtn(code, container, useCapture = false) {
+        if (!GM_getValue('btn_show_javbus', true)) return;
+        if (/javbus\.com/i.test(location.hostname)) return;
         const url = Utils.getJavBusUrl(code);
         const btn = Utils.createBtn('🎬 JavBus', '#007bff', () => {
             window.open(url);
@@ -3293,6 +3361,8 @@
     }
 
     function addJavdbBtn(code, container, useCapture = false) {
+        if (!GM_getValue('btn_show_javdb', true)) return;
+        if (/javdb\.com/i.test(location.hostname)) return;
         const btn = Utils.createBtn('📀 JavDB', '#6f42c1', () => {
             window.open(`https://javdb.com/search?q=${code}`);
         }, useCapture);
@@ -3300,6 +3370,8 @@
     }
 
     function addMissAVBtn(code, container, useCapture = false) {
+        if (!GM_getValue('btn_show_missav', true)) return;
+        if (/missav\.com|missav\.ai/i.test(location.hostname)) return;
         const codeLower = code.toLowerCase();
         const directUrl = `https://missav.ws/${codeLower}`;
         const btn = Utils.createBtn('🎬 MissAV', '#ec4899', () => {
@@ -3309,6 +3381,7 @@
     }
 
     function addDmmBtn(code, container, useCapture = false) {
+        if (!GM_getValue('btn_show_fanza', true)) return;
         const btn = Utils.createBtn('▶ FANZA', '#c0392b', () => {
             window.open(`https://www.dmm.co.jp/mono/-/search/=/searchstr=${encodeURIComponent(code)}/`);
         }, useCapture);
@@ -3316,6 +3389,7 @@
     }
 
     function addTrailerBtn(code, container, useCapture = false) {
+        if (!GM_getValue('btn_show_trailer', true)) return;
         const btn = Utils.createBtn('🎞️ 预告片', '#111827', async () => {
             const oldText = btn.textContent;
             btn.textContent = '🎞️ 解析中...';
@@ -3333,6 +3407,7 @@
     }
 
     function addPreviewBtn(code, container, useCapture = false) {
+        if (!GM_getValue('btn_show_preview', true)) return;
         const btn = Utils.createBtn('🖼️ 预览图', '#28a745', async () => {
             await Thumbnail.show(code);
         }, useCapture);
@@ -3340,6 +3415,7 @@
     }
 
     function addSearchMenu(code, container, useCapture = false) {
+        if (!GM_getValue('btn_show_search', true)) return;
         const defaultEngine = Settings.getDefaultSearchEngine();
 
         const menuDiv = document.createElement('div');
