@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         115 Local Rename Lite
 // @namespace    https://github.com/ZiPenOk
-// @version      2.3
+// @version      2.4
 // @description  115 local-only 借鉴115Rename2026 只做本地处理 自用脚本
 // @author       ZiPenOk
 // @match        https://115.com/*
@@ -257,10 +257,11 @@
         const digitalSite = text.match(/(?:^|[^0-9])(\d{6})[-_\s.](\d{2,4})(?=$|[^A-Za-z0-9])/);
         if (digitalSite) {
             const lower = text.toLowerCase();
-            if (lower.includes("1pon")) return `1Pondo-${digitalSite[1]}_${digitalSite[2]}`;
-            if (lower.includes("carib")) return `Caribbean-${digitalSite[1]}-${digitalSite[2]}`;
-            if (lower.includes("paco")) return `Pacopacomama-${digitalSite[1]}-${digitalSite[2]}`;
-            if (lower.includes("heydouga")) return `Heydouga-${digitalSite[1]}-${digitalSite[2]}`;
+            if (lower.includes("1pon")) return `${digitalSite[1]}_${digitalSite[2]}-1Pondo`;
+            if (lower.includes("carib")) return `${digitalSite[1]}-${digitalSite[2]}-Carib`;
+            if (lower.includes("paco")) return `${digitalSite[1]}_${digitalSite[2]}-Paco`;
+            if (lower.includes("heydouga")) return `${digitalSite[1]}-${digitalSite[2]}-Heydouga`;
+            if (lower.includes("10mu")) return `${digitalSite[1]}_${digitalSite[2]}-10mu`;
             return `${digitalSite[1]}-${digitalSite[2]}`;
         }
 
