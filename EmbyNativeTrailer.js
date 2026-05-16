@@ -1,7 +1,14 @@
 // 自定义预告片脚本：拦截 Emby 原生预告片按钮，改为调用外部接口获取真实播放地址。
 // 使用悬浮层 HTML5 播放器播放预告片，避免 Emby 内置播放器报错并提升兼容性。
+// 如果播放出错,返回重进再试
 (function () {
     console.log("[CustomTrailer] Script Loaded");
+
+    // ★★★ 只在这些库生效（填你的 LibraryId）★★★
+    const ENABLED_LIBRARIES = [
+        "565020",
+        "565027"
+    ];
 
     const API_BASE = "https://javp.cc.cd/trailers/";
 
@@ -22,13 +29,24 @@
         btn.dataset.customTrailerHooked = "1";
         console.log("[CustomTrailer] Trailer button hooked");
 
-        // 捕获阶段执行我们自己的逻辑，并阻断 Emby
+        // 捕获阶段：先判断库 ID，再决定是否拦截
         btn.addEventListener("click", async function (e) {
-            e.preventDefault();
-            e.stopPropagation(); // 阻止冒泡到 Emby
-            // 不使用 stopImmediatePropagation()
 
-            console.log("[CustomTrailer] 捕获阶段触发 → 我们的逻辑执行");
+            // ★ 从 DOM 获取 LibraryId ★
+            const libraryId = document.querySelector("[data-parentid]")?.dataset.parentid;
+            console.log("[CustomTrailer] 当前 LibraryId:", libraryId);
+
+            // ★★★ 如果不是目标库 → 直接放行，不拦截 ★★★
+            if (!libraryId || !ENABLED_LIBRARIES.includes(libraryId)) {
+                console.log("[CustomTrailer] 当前库未启用脚本 → 放行原生预告片");
+                return; // 不阻断事件
+            }
+
+            // ★★★ 是目标库 → 拦截 Emby 原生事件 ★★★
+            e.preventDefault();
+            e.stopPropagation();
+
+            console.log("[CustomTrailer] 捕获阶段触发（目标库）");
 
             const number = extractNumberFromPage();
             console.log("[CustomTrailer] 番号提取结果:", number);
@@ -46,7 +64,7 @@
 
             playTrailerOverlay(trailerUrl);
 
-        }, true); // 捕获阶段（关键）
+        }, true); // 捕获阶段
     }
 
     function extractNumberFromPage() {
@@ -108,18 +126,86 @@
             border: none;
             cursor: pointer;
         `;
-        close.onclick = () => overlay.remove();
+        close.onclick = () => {
+            overlay.remove();
+            document.removeEventListener("keydown", keyHandler);
+        };
 
         const video = document.createElement("video");
         video.src = url;
         video.controls = true;
         video.autoplay = true;
+        video.tabIndex = 0;          // ★ 允许 video 接收键盘事件
         video.style.cssText = `
             width: 100%;
             height: auto;
             display: block;
             background: #000;
         `;
+
+        // ★★★ 自动恢复音量 ★★★
+        const savedVolume = localStorage.getItem("customTrailerVolume");
+        if (savedVolume !== null) {
+            video.volume = parseFloat(savedVolume);
+        }
+
+        // ★★★ 自动恢复播放位置 ★★★
+        const savedTime = localStorage.getItem("customTrailerTime_" + url);
+        if (savedTime !== null) {
+            video.currentTime = parseFloat(savedTime);
+        }
+
+        // ★★★ 保存音量 ★★★
+        video.addEventListener("volumechange", () => {
+            localStorage.setItem("customTrailerVolume", video.volume);
+        });
+
+        // ★★★ 保存播放进度 ★★★
+        video.addEventListener("timeupdate", () => {
+            localStorage.setItem("customTrailerTime_" + url, video.currentTime);
+        });
+
+        // ★★★ 键盘控制（ESC / 空格 / 上下音量 / 左右快进）★★★
+        const keyHandler = (e) => {
+            // 阻止页面滚动、阻止页面快捷键
+            if ([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            // ESC 关闭
+            if (e.key === "Escape") {
+                overlay.remove();
+                document.removeEventListener("keydown", keyHandler);
+            }
+
+            // 空格暂停/播放
+            if (e.key === " " || e.code === "Space") {
+                if (video.paused) video.play();
+                else video.pause();
+            }
+
+            // 上下方向键调节音量
+            if (e.key === "ArrowUp") {
+                video.volume = Math.min(1, video.volume + 0.05);
+            }
+            if (e.key === "ArrowDown") {
+                video.volume = Math.max(0, video.volume - 0.05);
+            }
+
+            // 左右方向键快进/快退（5 秒）
+            if (e.key === "ArrowRight") {
+                video.currentTime = Math.min(video.duration, video.currentTime + 5);
+            }
+            if (e.key === "ArrowLeft") {
+                video.currentTime = Math.max(0, video.currentTime - 5);
+            }
+        };
+
+        document.addEventListener("keydown", keyHandler);
+
+        // ★★★ 打开播放器后自动聚焦 video（关键）★★★
+        setTimeout(() => video.focus(), 50);
 
         box.appendChild(close);
         box.appendChild(video);
