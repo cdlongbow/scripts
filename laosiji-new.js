@@ -48,7 +48,7 @@
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
         get ciligouUrl()       { return GM_getValue('cfg_ciligou_url',       'clg55.top'); },
         get btdigUrl()         { return GM_getValue('cfg_btdig_url',         'btdig.com'); },
-        get sukebeiUrl()       { return GM_getValue('cfg_sukebei_url',       'sukebei.nyaa.si'); },
+        get sukebeiUrl()          { return GM_getValue('cfg_sukebei_url',          'sukebei.nyaa.si'); },
         get sokittyUrl()       { return GM_getValue('cfg_sokitty_url',       'w1.sokitty.me'); },
 
         get defaultEngine()    { return GM_getValue('cfg_default_engine', 'javdb.com'); },
@@ -58,7 +58,7 @@
         set javdbSearchUrl(v)   { GM_setValue('cfg_javdb_search_url', v); },
         set ciligouUrl(v)       { GM_setValue('cfg_ciligou_url', v); },
         set btdigUrl(v)         { GM_setValue('cfg_btdig_url', v); },
-        set sukebeiUrl(v)       { GM_setValue('cfg_sukebei_url', v); },
+        set sukebeiUrl(v)          { GM_setValue('cfg_sukebei_url', v); },
         set sokittyUrl(v)       { GM_setValue('cfg_sokitty_url', v); },
         set defaultEngine(v)    { GM_setValue('cfg_default_engine', v); },
         set thumbSourceOrder(v) { GM_setValue('thumb_source_order', v); },
@@ -150,7 +150,7 @@
             { key: 'ciligouUrl',      label: 'CiliGou',      placeholder: 'clg55.top' },
             { key: 'btdigUrl',        label: 'BtDig',        placeholder: 'btdig.com' },
             { key: 'sukebeiUrl',      label: 'Sukebei',      placeholder: 'sukebei.nyaa.si' },
-            { key: 'sokittyUrl',      label: 'SoKitty',      placeholder: 'w1.sokitty.me' },
+            { key: 'sokittyUrl',      label: 'SoKitty',       placeholder: 'w1.sokitty.me' },
         ];
         const JUMP_SEARCH_ENGINES = ['BTDigg', 'Taocili', 'Google', 'Bing', 'DuckGo'];
         const THUMB_META = {
@@ -1018,10 +1018,10 @@
                     align-items: flex-start !important; flex-wrap: nowrap !important; margin: 0 !important; }
                 .col-md-9.screencap { flex: 1.5 1 0 !important; min-width: 0 !important;
                     width: auto !important; float: none !important; padding: 0 !important; }
-                .col-md-3.info { flex: 0.8 1 0 !important; min-width: 0 !important;
+                .col-md-3.info { flex: 0.9 1 0 !important; min-width: 0 !important;
                     width: auto !important; float: none !important;
                     overflow: hidden !important; word-break: break-word !important; }
-                .jav-nong-slot { flex: 1.2 1 0 !important; min-width: 0 !important; align-self: flex-start !important; overflow: hidden !important; }
+                .jav-nong-slot { flex: 1.1 1 0 !important; min-width: 0 !important; align-self: flex-start !important; overflow: hidden !important; }
                 .jav-nong-wrapper { max-width: 100%; }
                 .screencap img { width: 100%; max-width: 100%; }
                 .footer { padding: 20px 0; }
@@ -3572,26 +3572,7 @@
         btnGroup.className = 'jav-jump-btn-group';
         btnGroup.dataset.laosijiJump = '1';
 
-        if (site.id === 'javlibrary') {
-            addNyaaBtn(code, btnGroup);
-            addJavbusBtn(code, btnGroup);
-            addJavdbBtn(code, btnGroup);
-            addMissAVBtn(code, btnGroup);
-            addDmmBtn(code, btnGroup);
-            addSearchMenu(code, btnGroup);
-            addJumpLineBreak(btnGroup);
-            addTrailerBtn(trailerCode, btnGroup);
-            addPreviewBtn(code, btnGroup);
-
-            btnGroup.querySelectorAll('a').forEach(btn => {
-                let style = btn.getAttribute('style') || '';
-                style = style.replace(/background:\s*([^;]+);/g, 'background: $1 !important;');
-                style = style.replace(/color:\s*([^;]+);/g, 'color: $1 !important;');
-                btn.setAttribute('style', style);
-            });
-
-            placeJumpButtonGroup(site, titleElem, btnGroup);
-        } else if (site.id === 'missav') {
+        if (site.id === 'missav') {
             const missavBtns = [
                 { text: '🔍 Sukebei', color: '#17a2b8', url: `https://sukebei.nyaa.si/?f=0&c=0_0&q=${code}` },
                 { text: '🎬 JavBus',  color: '#007bff',  url: Utils.getJavBusUrl(code) },
@@ -3659,10 +3640,18 @@
             addMissAVBtn(code, btnGroup);
             addDmmBtn(code, btnGroup);
             addSearchMenu(code, btnGroup);
-            if (site.id === 'javdb') addJumpLineBreak(btnGroup);
+            if (['javbus', 'javdb', 'javlibrary'].includes(site.id)) addJumpLineBreak(btnGroup);
             addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
 
+            if (site.id === 'javlibrary') {
+                btnGroup.querySelectorAll('a').forEach(btn => {
+                    let style = btn.getAttribute('style') || '';
+                    style = style.replace(/background:\s*([^;]+);/g, 'background: $1 !important;');
+                    style = style.replace(/color:\s*([^;]+);/g, 'color: $1 !important;');
+                    btn.setAttribute('style', style);
+                });
+            }
             if (site.id === 'emby') {
                 btnGroup.classList.add('emby-fix');
                 const parent = titleElem.parentNode;
