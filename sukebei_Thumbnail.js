@@ -4,104 +4,94 @@
 // @description  Load image from cover/screenshot links.
 // @description:zh-CN  从封面/截图链接加载图片并显示。基于York Wang 0.9.8版本自用修改, 添加更多站点支持
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=sukebei.nyaa.si
-// @version      1.1.7
+// @version      2.0.0
 // @license      MIT
 // @author       ZiPenOk
-// @match        https://sukebei.nyaa.si/*
-// @match        https://hentai-covers.site/*
-// @match        https://www.dlsite.com/*
-// @match        https://e-hentai.org/*
-// @match        https://pics.dmm.co.jp/*
-// @match        https://javtenshi.com/*
-// @match        https://3xplanet.net/*
-// @match        https://3xplanet.com/*
-// @match        https://xpic.org/*
-// @match        https://imgrock.pw/*
-// @match        https://picrok.com/*
-// @match        https://picbaron.com/*
-// @match        https://imgbaron.com/*
-// @match        https://kvador.com/*
-// @match        https://kropic.com/*
-// @match        https://imgsto.com/*
-// @match        https://imgsen.com/*
-// @match        https://imgstar.eu/*
-// @match        https://picdollar.com/*
-// @match        https://pics4you.net/*
-// @match        https://silverpic.com/*
-// @match        https://fotokiz.com/*
-// @match        https://premalo.com/*
-// @match        https://piczhq.com/*
-// @match        https://trypicz.com/*
-// @match        http://imglord.com/*
-// @match        https://croea.com/*
-// @match        https://imgtaxi.com/*
-// @match        https://imgadult.com/*
-// @match        https://imgdrive.net/*
-// @match        https://xxxwebdlxxx.org/*
-// @match        https://xxxwebdlxxx.top/*
-// @match        https://uvonahaze.xyz/*
-// @match        https://trans.firm.in/*
-// @match        https://imgdawgknuttz.com/*
-// @match        https://imagetwist.netlify.app/*
-// @match        https://imagetwist.com/*
-// @match        https://imagexport.com/*
-// @match        https://imagenimage.com/*
-// @match        https://imagehaha.com/*
-// @match        https://hentai4free.net/*
-// @match        https://pixhost.to/*
-// @match        https://imgair.net/*
-// @match        http://imgair.net/*
-// @match        http://imgfrost.net/*
-// @match        http://imgblaze.net/*
-// @match        https://pig69.com/*
-// @match        https://ai18.pics/*
-// @match        https://porn4f.com/*
-// @match        https://porn4f.org/*
-// @match        https://hentai4f.com/*
-// @match        https://javball.com/*
-// @match        https://ovabee.com/*
-// @match        https://image.javbee.me/*
-// @match        https://image.javbee.vip/*
-// @match        https://idol69.net/*
-// @match        https://sweetie-fox.com/*
-// @match        https://javsunday.com/*
-// @match        https://cnpics.org/*
-// @match        https://fikfok.net/*
-// @match        https://cnxx.me/*
-// @match        https://cosplay18.pics/*
-// @match        https://kin8-av.com/*
-// @match        https://555fap.com/*
-// @match        https://4fuk.me/*
-// @match        https://hentaipig.com/*
-// @match        https://3minx.com/*
-// @match        https://fc2ppv.stream/*
-// @match        https://xcamcovid.com/*
-// @match        https://hentaicovid.org/*
-// @match        https://chinese-pics.com/*
-// @match        https://kr-av.com/*/*
-// @match        https://cn-av.com/*
-// @match        https://anime-jav.com/*
-// @match        https://hentai-sub.com/*
-// @match        https://cosplay-xxx.com/*
-// @match        https://porn-pig.com/*
-// @match        https://javtele.net/*
-// @match        https://gofile.download/*
-// @match        https://xxpics.org/*
-// @match        https://hentaixnx.com/*
-// @match        https://blackwidof.org/*
-// @match        https://hentai-manga.org/*
-// @match        https://1minx.com/*
-// @match        https://cnxxx.org/*
-// @match        https://cosplaytele.vip/*
-// @match        https://fc2ppv.me/*
-// @match        https://javbee.co/*
-// @match        https://chinese-pics.vip/*
-// @match        https://hentai-manga.org/*
-// @match        https://kin8-jav.com/*
-// @match        https://old-young.net/*
-// @match        https://hentaicovid.vip/*
-// @match        https://imgo.info/*
-// @match        https://sht-link.com/*
+// @match        https://*.nyaa.*/*
+// @match        https://*.hentai-covers.*/*
+// @match        https://*.dlsite.*/*
+// @match        https://*.e-hentai.*/*
+// @match        https://*.dmm.*/*
+// @match        https://*.javtenshi.*/*
+// @match        https://*.3xplanet.*/*
+// @match        https://*.xpic.*/*
+// @match        https://*.imgrock.*/*
+// @match        https://*.picrok.*/*
+// @match        https://*.picbaron.*/*
+// @match        https://*.imgbaron.*/*
+// @match        https://*.kvador.*/*
+// @match        https://*.kropic.*/*
+// @match        https://*.imgsto.*/*
+// @match        https://*.imgsen.*/*
+// @match        https://*.imgstar.*/*
+// @match        https://*.picdollar.*/*
+// @match        https://*.pics4you.*/*
+// @match        https://*.silverpic.*/*
+// @match        https://*.fotokiz.*/*
+// @match        https://*.premalo.*/*
+// @match        https://*.piczhq.*/*
+// @match        https://*.trypicz.*/*
+// @match        https://*.imglord.*/*
+// @match        https://*.croea.*/*
+// @match        https://*.imgtaxi.*/*
+// @match        https://*.imgadult.*/*
+// @match        https://*.imgdrive.*/*
+// @match        https://*.xxxwebdlxxx.*/*
+// @match        https://*.uvonahaze.*/*
+// @match        https://*.firm.*/*
+// @match        https://*.imgdawgknuttz.*/*
+// @match        https://*.imagetwist.*/*
+// @match        https://*.imagexport.*/*
+// @match        https://*.imagenimage.*/*
+// @match        https://*.imagehaha.*/*
+// @match        https://*.hentai4free.*/*
+// @match        https://*.pixhost.*/*
+// @match        https://*.imgair.*/*
+// @match        https://*.imgfrost.*/*
+// @match        https://*.imgblaze.*/*
+// @match        https://*.pig69.*/*
+// @match        https://*.ai18.*/*
+// @match        https://*.porn4f.*/*
+// @match        https://*.hentai4f.*/*
+// @match        https://*.javball.*/*
+// @match        https://*.ovabee.*/*
+// @match        https://*.javbee.*/*
+// @match        https://*.idol69.*/*
+// @match        https://*.sweetie-fox.*/*
+// @match        https://*.javsunday.*/*
+// @match        https://*.cnpics.*/*
+// @match        https://*.fikfok.*/*
+// @match        https://*.cnxx.*/*
+// @match        https://*.cosplay18.*/*
+// @match        https://*.kin8-av.*/*
+// @match        https://*.555fap.*/*
+// @match        https://*.4fuk.*/*
+// @match        https://*.hentaipig.*/*
+// @match        https://*.3minx.*/*
+// @match        https://*.fc2ppv.*/*
+// @match        https://*.xcamcovid.*/*
+// @match        https://*.hentaicovid.*/*
+// @match        https://*.chinese-pics.*/*
+// @match        https://*.kr-av.*/*
+// @match        https://*.cn-av.*/*
+// @match        https://*.anime-jav.*/*
+// @match        https://*.hentai-sub.*/*
+// @match        https://*.cosplay-xxx.*/*
+// @match        https://*.porn-pig.*/*
+// @match        https://*.javtele.*/*
+// @match        https://*.gofile.*/*
+// @match        https://*.xxpics.*/*
+// @match        https://*.hentaixnx.*/*
+// @match        https://*.blackwidof.*/*
+// @match        https://*.hentai-manga.*/*
+// @match        https://*.1minx.*/*
+// @match        https://*.cnxxx.*/*
+// @match        https://*.cosplaytele.*/*
+// @match        https://*.kin8-jav.*/*
+// @match        https://*.old-young.*/*
+// @match        https://*.imgo.*/*
+// @match        https://*.sht-link.*/*
+// @match        https://*.shentai-anime.*/*
 
 // @run-at       document-end
 // @grant        unsafeWindow
@@ -148,7 +138,7 @@
                 url: url,
                 onload: res => {
                     const src = res.responseText.match(pattern)
-                    if(src.length > 1) resolve(src[1])
+                    if(src && src.length > 1) resolve(src[1])
                 },
                 onerror: err => {
                     console.error(err)
@@ -188,7 +178,6 @@
         callback(await doGet(url, /src="(.*)" class="attachment-original size-original"/))
     })
     addHandler(/^https?:\/\/(imgrock\.pw)(\/[\w\-]+)+(\.[\w\-]+)+/, callback => {
-        // pause on CAPTCHA
         const iframe = document.querySelector('iframe')
         if(iframe && iframe.src.indexOf('captcha') > -1) return
 
@@ -203,7 +192,6 @@
         }
     })
     addHandler(/^https?:\/\/(picrok\.com)(\/[\w\-]+)+\.php/, callback => {
-        // pause on CAPTCHA
         const iframe = document.querySelector('iframe')
         if(iframe && iframe.src.indexOf('captcha') > -1) return
 
@@ -214,7 +202,6 @@
             unsafeWindow.setTimeout(() => {
               const forms = document.querySelectorAll('form')
               const btns = document.querySelectorAll('form>button')
-              // for(let i=0;i<btns.length;i++) {if(btns[i].style.display) forms[i-1].submit()}
             }, 5000)
         }
     })
@@ -357,75 +344,81 @@
             }
         })
     })
-    const jav_hosts = 'pig69\\.com|ai18\\.pics|porn4f\\.com|porn4f\\.org|hentai4f\\.com|javball\\.com|ovabee\\.com|image.javbee\\.me|image.javbee\\.vip|idol69\\.net|sweetie-fox\\.com|javsunday\\.com|cnpics\\.org|fikfok\\.net|cnxx\\.me|cosplay18\\.pics|kin8\\-av\\.com|555fap\\.com|4fuk\\.me|hentaipig\\.com|3minx\\.com|fc2ppv\\.stream|xcamcovid\\.com|hentaicovid\\.org|kr\\-av\\.com|cn\\-av\\.com|anime\\-jav\\.com|hentai\\-sub\\.com|cosplay\\-xxx\\.com|porn\\-pig\\.com|gofile\\.download|xxpics\\.org|hentaixnx\\.com|blackwidof\\.org'
-    const jav_exp1 = new RegExp(`^https?:\/\/(${jav_hosts})(\/\\w+)+`)
-    const jav_exp2 = new RegExp(`"https?:\/\/((${jav_hosts})(\/upload)?\/Application\/storage\/app\/public\/uploads\/users\/\.\*)"`)
-    addHandler(jav_exp1, callback => {
-        const img = document.querySelector('#fileOriginalModal img')
-        if(img) {
-            callback(img.src)
-        } else {
-            const btn = document.querySelector('a.continue')
-            btn && btn.click()
-        }
-    }, (url, callback) => {
-        GM_xmlhttpRequest({
-            method: 'GET',
-            url: url,
-            onload: res => {
-                const src = res.responseText.match(jav_exp2)
-                if(src.length > 1) callback("http://"+src[1])
-            }
-        })
-    })
-    addHandler(/^https:\/\/manko\.fun\|/, callback => {
-        return false
-    }, (url, callback) => {
-        if(/^https:\/\/sukebei\.nyaa\.si\/(\?.*)?$/.test(href)) {
-            callback(url.substr(18))
-        }
-    })
 
-    // 新增站点支持
-    // 通用图床站点列表
-    const genericImageHosts = [
-        '1minx\\.com',
-        'cnxxx\\.org',
-        'cosplaytele\\.vip',
-        'fc2ppv\\.me',
-        'javbee\\.co',
-        'javtele\\.net',
-        'chinese-pics\\.vip',
-        'hentai-manga\\.org',
-        'kin8-jav\\.com',
-        'old-young\\.net',
-        'hentaicovid\\.vip',
-        'imgo\\.info',
-        'sht-link\\.com'
+    // ==================== 统一图床站点配置 ====================
+    const imageHosts = [
+        '1minx\\.[a-z]+',
+        '3minx\\.[a-z]+',
+        '4fuk\\.[a-z]+',
+        '555fap\\.[a-z]+',
+        'ai18\\.[a-z]+',
+        'anime-jav\\.[a-z]+',
+        'blackwidof\\.[a-z]+',
+        'chinese-pics\\.[a-z]+',
+        'cn-av\\.[a-z]+',
+        'cnpics\\.[a-z]+',
+        'cnxx\\.[a-z]+',
+        'cnxxx\\.[a-z]+',
+        'cosplay-xxx\\.[a-z]+',
+        'cosplay18\\.[a-z]+',
+        'cosplaytele\\.[a-z]+',
+        'fc2ppv\\.[a-z]+',
+        'fikfok\\.[a-z]+',
+        'gofile\\.[a-z]+',
+        'hentai-sub\\.[a-z]+',
+        'hentai-manga\\.[a-z]+',
+        'hentai4f\\.[a-z]+',
+        'hentaicovid\\.[a-z]+',
+        'hentaipig\\.[a-z]+',
+        'hentaixnx\\.[a-z]+',
+        'idol69\\.[a-z]+',
+        'imgo\\.[a-z]+',
+        'javball\\.[a-z]+',
+        'javbee\\.[a-z]+',
+        'javsunday\\.[a-z]+',
+        'javtele\\.[a-z]+',
+        'kin8-av\\.[a-z]+',
+        'kin8-jav\\.[a-z]+',
+        'kr-av\\.[a-z]+',
+        'old-young\\.[a-z]+',
+        'ovabee\\.[a-z]+',
+        'pig69\\.[a-z]+',
+        'porn-pig\\.[a-z]+',
+        'porn4f\\.[a-z]+',
+        'sht-link\\.[a-z]+',
+        'sweetie-fox\\.[a-z]+',
+        'xcamcovid\\.[a-z]+',
+        'xxpics\\.[a-z]+', 
+        'shentai-anime\\.[a-z]+'
     ];
 
-    // 构建正则表达式，匹配所有列出的域名
-    const genericPattern = new RegExp(`^https?://(${genericImageHosts.join('|')})/upload(/[a-z]{2})?/[\\w-]+\\.(jpg|jpeg|png|gif|webp)$`, 'i');
+    const imagePattern = new RegExp(`^https?://(${imageHosts.join('|')})(/\\w+)+`, 'i');
 
     addHandler(
-        genericPattern,
+        imagePattern,
         function (callback) {
             const img = document.querySelector('.fileviewer-file img') ||
                         document.querySelector('#fileOriginalModal img');
-            if (img && img.src) callback(img.src);
+            if (img && img.src) {
+                callback(img.src);
+            } else {
+                const btn = document.querySelector('a.continue');
+                if (btn) btn.click();
+            }
         },
         async (url, callback) => {
             try {
-                const domainMatch = url.match(/^https?:\/\/([^\/]+)/);
-                const domain = domainMatch ? domainMatch[1] : '';
-                if (!domain) return;
-
-                const absolute = await doGet(url, new RegExp(`<img[^>]+src="(https?://${domain.replace(/\./g, '\\.')}/upload/Application/storage/app/public/uploads/users/[^"]+)"`, 'i'));
+                const absolute = await doGet(url, /<img[^>]+src="(https?:\/\/[^\/]+(\/upload)?\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
                 if (absolute) {
                     callback(absolute);
                     return;
                 }
-                const relative = await doGet(url, /src="(\/upload\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
+
+                const domainMatch = url.match(/^https?:\/\/([^\/]+)/);
+                const domain = domainMatch ? domainMatch[1] : '';
+                if (!domain) return;
+
+                const relative = await doGet(url, /src="((\/upload)?\/Application\/storage\/app\/public\/uploads\/users\/[^"]+)"/i);
                 if (relative) {
                     callback(`https://${domain}${relative}`);
                 }
@@ -433,7 +426,15 @@
             }
         }
     );
-    //新增站点结束位置
+
+    addHandler(/^https:\/\/manko\.fun\|/, callback => {
+        return false
+    }, (url, callback) => {
+        if(/^https:\/\/sukebei\.nyaa\.si\/(\?.*)?$/.test(href)) {
+            callback(url.substr(18))
+        }
+    })
+    // ==================== 统一图床配置结束 ====================
 
     const href = document.location.href
     if(/^https?:\/\/(sukebei\.nyaa\.si).+/g.test(href)) {
@@ -475,11 +476,9 @@
                 LMT_img.style.display = 'none'
                 const a = document.querySelector(`a[data-lmt="${decodeURI(e.target.src)}"]`)
                 if(a && a.dataset.lmtSrc) {
-                    // extract bad url locally, stop retry
                     delete a.dataset.lmt
                     a.dataset.lmtSrc = '#'
                 } else if(a) {
-                    // load bad url from server, do retry
                     delete a.dataset.lmt
                     delete a.dataset.lmtSrc
                 }
@@ -561,7 +560,6 @@
                     }
                 }
             }
-            // process()
             running = false
         })
 
@@ -586,14 +584,12 @@
                 const panelRightEdge = e.clientX + offset + panelWidth;
                 const panelBottomEdge = e.clientY + offset + panelHeight;
 
-                // Horizontal positioning
                 let newLeft = e.clientX + offset;
                 if(panelRightEdge > windowWidth) {
                     newLeft = e.clientX - offset - panelWidth;
                 }
                 newLeft = Math.max(5, Math.min(newLeft, windowWidth - panelWidth - 5));
 
-                // Vertical positioning
                 let newTop = e.clientY + offset;
                 if(panelBottomEdge > windowHeight) {
                     newTop = e.clientY - offset - panelHeight;
@@ -636,11 +632,6 @@
         }
 
         if(/^https?:\/\/(sukebei\.nyaa\.si\/view\/).+/g.test(href)) {
-            // Detail Page
-            if(document.title === '429 Too Many Requests') {
-                document.location.href = document.location.href
-                return
-            }
             const desc = document.querySelector('#torrent-description')
             const links = desc.querySelectorAll('a')
 
@@ -661,10 +652,7 @@
                 createWrap(desc)
             }
             createPanel()
-            // process()
         } else {
-            // List Page
-            // try to load thumb from cloud
             const links = document.querySelectorAll('.torrent-list>tbody>tr>td:nth-child(2)>a:last-child')
             const ids = Array.apply(null, links).map(a => a.href.substr(a.href.lastIndexOf('/')+1)).join(',')
             getThumbs(ids).then(thumbs => {
@@ -683,12 +671,10 @@
                 const a = e.target
                 if(a.dataset.lmt || a.dataset.lmtSrc || !a.href || !/.*\/view\/\d+$/.test(a.href)) return
 
-                // Serialize requests, to avoid '429 Too Many Requests'
                 const unlock = await lock()
                 const detail = await getDetail(a.href)
                 unlock()
 
-                // Find image markdown '![text](image url)'
                 let imgs = detail.responseText.match(/]\((https?:\/\/[^)]+)/)
                 if(imgs && imgs[1] && imgs[1].indexOf('nyaa.si') < 0) {
                     a.dataset.lmtSrc = imgs[1]
@@ -709,11 +695,9 @@
                 let flag = false
                 for (let i in hrefs) {
                     let href = hrefs[i]
-                    // skip nyaa.si
                     if (href.indexOf('nyaa.si') >= 0) {
                         continue
                     }
-                    // for links '[![Visit manko.fun](https://...)](https://manko.fun)'
                     if (href.trim() === 'https://manko.fun') {
                         href = desc.match(/(https?:\/\/.+?)\)\]\(https:\/\/manko\.fun\)/)
                         if(href) {
@@ -733,7 +717,6 @@
                         }
                     }
                     if(flag) {
-                        // process()
                         break
                     }
                 }
@@ -775,7 +758,6 @@
             }
         }
     } else {
-        // Image Host Websites
         handlers.forEach(h=>{h.canHandle(href) && h.handle(document.location.href)})
     }
 })();
