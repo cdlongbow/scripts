@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Emby 媒体库显示模式管理器
 // @namespace    local.emby.force.thumb.selected
-// @version      2.2.0
+// @version      2.1.1
 // @description  为 Emby Web 指定媒体库设置默认显示模式，支持锁定、会话临时切换和完全跟随 Emby 原设置，并提供前台设置面板管理媒体库 ID。
 // @author       ZiPenOk
 // @license      MIT
@@ -218,14 +218,14 @@
 
       if (rule.policy === 'locked') {
         log('locked:', rule.id, key, '=>', valueForKey(rule, key));
-        scheduleRefresh();
+        scheduleRefresh(true);
         return valueForKey(rule, key);
       }
 
       sessionPrefs[scopedKey(rule.id, key)] = value == null ? valueForKey(rule, key) : value.toString();
       saveSessionPrefs();
       log('session only:', rule.id, key, '=>', sessionPrefs[scopedKey(rule.id, key)]);
-      scheduleRefresh();
+      scheduleRefresh(true);
       return value;
     };
 
@@ -260,13 +260,13 @@
 
       var classicKey = key ? key + '-_view' : '';
       if (rule.policy === 'locked') {
-        scheduleRefresh();
+        scheduleRefresh(true);
         return valueForKey(rule, classicKey);
       }
 
       sessionPrefs[scopedKey(rule.id, classicKey)] = value == null ? valueForKey(rule, classicKey) : value.toString();
       saveSessionPrefs();
-      scheduleRefresh();
+      scheduleRefresh(true);
       return value;
     };
 
@@ -285,30 +285,42 @@
     }
   }
 
-  function scheduleRefresh() {
+  function scheduleRefresh(force) {
     clearTimeout(refreshTimer);
-    refreshTimer = setTimeout(refreshCurrentPage, 300);
+    refreshTimer = setTimeout(function () {
+      refreshCurrentPage(!!force);
+    }, 300);
   }
 
-  function refreshCurrentPage() {
+  function refreshCurrentPage(force) {
     var rule = getCurrentLibraryRule();
     if (!rule || rule.policy === 'free') return;
 
+    var changed = false;
+
     document.querySelectorAll('.itemsContainer').forEach(function (container) {
       if (rule.mode === 'list' || rule.mode === 'table') {
+        if (!container.classList.contains('vertical-list') || container.classList.contains('vertical-wrap')) {
+          changed = true;
+        }
         container.classList.add('vertical-list');
         container.classList.remove('vertical-wrap');
       } else {
+        if (container.classList.contains('vertical-list') || !container.classList.contains('vertical-wrap')) {
+          changed = true;
+        }
         container.classList.remove('vertical-list');
         container.classList.add('vertical-wrap');
       }
 
-      if (typeof container.refreshItems === 'function') {
+      if (force && typeof container.refreshItems === 'function') {
         try {
           container.refreshItems();
         } catch (e) {}
       }
     });
+
+    if (!changed && !force) return;
 
     document.querySelectorAll('.btnSelectView,.btnChangeLayout').forEach(function (button) {
       button.dispatchEvent(new PAGE.CustomEvent('layoutchange', {
@@ -317,7 +329,7 @@
       }));
     });
 
-    log('refresh requested', rule.id, rule.mode, rule.policy, location.href);
+    log(force ? 'refresh requested' : 'layout applied', rule.id, rule.mode, rule.policy, location.href);
   }
 
   function injectStyles() {
@@ -430,7 +442,7 @@
       sessionPrefs = {};
       saveSessionPrefs();
       closePanel();
-      scheduleRefresh();
+      scheduleRefresh(true);
       log('config saved', config);
     });
     panel.querySelector('[data-action="add-empty"]').addEventListener('click', function () {
@@ -446,7 +458,7 @@
     panel.querySelector('[data-action="clear-session"]').addEventListener('click', function () {
       sessionPrefs = {};
       saveSessionPrefs();
-      scheduleRefresh();
+      scheduleRefresh(true);
       log('session prefs cleared');
     });
     panel.querySelectorAll('[data-action="remove"]').forEach(function (button) {
