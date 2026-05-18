@@ -1,18 +1,19 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.2.0
-// @description  JavBus / JavDB / JavLib 磁力搜索与番号助手，集成 115 离线、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
-// @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
+// @version      2.3.0
+// @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
+// @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
 
+// Core detail/list sites
 // @match        *://*.javlibrary.com/*
 // @match        *://javlibrary.com/*
 // @match        *://*.javbus.com/*
 // @match        *://javbus.com/*
 // @include      *://*javdb*.com/*
 
-// Jav Jump merged sites
+// Jump helper sites
 // @match        *://sukebei.nyaa.si/*
 // @match        *://169bbs.com/*
 // @match        *://supjav.com/*
@@ -24,6 +25,7 @@
 // @match        *://hjd2048.com/2048/*
 // @match        *://missav.*/*
 
+// Runtime
 // @run-at       document-idle
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
@@ -36,53 +38,69 @@
 // @grant        GM_info
 // @connect      *
 // @license      GPL-3.0
+// @homepageURL  https://github.com/ZiPenOk/scripts
+// @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/laosiji-new.js
 // @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/laosiji-new.js
 // ==/UserScript==
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.2.0';
+    const SCRIPT_VERSION = '2.3.0';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
         get ciligouUrl()       { return GM_getValue('cfg_ciligou_url',       'clg55.top'); },
         get btdigUrl()         { return GM_getValue('cfg_btdig_url',         'btdig.com'); },
-        get sukebeiUrl()          { return GM_getValue('cfg_sukebei_url',          'sukebei.nyaa.si'); },
+        get sukebeiUrl()       { return GM_getValue('cfg_sukebei_url',       'sukebei.nyaa.si'); },
         get sokittyUrl()       { return GM_getValue('cfg_sokitty_url',       'w1.sokitty.me'); },
 
-        get defaultEngine()    { return GM_getValue('cfg_default_engine', 'javdb.com'); },
+        get defaultEngine()    { return GM_getValue('cfg_default_engine', 'sukebei.nyaa.si'); },
+        get defaultVideoEngine() { return GM_getValue('default_video_engine', 'missav'); },
 
         get thumbSourceOrder() { return GM_getValue('thumb_source_order', ['javfree', 'projectjav', 'javstore']); },
 
         set javdbSearchUrl(v)   { GM_setValue('cfg_javdb_search_url', v); },
         set ciligouUrl(v)       { GM_setValue('cfg_ciligou_url', v); },
         set btdigUrl(v)         { GM_setValue('cfg_btdig_url', v); },
-        set sukebeiUrl(v)          { GM_setValue('cfg_sukebei_url', v); },
+        set sukebeiUrl(v)       { GM_setValue('cfg_sukebei_url', v); },
         set sokittyUrl(v)       { GM_setValue('cfg_sokitty_url', v); },
         set defaultEngine(v)    { GM_setValue('cfg_default_engine', v); },
+        set defaultVideoEngine(v) { GM_setValue('default_video_engine', v); },
         set thumbSourceOrder(v) { GM_setValue('thumb_source_order', v); },
 
         get btnShowNyaa()    { return GM_getValue('btn_show_nyaa',    true); },
         get btnShowJavbus()  { return GM_getValue('btn_show_javbus',  true); },
         get btnShowJavdb()   { return GM_getValue('btn_show_javdb',   true); },
         get btnShowMissav()  { return GM_getValue('btn_show_missav',  true); },
+        get btnShowJable()   { return GM_getValue('btn_show_jable',   true); },
         get btnShowFanza()   { return GM_getValue('btn_show_fanza',   true); },
         get btnShowSearch()  { return GM_getValue('btn_show_search',  true); },
         get btnShowTrailer() { return GM_getValue('btn_show_trailer', true); },
         get btnShowPreview() { return GM_getValue('btn_show_preview', true); },
+        get btnShowPan115()  { return GM_getValue('btn_show_pan115',  false); },
 
         set btnShowNyaa(v)    { GM_setValue('btn_show_nyaa',    v); },
         set btnShowJavbus(v)  { GM_setValue('btn_show_javbus',  v); },
         set btnShowJavdb(v)   { GM_setValue('btn_show_javdb',   v); },
         set btnShowMissav(v)  { GM_setValue('btn_show_missav',  v); },
+        set btnShowJable(v)   { GM_setValue('btn_show_jable',   v); },
         set btnShowFanza(v)   { GM_setValue('btn_show_fanza',   v); },
         set btnShowSearch(v)  { GM_setValue('btn_show_search',  v); },
         set btnShowTrailer(v) { GM_setValue('btn_show_trailer', v); },
         set btnShowPreview(v) { GM_setValue('btn_show_preview', v); },
+        set btnShowPan115(v)  { GM_setValue('btn_show_pan115',  v); },
     };
 
     const log = (...args) => console.log('[老司机]', ...args);
+
+    const VIDEO_ENGINES = [
+        { key: 'missav', label: 'MissAV', host: /missav\.(com|ai|ws)/i, color: '#ec4899' },
+        { key: 'jable',  label: 'Jable',  host: /jable\.tv/i, color: '#f97316' },
+        { key: '123av',  label: '123AV',  host: /123av\.com/i, color: '#10b981' },
+        { key: 'javday', label: 'JavDay', host: /javday\.app/i, color: '#0ea5e9' },
+    ];
+    window.__LAOSIJI_VIDEO_ENGINES__ = VIDEO_ENGINES;
 
     function notify(title, text, url) {
         GM_notification({ title, text, onclick: () => url && window.open(url) });
@@ -150,7 +168,7 @@
             { key: 'ciligouUrl',      label: 'CiliGou',      placeholder: 'clg55.top' },
             { key: 'btdigUrl',        label: 'BtDig',        placeholder: 'btdig.com' },
             { key: 'sukebeiUrl',      label: 'Sukebei',      placeholder: 'sukebei.nyaa.si' },
-            { key: 'sokittyUrl',      label: 'SoKitty',       placeholder: 'w1.sokitty.me' },
+            { key: 'sokittyUrl',      label: 'SoKitty',      placeholder: 'w1.sokitty.me' },
         ];
         const JUMP_SEARCH_ENGINES = ['BTDigg', 'Taocili', 'Google', 'Bing', 'DuckGo'];
         const THUMB_META = {
@@ -176,10 +194,15 @@
                 #jav-settings-panel .sp-card { position:relative; background:rgba(255,255,255,.92); border:1px solid rgba(203,213,225,.88); border-radius:10px; padding:15px; box-shadow:0 10px 24px rgba(15,23,42,.06); overflow:hidden; }
                 #jav-settings-panel .sp-card::before { content:''; position:absolute; left:0; top:0; width:4px; height:100%; background:#2563eb; }
                 #jav-settings-panel .sp-card-magnet::before { background:#16a34a; }
-                #jav-settings-panel .sp-card-preview::before { background:#f59e0b; }
+                #jav-settings-panel .sp-card-defaults::before { background:#2563eb; }
+                #jav-settings-panel .sp-card-features::before { background:#00a85a; }
                 #jav-settings-panel .sp-card-order::before { background:#dc2626; }
                 #jav-settings-panel .sp-card-title { font-size:13px; font-weight:750; color:#1e293b; margin-bottom:12px; }
+                #jav-settings-panel .sp-card-jump::before { background:#6366f1; }
                 #jav-settings-panel .sp-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 12px; }
+                #jav-settings-panel .sp-feature-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+                #jav-settings-panel .sp-feature-item { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; padding:10px 11px; border:1px solid #e2e8f0; border-radius:8px; background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); }
+                #jav-settings-panel .sp-feature-item .sp-desc { margin-top:2px; font-size:11px; }
                 #jav-settings-panel .sp-field { display:flex; flex-direction:column; gap:6px; min-width:0; }
                 #jav-settings-panel .sp-label { font-size:12px; font-weight:650; color:#475569; }
                 #jav-settings-panel .sp-input, #jav-settings-panel .sp-select { width:100%; min-width:0; height:34px; padding:6px 9px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:#0f172a; font-size:13px; outline:none; }
@@ -215,7 +238,7 @@
                 #jav-settings-panel .sp-btn-clear { background:#fff7ed; color:#9a3412; border-color:#fed7aa; }
                 #jav-settings-panel .sp-btn-clear:hover { background:#ffedd5; }
                 #jav-settings-panel .sp-btn-save { background:linear-gradient(135deg,#2563eb,#7c3aed); color:white; box-shadow:0 8px 20px rgba(79,70,229,.25); }
-                @media (max-width: 640px) { #jav-settings-panel .sp-grid, #jav-settings-panel .sp-engine-row { grid-template-columns:1fr; } #jav-settings-panel .sp-cache-actions { margin-right:0; } #jav-settings-panel .sp-footer { flex-wrap:wrap; } }
+                @media (max-width: 640px) { #jav-settings-panel .sp-grid, #jav-settings-panel .sp-engine-row, #jav-settings-panel .sp-feature-grid { grid-template-columns:1fr; } #jav-settings-panel .sp-cache-actions { margin-right:0; } #jav-settings-panel .sp-footer { flex-wrap:wrap; } }
             `);
 
             const overlay = document.createElement('div');
@@ -228,7 +251,6 @@
                 <div class="sp-header">
                     <div>
                         <div class="sp-title">老司机设置</div>
-                        <div class="sp-subtitle">磁力、跳转、预览图统一管理</div>
                     </div>
                     <button class="sp-close" type="button" title="关闭">×</button>
                 </div>
@@ -243,19 +265,27 @@
                             </div>
                         </div>
                     </section>
-                    <section class="sp-card sp-card-preview">
-                        <div class="sp-card-title">跳转与预览</div>
+                    <section class="sp-card sp-card-defaults">
+                        <div class="sp-card-title">默认组跳转入口</div>
                         <div class="sp-grid">
-                            <label class="sp-field"><span class="sp-label">默认跳转搜索</span><select class="sp-select" id="sp-jump-engine"></select></label>
-                            <div class="sp-stack">
-                                <div class="sp-toggle-row">
-                                    <div><div class="sp-label">预览图缓存</div><div class="sp-desc">本次会话内缓存已命中的图片地址</div></div>
-                                    <label class="sp-toggle"><input id="sp-preview-cache" type="checkbox"><span class="sp-toggle-track"></span></label>
-                                </div>
-                                <div class="sp-toggle-row">
-                                    <div><div class="sp-label">预告片缓存</div><div class="sp-desc">本次会话内缓存已解析的视频源</div></div>
-                                    <label class="sp-toggle"><input id="sp-trailer-cache" type="checkbox"><span class="sp-toggle-track"></span></label>
-                                </div>
+                            <label class="sp-field"><span class="sp-label">默认搜索入口</span><select class="sp-select" id="sp-jump-engine"></select></label>
+                            <label class="sp-field"><span class="sp-label">默认视频入口</span><select class="sp-select" id="sp-video-engine"></select></label>
+                        </div>
+                    </section>
+                    <section class="sp-card sp-card-features">
+                        <div class="sp-card-title">功能项开关</div>
+                        <div class="sp-feature-grid">
+                            <div class="sp-feature-item">
+                                <div><div class="sp-label">预览图缓存</div><div class="sp-desc">缓存已命中的预览图地址</div></div>
+                                <label class="sp-toggle"><input id="sp-preview-cache" type="checkbox"><span class="sp-toggle-track"></span></label>
+                            </div>
+                            <div class="sp-feature-item">
+                                <div><div class="sp-label">预告片缓存</div><div class="sp-desc">缓存已解析的视频源</div></div>
+                                <label class="sp-toggle"><input id="sp-trailer-cache" type="checkbox"><span class="sp-toggle-track"></span></label>
+                            </div>
+                            <div class="sp-feature-item">
+                                <div><div class="sp-label">115查询</div><div class="sp-desc">自动查询115 并匹配结果</div></div>
+                                <label class="sp-toggle"><input id="sp-btn-pan115" type="checkbox"><span class="sp-toggle-track"></span></label>
                             </div>
                         </div>
                     </section>
@@ -263,9 +293,8 @@
                         <div class="sp-card-title">预览图来源顺序</div>
                         <div class="sp-order-list" id="sp-thumb-order"></div>
                     </section>
-                    <section class="sp-card" style="--card-color:#6366f1;">
+                    <section class="sp-card sp-card-jump" style="--card-color:#6366f1;">
                         <style>
-                            #jav-settings-panel .sp-card:has(#sp-btn-nyaa)::before{background:#6366f1;}
                             #jav-settings-panel .sp-chip-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
                             #jav-settings-panel .sp-chip input{display:none;}
                             #jav-settings-panel .sp-chip-label{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;border:0.5px solid var(--color-border-secondary,#cbd5e1);background:var(--color-background-secondary,#f8fafc);color:var(--color-text-secondary,#64748b);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;user-select:none;}
@@ -278,7 +307,7 @@
                             <label class="sp-chip"><input id="sp-btn-nyaa" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>Sukebei</span></label>
                             <label class="sp-chip"><input id="sp-btn-javbus" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavBus</span></label>
                             <label class="sp-chip"><input id="sp-btn-javdb" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavDB</span></label>
-                            <label class="sp-chip"><input id="sp-btn-missav" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>MissAV</span></label>
+                            <label class="sp-chip"><input id="sp-btn-missav" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>视频组</span></label>
                             <label class="sp-chip"><input id="sp-btn-fanza" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>FANZA</span></label>
                             <label class="sp-chip"><input id="sp-btn-search" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>搜索组</span></label>
                             <label class="sp-chip"><input id="sp-btn-trailer" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>预告片</span></label>
@@ -310,6 +339,7 @@
             const picker = panel.querySelector('#sp-engine-picker');
             const domainInput = panel.querySelector('#sp-engine-domain');
             const jumpEngineSelect = panel.querySelector('#sp-jump-engine');
+            const videoEngineSelect = panel.querySelector('#sp-video-engine');
             const cacheCheckbox = panel.querySelector('#sp-preview-cache');
             const trailerCacheCheckbox = panel.querySelector('#sp-trailer-cache');
             const btnToggles = {
@@ -321,6 +351,7 @@
                 search:  panel.querySelector('#sp-btn-search'),
                 trailer: panel.querySelector('#sp-btn-trailer'),
                 preview: panel.querySelector('#sp-btn-preview'),
+                pan115:  panel.querySelector('#sp-btn-pan115'),
             };
             const clearCacheBtn = panel.querySelector('#sp-clear-cache');
             const cacheFeedback = panel.querySelector('#sp-cache-feedback');
@@ -366,17 +397,26 @@
                 opt.textContent = name;
                 jumpEngineSelect.appendChild(opt);
             });
-            jumpEngineSelect.value = String(GM_getValue('default_search_engine', 0));
+            VIDEO_ENGINES.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.key;
+                opt.textContent = item.label;
+                videoEngineSelect.appendChild(opt);
+            });
+            jumpEngineSelect.value = String(GM_getValue('default_search_engine', 2));
+            videoEngineSelect.value = CFG.defaultVideoEngine;
+            if (![...videoEngineSelect.options].some(opt => opt.value === videoEngineSelect.value)) videoEngineSelect.value = 'missav';
             cacheCheckbox.checked = GM_getValue('preview_cache_enabled', true);
             trailerCacheCheckbox.checked = GM_getValue('trailer_cache_enabled', true);
             btnToggles.nyaa.checked    = CFG.btnShowNyaa;
             btnToggles.javbus.checked  = CFG.btnShowJavbus;
             btnToggles.javdb.checked   = CFG.btnShowJavdb;
-            btnToggles.missav.checked  = CFG.btnShowMissav;
+            btnToggles.missav.checked  = CFG.btnShowMissav || CFG.btnShowJable;
             btnToggles.fanza.checked   = CFG.btnShowFanza;
             btnToggles.search.checked  = CFG.btnShowSearch;
             btnToggles.trailer.checked = CFG.btnShowTrailer;
             btnToggles.preview.checked = CFG.btnShowPreview;
+            btnToggles.pan115.checked  = CFG.btnShowPan115;
 
             const renderOrder = () => {
                 orderList.innerHTML = '';
@@ -406,7 +446,7 @@
                 renderOrder();
             });
             clearCacheBtn.addEventListener('click', () => {
-                const prefixes = ['thumb_cache_', 'trailer_cache_v3_'];
+                const prefixes = ['thumb_cache_', 'trailer_cache_v3_', 'pan115_cache_'];
                 let count = 0;
                 Object.keys(sessionStorage).forEach(key => {
                     if (prefixes.some(prefix => key.startsWith(prefix))) {
@@ -430,16 +470,19 @@
                 MAGNET_ENGINES.forEach(item => { CFG[item.key] = stripProtocol(domainDraft[item.key]); });
                 CFG.defaultEngine = defaultSelect.value;
                 GM_setValue('default_search_engine', parseInt(jumpEngineSelect.value, 10) || 0);
+                CFG.defaultVideoEngine = videoEngineSelect.value || 'missav';
                 GM_setValue('preview_cache_enabled', cacheCheckbox.checked);
                 GM_setValue('trailer_cache_enabled', trailerCacheCheckbox.checked);
                 CFG.btnShowNyaa    = btnToggles.nyaa.checked;
                 CFG.btnShowJavbus  = btnToggles.javbus.checked;
                 CFG.btnShowJavdb   = btnToggles.javdb.checked;
                 CFG.btnShowMissav  = btnToggles.missav.checked;
+                CFG.btnShowJable   = btnToggles.missav.checked;
                 CFG.btnShowFanza   = btnToggles.fanza.checked;
                 CFG.btnShowSearch  = btnToggles.search.checked;
                 CFG.btnShowTrailer = btnToggles.trailer.checked;
                 CFG.btnShowPreview = btnToggles.preview.checked;
+                CFG.btnShowPan115  = btnToggles.pan115.checked;
                 GM_setValue('thumb_source_order', currentOrder);
                 closePanel();
                 location.reload();
@@ -448,7 +491,8 @@
 
         return { open };
     })();
-    GM_registerMenuCommand('⚙️ 老司机设置', () => SettingsPanel.open());
+    window.__LAOSIJI_OPEN_SETTINGS__ = () => SettingsPanel.open();
+    GM_registerMenuCommand('⚙️ 老司机设置', window.__LAOSIJI_OPEN_SETTINGS__);
 
     const Magnet = (() => {
 
@@ -1016,9 +1060,9 @@
                     padding-left: 20px !important; padding-right: 20px !important; }
                 .row.movie { display: flex !important; gap: 20px !important;
                     align-items: flex-start !important; flex-wrap: nowrap !important; margin: 0 !important; }
-                .col-md-9.screencap { flex: 1.5 1 0 !important; min-width: 0 !important;
+                .col-md-9.screencap { flex: 1.4 1 0 !important; min-width: 0 !important;
                     width: auto !important; float: none !important; padding: 0 !important; }
-                .col-md-3.info { flex: 0.9 1 0 !important; min-width: 0 !important;
+                .col-md-3.info { flex: 1.0 1 0 !important; min-width: 0 !important;
                     width: auto !important; float: none !important;
                     overflow: hidden !important; word-break: break-word !important; }
                 .jav-nong-slot { flex: 1.1 1 0 !important; min-width: 0 !important; align-self: flex-start !important; overflow: hidden !important; }
@@ -1226,6 +1270,13 @@
 (function() {
     'use strict';
 
+    const VIDEO_ENGINES = window.__LAOSIJI_VIDEO_ENGINES__ || [
+        { key: 'missav', label: 'MissAV', host: /missav\.(com|ai|ws)/i, color: '#ec4899' },
+        { key: 'jable',  label: 'Jable',  host: /jable\.tv/i, color: '#f97316' },
+        { key: '123av',  label: '123AV',  host: /123av\.com/i, color: '#10b981' },
+        { key: 'javday', label: 'JavDay', host: /javday\.app/i, color: '#0ea5e9' },
+    ];
+
     GM_addStyle(`
         #emby-config-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); font-family: sans-serif; }
         .emby-config-modal { background: #2d2d2d; border: 1px solid #444; border-radius: 12px; width: 320px; padding: 25px; color: white; box-shadow: 0 10px 50px rgba(0,0,0,0.9); }
@@ -1322,15 +1373,15 @@
         }
 
         .jav-jump-btn-group a {
-            transition: all 0.2s ease-in-out;
+            transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
             animation: btnSlideIn 0.3s ease-out;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
 
         .jav-jump-btn-group a:hover {
-            transform: scale(1.05) !important;
-            filter: brightness(1.2) !important;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
+            background: var(--jav-btn-hover-bg, #f8fafc) !important;
+            transform: translateY(-1px) !important;
+            filter: none !important;
+            box-shadow: 0 5px 14px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.76) !important;
             text-decoration: none !important;
         }
 
@@ -1368,15 +1419,15 @@
             flex-shrink: 0;
             font-size: 10px !important;
             line-height: 1;
-            opacity: 0.9;
-            background: rgba(255,255,255,0.14) !important;
+            opacity: 1;
+            background: color-mix(in srgb, var(--jav-btn-accent, #64748b) 18%, #ffffff) !important;
             color: inherit !important;
-            border: none !important;
+            border: 1px solid color-mix(in srgb, var(--jav-btn-accent, #64748b) 26%, #ffffff) !important;
             border-radius: 999px !important;
-            box-shadow: none !important;
+            box-shadow: 0 1px 2px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.7) !important;
             cursor: pointer;
         }
-        .search-toggle-btn:hover { filter: brightness(1.08); background: rgba(255,255,255,0.22) !important; }
+        .search-toggle-btn:hover { filter: none; background: color-mix(in srgb, var(--jav-btn-accent, #64748b) 26%, #ffffff) !important; }
         .search-toggle-btn .search-arrow { display: inline-block; transform: translateY(-1px); pointer-events: none; }
         .search-submenu {
             position: absolute;
@@ -1396,6 +1447,38 @@
         .search-submenu.is-open { display: flex; }
         .search-submenu a { transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; }
         .search-submenu a:hover { transform: translateX(5px) scale(1.02); filter: brightness(1.1); }
+        .jav-pan115-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 58px;
+            height: 22px !important;
+            padding: 0 7px;
+            margin-right: 6px;
+            position: static !important;
+            top: auto !important;
+            transform: none !important;
+            border-radius: 6px;
+            background: #bbf7d0;
+            border: 1px solid #22c55e;
+            color: #065f46;
+            font-size: 12px !important;
+            font-weight: 800;
+            line-height: 22px !important;
+            text-decoration: none;
+            box-sizing: border-box;
+            vertical-align: middle;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.72);
+        }
+        .jav-pan115-badge:hover {
+            background: #86efac;
+            color: #064e3b;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.76);
+        }
+        span.jav-pan115-badge {
+            cursor: pointer;
+        }
 
         .preview-toolbar {
             position: fixed;
@@ -1763,46 +1846,76 @@
             return null;
         },
 
+        hexToRgb(color) {
+            const hex = String(color || '').trim().replace(/^#/, '');
+            if (!/^[0-9a-f]{3}([0-9a-f]{3})?$/i.test(hex)) return { r: 100, g: 116, b: 139 };
+            const full = hex.length === 3 ? hex.split('').map(ch => ch + ch).join('') : hex;
+            return {
+                r: parseInt(full.slice(0, 2), 16),
+                g: parseInt(full.slice(2, 4), 16),
+                b: parseInt(full.slice(4, 6), 16),
+            };
+        },
+
+        mixColor(color, target = '#ffffff', weight = 0.12) {
+            const from = Utils.hexToRgb(color);
+            const to = Utils.hexToRgb(target);
+            const mix = key => Math.round(from[key] * weight + to[key] * (1 - weight));
+            return `rgb(${mix('r')}, ${mix('g')}, ${mix('b')})`;
+        },
+
+        getModernBtnStyle(color) {
+            const accent = color || '#64748b';
+            const bg = Utils.mixColor(accent, '#ffffff', 0.10);
+            const border = Utils.mixColor(accent, '#dbe3ef', 0.28);
+            const text = Utils.mixColor(accent, '#111827', 0.72);
+            const hoverBg = Utils.mixColor(accent, '#ffffff', 0.16);
+            return [
+                'height:30px',
+                'padding:0 11px',
+                `--jav-btn-accent:${accent}`,
+                `--jav-btn-hover-bg:${hoverBg}`,
+                `background:${bg}`,
+                `color:${text}`,
+                `border:1px solid ${border}`,
+                'border-radius:7px',
+                'font-size:13px',
+                'font-weight:700',
+                'line-height:1',
+                'cursor:pointer',
+                'text-decoration:none',
+                'display:inline-flex',
+                'align-items:center',
+                'justify-content:center',
+                'gap:6px',
+                'white-space:nowrap',
+                'box-shadow:inset 0 1px 0 rgba(255,255,255,0.7)',
+                'box-sizing:border-box',
+            ].join(';');
+        },
+
         createLinkBtn(text, color, url) {
             const btn = document.createElement('a');
             btn.textContent = text;
             btn.href = url || '#';
             if (url) btn.target = '_blank';
             btn.rel = 'noopener noreferrer';
-            btn.style.cssText = `
-                padding:4px 8px;
-                background: ${color};
-                color: white;
-                border-radius: 4px;
-                font-size: 13px;
-                font-weight: bold;
-                cursor: pointer;
-                text-decoration: none;
-                display: inline-block;
-                border: none;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-                box-sizing: border-box;
-            `;
+            btn.style.cssText = Utils.getModernBtnStyle(color);
+            return btn;
+        },
+
+        createJumpLinkBtn(text, color, url) {
+            const btn = Utils.createLinkBtn(text, color, url);
+            btn.addEventListener('click', e => {
+                e.stopImmediatePropagation();
+            }, true);
             return btn;
         },
 
         createBtn(text, color, handler, useCapture = false) {
             const btn = document.createElement('a');
             btn.textContent = text;
-            btn.style.cssText = `
-                padding:4px 8px;
-                background: ${color};
-                color: white;
-                border-radius: 4px;
-                font-size: 13px;
-                font-weight: bold;
-                cursor: pointer;
-                text-decoration: none;
-                display: inline-block;
-                border: none;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-                box-sizing: border-box;
-            `;
+            btn.style.cssText = Utils.getModernBtnStyle(color);
             if (useCapture) {
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
@@ -3317,12 +3430,20 @@
         },
 
         getDefaultSearchEngine() {
-            const index = GM_getValue('default_search_engine', 0);
+            const index = GM_getValue('default_search_engine', 2);
             return SearchEngines[index] || SearchEngines[0];
         },
 
         setDefaultSearchEngine(index) {
             GM_setValue('default_search_engine', index);
+        },
+
+        getDefaultVideoEngine() {
+            return GM_getValue('default_video_engine', 'missav');
+        },
+
+        getVideoEngines() {
+            return VIDEO_ENGINES;
         },
 
         getSourceOrder() {
@@ -3341,12 +3462,181 @@
         { name: 'DuckGo', color: '#DE5833', url: (code) => `https://duckduckgo.com/?q=${code}` }
     ];
 
+    const Pan115 = {
+        api: 'https://webapi.115.com/files/search',
+        videoExts: new Set(['mp4', 'mkv', 'avi', 'wmv', 'mov', 'm4v', 'ts', 'flv', 'rmvb', 'webm']),
+        pending: new Map(),
+        cachePrefix: 'pan115_cache_',
+        enabled() {
+            return GM_getValue('btn_show_pan115', false);
+        },
+        normalizeCode(code) {
+            return String(code || '').trim().toUpperCase().replace(/[_\s]+/g, '-');
+        },
+        playUrl(pickcode) {
+            return `https://115vod.com/?pickcode=${encodeURIComponent(pickcode)}&share_id=0`;
+        },
+        cacheKey(code) {
+            return `${this.cachePrefix}${this.normalizeCode(code)}`;
+        },
+        getCached(code) {
+            try {
+                const raw = sessionStorage.getItem(this.cacheKey(code));
+                if (!raw) return undefined;
+                return JSON.parse(raw);
+            } catch {
+                return undefined;
+            }
+        },
+        setCached(code, value) {
+            try {
+                sessionStorage.setItem(this.cacheKey(code), JSON.stringify(value || null));
+            } catch {}
+        },
+        variants(code) {
+            const normalized = this.normalizeCode(code);
+            return [...new Set([
+                normalized,
+                normalized.replace(/-/g, ''),
+                normalized.toLowerCase(),
+            ].filter(Boolean))];
+        },
+        codeRegex(code) {
+            const normalized = this.normalizeCode(code);
+            const compact = normalized.replace(/-/g, '');
+            const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/-/g, '[-_\\s]?');
+            return new RegExp(`(?:${escaped}|${compact})`, 'i');
+        },
+        isVideoName(name) {
+            const ext = String(name || '').split('.').pop().toLowerCase();
+            return this.videoExts.has(ext);
+        },
+        flattenFiles(payload) {
+            const candidates = [
+                payload?.data,
+                payload?.data?.list,
+                payload?.data?.files,
+                payload?.data?.items,
+                payload?.files,
+                payload?.list,
+            ];
+            const arr = candidates.find(Array.isArray) || [];
+            return arr.map(item => ({
+                name: item.n || item.name || item.file_name || item.filename || item.title || '',
+                pickcode: item.pc || item.pickcode || item.pick_code || item.pickCode || item.pick || '',
+                raw: item,
+            })).filter(item => item.name);
+        },
+        async requestSearch(keyword) {
+            const query = new URLSearchParams({
+                search_value: keyword,
+                type: '99',
+                fc: '2',
+                limit: '20',
+                offset: '0',
+            });
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: 'GET',
+                    url: `${this.api}?${query}`,
+                    timeout: 15000,
+                    anonymous: false,
+                    headers: { Accept: 'application/json, text/plain, */*' },
+                    onload: r => {
+                        try {
+                            resolve(JSON.parse(r.responseText));
+                        } catch (err) {
+                            reject(new Error('115返回不是JSON，可能未登录'));
+                        }
+                    },
+                    onerror: () => reject(new Error('115请求失败')),
+                    ontimeout: () => reject(new Error('115请求超时')),
+                });
+            });
+        },
+        async search(code) {
+            const matcher = this.codeRegex(code);
+            const seen = new Set();
+            for (const keyword of this.variants(code)) {
+                const payload = await this.requestSearch(keyword);
+                const state = payload?.state ?? payload?.success;
+                if (state === false) {
+                    const msg = payload?.error || payload?.message || payload?.errno || '115查询失败';
+                    throw new Error(String(msg));
+                }
+                for (const item of this.flattenFiles(payload)) {
+                    const key = item.pickcode || item.name;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    if (matcher.test(item.name) && this.isVideoName(item.name)) return item;
+                }
+            }
+            return null;
+        },
+        async searchCached(code) {
+            const normalized = this.normalizeCode(code);
+            if (!normalized) return null;
+            const cached = this.getCached(normalized);
+            if (cached !== undefined) return cached;
+            if (this.pending.has(normalized)) return this.pending.get(normalized);
+            const task = this.search(normalized)
+                .then(hit => {
+                    this.setCached(normalized, hit || null);
+                    return hit || null;
+                })
+                .finally(() => this.pending.delete(normalized));
+            this.pending.set(normalized, task);
+            return task;
+        },
+    };
+
+    function closeAllJumpMenus(exceptMenu = null) {
+        document.querySelectorAll('.search-submenu.is-open').forEach(menu => {
+            if (menu !== exceptMenu) menu.classList.remove('is-open');
+        });
+    }
+
+    function bindJumpMenu(menuDiv, toggleBtn, subMenu, mainBtn = null) {
+        let closeTimer = null;
+        const clearCloseTimer = () => {
+            if (closeTimer) {
+                clearTimeout(closeTimer);
+                closeTimer = null;
+            }
+        };
+        const closeMenu = () => {
+            clearCloseTimer();
+            subMenu.classList.remove('is-open');
+        };
+        const scheduleClose = () => {
+            clearCloseTimer();
+            if (subMenu.classList.contains('is-open')) closeTimer = setTimeout(closeMenu, 1000);
+        };
+
+        toggleBtn.addEventListener('click', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            const willOpen = !subMenu.classList.contains('is-open');
+            closeAllJumpMenus(subMenu);
+            clearCloseTimer();
+            subMenu.classList.toggle('is-open', willOpen);
+            if (willOpen && !menuDiv.matches(':hover')) scheduleClose();
+        });
+        menuDiv.addEventListener('mouseenter', clearCloseTimer);
+        menuDiv.addEventListener('mouseleave', scheduleClose);
+        if (mainBtn) mainBtn.addEventListener('click', closeMenu);
+        subMenu.addEventListener('click', e => {
+            if (e.target.closest('a')) closeMenu();
+        });
+        document.addEventListener('click', e => {
+            if (!menuDiv.contains(e.target)) closeMenu();
+        });
+    }
+
     function addNyaaBtn(code, container, useCapture = false) {
         if (!GM_getValue('btn_show_nyaa', true)) return;
         if (/sukebei\.nyaa/i.test(location.hostname)) return;
-        const btn = Utils.createBtn('🔍 Sukebei', '#17a2b8', () => {
-            window.open(`https://sukebei.nyaa.si/?f=0&c=0_0&q=${code}`);
-        }, useCapture);
+        const btn = Utils.createJumpLinkBtn('🔍 Sukebei', '#17a2b8', `https://sukebei.nyaa.si/?f=0&c=0_0&q=${encodeURIComponent(code)}`);
         container.appendChild(btn);
     }
 
@@ -3354,30 +3644,79 @@
         if (!GM_getValue('btn_show_javbus', true)) return;
         if (/javbus\.com/i.test(location.hostname)) return;
         const url = Utils.getJavBusUrl(code);
-        const btn = Utils.createBtn('🎬 JavBus', '#007bff', () => {
-            window.open(url);
-        }, useCapture);
+        const btn = Utils.createJumpLinkBtn('🎬 JavBus', '#007bff', url);
         container.appendChild(btn);
     }
 
     function addJavdbBtn(code, container, useCapture = false) {
         if (!GM_getValue('btn_show_javdb', true)) return;
         if (/javdb\.com/i.test(location.hostname)) return;
-        const btn = Utils.createBtn('📀 JavDB', '#6f42c1', () => {
-            window.open(`https://javdb.com/search?q=${code}`);
-        }, useCapture);
+        const btn = Utils.createJumpLinkBtn('📀 JavDB', '#6f42c1', `https://javdb.com/search?q=${encodeURIComponent(code)}`);
         container.appendChild(btn);
     }
 
     function addMissAVBtn(code, container, useCapture = false) {
-        if (!GM_getValue('btn_show_missav', true)) return;
-        if (/missav\.com|missav\.ai/i.test(location.hostname)) return;
+        const showMissav = GM_getValue('btn_show_missav', true);
+        const showJable = GM_getValue('btn_show_jable', true);
+        if (!showMissav && !showJable) return;
+
         const codeLower = code.toLowerCase();
-        const directUrl = `https://missav.ws/${codeLower}`;
-        const btn = Utils.createBtn('🎬 MissAV', '#ec4899', () => {
-            window.open(directUrl);
-        }, useCapture);
-        container.appendChild(btn);
+        const codeCompactLower = codeLower.replace(/-/g, '');
+        const videoUrlMap = {
+            missav: `https://missav.ws/${codeLower}`,
+            jable: `https://jable.tv/videos/${codeLower}/`,
+            '123av': `https://123av.com/zh/v/${codeLower}`,
+            javday: `https://javday.app/videos/${codeCompactLower}/`,
+        };
+        const enabledVideoKeys = new Set([
+            ...(showMissav ? ['missav', '123av', 'javday'] : []),
+            ...(showJable ? ['jable'] : []),
+        ]);
+        const videoButtons = Settings.getVideoEngines()
+            .filter(item => enabledVideoKeys.has(item.key) && !item.host.test(location.hostname))
+            .map(item => ({ ...item, url: videoUrlMap[item.key] }))
+            .filter(item => item.url);
+        if (!videoButtons.length) return;
+
+        const defaultKey = Settings.getDefaultVideoEngine();
+        const mainItem = videoButtons.find(item => item.key === defaultKey) || videoButtons[0];
+        const subItems = videoButtons.filter(item => item !== mainItem);
+        const createVideoBtn = item => Utils.createJumpLinkBtn(`🎬 ${item.label}`, item.color, item.url);
+
+        if (!subItems.length) {
+            container.appendChild(createVideoBtn(mainItem));
+            return;
+        }
+
+        const menuDiv = document.createElement('div');
+        menuDiv.className = 'search-menu missav-menu';
+        menuDiv.style.setProperty('--jav-btn-accent', mainItem.color);
+
+        const mainBtn = createVideoBtn(mainItem);
+        mainBtn.classList.add('search-main-btn');
+        menuDiv.appendChild(mainBtn);
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'search-toggle-btn';
+        toggleBtn.title = '展开同类站点';
+        toggleBtn.innerHTML = '<span class="search-arrow">▼</span>';
+        menuDiv.appendChild(toggleBtn);
+
+        const subMenu = document.createElement('div');
+        subMenu.className = 'search-submenu';
+        subItems.forEach(item => {
+            const subBtn = createVideoBtn(item);
+            subBtn.style.margin = '2px 0';
+            subBtn.style.width = '100%';
+            subBtn.style.textAlign = 'left';
+            subMenu.appendChild(subBtn);
+        });
+        menuDiv.appendChild(subMenu);
+
+        bindJumpMenu(menuDiv, toggleBtn, subMenu, mainBtn);
+
+        container.appendChild(menuDiv);
     }
 
     function addDmmBtn(code, container, useCapture = false) {
@@ -3414,12 +3753,34 @@
         container.appendChild(btn);
     }
 
+    function addPan115PlayBtn(code, container, useCapture = false) {
+        if (!Pan115.enabled() || !code || !container) return;
+        const normalized = Pan115.normalizeCode(code);
+        if (!normalized || container.dataset.pan115PlayCode === normalized) return;
+        container.dataset.pan115PlayCode = normalized;
+        const marker = document.createComment('pan115-play');
+        container.appendChild(marker);
+        Pan115.searchCached(normalized).then(hit => {
+            const pickcode = hit?.pickcode;
+            if (!pickcode || !marker.parentNode) return;
+            const btn = Utils.createJumpLinkBtn('115播放', '#00a85a', Pan115.playUrl(pickcode));
+            btn.classList.add('jav-pan115-play-btn');
+            btn.title = hit.name || `115播放：${normalized}`;
+            marker.parentNode.insertBefore(btn, marker);
+        }).catch(err => {
+            console.warn('[老司机] 115自动查询失败:', err);
+        }).finally(() => {
+            marker.remove();
+        });
+    }
+
     function addSearchMenu(code, container, useCapture = false) {
         if (!GM_getValue('btn_show_search', true)) return;
         const defaultEngine = Settings.getDefaultSearchEngine();
 
         const menuDiv = document.createElement('div');
         menuDiv.className = 'search-menu';
+        menuDiv.style.setProperty('--jav-btn-accent', defaultEngine.color);
 
         const mainBtn = Utils.createBtn(`🔍 ${defaultEngine.name}`, defaultEngine.color, () => {
             window.open(defaultEngine.url(code));
@@ -3431,7 +3792,7 @@
         toggleBtn.type = 'button';
         toggleBtn.className = 'search-toggle-btn';
         toggleBtn.title = '展开搜索引擎';
-        toggleBtn.innerHTML = '<span class="search-arrow">▾</span>';
+        toggleBtn.innerHTML = '<span class="search-arrow">▼</span>';
         menuDiv.appendChild(toggleBtn);
 
         const subMenu = document.createElement('div');
@@ -3452,18 +3813,146 @@
 
         menuDiv.appendChild(subMenu);
 
-        const closeMenu = () => subMenu.classList.remove('is-open');
-        toggleBtn.addEventListener('click', e => {
-            e.preventDefault();
-            e.stopPropagation();
-            subMenu.classList.toggle('is-open');
-        });
-        mainBtn.addEventListener('click', closeMenu);
-        document.addEventListener('click', e => {
-            if (!menuDiv.contains(e.target)) closeMenu();
-        });
+        bindJumpMenu(menuDiv, toggleBtn, subMenu, mainBtn);
 
         container.appendChild(menuDiv);
+    }
+
+    function addSettingsBtn(container, useCapture = false) {
+        if (!container || container.querySelector('.jav-settings-btn')) return;
+        const btn = Utils.createBtn('⚙️ 设置', '#475569', () => {
+            if (typeof window.__LAOSIJI_OPEN_SETTINGS__ === 'function') {
+                window.__LAOSIJI_OPEN_SETTINGS__();
+            }
+        }, useCapture);
+        btn.classList.add('jav-settings-btn');
+        btn.title = '打开老司机设置';
+        container.appendChild(btn);
+    }
+
+    function createPan115Badge(hit, code, asAnchor = true) {
+        const url = Pan115.playUrl(hit.pickcode);
+        const badge = document.createElement(asAnchor ? 'a' : 'span');
+        badge.className = 'jav-pan115-badge';
+        badge.textContent = '115匹配';
+        badge.title = hit.name || `115播放：${Pan115.normalizeCode(code)}`;
+        if (asAnchor) {
+            badge.href = url;
+            badge.target = '_blank';
+            badge.rel = 'noopener noreferrer';
+            badge.addEventListener('click', e => {
+                e.stopImmediatePropagation();
+            }, true);
+        } else {
+            badge.setAttribute('role', 'link');
+            badge.tabIndex = 0;
+            const open = e => {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                window.open(url, '_blank', 'noopener,noreferrer');
+            };
+            badge.addEventListener('click', open, true);
+            badge.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') open(e);
+            }, true);
+        }
+        return badge;
+    }
+
+    function findPan115TitleTextNode(anchor) {
+        const root = anchor.querySelector('.video-title, .title, [class*="title"], h1, h2, h3, h4, h5, p') || anchor;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                return node.textContent.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+            }
+        });
+        return walker.nextNode();
+    }
+
+    function findPan115TitleAnchor(anchor) {
+        if (!anchor || anchor.closest('.jav-jump-btn-group, .jav-pan115-badge')) return null;
+        const href = anchor.getAttribute('href') || '';
+        if (/^(?:magnet:|javascript:|#)/i.test(href)) return null;
+        const text = [
+            anchor.getAttribute('title'),
+            anchor.getAttribute('aria-label'),
+            anchor.textContent,
+            href,
+        ].filter(Boolean).join(' ');
+        const code = Utils.extractCode(text);
+        if (!code) return null;
+        const visibleTitle = (anchor.textContent || anchor.getAttribute('title') || '').trim();
+        const hasTitleText = visibleTitle.length > 0;
+        if (!hasTitleText) return null;
+        const looksLikeVideoLink =
+            /\/v\/\w+/i.test(href) ||
+            /\/(?:[a-z]{2,15}-\d{2,10}|fc2[-_]?ppv[-_]?\d{6,9})\/?$/i.test(href) ||
+            /\/(?:[a-z]{2,15}\d{3,6})\/?$/i.test(href) ||
+            /(?:movie|video|detail|view|jav)/i.test(href);
+        const inListContainer = !!anchor.closest('.movie-list, .movies, .grid, #waterfall, .movie-box, .box, .thumbnail, .video-list, .video-list-row, .section-container');
+        if (!looksLikeVideoLink && !inListContainer) return null;
+        if (hasTitleText && !Utils.extractCode(visibleTitle) && !looksLikeVideoLink) return null;
+        return { anchor, code };
+    }
+
+    function collectPan115ListTargets() {
+        if (isCurrentDetailPage()) return [];
+        const selectors = [
+            '.movie-list a[href]',
+            '.movies a[href]',
+            '.grid a[href]',
+            '.item a[href]',
+            '.video-title a[href]',
+            'a.movie-box[href]',
+            'a.box[href]',
+            'a[href*="/v/"]',
+            'a[title][href]',
+        ];
+        const seen = new Set();
+        const targets = [];
+        document.querySelectorAll(selectors.join(',')).forEach(anchor => {
+            if (seen.has(anchor) || anchor.dataset.pan115Checked === '1') return;
+            seen.add(anchor);
+            const target = findPan115TitleAnchor(anchor);
+            if (target) targets.push(target);
+        });
+        return targets;
+    }
+
+    function insertPan115ListBadge(anchor, hit, code) {
+        if (!hit?.pickcode || !anchor || anchor.dataset.pan115HasBadge === '1') return;
+        const textNode = findPan115TitleTextNode(anchor);
+        if (textNode?.parentNode && anchor.contains(textNode.parentNode)) {
+            const badge = createPan115Badge(hit, code, false);
+            textNode.parentNode.insertBefore(badge, textNode);
+        } else {
+            const badge = createPan115Badge(hit, code, true);
+            anchor.parentNode?.insertBefore(badge, anchor);
+        }
+        anchor.dataset.pan115HasBadge = '1';
+    }
+
+    let pan115ListRunning = false;
+    async function renderPan115ListBadges() {
+        if (!Pan115.enabled() || pan115ListRunning || isCurrentDetailPage()) return;
+        pan115ListRunning = true;
+        const targets = collectPan115ListTargets().slice(0, 36);
+        try {
+            for (const { anchor, code } of targets) {
+                anchor.dataset.pan115Checked = '1';
+                try {
+                    const hit = await Pan115.searchCached(code);
+                    insertPan115ListBadge(anchor, hit, code);
+                } catch (err) {
+                    console.warn('[老司机] 115列表单项查询失败:', err);
+                }
+            }
+        } catch (err) {
+            console.warn('[老司机] 115列表自动查询失败:', err);
+        } finally {
+            pan115ListRunning = false;
+            if (Pan115.enabled() && collectPan115ListTargets().length) schedulePan115ListBadges();
+        }
     }
 
     function addJumpLineBreak(container) {
@@ -3547,6 +4036,13 @@
         }
     ];
 
+    function isCurrentDetailPage() {
+        if (/javbus\.com/i.test(location.hostname)) {
+            return /^\/(?:[a-z]{2}\/)?(?:[A-Z]{2,15}-?\d{2,10}(?:-\d{1,3})?|[A-Z]{2,10}\d{3,6}|FC2(?:-PPV)?-\d{6,9})\/?$/i.test(location.pathname);
+        }
+        return Sites.some(site => site.match(window.location.href));
+    }
+
     function renderButtonsForCurrentPage() {
         const site = Sites.find(s => s.match(window.location.href));
         if (!site) return;
@@ -3556,6 +4052,7 @@
 
         const existingBtnGroup = document.querySelector('.jav-jump-btn-group[data-laosiji-jump="1"]');
         if (existingBtnGroup) {
+            addSettingsBtn(existingBtnGroup);
             placeJumpButtonGroup(site, titleElem, existingBtnGroup);
             return;
         }
@@ -3572,19 +4069,37 @@
         btnGroup.className = 'jav-jump-btn-group';
         btnGroup.dataset.laosijiJump = '1';
 
-        if (site.id === 'missav') {
-            const missavBtns = [
-                { text: '🔍 Sukebei', color: '#17a2b8', url: `https://sukebei.nyaa.si/?f=0&c=0_0&q=${code}` },
-                { text: '🎬 JavBus',  color: '#007bff',  url: Utils.getJavBusUrl(code) },
-                { text: '📀 JavDB',   color: '#6f42c1',  url: `https://javdb.com/search?q=${code}` },
-            ];
-            missavBtns.forEach(({ text, color, url }) => {
-                btnGroup.appendChild(Utils.createLinkBtn(text, color, url));
+        if (site.id === 'javlibrary') {
+            addNyaaBtn(code, btnGroup);
+            addJavbusBtn(code, btnGroup);
+            addJavdbBtn(code, btnGroup);
+            addMissAVBtn(code, btnGroup);
+            addDmmBtn(code, btnGroup);
+            addSearchMenu(code, btnGroup);
+            addJumpLineBreak(btnGroup);
+            addPan115PlayBtn(code, btnGroup);
+            addTrailerBtn(trailerCode, btnGroup);
+            addPreviewBtn(code, btnGroup);
+            addSettingsBtn(btnGroup);
+
+            btnGroup.querySelectorAll('a').forEach(btn => {
+                let style = btn.getAttribute('style') || '';
+                style = style.replace(/background:\s*([^;]+);/g, 'background: $1 !important;');
+                style = style.replace(/color:\s*([^;]+);/g, 'color: $1 !important;');
+                btn.setAttribute('style', style);
             });
+
+            placeJumpButtonGroup(site, titleElem, btnGroup);
+        } else if (site.id === 'missav') {
+            addNyaaBtn(code, btnGroup);
+            addJavbusBtn(code, btnGroup);
+            addJavdbBtn(code, btnGroup);
+            addMissAVBtn(code, btnGroup);
 
             const defaultEngine = Settings.getDefaultSearchEngine();
             const searchMenuDiv = document.createElement('div');
             searchMenuDiv.className = 'search-menu';
+            searchMenuDiv.style.setProperty('--jav-btn-accent', defaultEngine.color);
 
             const mainSearchBtn = Utils.createLinkBtn(`🔍 ${defaultEngine.name}`, defaultEngine.color, defaultEngine.url(code));
             mainSearchBtn.classList.add('search-main-btn');
@@ -3594,7 +4109,7 @@
             toggleBtn.type = 'button';
             toggleBtn.className = 'search-toggle-btn';
             toggleBtn.title = '展开搜索引擎';
-            toggleBtn.innerHTML = '<span class="search-arrow">▾</span>';
+            toggleBtn.innerHTML = '<span class="search-arrow">▼</span>';
             searchMenuDiv.appendChild(toggleBtn);
 
             const subMenu = document.createElement('div');
@@ -3607,20 +4122,13 @@
             });
             searchMenuDiv.appendChild(subMenu);
 
-            const closeMenu = () => subMenu.classList.remove('is-open');
-            toggleBtn.addEventListener('click', e => {
-                e.preventDefault();
-                e.stopPropagation();
-                subMenu.classList.toggle('is-open');
-            });
-            mainSearchBtn.addEventListener('click', closeMenu);
-            document.addEventListener('click', e => {
-                if (!searchMenuDiv.contains(e.target)) closeMenu();
-            });
+            bindJumpMenu(searchMenuDiv, toggleBtn, subMenu, mainSearchBtn);
             btnGroup.appendChild(searchMenuDiv);
 
+            addPan115PlayBtn(code, btnGroup);
             addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
+            addSettingsBtn(btnGroup);
 
             btnGroup.style.cssText = `
                 margin: 10px 0 6px 0;
@@ -3640,18 +4148,12 @@
             addMissAVBtn(code, btnGroup);
             addDmmBtn(code, btnGroup);
             addSearchMenu(code, btnGroup);
-            if (['javbus', 'javdb', 'javlibrary'].includes(site.id)) addJumpLineBreak(btnGroup);
+            if (['javbus', 'javdb'].includes(site.id)) addJumpLineBreak(btnGroup);
+            addPan115PlayBtn(code, btnGroup);
             addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
+            addSettingsBtn(btnGroup);
 
-            if (site.id === 'javlibrary') {
-                btnGroup.querySelectorAll('a').forEach(btn => {
-                    let style = btn.getAttribute('style') || '';
-                    style = style.replace(/background:\s*([^;]+);/g, 'background: $1 !important;');
-                    style = style.replace(/color:\s*([^;]+);/g, 'color: $1 !important;');
-                    btn.setAttribute('style', style);
-                });
-            }
             if (site.id === 'emby') {
                 btnGroup.classList.add('emby-fix');
                 const parent = titleElem.parentNode;
@@ -3717,11 +4219,20 @@
         });
     }
 
+    let pan115ListTimer = null;
+    function schedulePan115ListBadges() {
+        if (!Pan115.enabled() || isCurrentDetailPage()) return;
+        clearTimeout(pan115ListTimer);
+        pan115ListTimer = setTimeout(renderPan115ListBadges, 300);
+    }
+
     const observer = new MutationObserver(() => {
         renderButtonsForCurrentPage();
+        schedulePan115ListBadges();
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
     renderButtonsForCurrentPage();
+    schedulePan115ListBadges();
 
 })();
