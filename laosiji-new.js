@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.3.0
+// @version      2.3.1
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -46,7 +46,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.3.0';
+    const SCRIPT_VERSION = '2.3.1';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -79,6 +79,7 @@
         get btnShowTrailer() { return GM_getValue('btn_show_trailer', true); },
         get btnShowPreview() { return GM_getValue('btn_show_preview', true); },
         get btnShowPan115()  { return GM_getValue('btn_show_pan115',  false); },
+        get infiniteScroll() { return GM_getValue('infinite_scroll_enabled', false); },
 
         set btnShowNyaa(v)    { GM_setValue('btn_show_nyaa',    v); },
         set btnShowJavbus(v)  { GM_setValue('btn_show_javbus',  v); },
@@ -90,6 +91,7 @@
         set btnShowTrailer(v) { GM_setValue('btn_show_trailer', v); },
         set btnShowPreview(v) { GM_setValue('btn_show_preview', v); },
         set btnShowPan115(v)  { GM_setValue('btn_show_pan115',  v); },
+        set infiniteScroll(v) { GM_setValue('infinite_scroll_enabled', v); },
     };
 
     const log = (...args) => console.log('[老司机]', ...args);
@@ -172,9 +174,9 @@
         ];
         const JUMP_SEARCH_ENGINES = ['BTDigg', 'Taocili', 'Google', 'Bing', 'DuckGo'];
         const THUMB_META = {
-            javfree:    { label: 'javfree.me',     color: '#16a34a', desc: '优先速度' },
-            projectjav: { label: 'projectjav.com', color: '#ca8a04', desc: '高清截图' },
-            javstore:   { label: 'javstore.net',   color: '#dc2626', desc: '兜底来源' },
+            javfree:    { label: 'javfree.me',     color: '#16a34a' },
+            projectjav: { label: 'projectjav.com', color: '#ca8a04' },
+            javstore:   { label: 'javstore.net',   color: '#dc2626' },
         };
         const stripProtocol = value => String(value || '').trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
 
@@ -200,7 +202,9 @@
                 #jav-settings-panel .sp-card-title { font-size:13px; font-weight:750; color:#1e293b; margin-bottom:12px; }
                 #jav-settings-panel .sp-card-jump::before { background:#6366f1; }
                 #jav-settings-panel .sp-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 12px; }
-                #jav-settings-panel .sp-feature-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+                #jav-settings-panel .sp-feature-order-row { display:grid; grid-template-columns:2fr 1fr; gap:14px; align-items:stretch; }
+                #jav-settings-panel .sp-feature-order-row > .sp-card { height:100%; }
+                #jav-settings-panel .sp-feature-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
                 #jav-settings-panel .sp-feature-item { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; padding:10px 11px; border:1px solid #e2e8f0; border-radius:8px; background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); }
                 #jav-settings-panel .sp-feature-item .sp-desc { margin-top:2px; font-size:11px; }
                 #jav-settings-panel .sp-field { display:flex; flex-direction:column; gap:6px; min-width:0; }
@@ -226,7 +230,6 @@
                 #jav-settings-panel .sp-order-list { display:flex; flex-direction:column; gap:8px; }
                 #jav-settings-panel .sp-order-item { display:grid; grid-template-columns:1fr auto auto; gap:10px; align-items:center; padding:10px 11px; border:1px solid #e2e8f0; border-radius:8px; background:linear-gradient(90deg,#fff 0%,#f8fafc 100%); user-select:none; }
                 #jav-settings-panel .sp-order-name { font-size:13px; font-weight:700; color:#1e293b; }
-                #jav-settings-panel .sp-order-desc { font-size:11px; color:#64748b; margin-top:2px; }
                 #jav-settings-panel .sp-dot { width:9px; height:9px; border-radius:50%; }
                 #jav-settings-panel .sp-order-actions { display:flex; gap:5px; }
                 #jav-settings-panel .sp-order-btn { width:28px; height:28px; border:1px solid #cbd5e1; border-radius:7px; background:#fff; color:#334155; cursor:pointer; font-size:14px; line-height:1; }
@@ -238,7 +241,7 @@
                 #jav-settings-panel .sp-btn-clear { background:#fff7ed; color:#9a3412; border-color:#fed7aa; }
                 #jav-settings-panel .sp-btn-clear:hover { background:#ffedd5; }
                 #jav-settings-panel .sp-btn-save { background:linear-gradient(135deg,#2563eb,#7c3aed); color:white; box-shadow:0 8px 20px rgba(79,70,229,.25); }
-                @media (max-width: 640px) { #jav-settings-panel .sp-grid, #jav-settings-panel .sp-engine-row, #jav-settings-panel .sp-feature-grid { grid-template-columns:1fr; } #jav-settings-panel .sp-cache-actions { margin-right:0; } #jav-settings-panel .sp-footer { flex-wrap:wrap; } }
+                @media (max-width: 640px) { #jav-settings-panel .sp-grid, #jav-settings-panel .sp-engine-row, #jav-settings-panel .sp-feature-grid, #jav-settings-panel .sp-feature-order-row { grid-template-columns:1fr; } #jav-settings-panel .sp-cache-actions { margin-right:0; } #jav-settings-panel .sp-footer { flex-wrap:wrap; } }
             `);
 
             const overlay = document.createElement('div');
@@ -272,27 +275,33 @@
                             <label class="sp-field"><span class="sp-label">默认视频入口</span><select class="sp-select" id="sp-video-engine"></select></label>
                         </div>
                     </section>
-                    <section class="sp-card sp-card-features">
-                        <div class="sp-card-title">功能项开关</div>
-                        <div class="sp-feature-grid">
-                            <div class="sp-feature-item">
-                                <div><div class="sp-label">预览图缓存</div><div class="sp-desc">缓存已命中的预览图地址</div></div>
-                                <label class="sp-toggle"><input id="sp-preview-cache" type="checkbox"><span class="sp-toggle-track"></span></label>
+                    <div class="sp-feature-order-row">
+                        <section class="sp-card sp-card-features">
+                            <div class="sp-card-title">功能项开关</div>
+                            <div class="sp-feature-grid">
+                                <div class="sp-feature-item">
+                                    <div><div class="sp-label">预览图缓存</div></div>
+                                    <label class="sp-toggle"><input id="sp-preview-cache" type="checkbox"><span class="sp-toggle-track"></span></label>
+                                </div>
+                                <div class="sp-feature-item">
+                                    <div><div class="sp-label">预告片缓存</div></div>
+                                    <label class="sp-toggle"><input id="sp-trailer-cache" type="checkbox"><span class="sp-toggle-track"></span></label>
+                                </div>
+                                <div class="sp-feature-item">
+                                    <div><div class="sp-label">115匹配</div></div>
+                                    <label class="sp-toggle"><input id="sp-btn-pan115" type="checkbox"><span class="sp-toggle-track"></span></label>
+                                </div>
+                                <div class="sp-feature-item">
+                                    <div><div class="sp-label">瀑布流加载</div></div>
+                                    <label class="sp-toggle"><input id="sp-infinite-scroll" type="checkbox"><span class="sp-toggle-track"></span></label>
+                                </div>
                             </div>
-                            <div class="sp-feature-item">
-                                <div><div class="sp-label">预告片缓存</div><div class="sp-desc">缓存已解析的视频源</div></div>
-                                <label class="sp-toggle"><input id="sp-trailer-cache" type="checkbox"><span class="sp-toggle-track"></span></label>
-                            </div>
-                            <div class="sp-feature-item">
-                                <div><div class="sp-label">115查询</div><div class="sp-desc">自动查询115 并匹配结果</div></div>
-                                <label class="sp-toggle"><input id="sp-btn-pan115" type="checkbox"><span class="sp-toggle-track"></span></label>
-                            </div>
-                        </div>
-                    </section>
-                    <section class="sp-card sp-card-order">
-                        <div class="sp-card-title">预览图来源顺序</div>
-                        <div class="sp-order-list" id="sp-thumb-order"></div>
-                    </section>
+                        </section>
+                        <section class="sp-card sp-card-order">
+                            <div class="sp-card-title">预览图来源顺序</div>
+                            <div class="sp-order-list" id="sp-thumb-order"></div>
+                        </section>
+                    </div>
                     <section class="sp-card sp-card-jump" style="--card-color:#6366f1;">
                         <style>
                             #jav-settings-panel .sp-chip-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
@@ -342,6 +351,7 @@
             const videoEngineSelect = panel.querySelector('#sp-video-engine');
             const cacheCheckbox = panel.querySelector('#sp-preview-cache');
             const trailerCacheCheckbox = panel.querySelector('#sp-trailer-cache');
+            const infiniteScrollCheckbox = panel.querySelector('#sp-infinite-scroll');
             const btnToggles = {
                 nyaa:    panel.querySelector('#sp-btn-nyaa'),
                 javbus:  panel.querySelector('#sp-btn-javbus'),
@@ -408,6 +418,7 @@
             if (![...videoEngineSelect.options].some(opt => opt.value === videoEngineSelect.value)) videoEngineSelect.value = 'missav';
             cacheCheckbox.checked = GM_getValue('preview_cache_enabled', true);
             trailerCacheCheckbox.checked = GM_getValue('trailer_cache_enabled', true);
+            infiniteScrollCheckbox.checked = CFG.infiniteScroll;
             btnToggles.nyaa.checked    = CFG.btnShowNyaa;
             btnToggles.javbus.checked  = CFG.btnShowJavbus;
             btnToggles.javdb.checked   = CFG.btnShowJavdb;
@@ -426,7 +437,7 @@
                     item.className = 'sp-order-item';
                     item.dataset.src = src;
                     item.innerHTML = `
-                        <div><div class="sp-order-name">${meta.label}</div><div class="sp-order-desc">${meta.desc}</div></div>
+                        <div><div class="sp-order-name">${meta.label}</div></div>
                         <span class="sp-dot" style="background:${meta.color}"></span>
                         <div class="sp-order-actions">
                             <button class="sp-order-btn" type="button" data-dir="-1" title="上移" ${index === 0 ? 'disabled' : ''}>↑</button>
@@ -473,6 +484,7 @@
                 CFG.defaultVideoEngine = videoEngineSelect.value || 'missav';
                 GM_setValue('preview_cache_enabled', cacheCheckbox.checked);
                 GM_setValue('trailer_cache_enabled', trailerCacheCheckbox.checked);
+                CFG.infiniteScroll = infiniteScrollCheckbox.checked;
                 CFG.btnShowNyaa    = btnToggles.nyaa.checked;
                 CFG.btnShowJavbus  = btnToggles.javbus.checked;
                 CFG.btnShowJavdb   = btnToggles.javdb.checked;
@@ -1479,6 +1491,18 @@
         span.jav-pan115-badge {
             cursor: pointer;
         }
+        .jav-infinite-sentinel {
+            width: 100%;
+            padding: 14px 0;
+            color: #64748b;
+            font-size: 13px;
+            font-weight: 700;
+            text-align: center;
+            clear: both;
+        }
+        .jav-infinite-sentinel.is-loading { color: #2563eb; }
+        .jav-infinite-sentinel.is-done { color: #94a3b8; }
+        .jav-infinite-sentinel.is-error { color: #dc2626; cursor: pointer; }
 
         .preview-toolbar {
             position: fixed;
@@ -4219,6 +4243,151 @@
         });
     }
 
+    const InfiniteScroll = {
+        enabled() {
+            return GM_getValue('infinite_scroll_enabled', false);
+        },
+        state: null,
+        init() {
+            if (!this.enabled() || isCurrentDetailPage() || this.state) return;
+            const config = this.getConfig();
+            if (!config?.container || !config.nextUrl) return;
+            this.state = {
+                ...config,
+                loading: false,
+                done: false,
+                seen: new Set([...config.container.querySelectorAll('a[href]')].map(a => a.href)),
+            };
+            this.hidePagination();
+            this.createSentinel();
+            this.observe();
+        },
+        getConfig(doc = document, baseUrl = location.href) {
+            if (/javbus\.com/i.test(location.hostname)) {
+                const container = doc.querySelector('#waterfall');
+                const next = doc.querySelector('a#next[href]');
+                if (!container || !next) return null;
+                return {
+                    site: 'javbus',
+                    container,
+                    nextUrl: new URL(next.getAttribute('href'), baseUrl).href,
+                    itemSelector: '#waterfall > .item',
+                    paginationSelector: '.pagination',
+                };
+            }
+            if (/javdb\d*\.com/i.test(location.hostname)) {
+                const container = doc.querySelector('.movie-list') || doc.querySelector('.movies') || doc.querySelector('.grid');
+                const next = doc.querySelector('a.pagination-next[rel="next"][href], a[rel="next"].pagination-link[href]');
+                if (!container || !next) return null;
+                return {
+                    site: 'javdb',
+                    container,
+                    nextUrl: new URL(next.getAttribute('href'), baseUrl).href,
+                    itemSelector: '.movie-list .item, .movies .item, .grid .item',
+                    paginationSelector: 'nav.pagination',
+                };
+            }
+            return null;
+        },
+        createSentinel() {
+            const sentinel = document.createElement('div');
+            sentinel.className = 'jav-infinite-sentinel';
+            sentinel.textContent = '继续滚动加载下一页';
+            sentinel.addEventListener('click', () => {
+                if (sentinel.classList.contains('is-error')) this.loadNext();
+            });
+            this.state.sentinel = sentinel;
+            this.state.container.insertAdjacentElement('afterend', sentinel);
+        },
+        observe() {
+            this.state.observer = new IntersectionObserver(entries => {
+                if (entries.some(entry => entry.isIntersecting)) this.loadNext();
+            }, { rootMargin: '900px 0px' });
+            this.state.observer.observe(this.state.sentinel);
+        },
+        hidePagination() {
+            document.querySelectorAll('#next, .pagination, nav.pagination').forEach(el => {
+                el.style.display = 'none';
+            });
+        },
+        setStatus(text, className = '') {
+            const sentinel = this.state?.sentinel;
+            if (!sentinel) return;
+            sentinel.className = `jav-infinite-sentinel ${className}`.trim();
+            sentinel.textContent = text;
+        },
+        async fetchDoc(url) {
+            const r = await new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: 'GET',
+                    url,
+                    timeout: 20000,
+                    onload: resolve,
+                    onerror: () => reject(new Error('加载失败')),
+                    ontimeout: () => reject(new Error('加载超时')),
+                });
+            });
+            return new DOMParser().parseFromString(r.responseText, 'text/html');
+        },
+        appendItems(doc) {
+            const items = [...doc.querySelectorAll(this.state.itemSelector)];
+            let added = 0;
+            items.forEach(item => {
+                const href = item.querySelector('a[href]')?.getAttribute('href') || '';
+                const key = href ? new URL(href, location.href).href : item.textContent.trim().slice(0, 80);
+                if (key && this.state.seen.has(key)) return;
+                if (key) this.state.seen.add(key);
+                item.dataset.laosijiInfiniteItem = '1';
+                this.state.container.appendChild(item);
+                added += 1;
+            });
+            return added;
+        },
+        async loadNext() {
+            if (!this.state || this.state.loading || this.state.done || !this.state.nextUrl) return;
+            this.state.loading = true;
+            this.setStatus('正在加载下一页...', 'is-loading');
+            try {
+                const currentUrl = this.state.nextUrl;
+                const doc = await this.fetchDoc(currentUrl);
+                const added = this.appendItems(doc);
+                const nextConfig = this.getConfig(doc, currentUrl);
+                this.state.nextUrl = nextConfig?.nextUrl || '';
+                this.hidePagination();
+                this.reflow();
+                schedulePan115ListBadges();
+                setTimeout(() => {
+                    renderButtonsForCurrentPage();
+                    schedulePan115ListBadges();
+                }, 80);
+                if (!added || !this.state.nextUrl) {
+                    this.state.done = true;
+                    this.state.observer?.disconnect();
+                    this.setStatus('已经到底了', 'is-done');
+                } else {
+                    this.setStatus('继续滚动加载下一页');
+                }
+            } catch (err) {
+                console.warn('[老司机] 瀑布流加载失败:', err);
+                this.setStatus('加载失败，点击重试', 'is-error');
+            } finally {
+                this.state.loading = false;
+            }
+        },
+        reflow() {
+            try {
+                const jq = window.jQuery || window.$;
+                if (jq && this.state.site === 'javbus') {
+                    jq(this.state.container).masonry?.('reloadItems');
+                    jq(this.state.container).masonry?.('layout');
+                }
+            } catch (err) {
+                console.warn('[老司机] 瀑布流重排失败:', err);
+            }
+            window.dispatchEvent(new Event('resize'));
+        },
+    };
+
     let pan115ListTimer = null;
     function schedulePan115ListBadges() {
         if (!Pan115.enabled() || isCurrentDetailPage()) return;
@@ -4229,10 +4398,12 @@
     const observer = new MutationObserver(() => {
         renderButtonsForCurrentPage();
         schedulePan115ListBadges();
+        InfiniteScroll.init();
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
     renderButtonsForCurrentPage();
     schedulePan115ListBadges();
+    InfiniteScroll.init();
 
 })();
