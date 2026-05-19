@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.3.1
+// @version      2.3.2
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -46,7 +46,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.3.1';
+    const SCRIPT_VERSION = '2.3.2';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -1822,6 +1822,9 @@
         extractCode(text, options = {}) {
             if (!text) return null;
 
+            const mgstageHit = String(text).match(/\b(\d{3}[A-Z]{2,10})[-_\s](\d{2,6})\b/i);
+            if (mgstageHit) return Utils.normalizeCode(`${mgstageHit[1]}-${mgstageHit[2]}`);
+
             const uncensoredHit = String(text).match(/(?:(PACOPACOMAMA|PACO|10MUSUME|10MU|1PONDO|CARIBBEANCOM|CARIB|HEYZO)[-_\s]*)?(\d{6})([-_])(\d{2,3})/i);
             if (uncensoredHit) {
                 const code = Utils.normalizeCode(`${uncensoredHit[2]}${uncensoredHit[3]}${uncensoredHit[4]}`);
@@ -2714,7 +2717,7 @@
         },
 
         cacheKey(code) {
-            return `trailer_cache_v6_${this.normalize(code)}`;
+            return `trailer_cache_v8_${this.normalize(code)}`;
         },
 
         async show(code) {
@@ -2753,6 +2756,7 @@
             }
 
             const resolvers = [
+                this.fromMgstage,
                 this.fromDirectSamples,
                 this.fromFc2Hub,
                 this.fromJavpCcCd,
@@ -2835,6 +2839,87 @@
 
         result(url, source, type = 'video', extra = {}) {
             return { url, source, type, ...extra };
+        },
+
+        mgstagePrefixMap: {
+            LUXU: '259LUXU',
+            MIUM: '300MIUM',
+            GANA: '200GANA',
+            SIRO: 'SIRO',
+            DCV: '277DCV',
+            JNT: '390JNT',
+            JAC: '390JAC',
+            HHH: '451HHH',
+            HLM: '436HLM',
+            SYS: '332SYS',
+            NAMA: '332NAMA',
+            HEN: '353HEN',
+            ARA: '261ARA'
+        },
+
+        normalizeMgstageCode(text) {
+            const raw = String(text || '').toUpperCase().replace(/\s+/g, '-');
+            const match = raw.match(/\b((?:\d{3})?[A-Z]{2,10})[-_](\d{2,6})\b/);
+            if (!match) return '';
+            const prefix = this.mgstagePrefixMap[match[1]] || match[1];
+            if (!Object.values(this.mgstagePrefixMap).includes(prefix)) return '';
+            return `${prefix}-${match[2]}`;
+        },
+
+        mgstageSampleToMp4(url) {
+            const cleaned = String(url || '')
+                .replace(/\\\//g, '/')
+                .replace(/&amp;/g, '&')
+                .trim();
+            if (!cleaned) return '';
+            return cleaned.split('?')[0].replace(/\.ism\/request$/i, '.mp4');
+        },
+
+        async fromMgstage(id, rawCode = '') {
+            const code = this.normalizeMgstageCode(rawCode) || this.normalizeMgstageCode(id);
+            if (!code) return null;
+
+            const detailUrl = `https://www.mgstage.com/product/product_detail/${code}/?agef=1`;
+            const headers = {
+                'accept-language': 'ja-JP,ja;q=0.9,en;q=0.8',
+                Cookie: 'adc=1; coc=1',
+                Referer: 'https://www.mgstage.com/'
+            };
+            const detail = await this.request(detailUrl, { timeout: 15000, headers });
+            if (!detail?.responseText || detail.status < 200 || detail.status >= 400) return null;
+
+            const pid = detail.responseText.match(/sampleplayer\.html\/([0-9a-f-]{36})/i)?.[1]
+                || detail.responseText.match(/[?&]pid=([0-9a-f-]{36})/i)?.[1];
+            if (!pid) return null;
+
+            const apiUrl = `https://www.mgstage.com/sampleplayer/sampleRespons.php?pid=${encodeURIComponent(pid)}`;
+            const api = await this.request(apiUrl, {
+                timeout: 15000,
+                headers: {
+                    ...headers,
+                    Accept: 'application/json,text/plain,*/*',
+                    Referer: detailUrl
+                }
+            });
+            if (!api?.responseText || api.status < 200 || api.status >= 400) return null;
+
+            let sampleUrl = '';
+            try {
+                sampleUrl = JSON.parse(api.responseText)?.url || '';
+            } catch {
+                sampleUrl = api.responseText.match(/"url"\s*:\s*"([^"]+)"/i)?.[1] || '';
+            }
+
+            const mp4Url = this.mgstageSampleToMp4(sampleUrl);
+            if (!/\.mp4(?:[?#]|$)/i.test(mp4Url)) return null;
+
+            const finalUrl = await this.head(mp4Url);
+            return this.result(finalUrl || mp4Url, 'MGStage 直连预告', 'video', {
+                sourceName: 'MGStage',
+                sourceLabel: 'MGStage 直连预告',
+                sourceTag: 'MGStage',
+                trailerSource: 'MGStage'
+            });
         },
 
         qualityOptions: [
