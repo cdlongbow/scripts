@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.3.2
+// @version      2.3.2.1
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -46,7 +46,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.3.2';
+    const SCRIPT_VERSION = '2.3.2.1';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -1637,7 +1637,7 @@
             font-size: 12px;
             font-weight: 500;
         }
-        .trailer-close {
+        .jav-player-close {
             width: 34px;
             height: 34px;
             border: 0;
@@ -1649,7 +1649,7 @@
             line-height: 34px;
             transition: transform .15s ease, background .15s ease;
         }
-        .trailer-close:hover {
+        .jav-player-close:hover {
             transform: scale(1.08);
             background: rgba(248, 113, 113, 0.28);
         }
@@ -1668,6 +1668,21 @@
             display: block;
             border: 0;
             background: #000;
+        }
+        .trailer-volume-indicator {
+            position: absolute;
+            top: 18px;
+            right: 22px;
+            z-index: 3;
+            color: #f8fafc;
+            font: 750 24px/1 Arial, "Microsoft YaHei", sans-serif;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.82);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .14s ease;
+        }
+        .trailer-volume-indicator.is-visible {
+            opacity: 1;
         }
         .trailer-quality-bar {
             min-width: 140px;
@@ -2174,7 +2189,7 @@
             `;
 
             const closeBtn = document.createElement('button');
-            closeBtn.className = 'trailer-close';
+            closeBtn.className = 'jav-player-close';
             closeBtn.type = 'button';
             closeBtn.textContent = '×';
 
@@ -2183,13 +2198,26 @@
 
             const screen = document.createElement('div');
             screen.className = 'trailer-screen';
+            const volumeIndicator = document.createElement('div');
+            volumeIndicator.className = 'trailer-volume-indicator';
             let video = null;
             let activeUrl = url;
             let activeQuality = quality;
+            let volumeIndicatorTimer = null;
             const fallbackUrls = Array.isArray(urls)
                 ? [...new Set(urls.filter(Boolean))]
                 : [url].filter(Boolean);
             let fallbackIndex = Math.max(0, fallbackUrls.indexOf(url));
+
+            const showVolumeIndicator = () => {
+                if (!video) return;
+                volumeIndicator.textContent = `${Math.round(video.volume * 100)}%`;
+                volumeIndicator.classList.add('is-visible');
+                clearTimeout(volumeIndicatorTimer);
+                volumeIndicatorTimer = setTimeout(() => {
+                    volumeIndicator.classList.remove('is-visible');
+                }, 820);
+            };
 
             const isM3U8 = /\.m3u8(?:[?#].*)?$/i.test(url);
             const createHlsLoader = () => class GMHlsLoader {
@@ -2328,7 +2356,6 @@
                 const iframe = document.createElement('iframe');
                 iframe.src = url;
                 iframe.allow = 'autoplay; fullscreen; picture-in-picture; encrypted-media';
-                iframe.allowFullscreen = true;
                 screen.appendChild(iframe);
             } else {
                 video = document.createElement('video');
@@ -2362,6 +2389,7 @@
                     video.play().catch(() => {});
                 });
                 screen.appendChild(video);
+                screen.appendChild(volumeIndicator);
                 setTimeout(() => video.play().catch(() => {}), 120);
             }
 
@@ -2440,7 +2468,12 @@
             modal.appendChild(footer);
             overlay.appendChild(modal);
 
-            const closeOverlay = () => {
+            const closeOverlay = (event = null) => {
+                if (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    event.stopImmediatePropagation?.();
+                }
                 const video = overlay.querySelector('video');
                 if (video) {
                     video.pause();
@@ -2451,13 +2484,56 @@
                 document.documentElement.style.overflow = originalHtmlOverflow;
                 document.body.style.overflow = originalBodyOverflow;
                 document.removeEventListener('keydown', escHandler);
+                window.removeEventListener('pointerdown', overlayCloseGuard, true);
+                window.removeEventListener('mousedown', overlayCloseGuard, true);
+                window.removeEventListener('click', overlayCloseGuard, true);
+                clearTimeout(volumeIndicatorTimer);
+            };
+
+            const overlayCloseGuard = (event) => {
+                if (!overlay.contains(event.target)) return;
+                const shouldClose = event.target === overlay || event.target.closest('.jav-player-close');
+                if (!shouldClose) return;
+                if (event.type === 'click') {
+                    closeOverlay(event);
+                    return;
+                }
+                event.stopPropagation();
+                event.stopImmediatePropagation?.();
             };
 
             const escHandler = (e) => {
-                if (e.key === 'Escape') closeOverlay();
+                if (e.key === 'Escape') {
+                    closeOverlay();
+                    return;
+                }
+                if (!video || type === 'iframe') return;
+                if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                if (e.key === 'ArrowLeft') {
+                    video.currentTime = Math.max(0, (video.currentTime || 0) - 2);
+                } else if (e.key === 'ArrowRight') {
+                    const nextTime = (video.currentTime || 0) + 2;
+                    video.currentTime = Number.isFinite(video.duration)
+                        ? Math.min(video.duration, nextTime)
+                        : nextTime;
+                } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                    const delta = e.key === 'ArrowUp' ? 0.05 : -0.05;
+                    video.volume = Math.min(1, Math.max(0, Math.round((video.volume + delta) * 100) / 100));
+                    if (video.volume > 0) video.muted = false;
+                    showVolumeIndicator();
+                }
             };
 
-            closeBtn.onclick = closeOverlay;
+            closeBtn.addEventListener('click', closeOverlay, true);
+            overlay.addEventListener('click', e => {
+                if (e.target === overlay) closeOverlay(e);
+            }, true);
+            window.addEventListener('pointerdown', overlayCloseGuard, true);
+            window.addEventListener('mousedown', overlayCloseGuard, true);
+            window.addEventListener('click', overlayCloseGuard, true);
             document.addEventListener('keydown', escHandler);
             document.body.appendChild(overlay);
         },

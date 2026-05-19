@@ -131,7 +131,7 @@
     }
 
     function isInsideTrailerOverlay(target) {
-        return !!(target && target.closest && target.closest("#custom-trailer-overlay"));
+        return !!(target && target.closest && target.closest("#custom-trailer-overlay, .trailer-overlay, .jav-player-close"));
     }
 
     function startTrailerButtonObserver() {
@@ -1857,7 +1857,6 @@
         const iframe = document.createElement("iframe");
         iframe.src = url;
         iframe.allow = "autoplay; fullscreen; picture-in-picture; encrypted-media";
-        iframe.allowFullscreen = true;
         iframe.style.cssText = `
             width: 100%;
             aspect-ratio: 16 / 9;
