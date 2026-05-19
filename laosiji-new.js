@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.3.2.1
+// @version      2.3.3
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -46,7 +46,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.3.2.1';
+    const SCRIPT_VERSION = '2.3.3';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -73,7 +73,6 @@
         get btnShowJavbus()  { return GM_getValue('btn_show_javbus',  true); },
         get btnShowJavdb()   { return GM_getValue('btn_show_javdb',   true); },
         get btnShowMissav()  { return GM_getValue('btn_show_missav',  true); },
-        get btnShowJable()   { return GM_getValue('btn_show_jable',   true); },
         get btnShowFanza()   { return GM_getValue('btn_show_fanza',   true); },
         get btnShowSearch()  { return GM_getValue('btn_show_search',  true); },
         get btnShowTrailer() { return GM_getValue('btn_show_trailer', true); },
@@ -85,7 +84,6 @@
         set btnShowJavbus(v)  { GM_setValue('btn_show_javbus',  v); },
         set btnShowJavdb(v)   { GM_setValue('btn_show_javdb',   v); },
         set btnShowMissav(v)  { GM_setValue('btn_show_missav',  v); },
-        set btnShowJable(v)   { GM_setValue('btn_show_jable',   v); },
         set btnShowFanza(v)   { GM_setValue('btn_show_fanza',   v); },
         set btnShowSearch(v)  { GM_setValue('btn_show_search',  v); },
         set btnShowTrailer(v) { GM_setValue('btn_show_trailer', v); },
@@ -422,7 +420,7 @@
             btnToggles.nyaa.checked    = CFG.btnShowNyaa;
             btnToggles.javbus.checked  = CFG.btnShowJavbus;
             btnToggles.javdb.checked   = CFG.btnShowJavdb;
-            btnToggles.missav.checked  = CFG.btnShowMissav || CFG.btnShowJable;
+            btnToggles.missav.checked  = CFG.btnShowMissav;
             btnToggles.fanza.checked   = CFG.btnShowFanza;
             btnToggles.search.checked  = CFG.btnShowSearch;
             btnToggles.trailer.checked = CFG.btnShowTrailer;
@@ -489,7 +487,6 @@
                 CFG.btnShowJavbus  = btnToggles.javbus.checked;
                 CFG.btnShowJavdb   = btnToggles.javdb.checked;
                 CFG.btnShowMissav  = btnToggles.missav.checked;
-                CFG.btnShowJable   = btnToggles.missav.checked;
                 CFG.btnShowFanza   = btnToggles.fanza.checked;
                 CFG.btnShowSearch  = btnToggles.search.checked;
                 CFG.btnShowTrailer = btnToggles.trailer.checked;
@@ -3842,8 +3839,7 @@
 
     function addMissAVBtn(code, container, useCapture = false) {
         const showMissav = GM_getValue('btn_show_missav', true);
-        const showJable = GM_getValue('btn_show_jable', true);
-        if (!showMissav && !showJable) return;
+        if (!showMissav) return;
 
         const codeLower = code.toLowerCase();
         const codeCompactLower = codeLower.replace(/-/g, '');
@@ -3854,8 +3850,7 @@
             javday: `https://javday.app/videos/${codeCompactLower}/`,
         };
         const enabledVideoKeys = new Set([
-            ...(showMissav ? ['missav', '123av', 'javday'] : []),
-            ...(showJable ? ['jable'] : []),
+            ...(showMissav ? ['missav', 'jable', '123av', 'javday'] : []),
         ]);
         const videoButtons = Settings.getVideoEngines()
             .filter(item => enabledVideoKeys.has(item.key) && !item.host.test(location.hostname))
@@ -4071,6 +4066,7 @@
         if (!hasTitleText) return null;
         const looksLikeVideoLink =
             /\/v\/\w+/i.test(href) ||
+            /\/videos\/[a-z0-9-]+\/?/i.test(href) ||
             /\/(?:[a-z]{2,15}-\d{2,10}|fc2[-_]?ppv[-_]?\d{6,9})\/?$/i.test(href) ||
             /\/(?:[a-z]{2,15}\d{3,6})\/?$/i.test(href) ||
             /(?:movie|video|detail|view|jav)/i.test(href);
@@ -4394,7 +4390,9 @@
             target.closest('.container .info'),
             target.closest('.col-md-3.info'),
             target.closest('.jav-flex-container'),
-            target.closest('.row.movie')
+            target.closest('.row.movie'),
+            target.closest('.video-info'),
+            target.closest('.info-header')
         ];
 
         [...new Set(elements.filter(Boolean))].forEach(el => {

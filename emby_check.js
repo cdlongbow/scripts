@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.6.2
+// @version      5.6.3
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -96,7 +96,8 @@
             return GM_getValue('highlightColor', '#52b54b');
         },
         get maxConcurrentRequests() {
-            return GM_getValue('maxConcurrentRequests', 50);
+            const value = Number(GM_getValue('maxConcurrentRequests', 50));
+            return Number.isFinite(value) && value > 0 ? Math.min(100, Math.max(1, Math.floor(value))) : 50;
         },
         get badgeColor() {
             return GM_getValue('badgeColor', '#2ecc71');
@@ -122,6 +123,11 @@
                 'hjd2048': { list: true, detail: true },
                 'missav': { list: true, detail: true }
             };
+            for (let site in saved) {
+                if (!(site in defaults)) {
+                    delete saved[site];
+                }
+            }
             for (let site in defaults) {
                 if (!(site in saved)) {
                     saved[site] = defaults[site];
@@ -545,12 +551,57 @@
         .modern.dark-mode .btn.save { background: #3e9e37; }
         .modern.dark-mode .close-btn { color: #aaa; }
 
-        .video.emby-highlight { position: relative !important; background: linear-gradient(to bottom, rgba(82,181,75,0.12) 0%, rgba(82,181,75,0.04) 100%) !important; transition: background 0.25s ease !important; }
-        .video.emby-highlight::before { content: ''; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 6px 2px rgba(82,181,75,0.5); border-radius: 4px; z-index: 1; opacity: 0.7; }
-        .video.emby-highlight:hover::before { box-shadow: inset 0 0 12px 4px rgba(82,181,75,0.8); }
-        .video.emby-highlight:hover { background: linear-gradient(to bottom, rgba(82,181,75,0.18) 0%, rgba(82,181,75,0.08) 100%) !important; }
-        .videothumblist .videos .video:first-child.emby-highlight { transform: translateY(0) !important; margin-top: 0 !important; }
-        .emby-title-exists, .emby-id-exists { color: #4CAF50 !important; font-weight: 700 !important; text-shadow: 0 0 3px rgba(76,175,80,0.6) !important; }
+        .video.emby-javlibrary-hit {
+            position: relative !important;
+            overflow: visible !important;
+            vertical-align: top !important;
+            outline: none !important;
+        }
+        .video.emby-javlibrary-hit::after {
+            content: '' !important;
+            position: absolute !important;
+            inset: 0 !important;
+            pointer-events: none !important;
+            box-shadow: inset 0 0 0 4px ${Config.highlightColor} !important;
+            z-index: 19 !important;
+        }
+        .video > a.emby-javlibrary-list-badge {
+            all: unset !important;
+            position: absolute !important;
+            top: 5px !important;
+            right: 5px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: auto !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: ${badgeSize.padding} !important;
+            box-sizing: border-box !important;
+            float: none !important;
+            clear: none !important;
+            color: ${Config.badgeTextColor} !important;
+            font: 700 ${badgeSize.fontSize}/1.15 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+            letter-spacing: 0 !important;
+            text-align: center !important;
+            text-decoration: none !important;
+            white-space: nowrap !important;
+            text-indent: 0 !important;
+            border: 2px solid transparent !important;
+            border-radius: 4px !important;
+            cursor: pointer !important;
+            z-index: 20 !important;
+            pointer-events: auto !important;
+            background-origin: border-box !important;
+            background-clip: padding-box, border-box !important;
+            background-image: linear-gradient(${Config.badgeColor} 0 0), linear-gradient(50deg,#ff0000,#ff7f00,#ffff00,#00ff00,#0000ff,#4b0082,#8b00ff) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important;
+        }
+        .video > a.emby-javlibrary-list-badge:hover {
+            color: #000 !important;
+            text-decoration: none !important;
+            background-image: linear-gradient(#fff 0 0), linear-gradient(50deg,#ff0000,#ff7f00,#ffff00,#00ff00,#0000ff,#4b0082,#8b00ff) !important;
+        }
 
         .emby-btn {
             display: inline-flex; align-items: center; justify-content: center;
@@ -577,7 +628,6 @@
         .emby-btn-copy { background: linear-gradient(135deg,#667eea,#764ba2); color: #fff; }
         .emby-btn-copy:visited { background: linear-gradient(135deg,#667eea,#764ba2) !important; color: #fff !important; }
         .emby-button-group { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; }
-        }
 
         .sukebei-list-td {
             display: flex !important;
@@ -596,11 +646,43 @@
             margin-left: 8px;
         }
 
-        .missav .thumbnail.group.emby-highlight {
-            outline: 4px solid ${Config.highlightColor} !important;
-            outline-offset: -4px !important;
-            border-radius: 12px !important;
-            background: rgba(82,181,75,0.08) !important;
+        .thumbnail.group.emby-missav-hit {
+            outline: none !important;
+            background: transparent !important;
+        }
+        .thumbnail.group .emby-missav-cover-hit {
+            position: relative !important;
+        }
+        .thumbnail.group .emby-missav-cover-hit::after {
+            content: '' !important;
+            position: absolute !important;
+            inset: 0 !important;
+            pointer-events: none !important;
+            box-shadow: inset 0 0 0 4px ${Config.highlightColor} !important;
+            border-radius: 4px !important;
+            z-index: 19 !important;
+        }
+        .thumbnail.group .emby-missav-overlay {
+            position: absolute !important;
+            inset: 0 !important;
+            z-index: 20 !important;
+            pointer-events: none !important;
+        }
+        .thumbnail.group .emby-missav-overlay > .emby-badge {
+            position: absolute !important;
+            top: 5px !important;
+            right: 5px !important;
+            bottom: auto !important;
+            left: auto !important;
+            width: auto !important;
+            height: auto !important;
+            min-width: 0 !important;
+            min-height: 0 !important;
+            max-width: none !important;
+            max-height: none !important;
+            margin: 0 !important;
+            pointer-events: auto !important;
+            z-index: 20 !important;
         }
     `);
 
@@ -1595,6 +1677,9 @@
             this.waiting = [];
 
             const results = new Array(this.total);
+            const maxConcurrent = Number.isFinite(Number(Config.maxConcurrentRequests))
+                ? Math.min(100, Math.max(1, Math.floor(Number(Config.maxConcurrentRequests))))
+                : 50;
 
             return new Promise(resolve => {
                 const checkComplete = () => {
@@ -1627,7 +1712,7 @@
                 };
 
                 for (let i = 0; i < this.total; i++) {
-                    if (this.active < Config.maxConcurrentRequests) processRequest(i);
+                    if (this.active < maxConcurrent) processRequest(i);
                     else this.waiting.push(i);
                 }
             });
@@ -2390,27 +2475,25 @@
         javlibrary: (function() {
             const embyItemMap = new Map();
 
-            function applyHighlight(video) {
-                if (!video) return;
-
-                const titleEl = video.querySelector('.title') || video.querySelector('a');
-                const idEl = video.querySelector('div.id');
-
-                if (titleEl) titleEl.classList.add('emby-title-exists');
-                if (idEl) idEl.classList.add('emby-id-exists');
-
-                video.classList.add('emby-highlight');
+            function hasListBadge(video) {
+                return Array.from(video.children).some(el => el.classList?.contains('emby-javlibrary-list-badge'));
             }
 
-            function scanAndRepair() {
-                document.querySelectorAll('.video').forEach(video => {
-                    const idEl = video.querySelector('div.id');
-                    if (!idEl) return;
-                    const code = idEl.textContent.trim();
-                    if (embyItemMap.has(code)) {
-                        applyHighlight(video);
-                    }
-                });
+            function renderListHit(video, item) {
+                if (!video || !item) return;
+
+                video.classList.add('emby-javlibrary-hit');
+                if (hasListBadge(video)) return;
+
+                const embyUrl = `${Config.embyBaseUrl}web/index.html#!/item?id=${item.Id}&serverId=${item.ServerId}`;
+                const badge = document.createElement('a');
+                badge.className = 'emby-javlibrary-list-badge';
+                badge.href = embyUrl;
+                badge.target = '_blank';
+                badge.rel = 'noopener noreferrer';
+                badge.textContent = 'Emby';
+                badge.addEventListener('click', e => e.stopPropagation());
+                video.appendChild(badge);
             }
 
             function maintainDetailPage(api) {
@@ -2471,6 +2554,39 @@
                     return idEl ? extractCodeFromText(idEl.textContent) : null;
                 },
 
+                async processListItems(items) {
+                    const videos = [];
+                    const codes = [];
+
+                    items.forEach(video => {
+                        const code = this.extractCode(video);
+                        if (!code) return;
+
+                        const cachedItem = embyItemMap.get(code);
+                        if (cachedItem) {
+                            renderListHit(video, cachedItem);
+                            return;
+                        }
+
+                        if (this.processed.has(video)) return;
+                        this.processed.add(video);
+
+                        videos.push(video);
+                        codes.push(code);
+                    });
+
+                    if (!codes.length) return;
+
+                    const bestItems = await this.api.batchQuery(codes);
+                    for (let i = 0; i < bestItems.length; i++) {
+                        if (!bestItems[i]) continue;
+                        const video = videos[i];
+                        const code = codes[i];
+                        embyItemMap.set(code, bestItems[i]);
+                        renderListHit(video, bestItems[i]);
+                    }
+                },
+
                 async process() {
                     const siteConfig = this.__siteConfig;
                     if (!siteConfig) return;
@@ -2478,33 +2594,7 @@
                     // 列表页处理
                     if (siteConfig.list) {
                         const items = document.querySelectorAll(this.listSelector);
-                        if (items.length > 0) {
-                            const videos = [], codes = [];
-                            items.forEach(item => {
-                                if (this.processed.has(item)) return;
-                                this.processed.add(item);
-                                const code = this.extractCode(item);
-                                if (code) {
-                                    videos.push(item);
-                                    codes.push(code);
-                                }
-                            });
-
-                            if (codes.length > 0) {
-                                const bestItems = await this.api.batchQuery(codes);
-                                for (let i = 0; i < bestItems.length; i++) {
-                                    if (bestItems[i]) {
-                                        const video = videos[i];
-                                        const code = codes[i];
-                                        embyItemMap.set(code, bestItems[i]);
-                                        applyHighlight(video);
-                                    }
-                                }
-                            }
-                        }
-
-                        this.setupContainerObserver();
-                        this.startListMaintenance();
+                        if (items.length > 0) await this.processListItems(Array.from(items));
                     }
 
                     // 详情页处理
@@ -2536,25 +2626,6 @@
                         pending.push(...mutations);
                         if (!timer) timer = setTimeout(processMutations.bind(this), 300);
                     }).observe(document.body, { childList: true, subtree: true });
-                },
-
-                setupContainerObserver() {
-                    if (this._containerObserved) return;
-                    this._containerObserved = true;
-                    const container = document.querySelector('.videothumblist') || document.querySelector('#rightcolumn');
-                    if (!container) return;
-                    const observer = new MutationObserver(() => setTimeout(scanAndRepair, 50));
-                    observer.observe(container, { childList: true, subtree: true });
-                },
-
-                startListMaintenance() {
-                    if (this._listMaintenanceStarted) return;
-                    this._listMaintenanceStarted = true;
-                    setInterval(() => {
-                        const siteConfig = this.__siteConfig;
-                        if (!siteConfig || !siteConfig.list) return;
-                        scanAndRepair();
-                    }, 3000);
                 },
 
                 startDetailMaintenance() {
@@ -2894,7 +2965,12 @@
                 return titleEl ? extractCodeFromText(titleEl.textContent || titleEl.getAttribute('alt') || '') : null;
             },
 
-            getElement: item => item.querySelector('.my-2 a') || item.querySelector('a'),
+            findCoverElement(item) {
+                return item.querySelector(':scope > .relative.aspect-w-16.aspect-h-9') ||
+                       item.querySelector('.aspect-w-16.aspect-h-9') ||
+                       item.querySelector('img')?.closest('.relative') ||
+                       null;
+            },
 
             async processItemsWithBadge(items) {
                 if (!items?.length) return;
@@ -2911,10 +2987,10 @@
                     const code = this.extractCode(item);
                     if (!code) continue;
 
-                    const titleEl = this.getElement(item);
-                    if (!titleEl) continue;
+                    const coverEl = this.findCoverElement(item);
+                    if (!coverEl) continue;
 
-                    toProcess.push({ item, code, titleEl });
+                    toProcess.push({ item, code, coverEl });
                     codes.push(code);
                 }
 
@@ -2925,17 +3001,23 @@
                 const operations = [];
                 for (let i = 0; i < bestItems.length; i++) {
                     if (bestItems[i]) {
-                        const { item, titleEl } = toProcess[i];
-                        item.classList.add('emby-highlight');
+                        const { item, coverEl } = toProcess[i];
+                        item.classList.add('emby-missav-hit');
+                        coverEl.classList.add('emby-missav-cover-hit');
 
                         const badge = this.api.createBadge(bestItems[i]);
                         if (badge) {
-                            badge.style.marginLeft = '8px';
                             badge.style.fontSize = '11px';
                             operations.push(() => {
                                 // 把徽章插入到标题链接旁边
-                                if (titleEl.parentNode) {
-                                    titleEl.parentNode.insertBefore(badge, titleEl.nextSibling);
+                                if (!coverEl.querySelector('.emby-badge')) {
+                                    let overlay = coverEl.querySelector('.emby-missav-overlay');
+                                    if (!overlay) {
+                                        overlay = document.createElement('span');
+                                        overlay.className = 'emby-missav-overlay';
+                                        coverEl.appendChild(overlay);
+                                    }
+                                    overlay.appendChild(badge);
                                 }
                             });
                         }
