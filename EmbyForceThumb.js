@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Emby 媒体库显示模式管理器
 // @namespace    local.emby.force.thumb.selected
-// @version      2.2.0
+// @version      2.3.0
 // @description  为 Emby Web 指定媒体库设置默认显示模式和默认排序，支持锁定、会话临时切换和完全跟随 Emby 原设置，并提供前台设置面板管理媒体库 ID。
 // @author       ZiPenOk
 // @license      MIT
@@ -11,6 +11,8 @@
 // @include      /^https:\/\/emby\.[^/]+\/web\/.*/
 // @run-at       document-start
 // @grant        GM_registerMenuCommand
+// @grant        GM_getValue
+// @grant        GM_setValue
 // @grant        unsafeWindow
 // @homepageURL  https://github.com/ZiPenOk/scripts
 // @supportURL   https://github.com/ZiPenOk/scripts/issues
@@ -107,16 +109,39 @@
 
   function loadConfig() {
     try {
+      if (typeof GM_getValue === 'function') {
+        var gmSaved = GM_getValue(CONFIG_KEY, null);
+        if (gmSaved) return normalizeConfig(typeof gmSaved === 'string' ? JSON.parse(gmSaved) : gmSaved);
+      }
+    } catch (e) {}
+
+    try {
       var saved = localStorage.getItem(CONFIG_KEY);
-      if (saved) return normalizeConfig(JSON.parse(saved));
+      if (saved) {
+        var migrated = normalizeConfig(JSON.parse(saved));
+        saveConfigValue(migrated);
+        log('migrated config from localStorage to userscript storage');
+        return migrated;
+      }
     } catch (e) {}
 
     return getDefaultConfig();
   }
 
   function saveConfig() {
+    saveConfigValue(config);
+  }
+
+  function saveConfigValue(value) {
     try {
-      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      if (typeof GM_setValue === 'function') {
+        GM_setValue(CONFIG_KEY, JSON.stringify(value));
+        return;
+      }
+    } catch (e) {}
+
+    try {
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(value));
     } catch (e) {}
   }
 
@@ -432,11 +457,13 @@
       '<button type="button" class="evm-primary" data-action="add-current">添加当前库</button>',
       '<button type="button" data-action="add-empty">新增空配置</button>',
       '<button type="button" data-action="clear-session">清空临时切换</button>',
+      '<button type="button" data-action="export-config">导出配置</button>',
+      '<button type="button" data-action="import-config">导入配置</button>',
       '</div>',
       '<div class="evm-list">',
       buildLibraryRows(),
       '</div>',
-      '<div class="evm-footer"><div class="evm-help"><div>锁定：媒体库按“默认显示”和“默认排序”打开，前台不能改成别的设置</div><div>临时：媒体库按默认设置打开，可以临时切换，重启浏览器后恢复脚本的设置</div><div>解锁：脚本不再参与显示控制，交由 Emby 与浏览器设置控制</div><div>默认排序选“不指定”时，排序不受脚本控制。</div></div><button type="button" class="evm-primary" data-action="save">保存设置</button></div>',
+      '<div class="evm-footer"><div class="evm-help"><div>锁定：媒体库按“默认显示”和“默认排序”打开，前台不能改成别的设置</div><div>临时：媒体库按默认设置打开，可以临时切换，重启浏览器后恢复脚本的设置</div><div>解锁：脚本不再参与显示控制，交由 Emby 与浏览器设置控制</div><div>默认排序选“不指定”时，排序不受脚本控制。</div><div>配置保存在脚本管理器里；换打包环境前可先导出配置，换好后再导入。</div></div><button type="button" class="evm-primary" data-action="save">保存设置</button></div>',
       '</div>',
       '</div>'
     ].join('');
@@ -498,6 +525,13 @@
       scheduleRefresh(true);
       log('session prefs cleared');
     });
+    panel.querySelector('[data-action="export-config"]').addEventListener('click', function () {
+      readPanel(panel);
+      exportConfig();
+    });
+    panel.querySelector('[data-action="import-config"]').addEventListener('click', function () {
+      importConfig();
+    });
     panel.querySelectorAll('[data-action="remove"]').forEach(function (button) {
       button.addEventListener('click', function () {
         readPanel(panel);
@@ -548,6 +582,29 @@
       policy: 'session',
       enabled: true
     }));
+  }
+
+  function exportConfig() {
+    var text = JSON.stringify(normalizeConfig(config), null, 2);
+    PAGE.prompt('复制下面的配置 JSON，换环境后用“导入配置”粘贴即可。', text);
+  }
+
+  function importConfig() {
+    var text = PAGE.prompt('粘贴从“导出配置”复制的 JSON：');
+    if (!text) return;
+
+    try {
+      config = normalizeConfig(JSON.parse(text));
+      saveConfig();
+      sessionPrefs = {};
+      saveSessionPrefs();
+      rerenderPanel();
+      scheduleRefresh(true);
+      log('config imported', config);
+    } catch (e) {
+      PAGE.alert('导入失败：配置 JSON 格式不正确。');
+      log('import failed', e);
+    }
   }
 
   function rerenderPanel() {
