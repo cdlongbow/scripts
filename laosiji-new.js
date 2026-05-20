@@ -2927,7 +2927,8 @@
             SYS: '332SYS',
             NAMA: '332NAMA',
             HEN: '353HEN',
-            ARA: '261ARA'
+            ARA: '261ARA',
+            FCT: '326FCT'
         },
 
         normalizeMgstageCode(text) {
