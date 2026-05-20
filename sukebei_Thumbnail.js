@@ -4,7 +4,7 @@
 // @description  Load image from cover/screenshot links.
 // @description:zh-CN  从封面/截图链接加载图片并显示。基于York Wang 0.9.8版本自用修改, 添加更多站点支持
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=sukebei.nyaa.si
-// @version      2.0.0
+// @version      2.0.1
 // @license      MIT
 // @author       ZiPenOk
 // @match        https://*.nyaa.*/*
@@ -145,6 +145,48 @@
                 }
             })
         })
+    }
+
+    const doGetHtml = async url => {
+        return new Promise(resolve => {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url: url,
+                onload: res => {
+                    resolve(res.responseText || '')
+                },
+                onerror: err => {
+                    console.error(err)
+                    resolve('')
+                }
+            })
+        })
+    }
+
+    const toAbsoluteUrl = (src, base) => {
+        if(!src) return null
+        if(/^https?:\/\//i.test(src)) return src
+        if(/^\/\//.test(src)) return document.location.protocol + src
+        try {
+            return new URL(src, base).href
+        } catch (e) {
+            return null
+        }
+    }
+
+    const parseImageTwistImage = (html, base) => {
+        if(!html) return null
+
+        const doc = new DOMParser().parseFromString(html, 'text/html')
+        const img = doc.querySelector('img.pic.img.img-responsive') ||
+                    doc.querySelector('img.img-responsive') ||
+                    doc.querySelector('a[data-fancybox] img')
+        const src = img && toAbsoluteUrl(img.getAttribute('src'), base)
+        if(src) return src
+
+        const match = html.match(/<img[^>]+src=["'](https?:\/\/img\d+\.(?:imagetwist|imagexport|imagenimage|imagehaha)\.[^"']+)["'][^>]*>/i) ||
+                      html.match(/<a[^>]+href=["'](https?:\/\/img\d+\.(?:imagetwist|imagexport|imagenimage|imagehaha)\.[^"']+)["'][^>]*data-fancybox/i)
+        return match ? match[1] : null
     }
 
     addHandler(/^https?:\/\/(hentai-covers\.site)\/image\/\w+/, null, async (url, callback) => {
@@ -298,6 +340,9 @@
         if(img) {
             callback(img.src)
         }
+    }, async (url, callback) => {
+        const src = parseImageTwistImage(await doGetHtml(url), url)
+        if(src) callback(src)
     })
     addHandler(/^https?:\/\/hentai4free\.net(\/\w+)+/, callback => {
         unsafeWindow.wuLu && unsafeWindow.wuLu()
