@@ -1825,7 +1825,7 @@
                 return `${compact[1]}-${number}`;
             }
 
-            const trimmed = normalized.match(/^([A-Z0-9]{2,15}[-_]\d{2,6})/);
+            const trimmed = normalized.match(/^([A-Z0-9]{2,15}[-_]\d{2,9})/);
             if (trimmed) return trimmed[1];
 
             return normalized;
@@ -1848,8 +1848,8 @@
 
             const patterns = [
                 { regex: /([A-Z]{2,15})[-_\s]([A-Z]{1,2}\d{2,10})/i, type: 'alphanum' },
-                { regex: /([A-Z]{2,15})[-_\s](\d{2,10})(?:[-_](\d{1,3}))?/i, type: 'standard' },
                 { regex: /FC2[-\s_]?(?:PPV)?[-\s_]?(\d{6,9})/i, type: 'fc2' },
+                { regex: /([A-Z]{2,15})[-_\s](\d{2,10})(?:[-_](\d{1,3}))?/i, type: 'standard' },
                 { regex: /(\d{6})([-_\s]?)(\d{2,3})/, type: 'numeric' },
                 { regex: /\b([A-Z]{2,10})(\d{3,6})\b/i, type: 'compactStandard' },
                 { regex: /([A-Z]{1,2})(\d{3,4})/i, type: 'compact' }
@@ -3435,30 +3435,34 @@
             });
         },
 
-        async fromFc2Hub(id) {
-            if (!/^FC2-\d{6,9}$/i.test(id)) return null;
+        async fromFc2Hub(id, rawCode) {
+            const checkCode = rawCode || id;
+            if (!/FC2/i.test(checkCode)) return null;
+            const numMatch = (rawCode || '').match(/(\d{6,9})/) || id.match(/(\d{6,9})/);
+            if (!numMatch) return null;
+            const vid = numMatch[1];
 
-            const searchUrl = `https://fc2hub.com/search?kw=${encodeURIComponent(id)}`;
-            const search = await this.request(searchUrl, { timeout: 15000 });
-            if (!search) return null;
+            const embedUrl = `https://adult.contents.fc2.com/embed/${vid}`;
+            const embedRes = await this.request(embedUrl, { timeout: 15000 });
+            if (!embedRes?.responseText) return null;
 
-            let detailUrl = search.finalUrl && search.finalUrl !== searchUrl ? search.finalUrl : null;
-            if (!detailUrl && search.responseText) {
-                const doc = new DOMParser().parseFromString(search.responseText, 'text/html');
-                const link = doc.querySelector('a[href*="/id"], a[href*="fc2"]')?.getAttribute('href');
-                if (link) detailUrl = link.startsWith('http') ? link : new URL(link, searchUrl).href;
-            }
-            if (!detailUrl) return null;
+            const tokenMatch = embedRes.responseText.match(/push\(\['ae',\s*'([a-f0-9]{32})'\]/);
+            if (!tokenMatch) return null;
+            const token = tokenMatch[1];
 
-            const doc = await this.requestDoc(detailUrl, { timeout: 15000 });
-            const iframe = doc?.querySelector('iframe.lazy[data-src], iframe[src]');
-            const iframeUrl = iframe?.dataset?.src || iframe?.getAttribute('src');
-            if (!iframeUrl) return null;
+            const apiUrl = `https://adult.contents.fc2.com/api/v2/videos/${vid}/sample?key=00000000000000000000000000000000`;
+            const apiRes = await this.request(apiUrl, {
+                timeout: 15000,
+                headers: { 'X-FC2-Contents-Access-Token': token }
+            });
+            if (!apiRes?.responseText) return null;
 
-            return this.result(iframeUrl.startsWith('http') ? iframeUrl : new URL(iframeUrl, detailUrl).href, 'FC2Hub 预告', 'iframe');
+            let json;
+            try { json = JSON.parse(apiRes.responseText); } catch { return null; }
+            if (!json.path) return null;
+
+            return this.result(json.path, 'FC2Hub 预告', 'mp4');
         },
-
-
 
         async fromDmmPlayerPage(id) {
 
