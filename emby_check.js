@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.6.3
+// @version      5.6.4
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -780,7 +780,7 @@
             return `${compact[1]}-${number}`;
         }
 
-        const trimmed = normalized.match(/^([A-Z0-9]{2,15}[-_]\d{2,6})/);
+        const trimmed = normalized.match(/^([A-Z0-9]{2,15}[-_]\d{2,9})/);
         if (trimmed) return trimmed[1];
 
         return normalized;
@@ -789,6 +789,9 @@
     function extractCodeFromText(text) {
         if (!text) return null;
 
+        const mgstageHit = String(text).match(/\b(\d{3}[A-Z]{2,10})[-_\s](\d{2,6})\b/i);
+        if (mgstageHit) return normalizeCode(`${mgstageHit[1]}-${mgstageHit[2]}`);
+
         const uncensoredHit = String(text).match(/(?:PACOPACOMAMA|1PONDO|CARIBBEANCOM|CARIB|HEYZO)?[-_\s]*(\d{6})([-_])(\d{2,3})/i);
         if (uncensoredHit) {
             return normalizeCode(`${uncensoredHit[1]}${uncensoredHit[2]}${uncensoredHit[3]}`);
@@ -796,8 +799,8 @@
 
         const patterns = [
             { regex: /([A-Z]{2,15})[-_\s]([A-Z]{1,2}\d{2,10})/i, type: 'alphanum' },
-            { regex: /([A-Z]{2,15})[-_\s](\d{2,10})(?:[-_](\d{1,3}))?/i, type: 'standard' },
             { regex: /FC2[-\s_]?(?:PPV)?[-\s_]?(\d{6,9})/i, type: 'fc2' },
+            { regex: /([A-Z]{2,15})[-_\s](\d{2,10})(?:[-_](\d{1,3}))?/i, type: 'standard' },
             { regex: /(\d{6})([-_\s]?)(\d{2,3})/, type: 'numeric' },
             { regex: /\b([A-Z]{2,10})(\d{3,6})\b/i, type: 'compactStandard' },
             { regex: /([A-Z]{1,2})(\d{3,4})/i, type: 'compact' }
