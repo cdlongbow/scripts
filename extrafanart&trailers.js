@@ -1,4 +1,4 @@
-//原脚本版本d9975a9 修复相似影片无法跳转的问题
+//原脚本版本d9975a9 修复相似影片无法跳转的问题 增加外部剧照接口并展示
 class ExtraFanart {
 	// ===== 性能优化：取消无效请求 =====
 	static currentAbortController = null;
@@ -12,6 +12,17 @@ class ExtraFanart {
 		// 启用后会在网络链接旁显示"短评"按钮，首次使用需要输入 JavDB 账号密码
 		// 账号密码会加密存储在浏览器本地，不会上传到任何服务器
 		this.enableJavdbReviews = true;
+
+		// 是否启用外部 API 剧照（true=优先使用 JavDB/DMM API 剧照，false=仅使用 Emby 本地剧照）
+		this.enableExternalFanart = true;
+		// 外部剧照源优先级，调整数组顺序即可改变优先顺序；可用值：javdb、dmm
+		this.externalFanartSourceOrder = ['javdb', 'dmm'];
+		this.EXTERNAL_FANART_SOURCE_ORDER_KEY = 'jv_external_fanart_source_order';
+		this.externalFanartSourceOrder = this.loadExternalFanartSourceOrder(this.externalFanartSourceOrder);
+		// 外部剧照源开关
+		this.externalFanartSourceEnabled = { javdb: true, dmm: true };
+		// 外部剧照未找到时是否回退到 Emby 本地剧照
+		this.externalFanartFallbackToLocal = true;
 		
 		// 是否启用相似影片功能（true=启用，false=禁用）
 		this.enableSimilarItems = true;
@@ -29,7 +40,7 @@ class ExtraFanart {
 		// exclude=排除指定媒体库
 		this.libraryFilterMode = 'all';
 		// 目标媒体库标识列表，支持填写媒体库的 Id、Guid 或名称（建议优先使用 Id）
-		this.targetLibraryIds = [];
+		this.targetLibraryIds = ['565020', '565027'];
 		// ===================
 		
 		// JavDB API 相关
@@ -52,6 +63,10 @@ class ExtraFanart {
 		this.itemId = null;
 		this.imageMap = new Map();
 		this.imageTagMap = new Map();
+		this.externalImageUrls = [];
+		this.externalImageFullUrls = [];
+		this.externalImageSource = null;
+		this.externalImageCode = null;
 		this.trailerUrl = null;
 		this.itemDetails = null;
 		this.isLoading = false;
@@ -60,7 +75,7 @@ class ExtraFanart {
 		this.isPageRefresh = true; // 标记是否为页面刷新
 		this.cachedSimilarItems = new Map(); // 缓存相似影片数据
 		this.cachedCodes = new Map(); // 缓存提取的番号
-		this.cachedImages = new Map(); // 缓存剧照数据 {endImageIndex, trailerUrl, imageTagMap}
+		this.cachedImages = new Map(); // 缓存剧照数据 {endImageIndex, trailerUrl, imageTagMap, externalImageUrls, externalImageFullUrls, externalImageSource}
 		this.cachedActorItems = new Map(); // 缓存演员作品数据
 		this.userViewsCache = null; // 缓存当前用户可见媒体库
 		this.userViewsLookup = new Map(); // 媒体库快速索引
@@ -531,9 +546,20 @@ class ExtraFanart {
 			this.zoomedMask.style.display = 'none';
 		}
 		this.currentZoomedImageIndex = -1;
+		this.externalImageUrls = [];
+		this.externalImageFullUrls = [];
+		this.externalImageSource = null;
+		this.externalImageCode = null;
 	}
 
-	static getBackgroundImageSrc(index) {
+	static getBackgroundImageSrc(index, options = {}) {
+		if (Array.isArray(this.externalImageUrls) && this.externalImageUrls.length > 0) {
+			if (options.full && Array.isArray(this.externalImageFullUrls) && this.externalImageFullUrls[index]) {
+				return this.externalImageFullUrls[index];
+			}
+			return this.externalImageUrls[index] || null;
+		}
+
 		const currentItemId = this.getCurrentItemId();
 		if (!currentItemId) return null;
 		
@@ -550,6 +576,38 @@ class ExtraFanart {
 		} else {
 			// 降级方案：手动拼接 URL（适用于网页版）
 			return `${location.origin}/Items/${currentItemId}/Images/Backdrop/${index}?maxWidth=1280`;
+		}
+	}
+
+	static getFanartSourceLabel(source) {
+		const labels = {
+			javdb: 'JavDB',
+			dmm: 'DMM / FANZA'
+		};
+		return labels[String(source || '').toLowerCase()] || source || '';
+	}
+
+	static loadExternalFanartSourceOrder(defaultOrder = ['javdb', 'dmm']) {
+		try {
+			const stored = JSON.parse(localStorage.getItem(this.EXTERNAL_FANART_SOURCE_ORDER_KEY) || 'null');
+			if (Array.isArray(stored)) {
+				const normalized = stored
+					.map(source => String(source || '').toLowerCase())
+					.filter(source => ['javdb', 'dmm'].includes(source));
+				const merged = [...normalized, ...defaultOrder.filter(source => !normalized.includes(source))];
+				if (merged.length > 0) return merged;
+			}
+		} catch (error) {
+			console.warn('[ExtraFanart] 外部剧照来源偏好读取失败:', error);
+		}
+		return defaultOrder;
+	}
+
+	static saveExternalFanartSourceOrder(order) {
+		try {
+			localStorage.setItem(this.EXTERNAL_FANART_SOURCE_ORDER_KEY, JSON.stringify(order));
+		} catch (error) {
+			console.warn('[ExtraFanart] 外部剧照来源偏好保存失败:', error);
 		}
 	}
 
@@ -575,7 +633,11 @@ class ExtraFanart {
 				</h2>
 				<span class="jv-image-count"></span>
 			</div>
-			<div class="jv-images-grid"></div>
+			<div class="jv-image-scroll-container">
+				<button class="jv-scroll-btn jv-image-scroll-left" style="display:none;">‹</button>
+				<div class="jv-images-grid"></div>
+				<button class="jv-scroll-btn jv-image-scroll-right">›</button>
+			</div>
 		`;
 		return container;
 	}
@@ -668,7 +730,7 @@ class ExtraFanart {
 		return url && (url.includes('youtube.com') || url.includes('youtu.be'));
 	}
 
-	static calculateFitSize(naturalWidth, naturalHeight) {
+	static calculateFitSize(naturalWidth, naturalHeight, allowUpscale = false) {
 		// 避免在循环中重复读取 DOM 属性（Layout Thrashing）
 		// 一次性读取所有需要的值
 		const maskClientWidth = this.zoomedMask.clientWidth;
@@ -681,7 +743,9 @@ class ExtraFanart {
 		// 计算缩放比例，允许放大和缩小以适应窗口
 		const widthRatio = maxWidth / naturalWidth;
 		const heightRatio = maxHeight / naturalHeight;
-		const scale = Math.min(widthRatio, heightRatio); // 选择较小的缩放比例以保持宽高比
+		const scale = allowUpscale
+			? Math.min(widthRatio, heightRatio)
+			: Math.min(widthRatio, heightRatio, 1); // 不放大超过图片实际尺寸
 		
 		return {
 			width: naturalWidth * scale,
@@ -696,6 +760,11 @@ class ExtraFanart {
 	}
 
 	static setDescription() {
+		if (Array.isArray(this.externalImageUrls) && this.externalImageUrls.length > 0) {
+			this.zoomedImageDescription.innerHTML = `${this.currentZoomedImageIndex + 1} of ${this.externalImageUrls.length}`;
+			return;
+		}
+
 		this.zoomedImageDescription.innerHTML = `${this.currentZoomedImageIndex - this.startImageIndex + 1} of ${this.endImageIndex - this.startImageIndex + 1}`;
 	}
 
@@ -706,7 +775,7 @@ class ExtraFanart {
 	}
 
 	static async changeImageIndex(index) {
-		const imageSrc = this.getBackgroundImageSrc(index);
+		const imageSrc = this.getBackgroundImageSrc(index, { full: true });
 		if (!imageSrc) return;
 		const imageElement = this.imageMap.get(index);
 		if (!imageElement) return;
@@ -720,6 +789,7 @@ class ExtraFanart {
 		await new Promise((resolve, reject) => {
 			newImage.onload = resolve;
 			newImage.onerror = reject;
+			newImage.referrerPolicy = 'no-referrer';
 			newImage.src = imageSrc;
 		});
 		
@@ -742,10 +812,11 @@ class ExtraFanart {
 	}
 
 	static async showZoomedMask(index) {
-		const imageSrc = this.getBackgroundImageSrc(index);
+		const imageSrc = this.getBackgroundImageSrc(index, { full: true });
 		if (!imageSrc) return;
 
 		this.zoomedImageWrapper.classList.add('animate');
+		this.zoomedImage.referrerPolicy = 'no-referrer';
 		this.zoomedImage.src = imageSrc;
 
 		const imageElement = this.imageMap.get(index);
@@ -755,7 +826,7 @@ class ExtraFanart {
 		this.zoomedMask.style.display = 'flex';
 
 		const action = () => {
-			const fitSize = this.calculateFitSize(imageElement.naturalWidth, imageElement.naturalHeight);
+			const fitSize = this.calculateFitSize(this.zoomedImage.naturalWidth || imageElement.naturalWidth, this.zoomedImage.naturalHeight || imageElement.naturalHeight);
 			this.setRectOfElement(this.zoomedImageWrapper, {
 				left: (this.zoomedMask.clientWidth - fitSize.width) / 2,
 				top: (this.zoomedMask.clientHeight - fitSize.height) / 2,
@@ -804,10 +875,22 @@ class ExtraFanart {
 		imageElement.src = imageSrc;
 		imageElement.className = 'jv-image';
 		imageElement.decoding = 'async';
+		imageElement.loading = 'lazy';
+		imageElement.referrerPolicy = 'no-referrer';
 		imageElement.onclick = () => {
 			this.currentZoomedImageIndex = index;
 			this.showZoomedMask(index);
 		};
+		return imageElement;
+	}
+
+	static createExternalImageElement(index) {
+		const imageElement = this.createImageElement(index);
+		imageElement.classList.add('jv-external-image');
+		if (this.externalImageSource) {
+			imageElement.dataset.source = this.externalImageSource;
+			imageElement.title = `来自 ${this.getFanartSourceLabel(this.externalImageSource)}`;
+		}
 		return imageElement;
 	}
 
@@ -817,9 +900,11 @@ class ExtraFanart {
 		
 		// 预告片缩略图使用索引0的背景图
 		const tag = this.imageTagMap.get(0);
-		const imageSrc = tag ? this.getBackgroundImageSrc(0) : '';
+		const imageSrc = (tag && !(Array.isArray(this.externalImageUrls) && this.externalImageUrls.length > 0))
+			? this.getBackgroundImageSrc(0)
+			: (Array.isArray(this.externalImageUrls) && this.externalImageUrls.length > 0 ? this.externalImageUrls[0] : '');
 		wrapper.innerHTML = `
-			<img src="${imageSrc || ''}" class="jv-image jv-trailer-thumb" decoding="async" />
+			<img src="${imageSrc || ''}" class="jv-image jv-trailer-thumb" decoding="async" loading="lazy" referrerpolicy="no-referrer" />
 			<div class="jv-play-icon">
 				<svg viewBox="0 0 24 24" fill="white">
 					<circle cx="12" cy="12" r="10" fill="rgba(0,0,0,0.6)" stroke="white" stroke-width="2"/>
@@ -837,6 +922,103 @@ class ExtraFanart {
 		return wrapper;
 	}
 
+	static setupImageScrollButtons() {
+		const scrollContainer = this.imageContainer?.querySelector('.jv-image-scroll-container');
+		const grid = this.imageContainer?.querySelector('.jv-images-grid');
+		const leftBtn = this.imageContainer?.querySelector('.jv-image-scroll-left');
+		const rightBtn = this.imageContainer?.querySelector('.jv-image-scroll-right');
+		if (!scrollContainer || !grid || !leftBtn || !rightBtn) return;
+
+		const calculateScrollAmount = () => Math.max(scrollContainer.clientWidth * 0.85, 320);
+		const updateButtons = () => {
+			const scrollable = grid.scrollWidth > grid.clientWidth + 4;
+			const atStart = grid.scrollLeft <= 2;
+			const atEnd = grid.scrollLeft + grid.clientWidth >= grid.scrollWidth - 4;
+			leftBtn.style.display = scrollable && !atStart ? 'flex' : 'none';
+			rightBtn.style.display = scrollable ? 'flex' : 'none';
+			rightBtn.textContent = atEnd ? '↻' : '›';
+			rightBtn.title = atEnd ? '回到开头' : '向右滚动';
+			leftBtn.title = '向左滚动';
+		};
+
+		if (!grid.dataset.jvImageScrollBound) {
+			grid.addEventListener('scroll', updateButtons, { passive: true });
+			leftBtn.addEventListener('click', () => {
+				grid.scrollBy({ left: -calculateScrollAmount(), behavior: 'smooth' });
+				setTimeout(updateButtons, 350);
+			});
+			rightBtn.addEventListener('click', () => {
+				const atEnd = grid.scrollLeft + grid.clientWidth >= grid.scrollWidth - 4;
+				if (atEnd) {
+					grid.scrollTo({ left: 0, behavior: 'smooth' });
+				} else {
+					grid.scrollBy({ left: calculateScrollAmount(), behavior: 'smooth' });
+				}
+				setTimeout(updateButtons, 350);
+			});
+			grid.dataset.jvImageScrollBound = '1';
+		}
+
+		updateButtons();
+		[300, 1000, 2500].forEach(delay => setTimeout(updateButtons, delay));
+	}
+
+	static updateImageCountText(totalText, source = null) {
+		const countElement = this.imageContainer?.querySelector('.jv-image-count');
+		if (!countElement) return;
+
+		const sourceLabel = this.getFanartSourceLabel(source);
+		if (!sourceLabel) {
+			countElement.textContent = totalText;
+			return;
+		}
+
+		const switchTarget = this.getNextExternalFanartSource(source);
+		countElement.innerHTML = `
+			<span>${totalText} · 来自 ${sourceLabel}</span>
+			${switchTarget ? `<button class="jv-source-switch-btn" type="button" data-source="${switchTarget}">切换 ${this.getFanartSourceLabel(switchTarget)}</button>` : ''}
+		`;
+
+		const switchBtn = countElement.querySelector('.jv-source-switch-btn');
+		if (switchBtn) {
+			switchBtn.onclick = (event) => {
+				event.preventDefault();
+				event.stopPropagation();
+				this.switchExternalFanartSource(switchBtn.dataset.source);
+			};
+		}
+	}
+
+	static getNextExternalFanartSource(currentSource) {
+		const sources = this.getActiveExternalFanartSources();
+		if (sources.length <= 1) return null;
+		const current = String(currentSource || '').toLowerCase();
+		const index = sources.indexOf(current);
+		return sources[(index + 1 + sources.length) % sources.length];
+	}
+
+	static switchExternalFanartSource(source) {
+		const target = String(source || '').toLowerCase();
+		if (!['javdb', 'dmm'].includes(target)) return;
+
+		const currentOrder = Array.isArray(this.externalFanartSourceOrder) ? this.externalFanartSourceOrder : ['javdb', 'dmm'];
+		this.externalFanartSourceOrder = [
+			target,
+			...currentOrder.filter(item => String(item || '').toLowerCase() !== target)
+		];
+		this.saveExternalFanartSourceOrder(this.externalFanartSourceOrder);
+
+		const currentItemId = this.getCurrentItemId();
+		if (currentItemId) {
+			this.cachedImages.delete(currentItemId);
+		}
+
+		this.itemId = null;
+		this.isPageRefresh = true;
+		this.showToast(`已切换剧照来源：${this.getFanartSourceLabel(target)}`);
+		this.loadImages();
+	}
+
 	static async appendImagesToContainer(imageCount) {
 		const imageFragment = document.createDocumentFragment();
 		
@@ -844,6 +1026,24 @@ class ExtraFanart {
 		if (this.trailerUrl) {
 			const trailerElement = this.createTrailerElement();
 			imageFragment.appendChild(trailerElement);
+		}
+
+		if (Array.isArray(this.externalImageUrls) && this.externalImageUrls.length > 0) {
+			this.externalImageUrls.forEach((_, index) => {
+				const imageElement = this.createExternalImageElement(index);
+				imageFragment.appendChild(imageElement);
+				this.imageMap.set(index, imageElement);
+			});
+
+			const gridContainer = this.imageContainer.querySelector('.jv-images-grid');
+			if (gridContainer) {
+				gridContainer.appendChild(imageFragment);
+			}
+
+			const totalText = this.trailerUrl ? `预告片 + ${this.externalImageUrls.length} 张` : `共 ${this.externalImageUrls.length} 张`;
+			this.updateImageCountText(totalText, this.externalImageSource);
+			this.setupImageScrollButtons();
+			return;
 		}
 		
 		for (let index = this.startImageIndex; index <= imageCount; index++) {
@@ -859,15 +1059,16 @@ class ExtraFanart {
 		// 更新图片数量显示
 		const countElement = this.imageContainer.querySelector('.jv-image-count');
 		if (countElement) {
-			const totalImages = imageCount - this.startImageIndex + 1;
+			const totalImages = Math.max(0, imageCount - this.startImageIndex + 1);
 			const totalText = this.trailerUrl ? `预告片 + ${totalImages} 张` : `共 ${totalImages} 张`;
-			countElement.textContent = totalText;
+			this.updateImageCountText(totalText);
 		}
+		this.setupImageScrollButtons();
 	}
 
 	static showContainer(imageCount) {
 		// 如果既没有剧照也没有预告片，不显示容器
-		if (imageCount < this.startImageIndex && !this.trailerUrl) {
+		if (imageCount < this.startImageIndex && !(Array.isArray(this.externalImageUrls) && this.externalImageUrls.length > 0) && !this.trailerUrl) {
 			return;
 		}
 		
@@ -1027,6 +1228,255 @@ static isDetailsPage() {
 			return details.RemoteTrailers[0].Url;
 		}
 		return null;
+	}
+
+	static normalizeExternalFanartCode(code) {
+		if (!code) return null;
+		const normalized = String(code).trim().toUpperCase();
+		const match = normalized.match(/\b([A-Z]{2,10}(?:-[A-Z]+)?)-(\d{2,7})\b/);
+		return match ? `${match[1]}-${match[2]}` : null;
+	}
+
+	static getActiveExternalFanartSources() {
+		const order = Array.isArray(this.externalFanartSourceOrder) ? this.externalFanartSourceOrder : ['javdb', 'dmm'];
+		const enabled = this.externalFanartSourceEnabled || {};
+		return order
+			.map(source => String(source || '').toLowerCase())
+			.filter(source => ['javdb', 'dmm'].includes(source) && enabled[source] !== false);
+	}
+
+	static async getExternalFanartCode(itemId, itemDetails = null) {
+		const item = itemDetails || await this.getItemDetails(itemId);
+		const candidates = [];
+
+		if (item?.OriginalTitle) candidates.push(item.OriginalTitle);
+		if (item?.ProviderIds) {
+			Object.values(item.ProviderIds).forEach(value => candidates.push(String(value || '')));
+		}
+		if (item?.Name) candidates.push(item.Name);
+		if (item?.SortName) candidates.push(item.SortName);
+
+		for (const candidate of candidates) {
+			const code = this.normalizeExternalFanartCode(candidate);
+			if (code) return code;
+		}
+
+		const titleSelectors = [
+			'.detailPagePrimaryContainer h1',
+			'#itemDetailPage:not(.hide) .nameContainer .itemName',
+			'.itemView:not(.hide) .nameContainer .itemName',
+			'.nameContainer .itemName',
+			'h1',
+			'.itemName'
+		];
+
+		for (const selector of titleSelectors) {
+			const el = document.querySelector(selector);
+			const code = this.normalizeExternalFanartCode(el?.textContent);
+			if (code) return code;
+		}
+
+		return null;
+	}
+
+	static async fetchExternalFanart(itemId, itemDetails = null) {
+		if (!this.enableExternalFanart) return null;
+
+		const code = await this.getExternalFanartCode(itemId, itemDetails);
+		if (!code) {
+			console.log('[ExtraFanart] 未提取到番号，跳过外部剧照');
+			return null;
+		}
+
+		for (const source of this.getActiveExternalFanartSources()) {
+			try {
+				const fetcher = source === 'javdb' ? this.fetchJavdbApiFanart : this.fetchDmmApiFanart;
+				const images = await fetcher.call(this, code);
+				const normalizedImages = this.normalizeExternalFanartImages(images);
+				if (normalizedImages.length > 0) {
+					console.log('[ExtraFanart] 外部剧照加载成功:', {
+						code,
+						source,
+						count: normalizedImages.length
+					});
+					return {
+						code,
+						source,
+						images: normalizedImages.map(item => item.thumb),
+						fullImages: normalizedImages.map(item => item.full)
+					};
+				}
+				console.log('[ExtraFanart] 外部剧照源无结果:', { code, source });
+			} catch (error) {
+				console.warn('[ExtraFanart] 外部剧照源加载失败:', { code, source, error });
+			}
+		}
+
+		return null;
+	}
+
+	static normalizeExternalFanartImages(images) {
+		const seen = new Set();
+		return (Array.isArray(images) ? images : [])
+			.map(item => {
+				if (typeof item === 'string') {
+					return { thumb: item, full: item };
+				}
+				const full = item?.full || item?.large_url || item?.url || item?.thumb || item?.thumb_url || '';
+				return {
+					thumb: full,
+					full
+				};
+			})
+			.filter(item => /^https?:\/\//i.test(item.thumb) && /^https?:\/\//i.test(item.full))
+			.filter(item => {
+				const key = item.full || item.thumb;
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			});
+	}
+
+	static async fetchJavdbApiFanart(code) {
+		const movieInfo = await this.searchJavdbMovie(code);
+		if (!movieInfo?.movieId && /^\d+[a-z]/i.test(code)) {
+			const retryCode = code.replace(/^\d+(?=[a-z])/i, '');
+			return this.fetchJavdbApiFanart(retryCode);
+		}
+		if (!movieInfo?.movieId) return [];
+
+		const response = await fetch(`https://jdforrepam.com/api/v4/movies/${movieInfo.movieId}`, {
+			method: 'GET',
+			headers: {
+				'User-Agent': 'Dart/3.5 (dart:io)',
+				'Accept-Language': 'zh-TW',
+				'Host': 'jdforrepam.com',
+				'jdSignature': this.generateJavdbSignature()
+			}
+		});
+
+		if (!response.ok) {
+			throw new Error(`JavDB 详情失败: ${response.status}`);
+		}
+
+		const data = await response.json();
+		const previews = data?.data?.movie?.preview_images || [];
+		return previews
+			.map(item => this.normalizeJavdbFanartImage(item))
+			.filter(Boolean);
+	}
+
+	static normalizeJavdbFanartImage(item) {
+		const rawThumb = item?.thumb_url || item?.url || item?.large_url || '';
+		const rawFull = item?.large_url || item?.url || item?.thumb_url || '';
+		const full = this.normalizeJavdbFanartImageUrl(rawFull || rawThumb, 'l');
+		if (!full) return null;
+		return {
+			thumb: full,
+			full
+		};
+	}
+
+	static normalizeJavdbFanartImageUrl(url, size = 'l') {
+		const raw = String(url || '').trim().replace(/^http:/i, 'https:');
+		if (!raw) return '';
+
+		try {
+			const parsed = new URL(raw);
+			const samplesIndex = parsed.pathname.indexOf('/samples/');
+			if (samplesIndex !== -1) {
+				const path = parsed.pathname.slice(samplesIndex).replace(/_([sl])_(\d+\.(?:jpg|jpeg|png|webp))$/i, `_${size}_$2`);
+				return `https://c0.jdbstatic.com${path}`;
+			}
+		} catch (error) {
+			console.warn('[ExtraFanart] JavDB 图片 URL 解析失败:', raw, error);
+		}
+
+		return raw.replace(/_([sl])_(\d+\.(?:jpg|jpeg|png|webp)(?:[?#].*)?)$/i, `_${size}_$2`);
+	}
+
+	static async fetchDmmApiFanart(code) {
+		if (!/^[A-Z]{2,10}-\d{2,6}$/i.test(code) || /^FC2-/i.test(code) || code.includes('VR-')) {
+			return [];
+		}
+
+		const items = await this.searchDmmFanartItems(code);
+		for (const item of items) {
+			const images = this.extractDmmFanartImages(item);
+			if (images.length > 0) return images;
+		}
+		return [];
+	}
+
+	static async searchDmmFanartItems(code) {
+		const idLower = code.toLowerCase();
+		const idNoHyphen = code.replace(/-/g, '').toLowerCase();
+		const keywordAttempts = [
+			code.replace('-', '00'),
+			code,
+			idNoHyphen
+		];
+
+		for (const keyword of keywordAttempts) {
+			const params = new URLSearchParams({
+				api_id: 'UrwskPfkqQ0DuVry2gYL',
+				affiliate_id: '10278-996',
+				output: 'json',
+				site: 'FANZA',
+				sort: 'match',
+				keyword
+			});
+
+			const response = await fetch(`https://api.dmm.com/affiliate/v3/ItemList?${params.toString()}`, {
+				method: 'GET',
+				headers: { Accept: 'application/json,text/plain,*/*' }
+			});
+
+			if (!response.ok) continue;
+
+			let data = null;
+			try {
+				data = await response.json();
+			} catch (error) {
+				console.warn('[ExtraFanart] DMM API JSON 解析失败:', error);
+				continue;
+			}
+
+			const items = data?.result?.items || [];
+			const attemptNormalized = String(keyword || '').toLowerCase().replace(/-/g, '');
+			const matched = items.filter(item => {
+				const contentId = String(item?.content_id || '').toLowerCase();
+				const productId = String(item?.product_id || '').toLowerCase();
+				const makerProduct = String(item?.maker_product || '').toLowerCase();
+				return contentId.includes(attemptNormalized) ||
+					contentId.includes(idNoHyphen) ||
+					productId.includes(attemptNormalized) ||
+					productId.includes(idNoHyphen) ||
+					makerProduct === idLower;
+			});
+
+			if (matched.length > 0) return matched.slice(0, 3);
+		}
+
+		return [];
+	}
+
+	static extractDmmFanartImages(item) {
+		const rawImages = item?.sampleImageURL?.sample_l?.image ||
+			item?.sampleImageURL?.sample_s?.image ||
+			[];
+		const images = Array.isArray(rawImages) ? rawImages : [rawImages];
+		return images
+			.map(url => this.normalizeDmmFanartImageUrl(url))
+			.filter(url => /^https?:\/\//i.test(url))
+			.map(url => ({ thumb: url, full: url }));
+	}
+
+	static normalizeDmmFanartImageUrl(url) {
+		const normalized = String(url || '').replace(/^http:/i, 'https:');
+		if (!normalized) return '';
+		if (/jp-\d+\.(jpg|jpeg|png)(?:[?#].*)?$/i.test(normalized)) return normalized;
+		return normalized.replace(/-(\d+\.(?:jpg|jpeg|png)(?:[?#].*)?)$/i, 'jp-$1');
 	}
 
 	static async getEndImageIndex(itemId = this.getCurrentItemId(), itemDetails = null) {
@@ -1278,14 +1728,33 @@ static isDetailsPage() {
 			}
 			this.imageMap.clear();
 			this.imageTagMap.clear();
-			
-			// 并行化异步请求：同时获取图片数量和预告片URL
-			const [endImageIndex, trailerUrl] = await Promise.all([
-				this.getEndImageIndex(currentItemId, currentItemDetails),
+			this.externalImageUrls = [];
+			this.externalImageFullUrls = [];
+			this.externalImageSource = null;
+			this.externalImageCode = null;
+
+			const [externalFanart, trailerUrl] = await Promise.all([
+				this.fetchExternalFanart(currentItemId, currentItemDetails),
 				this.getTrailerUrl(currentItemId, currentItemDetails)
 			]);
-			this.endImageIndex = endImageIndex;
 			this.trailerUrl = trailerUrl;
+
+			if (externalFanart?.images?.length) {
+				this.externalImageUrls = externalFanart.images;
+				this.externalImageFullUrls = externalFanart.fullImages || externalFanart.images;
+				this.externalImageSource = externalFanart.source;
+				this.externalImageCode = externalFanart.code;
+				this.endImageIndex = this.externalImageUrls.length - 1;
+				console.log('[ExtraFanart] 使用外部剧照:', {
+					source: this.externalImageSource,
+					code: this.externalImageCode,
+					count: this.externalImageUrls.length
+				});
+			} else if (this.externalFanartFallbackToLocal !== false) {
+				this.endImageIndex = await this.getEndImageIndex(currentItemId, currentItemDetails);
+			} else {
+				this.endImageIndex = 0;
+			}
 			
 			// 获取到预告片后使用 requestIdleCallback 进行异步预加载
 			if (this.trailerUrl) {
@@ -1301,7 +1770,7 @@ static isDetailsPage() {
 			await this.appendImagesToContainer(this.endImageIndex);
 			
 			// 只有当有剧照或预告片时才显示容器
-			if (this.endImageIndex > 0 || this.trailerUrl) {
+			if (this.endImageIndex > 0 || this.externalImageUrls.length > 0 || this.trailerUrl) {
 				this.showContainer(this.endImageIndex);
 			}
 			
@@ -1309,7 +1778,11 @@ static isDetailsPage() {
 			this.cachedImages.set(currentItemId, {
 				endImageIndex: this.endImageIndex,
 				trailerUrl: this.trailerUrl,
-				imageTagMap: new Map(this.imageTagMap)
+				imageTagMap: new Map(this.imageTagMap),
+				externalImageUrls: [...this.externalImageUrls],
+				externalImageFullUrls: [...this.externalImageFullUrls],
+				externalImageSource: this.externalImageSource,
+				externalImageCode: this.externalImageCode
 			});
 			console.log('[ExtraFanart] 剧照数据已缓存');
 		}
@@ -1361,6 +1834,13 @@ static isDetailsPage() {
 	static handleLeftButtonClick(e) {
 		e.stopPropagation();
 		if (this.currentZoomedImageIndex === -1) return;
+		if (Array.isArray(this.externalImageUrls) && this.externalImageUrls.length > 0) {
+			this.currentZoomedImageIndex = this.currentZoomedImageIndex > 0
+				? this.currentZoomedImageIndex - 1
+				: this.externalImageUrls.length - 1;
+			this.changeImageIndex(this.currentZoomedImageIndex);
+			return;
+		}
 		if (this.currentZoomedImageIndex > this.startImageIndex) {
 			this.currentZoomedImageIndex--;
 		} else {
@@ -1372,6 +1852,13 @@ static isDetailsPage() {
 	static handleRightButtonClick(e) {
 		e.stopPropagation();
 		if (this.currentZoomedImageIndex === -1) return;
+		if (Array.isArray(this.externalImageUrls) && this.externalImageUrls.length > 0) {
+			this.currentZoomedImageIndex = this.currentZoomedImageIndex < this.externalImageUrls.length - 1
+				? this.currentZoomedImageIndex + 1
+				: 0;
+			this.changeImageIndex(this.currentZoomedImageIndex);
+			return;
+		}
 		if (this.currentZoomedImageIndex < this.endImageIndex) {
 			this.currentZoomedImageIndex++;
 		} else {
@@ -1399,7 +1886,7 @@ static isDetailsPage() {
 		const imageElement = this.imageMap.get(this.currentZoomedImageIndex);
 		if (!imageElement) return;
 		
-		const fitSize = this.calculateFitSize(imageElement.naturalWidth, imageElement.naturalHeight);
+		const fitSize = this.calculateFitSize(this.zoomedImage.naturalWidth || imageElement.naturalWidth, this.zoomedImage.naturalHeight || imageElement.naturalHeight);
 		this.setRectOfElement(this.zoomedImageWrapper, {
 			left: (this.zoomedMask.clientWidth - fitSize.width) / 2,
 			top: (this.zoomedMask.clientHeight - fitSize.height) / 2,
@@ -1671,7 +2158,11 @@ static isDetailsPage() {
 	// 恢复数据
 	this.endImageIndex = cachedData.endImageIndex;
 	this.trailerUrl = cachedData.trailerUrl;
-	this.imageTagMap = new Map(cachedData.imageTagMap);
+	this.imageTagMap = new Map(cachedData.imageTagMap || []);
+	this.externalImageUrls = Array.isArray(cachedData.externalImageUrls) ? [...cachedData.externalImageUrls] : [];
+	this.externalImageFullUrls = Array.isArray(cachedData.externalImageFullUrls) ? [...cachedData.externalImageFullUrls] : [...this.externalImageUrls];
+	this.externalImageSource = cachedData.externalImageSource || null;
+	this.externalImageCode = cachedData.externalImageCode || null;
 	this.itemId = itemId;
 	
 	// 检查剧照容器是否已经存在且有内容
@@ -1706,6 +2197,26 @@ static isDetailsPage() {
 			const trailerElement = this.createTrailerElement();
 			imageFragment.appendChild(trailerElement);
 		}
+
+		if (Array.isArray(this.externalImageUrls) && this.externalImageUrls.length > 0) {
+			this.externalImageUrls.forEach((_, index) => {
+				const imageElement = this.createExternalImageElement(index);
+				imageFragment.appendChild(imageElement);
+				this.imageMap.set(index, imageElement);
+			});
+
+			if (gridContainer) {
+				gridContainer.appendChild(imageFragment);
+			}
+
+			const totalText = this.trailerUrl ? `预告片 + ${this.externalImageUrls.length} 张` : `共 ${this.externalImageUrls.length} 张`;
+			this.updateImageCountText(totalText, this.externalImageSource);
+
+			this.setupImageScrollButtons();
+			this.showContainer(this.endImageIndex);
+			console.log('[ExtraFanart] 外部剧照容器恢复完成');
+			return;
+		}
 		
 		for (let index = this.startImageIndex; index <= this.endImageIndex; index++) {
 			const imageElement = this.createImageElement(index);
@@ -1720,11 +2231,12 @@ static isDetailsPage() {
 		// 更新图片数量显示
 		const countElement = this.imageContainer.querySelector('.jv-image-count');
 		if (countElement) {
-			const totalImages = this.endImageIndex - this.startImageIndex + 1;
+			const totalImages = Math.max(0, this.endImageIndex - this.startImageIndex + 1);
 			const totalText = this.trailerUrl ? `预告片 + ${totalImages} 张` : `共 ${totalImages} 张`;
-			countElement.textContent = totalText;
+			this.updateImageCountText(totalText);
 		}
 		
+		this.setupImageScrollButtons();
 		// 显示容器（会自动重试）
 		this.showContainer(this.endImageIndex);
 		
@@ -4306,13 +4818,29 @@ static isDetailsPage() {
 				border-bottom: none;
 			}
 
-			.jv-images-grid {
+			.jv-image-scroll-container {
+				position: relative;
 				background: rgba(0, 0, 0, 0.3);
 				backdrop-filter: blur(15px);
 				padding: 24px;
 				border-radius: 0 0 12px 12px;
 				border: 1px solid rgba(255, 255, 255, 0.1);
 				border-top: none;
+			}
+
+			.jv-images-grid {
+				display: flex;
+				flex-wrap: nowrap;
+				gap: 16px;
+				overflow-x: auto;
+				overflow-y: hidden;
+				scroll-behavior: smooth;
+				scrollbar-width: none;
+				padding-bottom: 2px;
+			}
+
+			.jv-images-grid::-webkit-scrollbar {
+				display: none;
 			}
 
 			.jv-similar-scroll-container {
@@ -4365,6 +4893,33 @@ static isDetailsPage() {
 
 			.jv-scroll-right {
 				right: -20px;
+			}
+
+			.jv-image-scroll-left,
+			.jv-image-scroll-right {
+				width: 44px;
+				height: 96px;
+				border-radius: 10px;
+				background: rgba(0, 0, 0, 0.62);
+				border: 1px solid rgba(255, 255, 255, 0.18);
+				font-size: 34px;
+				line-height: 1;
+				box-shadow: 0 8px 26px rgba(0, 0, 0, 0.35);
+				backdrop-filter: blur(8px);
+			}
+
+			.jv-image-scroll-left {
+				left: 8px;
+			}
+
+			.jv-image-scroll-right {
+				right: 8px;
+			}
+
+			.jv-image-scroll-left:hover,
+			.jv-image-scroll-right:hover {
+				background: rgba(0, 164, 220, 0.86);
+				transform: translateY(-50%) scale(1.04);
 			}
 
 			.jv-similar-grid {
@@ -4604,6 +5159,29 @@ static isDetailsPage() {
 				padding: 6px 14px;
 				border-radius: 20px;
 				font-weight: 500;
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+				flex-wrap: wrap;
+				justify-content: flex-end;
+			}
+
+			.jv-source-switch-btn {
+				border: 1px solid rgba(0, 164, 220, 0.45);
+				background: rgba(0, 164, 220, 0.16);
+				color: rgba(255, 255, 255, 0.92);
+				border-radius: 12px;
+				padding: 3px 9px;
+				font-size: 12px;
+				line-height: 1.2;
+				cursor: pointer;
+				transition: all 0.18s ease;
+			}
+
+			.jv-source-switch-btn:hover {
+				background: rgba(0, 164, 220, 0.35);
+				border-color: rgba(0, 164, 220, 0.75);
+				color: #fff;
 			}
 
 			.jv-similar-count {
@@ -4624,16 +5202,13 @@ static isDetailsPage() {
 				font-weight: 500;
 			}
 
-			.jv-images-grid {
-				display: grid;
-				grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-				gap: 16px;
-			}
-
 			.jv-image {
-				width: 100%;
+				width: auto;
+				min-width: 280px;
+				max-width: 320px;
 				height: 180px;
 				object-fit: cover;
+				flex: 0 0 auto;
 				cursor: zoom-in;
 				user-select: none;
 				border-radius: 12px;
@@ -4650,8 +5225,11 @@ static isDetailsPage() {
 
 			.jv-trailer-wrapper {
 				position: relative;
-				width: 100%;
+				width: auto;
+				min-width: 280px;
+				max-width: 320px;
 				height: 180px;
+				flex: 0 0 auto;
 				cursor: pointer;
 				border-radius: 12px;
 				overflow: hidden;
@@ -5329,8 +5907,13 @@ static isDetailsPage() {
 
 			@media (max-width: 1200px) {
 				.jv-images-grid {
-					grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 					gap: 12px;
+				}
+
+				.jv-image,
+				.jv-trailer-wrapper {
+					min-width: 240px;
+					max-width: 280px;
 				}
 			}
 
@@ -5347,9 +5930,11 @@ static isDetailsPage() {
 					padding: 12px 16px;
 				}
 
-				.jv-images-grid {
+				.jv-image-scroll-container {
 					padding: 16px;
-					grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+				}
+
+				.jv-images-grid {
 					gap: 10px;
 				}
 
@@ -5367,8 +5952,24 @@ static isDetailsPage() {
 				}
 
 				.jv-image {
+					min-width: 180px;
+					max-width: 220px;
 					height: 120px;
 					border-radius: 8px;
+				}
+
+				.jv-trailer-wrapper {
+					min-width: 180px;
+					max-width: 220px;
+					height: 120px;
+					border-radius: 8px;
+				}
+
+				.jv-image-scroll-left,
+				.jv-image-scroll-right {
+					width: 36px;
+					height: 72px;
+					font-size: 28px;
 				}
 
 				.jv-zoom-btn {
