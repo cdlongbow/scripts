@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.3.4
+// @version      2.3.5
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
-// @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
+// @icon         https://sink-url.cc.cd/yt22yn
 
 // Core detail/list sites
 // @match        *://*.javlibrary.com/*
@@ -47,7 +47,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.3.4';
+    const SCRIPT_VERSION = '2.3.5';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -3216,7 +3216,7 @@
         },
 
         cacheKey(code) {
-            return `trailer_cache_v8_${this.normalize(code)}`;
+            return `trailer_cache_v9_${this.normalize(code)}`;
         },
 
         debug(...args) {
@@ -3247,9 +3247,7 @@
             const id = this.normalize(code);
             const cacheEnabled = Settings.getTrailerCacheEnabled();
             this.debug('开始查询', { rawCode, normalized: id, cacheEnabled });
-            const directSample = this.classifyDirectSample(id, rawCode);
-            const skipCache = directSample?.source === '1pondo';
-            if (cacheEnabled && !skipCache) {
+            if (cacheEnabled) {
                 const cached = sessionStorage.getItem(this.cacheKey(id));
                 if (cached) {
                     try {
@@ -3263,15 +3261,12 @@
                     this.debug('缓存无效，已移除');
                     sessionStorage.removeItem(this.cacheKey(id));
                 }
-            } else if (skipCache) {
-                this.debug('跳过缓存', { reason: '1pondo 直连地址可能随页面变化' });
             }
 
             const resolvers = [
                 this.fromMgstage,
-                this.fromDirectSamples,
                 this.fromFc2Hub,
-                this.fromJavpCcCd,
+                this.fromJavxyCcCd,
                 this.fromDmmApi,
                 this.fromDmmPlayerPage,
                 this.fromJavSpyl
@@ -3320,36 +3315,6 @@
             const r = await this.request(url, { method: 'HEAD', timeout: 5000 });
             if (!r) return null;
             if (r.status >= 200 && r.status < 400) return r.finalUrl || url;
-            return null;
-        },
-
-        async buildDirectQualityMap(baseUrls) {
-            const qualities = ['1080p', '720p', '480p', '360p', '240p'];
-            const qualityMap = {};
-            for (const quality of qualities) {
-                for (const baseUrl of baseUrls) {
-                    const url = baseUrl.replace('__QUALITY__', quality);
-                    const finalUrl = await this.head(url);
-                    if (finalUrl) {
-                        qualityMap[quality] = finalUrl;
-                        break;
-                    }
-                }
-            }
-            return qualityMap;
-        },
-
-        async firstWorkingUrl(urls, batchSize = 8) {
-            const uniqueUrls = [...new Set(urls.filter(Boolean))];
-            for (let i = 0; i < uniqueUrls.length; i += batchSize) {
-                const batch = uniqueUrls.slice(i, i + batchSize);
-                const results = await Promise.all(batch.map(async (url) => {
-                    const finalUrl = await this.head(url);
-                    return finalUrl ? { url: finalUrl } : null;
-                }));
-                const found = results.find(Boolean);
-                if (found) return found.url;
-            }
             return null;
         },
 
@@ -3464,9 +3429,16 @@
         qualityOptions: [
             { quality: '4k', text: '4K' },
             { quality: 'hhb', text: '1080p' },
+            { quality: '1080p', text: '1080p' },
             { quality: 'hmb', text: '720p' },
+            { quality: '720p', text: '720p' },
             { quality: 'mhb', text: '576p' },
-            { quality: 'mmb', text: '432p' }
+            { quality: '540p', text: '540p' },
+            { quality: 'mmb', text: '432p' },
+            { quality: '480p', text: '480p' },
+            { quality: '396p', text: '396p' },
+            { quality: '360p', text: '360p' },
+            { quality: '240p', text: '240p' }
         ],
 
         selectHighestQuality(qualityMap) {
@@ -3480,21 +3452,30 @@
                 .sort((a, b) => (rank.get(a) ?? -1) - (rank.get(b) ?? -1));
         },
 
-        async fromJavpCcCd(id) {
-            const query = String(id || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+        javxySourceLabels: {
+            DMM: 'Javxy | dmm',
+            HEYZO: 'Javxy | Heyzo',
+            PACO: 'Javxy | Paco',
+            '10MU': 'Javxy | 10mu',
+            Caribbean: 'Javxy | 加勒比',
+            '1Pondo': 'Javxy | 一本道'
+        },
+
+        async fromJavxyCcCd(id, rawCode = '') {
+            const query = String(id || rawCode || '').trim();
             if (!query) {
-                this.debug('JAVP 跳过：查询词为空');
+                this.debug('Javxy 跳过：查询词为空');
                 return null;
             }
 
-            const apiUrl = `https://javp.cc.cd/trailers/${encodeURIComponent(query)}`;
-            this.debug('JAVP 请求 API', { query, apiUrl });
+            const apiUrl = `https://javxy.cc.cd/trailers/${encodeURIComponent(query)}`;
+            this.debug('Javxy 请求 API', { query, apiUrl });
             const r = await this.request(apiUrl, {
-                timeout: 12000,
+                timeout: 8000,
                 headers: { Accept: 'application/json,text/plain,*/*' }
             });
             if (!r?.responseText || r.status < 200 || r.status >= 400) {
-                this.debug('JAVP API 失败', { status: r?.status });
+                this.debug('Javxy API 失败', { status: r?.status });
                 return null;
             }
 
@@ -3502,39 +3483,27 @@
             try {
                 data = JSON.parse(r.responseText);
             } catch {
-                this.debug('JAVP JSON 解析失败');
+                this.debug('Javxy JSON 解析失败');
                 return null;
             }
 
             const trailerUrl = String(data?.trailer || '').trim();
             if (!trailerUrl) {
-                this.debug('JAVP 无 trailer 字段', { keys: Object.keys(data || {}) });
+                this.debug('Javxy 无 trailer 字段', { keys: Object.keys(data || {}) });
                 return null;
             }
 
-            const qualityMap = {};
-            const suffixes = ['4k', '4ks', '1080p', '720p', '480p', '360p', '240p'];
-            const matched = trailerUrl.match(/^(.*?)(4k|4ks|1080p|720p|480p|360p|240p)\.mp4(?:[?#].*)?$/i);
+            const qualityMap = data?.qualities && typeof data.qualities === 'object' ? data.qualities : {};
+            const quality = data?.quality && qualityMap[data.quality] ? data.quality : this.selectHighestQuality(qualityMap);
+            const source = this.javxySourceLabels[data?.source] || `Javxy | ${data?.source || 'dmm'}`;
+            this.debug('Javxy 返回结果', { source: data?.source, quality, qualities: Object.keys(qualityMap) });
 
-            if (!matched) {
-                return this.result(trailerUrl, 'JAVP / DMM', 'video');
-            }
-
-            const [ , prefix ] = matched;
-            suffixes.forEach(q => {
-                qualityMap[q] = `${prefix}${q}.mp4`;
-            });
-
-            const highestQuality = this.selectHighestQuality(qualityMap);
-            if (!highestQuality) {
-                this.debug('JAVP 未识别画质', { trailerUrl });
-                return null;
-            }
-
-            return this.result(qualityMap[highestQuality], 'JAVP / DMM', 'video', {
+            return this.result(qualityMap[quality] || trailerUrl, source, 'video', {
                 qualities: qualityMap,
-                quality: highestQuality,
-                urls: this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
+                quality,
+                urls: Array.isArray(data?.urls) && data.urls.length
+                    ? data.urls
+                    : this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
             });
         },
 
@@ -3708,242 +3677,7 @@
             this.debug('DMM 播放器页解析画质', { contentId, qualities: Object.keys(qualityMap) });
             return qualityMap;
         },
-
-
-
-        getDirectSampleSourceHint(rawCode = '') {
-            const raw = String(rawCode || '').toLowerCase();
-            if (/(?:caribbeancom|carib)/.test(raw)) return 'caribbean';
-            if (/(?:pacopacomama|paco)/.test(raw)) return 'paco';
-            if (/(?:10musume|10mu)/.test(raw)) return '10mu';
-            if (/(?:1pondo|1pon)/.test(raw)) return '1pondo';
-            return '';
-        },
-
-        classifyDirectSample(id, rawCode = '') {
-            const normalized = this.normalize(rawCode || id || '');
-            const hint = this.getDirectSampleSourceHint(rawCode);
-            const hintedSourceChecks = {
-                caribbean: /^[01]\d{5}-\d{2,3}$/.test(normalized),
-                paco: /^\d{6}_100$/.test(normalized),
-                '10mu': /^\d{6}_\d{2}$/.test(normalized),
-                '1pondo': /^\d{6}_\d{3}$/.test(normalized)
-            };
-            const sourceChecks = {
-                caribbean: /^[01]\d{5}-\d{2,3}$/.test(normalized),
-                paco: /^\d{6}_100$/.test(normalized),
-                '10mu': /^\d{6}_\d{2}$/.test(normalized),
-                '1pondo': /^\d{6}_(?!100$)\d{3}$/.test(normalized)
-            };
-
-            if (hint) {
-                return hintedSourceChecks[hint] ? { source: hint, id: normalized } : null;
-            }
-
-            const matches = Object.keys(sourceChecks).filter(source => sourceChecks[source]);
-            if (matches.length !== 1) return null;
-            return { source: matches[0], id: normalized };
-        },
-
-        buildDirectSampleBySource(classification, rawCode = '') {
-            if (!classification?.source || !classification.id) return null;
-            switch (classification.source) {
-                case 'caribbean':
-                    return this._buildCaribbeanDirect(classification.id, rawCode);
-                case 'paco':
-                    return this._buildPacoDirect(classification.id, rawCode);
-                case '10mu':
-                    return this._build10MuDirect(classification.id, rawCode);
-                case '1pondo':
-                    return this._build1PondoDirect(classification.id, rawCode);
-                default:
-                    return null;
-            }
-        },
-
-        _buildFixedQualityResult({ urlBase, sourceName, sourceLabel, sourceTag, ext = 'mp4' }) {
-            const q1080 = `${urlBase}/1080p.${ext}`;
-            const q720  = `${urlBase}/720p.${ext}`;
-            const q480  = `${urlBase}/480p.${ext}`;
-            const q360  = `${urlBase}/360p.${ext}`;
-            const q240  = `${urlBase}/240p.${ext}`;
-            const qualities = {
-                '1080p': q1080,
-                '720p': q720,
-                '480p': q480,
-                '360p': q360,
-                '240p': q240
-            };
-            return this.result(q1080, sourceLabel, 'video', {
-                sourceName,
-                sourceLabel,
-                sourceTag,
-                trailerSource: sourceName,
-                qualities,
-                quality: '1080p',
-                urls: [q1080, q720, q480, q360, q240]
-            });
-        },
-
-        _build10MuDirect(id, rawCode = '') {
-            if (!/^\d{6}_\d{2}$/.test(id)) return null;
-            return this._buildFixedQualityResult({
-                urlBase: `https://fms.10musume.com/hls/sample/10musume.com/${id}`,
-                sourceName: '10MU',
-                sourceLabel: '无码直连预告 / 10MU',
-                sourceTag: '10MU'
-            });
-        },
-
-        _buildPacoDirect(id, rawCode = '') {
-            if (!/^\d{6}_100$/.test(id)) return null;
-            return this._buildFixedQualityResult({
-                urlBase: `https://fms.pacopacomama.com/hls/sample/pacopacomama.com/${id}`,
-                sourceName: 'PACO',
-                sourceLabel: '无码直连预告 / PACO',
-                sourceTag: 'PACO'
-            });
-        },
-
-        _build1PondoDirect(id, rawCode = '') {
-            const hasPondoHint = this.getDirectSampleSourceHint(rawCode) === '1pondo';
-            if (!/^\d{6}_\d{3}$/.test(id)) return null;
-            if (!hasPondoHint && /^\d{6}_100$/.test(id)) return null;
-            if (!hasPondoHint && rawCode && /-/.test(rawCode)) return null;
-            return this._buildFixedQualityResult({
-                urlBase: `https://sample-1pondo.eroxjapanz.com/sample/movies/${id}`,
-                sourceName: '一本道',
-                sourceLabel: '无码直连预告 / 一本道',
-                sourceTag: '一本道'
-            });
-        },
-
-        _buildCaribbeanDirect(id, rawCode = '') {
-            const raw = String(rawCode || id || '');
-            const canonical = /^[01]\d{5}-\d{2,3}$/.test(raw) ? raw : id;
-            if (/^[01]\d{5}-\d{2,3}$/.test(canonical)) {
-                return this._buildFixedQualityResult({
-                    urlBase: `https://smovie.caribbeancom.com/sample/movies/${canonical}`,
-                    sourceName: '加勒比',
-                    sourceLabel: '无码直连预告 / 加勒比',
-                    sourceTag: '加勒比'
-                });
-            }
-            return null;
-        },
-
-        _buildHeyzoDirect(id) {
-            if (!/^heyzo[-_ ]?\d{4}$/i.test(id)) return null;
-            const num = id.match(/\d{4}/)?.[0];
-            const qualityMap = {
-                '1080p': `https://www.heyzo.com/contents/3000/${num}/heyzo_hd_${num}_sample.mp4`,
-                '540p':  `https://www.heyzo.com/contents/3000/${num}/sample.mp4`,
-                '396p':  `https://www.heyzo.com/contents/3000/${num}/sample_low.mp4`
-            };
-            const highestQuality = this.selectHighestQuality(qualityMap);
-            if (!highestQuality) return null;
-            return this.result(qualityMap[highestQuality], '无码直连预告 / HEYZO', 'video', {
-                sourceName: 'HEYZO',
-                sourceLabel: '无码直连预告 / HEYZO',
-                sourceTag: 'HEYZO',
-                trailerSource: 'HEYZO',
-                qualities: qualityMap,
-                quality: highestQuality,
-                urls: this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
-            });
-        },
-
-        _buildTokyoHotDirect(id) {
-            if (!/^(?:k|n)\d{4}$/i.test(id)) return null;
-            const lower = id.toLowerCase();
-            return this.buildDirectQualityMap([
-                `https://my.cdn.tokyo-hot.com/media/samples/${lower}.mp4`
-            ]).then(qualityMap => {
-                const highestQuality = this.selectHighestQuality(qualityMap);
-                if (!highestQuality) return null;
-                return this.result(qualityMap[highestQuality], '无码直连预告', 'video', {
-                    sourceName: 'Tokyo-Hot',
-                    sourceLabel: '无码直连预告 / Tokyo-Hot',
-                    sourceTag: 'Tokyo-Hot',
-                    trailerSource: 'Tokyo-Hot',
-                    qualities: qualityMap,
-                    quality: highestQuality,
-                    urls: this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
-                });
-            });
-        },
-
-        async fromDirectSamples(id, rawCode = '') {
-            const normalizedRaw = this.normalize(rawCode || id || '');
-            const directSample = this.classifyDirectSample(normalizedRaw, rawCode);
-            const directResult = this.buildDirectSampleBySource(directSample, rawCode);
-            if (directResult?.url) return directResult;
-
-            const builders = [
-                this._buildHeyzoDirect,
-                this._buildTokyoHotDirect
-            ];
-
-            for (const build of builders) {
-                const result = await build.call(this, normalizedRaw, rawCode);
-                if (result?.url) return result;
-            }
-
-            return null;
-        },
-
-        async fromJavpCcCd(id, rawCode = '') {
-            const searchCode = String(rawCode || id || '').trim();
-            if (!searchCode) return null;
-
-            const apiUrl = `https://jaxy.cc.cd/trailers/${encodeURIComponent(searchCode)}`;
-            const r = await this.request(apiUrl, {
-                timeout: 15000,
-                headers: { Accept: 'application/json,text/plain,*/*' }
-            });
-            if (!r?.responseText || r.status < 200 || r.status >= 400) return null;
-
-            let data;
-            try {
-                data = JSON.parse(r.responseText);
-            } catch {
-                return null;
-            }
-
-            const trailerUrl = String(data?.trailer || '').trim();
-            if (!trailerUrl) return null;
-
-            const matched = trailerUrl.match(/^(.*?)(4k|hhb|hmb|mhb|mmb)\.mp4(?:[?#].*)?$/i);
-            if (!matched) return this.result(trailerUrl, 'JAVP / DMM', 'video');
-
-            const prefix = matched[1];
-            const qualities = ['4k', 'hhb', 'hmb', 'mhb', 'mmb'];
-            const qualityCandidates = qualities.map(quality => ({
-                quality,
-                url: `${prefix}${quality}.mp4`
-            }));
-
-            const checks = await Promise.all(qualityCandidates.map(async item => ({
-                ...item,
-                ok: Boolean(await this.head(item.url))
-            })));
-            const qualityMap = {};
-            checks.forEach(item => {
-                if (item.ok) qualityMap[item.quality] = item.url;
-            });
-
-            if (!Object.keys(qualityMap).length) {
-                return this.result(trailerUrl, 'JAVP / DMM', 'video');
-            }
-
-            const highestQuality = this.qualityOptions.map(item => item.quality).find(q => qualityMap[q]);
-            return this.result(qualityMap[highestQuality], 'JAVP / DMM', 'video', {
-                qualities: qualityMap,
-                quality: highestQuality,
-                urls: this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
-            });
-        },
-
+        
         async fromFc2Hub(id, rawCode) {
             const checkCode = rawCode || id;
             if (!/FC2/i.test(checkCode)) return null;
