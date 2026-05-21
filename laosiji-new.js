@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.3.3
+// @version      2.3.4
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -24,6 +24,7 @@
 // @match        *://sehuatang.net/*
 // @match        *://hjd2048.com/2048/*
 // @match        *://missav.*/*
+// @match        *://jable.tv/*
 
 // Runtime
 // @run-at       document-idle
@@ -46,7 +47,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.3.3';
+    const SCRIPT_VERSION = '2.3.4';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -99,6 +100,7 @@
         { key: 'jable',  label: 'Jable',  host: /jable\.tv/i, color: '#f97316' },
         { key: '123av',  label: '123AV',  host: /123av\.com/i, color: '#10b981' },
         { key: 'javday', label: 'JavDay', host: /javday\.app/i, color: '#0ea5e9' },
+        { key: 'supjav', label: 'SupJav', host: /supjav\.com/i, color: '#ef4444' },
     ];
     window.__LAOSIJI_VIDEO_ENGINES__ = VIDEO_ENGINES;
 
@@ -530,75 +532,131 @@
             },
         };
 
-        async function _searchJavDB(kw) {
-            const base = 'https://' + CFG.javdbSearchUrl;
+        const JAVDB_API_BASE = 'https://jdforrepam.com/api';
+        const JAVDB_SIGN_SALT = '71cf27bb3c0bcdf207b64abecddc970098c7421ee7203b9cdae54478478a199e7d5a6e1a57691123c1a931c057842fb73ba3b3c83bcd69c17ccf174081e3d8aa';
+        let javdbSignCache = { ts: 0, sign: '' };
 
-            const normalizeCodeText = text => String(text || '')
-                .toUpperCase()
-                .replace(/[＿_\s]+/g, '-');
-            const compactCodeText = text => normalizeCodeText(text).replace(/[^A-Z0-9]/g, '');
-            const kwNorm = normalizeCodeText(kw);
-            const kwCompact = compactCodeText(kw);
-            const isCodeMatch = text => {
-                const norm = normalizeCodeText(text);
-                const compact = compactCodeText(text);
-                return norm.includes(kwNorm) || compact.includes(kwCompact);
-            };
-            const extractMagnets = (doc, srcUrl) => {
-                const items = doc.querySelectorAll('#magnets-content .item, .magnet-list .item');
-                return [...items].map(el => {
-                    const magA = el.querySelector('a[href^="magnet:"]') || el.querySelector('.magnet-name a:nth-child(1)');
-                    const rawMag = magA?.getAttribute('href') || '';
-                    const maglink = rawMag.startsWith('magnet:') ? rawMag
-                                  : rawMag.startsWith('http')    ? rawMag
-                                  : rawMag ? new URL(rawMag, srcUrl).href : '';
-                    return {
-                        title:   el.querySelector('.magnet-name span:nth-child(1)')?.textContent?.trim()
-                              || el.querySelector('.name')?.textContent?.trim()
-                              || magA?.textContent?.trim()
-                              || '',
-                        maglink,
-                        size:    el.querySelector('.magnet-name .meta')?.textContent?.trim()
-                              || el.querySelector('.meta')?.textContent?.trim()
-                              || el.querySelector('.size')?.textContent?.trim()
-                              || '',
-                        src:     srcUrl,
-                    };
-                }).filter(item => item.maglink);
-            };
+        function javdbMd5(str) {
+            const b = new TextEncoder().encode(str);
+            const l = b.length;
+            const n = ((l + 8) >> 6) + 1;
+            const m = new Uint32Array(n * 16);
+            const k = [];
+            const s = [7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21];
 
-            const searchUrl = `${base}/search?f=download&q=${encodeURIComponent(kw)}`;
-            const r = await gmFetch(searchUrl, { headers: { Referer: base + '/' } });
-            if (!r.loadstuts) return { url: base, data: [] };
-            const doc = parseHTML(r.responseText);
-            const finalUrl = r.finalUrl || searchUrl;
+            for (let i = 0; i < 64; i++) k[i] = Math.floor(2 ** 32 * Math.abs(Math.sin(i + 1)));
+            for (let i = 0; i < l; i++) m[i >> 2] |= b[i] << ((i % 4) << 3);
+            m[l >> 2] |= 0x80 << ((l % 4) << 3);
+            m[n * 16 - 2] = l * 8;
 
-            if (/\/v\/[^/?#]+/.test(finalUrl)) {
-                return { url: finalUrl, data: extractMagnets(doc, finalUrl) };
+            let [a0, b0, c0, d0] = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476];
+            for (let i = 0; i < n; i++) {
+                const g = m.slice(i * 16, (i + 1) * 16);
+                let [a, b, c, d] = [a0, b0, c0, d0];
+                for (let j = 0; j < 64; j++) {
+                    const q = Math.floor(j / 16);
+                    const f = [(b & c) | (~b & d), (d & b) | (~d & c), b ^ c ^ d, c ^ (b | ~d)][q];
+                    const p = [j, (5 * j + 1) % 16, (3 * j + 5) % 16, (7 * j) % 16][q];
+                    const sum = (a + f + k[j] + g[p]) | 0;
+                    const shift = s[(q << 2) | (j % 4)];
+                    const nextA = d;
+                    d = c;
+                    c = b;
+                    b = (b + ((sum << shift) | (sum >>> (32 - shift)))) | 0;
+                    a = nextA;
+                }
+                a0 = (a0 + a) | 0;
+                b0 = (b0 + b) | 0;
+                c0 = (c0 + c) | 0;
+                d0 = (d0 + d) | 0;
             }
 
-            const candidates = [...doc.querySelectorAll('a[href*="/v/"]')]
-                .map(a => ({
-                    a,
-                    text: [
-                        a.textContent,
-                        a.querySelector('.video-title')?.textContent,
-                        a.querySelector('.uid')?.textContent,
-                        a.querySelector('.value')?.textContent,
-                    ].filter(Boolean).join(' '),
-                }))
-                .filter(item => item.a.getAttribute('href'));
-            const matched = candidates.find(item => isCodeMatch(item.text))
-                || (candidates.length === 1 ? candidates[0] : null);
-            if (!matched) return { url: finalUrl, data: [] };
+            return [a0, b0, c0, d0]
+                .map(v => new Uint32Array([v]))
+                .map(v => new Uint8Array(v.buffer))
+                .map(v => Array.from(v, b => b.toString(16).padStart(2, '0')).join(''))
+                .join('');
+        }
 
-            const rawHref = matched.a.getAttribute('href') || '';
-            const detailUrl = new URL(rawHref, base + '/').href;
+        function buildJavdbSignature() {
+            const curr = Math.floor(Date.now() / 1000);
+            if (javdbSignCache.sign && curr - javdbSignCache.ts <= 20) return javdbSignCache.sign;
+            javdbSignCache = {
+                ts: curr,
+                sign: `${curr}.lpw6vgqzsp.${javdbMd5(`${curr}${JAVDB_SIGN_SALT}`)}`
+            };
+            return javdbSignCache.sign;
+        }
 
-            const r2 = await gmFetch(detailUrl);
-            if (!r2.loadstuts) return { url: finalUrl, data: [] };
-            const doc2 = parseHTML(r2.responseText);
-            return { url: r2.finalUrl || detailUrl, data: extractMagnets(doc2, r2.finalUrl || detailUrl) };
+        function parseJson(text) {
+            try { return JSON.parse(text || '{}'); }
+            catch { return null; }
+        }
+
+        function formatJavdbSize(size) {
+            const mb = Number(size);
+            if (!Number.isFinite(mb) || mb <= 0) return '';
+            return mb >= 1024 ? `${(mb / 1024).toFixed(mb >= 10240 ? 1 : 2)} GB` : `${Math.round(mb)} MB`;
+        }
+
+        async function _searchJavDB(kw) {
+            const webBase = 'https://' + CFG.javdbSearchUrl;
+            const headers = {
+                accept: 'application/json',
+                jdSignature: buildJavdbSignature()
+            };
+            const params = new URLSearchParams({
+                q: kw,
+                page: '1',
+                type: 'movie',
+                limit: '5',
+                movie_type: 'all',
+                from_recent: 'false',
+                movie_filter_by: 'all',
+                movie_sort_by: 'relevance'
+            });
+            const searchUrl = `${JAVDB_API_BASE}/v2/search?${params.toString()}`;
+            const r = await gmFetch(searchUrl, { headers });
+            if (!r.loadstuts || r.status < 200 || r.status >= 400) return { url: webBase, data: [] };
+
+            const json = parseJson(r.responseText);
+            const movies = Array.isArray(json?.data?.movies) ? json.data.movies : [];
+            const compactKw = String(kw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const movie = movies.find(item => {
+                const number = String(item?.number || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                return number && number === compactKw;
+            }) || movies[0];
+            if (!movie?.id) return { url: webBase, data: [] };
+
+            const detailUrl = `${webBase}/v/${movie.id}`;
+            const magnetsUrl = `${JAVDB_API_BASE}/v1/movies/${encodeURIComponent(movie.id)}/magnets`;
+            const r2 = await gmFetch(magnetsUrl, { headers: { ...headers, jdSignature: buildJavdbSignature() } });
+            if (!r2.loadstuts || r2.status < 200 || r2.status >= 400) return { url: detailUrl, data: [] };
+
+            const magnetsJson = parseJson(r2.responseText);
+            const magnets = Array.isArray(magnetsJson?.data?.magnets) ? magnetsJson.data.magnets : [];
+            const data = magnets.map(item => {
+                const hash = String(item?.hash || '').trim();
+                if (!hash) return null;
+                const name = String(item?.name || movie.number || kw).trim();
+                const title = [
+                    name,
+                    item?.cnsub ? '-CH' : '',
+                    item?.hd ? 'HD' : '',
+                    item?.files_count ? `${item.files_count} files` : '',
+                    item?.created_at || ''
+                ].filter(Boolean).join(' ');
+                return {
+                    title,
+                    maglink: `magnet:?xt=urn:btih:${hash}`,
+                    size: formatJavdbSize(item?.size),
+                    src: detailUrl,
+                    cnsub: Boolean(item?.cnsub),
+                    hd: Boolean(item?.hd)
+                };
+            }).filter(Boolean);
+
+            return { url: detailUrl, data };
         }
 
         async function _searchCiligou(kw) {
@@ -1284,6 +1342,7 @@
         { key: 'jable',  label: 'Jable',  host: /jable\.tv/i, color: '#f97316' },
         { key: '123av',  label: '123AV',  host: /123av\.com/i, color: '#10b981' },
         { key: 'javday', label: 'JavDay', host: /javday\.app/i, color: '#0ea5e9' },
+        { key: 'supjav', label: 'SupJav', host: /supjav\.com/i, color: '#ef4444' },
     ];
 
     GM_addStyle(`
@@ -1577,23 +1636,23 @@
             justify-content: center;
             padding: 34px;
             background:
-                radial-gradient(circle at 50% 20%, rgba(70, 84, 130, 0.26), transparent 34%),
-                linear-gradient(180deg, rgba(0, 0, 0, 0.92), rgba(0, 0, 0, 0.98));
-            backdrop-filter: blur(14px) saturate(0.75);
+                radial-gradient(circle at 50% 18%, rgba(56, 189, 248, 0.16), transparent 32%),
+                linear-gradient(180deg, rgba(5, 7, 12, 0.88), rgba(0, 0, 0, 0.96));
+            backdrop-filter: blur(16px) saturate(0.85);
             cursor: default;
         }
         .trailer-modal {
-            width: min(1180px, 94vw);
+            width: min(1120px, 94vw);
             max-height: 92vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
             color: #f8fafc;
-            background: #060812;
+            background: #05070c;
             border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 16px;
+            border-radius: 8px;
             box-shadow:
-                0 35px 90px rgba(0, 0, 0, 0.72),
+                0 30px 80px rgba(0, 0, 0, 0.68),
                 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
             cursor: default;
             animation: trailerFadeIn .18s ease-out;
@@ -1603,20 +1662,29 @@
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
         .trailer-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 4;
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 16px;
-            padding: 13px 16px;
-            background: linear-gradient(180deg, rgba(22, 28, 44, 0.96), rgba(10, 13, 24, 0.92));
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px 18px 34px;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.66), rgba(0, 0, 0, 0));
+            border: 0;
+            pointer-events: none;
+            opacity: 1;
+            transition: opacity .18s ease, transform .18s ease;
         }
         .trailer-title {
             min-width: 0;
             display: flex;
             align-items: center;
             gap: 10px;
-            font: 600 15px/1.3 Arial, "Microsoft YaHei", sans-serif;
+            font: 700 15px/1.3 Arial, "Microsoft YaHei", sans-serif;
+            pointer-events: auto;
         }
         .trailer-code {
             overflow: hidden;
@@ -1628,49 +1696,88 @@
             flex-shrink: 0;
             padding: 3px 9px;
             border-radius: 999px;
-            color: #bae6fd;
-            background: rgba(14, 165, 233, 0.14);
-            border: 1px solid rgba(14, 165, 233, 0.24);
+            color: rgba(255, 255, 255, 0.82);
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.18);
             font-size: 12px;
             font-weight: 500;
+            backdrop-filter: blur(12px);
         }
         .jav-player-close {
             width: 34px;
             height: 34px;
             border: 0;
             border-radius: 50%;
-            color: #e5e7eb;
-            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            background: rgba(255, 255, 255, 0.14);
             cursor: pointer;
             font-size: 18px;
             line-height: 34px;
-            transition: transform .15s ease, background .15s ease;
+            pointer-events: auto;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+            transition: transform .15s ease, background .15s ease, box-shadow .15s ease;
         }
         .jav-player-close:hover {
             transform: scale(1.08);
-            background: rgba(248, 113, 113, 0.28);
+            background: rgba(248, 113, 113, 0.34);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
         }
         .trailer-screen {
             position: relative;
             aspect-ratio: 16 / 9;
             width: 100%;
+            max-height: 82vh;
+            overflow: hidden;
             background:
                 radial-gradient(circle at center, rgba(31, 41, 55, .75), #000 62%),
                 #000;
         }
+        .trailer-screen:fullscreen {
+            width: 100vw;
+            height: 100vh;
+            max-height: none;
+            aspect-ratio: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+        .trailer-screen:-webkit-full-screen {
+            width: 100vw;
+            height: 100vh;
+            max-height: none;
+            aspect-ratio: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+        .trailer-screen::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background:
+                linear-gradient(180deg, rgba(0, 0, 0, 0.52), rgba(0, 0, 0, 0) 30%),
+                linear-gradient(0deg, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0) 36%);
+        }
         .trailer-screen video,
         .trailer-screen iframe {
+            position: absolute;
+            inset: 0;
             width: 100%;
             height: 100%;
             display: block;
             border: 0;
             background: #000;
+            object-fit: contain;
         }
         .trailer-volume-indicator {
             position: absolute;
-            top: 18px;
-            right: 22px;
-            z-index: 3;
+            top: 62px;
+            right: 26px;
+            z-index: 5;
             color: #f8fafc;
             font: 750 24px/1 Arial, "Microsoft YaHei", sans-serif;
             text-shadow: 0 2px 8px rgba(0, 0, 0, 0.82);
@@ -1682,7 +1789,6 @@
             opacity: 1;
         }
         .trailer-quality-bar {
-            min-width: 140px;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -1692,47 +1798,157 @@
             border-radius: 0;
             backdrop-filter: none;
         }
-        .trailer-quality-label {
-            color: #9ca3af;
-            font: 12px/1.4 Arial, "Microsoft YaHei", sans-serif;
-            margin-right: 2px;
-            flex: 0 0 auto;
-        }
         .trailer-quality-select {
-            min-width: 92px;
-            max-width: 180px;
-            height: 28px;
-            padding: 0 10px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            background: rgba(255, 255, 255, 0.08);
+            min-width: 78px;
+            max-width: 140px;
+            height: 30px;
+            padding: 0 9px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: rgba(255, 255, 255, 0.12);
             color: #f8fafc;
             outline: none;
             font-size: 12px;
             appearance: none;
+            cursor: pointer;
         }
         .trailer-quality-select option {
             background: #0b1020;
             color: #f8fafc;
         }
         .trailer-footer {
+            position: absolute;
+            left: 16px;
+            right: 16px;
+            bottom: 16px;
+            z-index: 4;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 12px;
-            padding: 10px 16px;
-            color: #9ca3af;
-            background: #080b14;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            gap: 10px;
+            padding: 9px 10px;
+            color: rgba(255, 255, 255, 0.78);
+            background: rgba(10, 14, 22, 0.62);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 8px;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
+            backdrop-filter: blur(16px) saturate(1.08);
             font: 12px/1.4 Arial, "Microsoft YaHei", sans-serif;
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity .18s ease, transform .18s ease;
         }
-        .trailer-footer a {
-            color: #93c5fd;
-            text-decoration: none;
+        .trailer-screen.is-controls-hidden {
+            cursor: none;
         }
-        .trailer-footer a:hover {
-            color: #bfdbfe;
-            text-decoration: underline;
+        .trailer-screen.is-controls-hidden .trailer-header {
+            opacity: 0;
+            transform: translateY(-8px);
+            pointer-events: none;
+        }
+        .trailer-screen.is-controls-hidden .trailer-footer {
+            opacity: 0;
+            transform: translateY(10px);
+            pointer-events: none;
+        }
+        .trailer-control-left,
+        .trailer-control-right {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            min-width: 0;
+        }
+        .trailer-control-left {
+            flex: 1 1 auto;
+        }
+        .trailer-control-right {
+            flex: 0 0 auto;
+        }
+        .trailer-control-btn {
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            padding: 0;
+            border: 0;
+            border-radius: 999px;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.14);
+            cursor: pointer;
+            font: 700 13px/1 Arial, "Microsoft YaHei", sans-serif;
+            transition: background .15s ease, transform .15s ease;
+        }
+        .trailer-control-btn:hover {
+            background: rgba(255, 255, 255, 0.24);
+            transform: translateY(-1px);
+        }
+        .trailer-volume-wrap {
+            position: relative;
+            display: inline-flex;
+            flex: 0 0 auto;
+            align-items: center;
+            justify-content: center;
+        }
+        .trailer-volume-wrap::before {
+            content: "";
+            position: absolute;
+            left: 50%;
+            bottom: 100%;
+            width: 46px;
+            height: 14px;
+            transform: translateX(-50%);
+        }
+        .trailer-volume-popover {
+            position: absolute;
+            left: 50%;
+            bottom: calc(100% + 8px);
+            width: 34px;
+            height: 124px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 0;
+            border-radius: 999px;
+            background: rgba(10, 14, 22, 0.76);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.34);
+            backdrop-filter: blur(16px) saturate(1.08);
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(-50%, 6px);
+            transition: opacity .15s ease, transform .15s ease;
+        }
+        .trailer-volume-wrap:hover .trailer-volume-popover {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, 0);
+        }
+        .trailer-volume-slider {
+            width: 92px;
+            height: 4px;
+            margin: 0;
+            accent-color: #38bdf8;
+            cursor: pointer;
+            transform: rotate(-90deg);
+        }
+        .trailer-time {
+            flex: 0 0 auto;
+            min-width: 36px;
+            color: rgba(255, 255, 255, 0.78);
+            font: 11px/1.3 Arial, "Microsoft YaHei", sans-serif;
+            white-space: nowrap;
+            text-align: center;
+        }
+        .trailer-progress {
+            flex: 1 1 160px;
+            min-width: 120px;
+            height: 4px;
+            margin: 0;
+            border-radius: 999px;
+            accent-color: #38bdf8;
+            cursor: pointer;
         }
         .jav-jump-toast {
             position: fixed;
@@ -1793,8 +2009,25 @@
         }
         @media (max-width: 720px) {
             .trailer-overlay { padding: 12px; }
-            .trailer-modal { width: 100%; border-radius: 12px; }
-            .trailer-footer { flex-direction: column; }
+            .trailer-modal { width: 100%; border-radius: 8px; }
+            .trailer-header { padding: 12px 12px 30px; }
+            .trailer-title { gap: 7px; font-size: 13px; }
+            .trailer-source { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .trailer-footer {
+                left: 8px;
+                right: 8px;
+                bottom: 8px;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 7px;
+                padding: 8px;
+            }
+            .trailer-control-left,
+            .trailer-control-right {
+                width: 100%;
+                justify-content: center;
+            }
+            .trailer-progress { min-width: 80px; }
             .jav-jump-toast {
                 top: 18px;
                 width: calc(100vw - 24px);
@@ -2197,14 +2430,84 @@
             screen.className = 'trailer-screen';
             const volumeIndicator = document.createElement('div');
             volumeIndicator.className = 'trailer-volume-indicator';
+            const playBtn = document.createElement('button');
+            playBtn.className = 'trailer-control-btn';
+            playBtn.type = 'button';
+            playBtn.textContent = '⏸';
+            playBtn.title = '播放/暂停';
+            const volumeBtn = document.createElement('button');
+            volumeBtn.className = 'trailer-control-btn';
+            volumeBtn.type = 'button';
+            volumeBtn.textContent = '🔊';
+            volumeBtn.title = '静音/取消静音';
+            const volumeWrap = document.createElement('div');
+            volumeWrap.className = 'trailer-volume-wrap';
+            const volumePopover = document.createElement('div');
+            volumePopover.className = 'trailer-volume-popover';
+            const volumeSlider = document.createElement('input');
+            volumeSlider.className = 'trailer-volume-slider';
+            volumeSlider.type = 'range';
+            volumeSlider.min = '0';
+            volumeSlider.max = '100';
+            volumeSlider.step = '1';
+            volumeSlider.value = '35';
+            volumeSlider.title = '音量';
+            volumePopover.appendChild(volumeSlider);
+            volumeWrap.appendChild(volumeBtn);
+            volumeWrap.appendChild(volumePopover);
+            const currentTimeText = document.createElement('span');
+            currentTimeText.className = 'trailer-time';
+            currentTimeText.textContent = '00:00';
+            const durationText = document.createElement('span');
+            durationText.className = 'trailer-time';
+            durationText.textContent = '00:00';
+            const progress = document.createElement('input');
+            progress.className = 'trailer-progress';
+            progress.type = 'range';
+            progress.min = '0';
+            progress.max = '1000';
+            progress.step = '1';
+            progress.value = '0';
+            progress.title = '播放进度';
+            const fullscreenBtn = document.createElement('button');
+            fullscreenBtn.className = 'trailer-control-btn';
+            fullscreenBtn.type = 'button';
+            fullscreenBtn.textContent = '⛶';
+            fullscreenBtn.title = '全屏';
             let video = null;
             let activeUrl = url;
             let activeQuality = quality;
             let volumeIndicatorTimer = null;
+            let controlsHideTimer = null;
+            let seekingByProgress = false;
             const fallbackUrls = Array.isArray(urls)
                 ? [...new Set(urls.filter(Boolean))]
                 : [url].filter(Boolean);
             let fallbackIndex = Math.max(0, fallbackUrls.indexOf(url));
+            const sourceLink = { href: activeUrl };
+
+            const formatTime = (seconds) => {
+                if (!Number.isFinite(seconds) || seconds < 0) return '00:00';
+                const total = Math.floor(seconds);
+                const h = Math.floor(total / 3600);
+                const m = Math.floor((total % 3600) / 60);
+                const s = total % 60;
+                return h
+                    ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+                    : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            };
+
+            const syncTrailerControls = () => {
+                if (!video) return;
+                playBtn.textContent = video.paused ? '▶' : '⏸';
+                volumeBtn.textContent = video.muted || video.volume <= 0 ? '🔇' : '🔊';
+                volumeSlider.value = String(Math.round((video.muted ? 0 : video.volume) * 100));
+                currentTimeText.textContent = formatTime(video.currentTime || 0);
+                durationText.textContent = formatTime(video.duration || 0);
+                if (!seekingByProgress && Number.isFinite(video.duration) && video.duration > 0) {
+                    progress.value = String(Math.round(((video.currentTime || 0) / video.duration) * 1000));
+                }
+            };
 
             const showVolumeIndicator = () => {
                 if (!video) return;
@@ -2214,6 +2517,33 @@
                 volumeIndicatorTimer = setTimeout(() => {
                     volumeIndicator.classList.remove('is-visible');
                 }, 820);
+            };
+
+            const showTrailerControls = () => {
+                screen.classList.remove('is-controls-hidden');
+                clearTimeout(controlsHideTimer);
+                if (!video || video.paused) return;
+                controlsHideTimer = setTimeout(() => {
+                    if (!footer.matches(':hover') && document.activeElement !== volumeSlider) {
+                        screen.classList.add('is-controls-hidden');
+                    }
+                }, 2000);
+            };
+
+            const scheduleHideTrailerControls = () => {
+                clearTimeout(controlsHideTimer);
+                if (!video || video.paused) {
+                    screen.classList.remove('is-controls-hidden');
+                    return;
+                }
+                controlsHideTimer = setTimeout(() => {
+                    screen.classList.add('is-controls-hidden');
+                }, 2000);
+            };
+
+            const toggleTrailerFullscreen = () => {
+                if (document.fullscreenElement) document.exitFullscreen?.();
+                else screen.requestFullscreen?.();
             };
 
             const isM3U8 = /\.m3u8(?:[?#].*)?$/i.test(url);
@@ -2356,7 +2686,7 @@
                 screen.appendChild(iframe);
             } else {
                 video = document.createElement('video');
-                video.controls = true;
+                video.controls = false;
                 video.autoplay = true;
                 video.loop = true;
                 video.playsInline = true;
@@ -2371,7 +2701,20 @@
                 video.addEventListener('volumechange', () => {
                     GM_setValue('trailer_volume', video.volume);
                     GM_setValue('trailer_muted', video.muted);
+                    syncTrailerControls();
                 });
+                video.addEventListener('play', () => {
+                    syncTrailerControls();
+                    scheduleHideTrailerControls();
+                });
+                video.addEventListener('pause', () => {
+                    syncTrailerControls();
+                    screen.classList.remove('is-controls-hidden');
+                    clearTimeout(controlsHideTimer);
+                });
+                video.addEventListener('timeupdate', syncTrailerControls);
+                video.addEventListener('durationchange', syncTrailerControls);
+                video.addEventListener('loadedmetadata', syncTrailerControls);
                 video.addEventListener('error', () => {
                     if (fallbackIndex >= fallbackUrls.length - 1) return;
                     fallbackIndex += 1;
@@ -2387,7 +2730,65 @@
                 });
                 screen.appendChild(video);
                 screen.appendChild(volumeIndicator);
-                setTimeout(() => video.play().catch(() => {}), 120);
+                playBtn.addEventListener('click', e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!video) return;
+                    if (video.paused) video.play().catch(() => {});
+                    else video.pause();
+                    syncTrailerControls();
+                });
+                volumeBtn.addEventListener('click', e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!video) return;
+                    video.muted = !video.muted;
+                    if (!video.muted && video.volume <= 0) video.volume = 0.35;
+                    showVolumeIndicator();
+                    syncTrailerControls();
+                });
+                volumeSlider.addEventListener('input', e => {
+                    e.stopPropagation();
+                    if (!video) return;
+                    screen.classList.remove('is-controls-hidden');
+                    clearTimeout(controlsHideTimer);
+                    const nextVolume = Math.min(1, Math.max(0, Number(volumeSlider.value) / 100));
+                    video.volume = nextVolume;
+                    video.muted = nextVolume <= 0;
+                    showVolumeIndicator();
+                    syncTrailerControls();
+                });
+                volumeSlider.addEventListener('change', scheduleHideTrailerControls);
+                video.addEventListener('click', e => {
+                    e.preventDefault();
+                    if (video.paused) video.play().catch(() => {});
+                    else video.pause();
+                    syncTrailerControls();
+                });
+                progress.addEventListener('input', () => {
+                    seekingByProgress = true;
+                    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
+                    const nextTime = (Number(progress.value) / 1000) * video.duration;
+                    currentTimeText.textContent = formatTime(nextTime);
+                });
+                progress.addEventListener('change', () => {
+                    if (video && Number.isFinite(video.duration) && video.duration > 0) {
+                        video.currentTime = (Number(progress.value) / 1000) * video.duration;
+                    }
+                    seekingByProgress = false;
+                    syncTrailerControls();
+                });
+                fullscreenBtn.addEventListener('click', e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    fullscreenBtn.blur();
+                    toggleTrailerFullscreen();
+                });
+                setTimeout(() => {
+                    video.play().catch(() => {});
+                    syncTrailerControls();
+                    scheduleHideTrailerControls();
+                }, 120);
             }
 
             const qualityBar = document.createElement('div');
@@ -2406,10 +2807,6 @@
                     .sort((a, b) => qualityOrder.indexOf(a) - qualityOrder.indexOf(b));
 
                 qualityBar.className = 'trailer-quality-bar';
-                const label = document.createElement('span');
-                label.className = 'trailer-quality-label';
-                label.textContent = '画质';
-                qualityBar.appendChild(label);
 
                 const select = document.createElement('select');
                 select.className = 'trailer-quality-select';
@@ -2450,20 +2847,35 @@
             const footer = document.createElement('div');
             footer.className = 'trailer-footer';
             const footerLeft = document.createElement('div');
-            footerLeft.style.cssText = 'display:flex;align-items:center;gap:12px;min-width:0;padding-left:6px;';
-            footerLeft.appendChild(qualityBar);
-            const sourceLink = document.createElement('a');
-            sourceLink.href = activeUrl;
-            sourceLink.target = '_blank';
-            sourceLink.rel = 'noopener noreferrer';
-            sourceLink.textContent = '新窗口打开源地址';
+            footerLeft.className = 'trailer-control-left';
+            if (type !== 'iframe') {
+                footerLeft.appendChild(playBtn);
+                footerLeft.appendChild(volumeWrap);
+                footerLeft.appendChild(currentTimeText);
+                footerLeft.appendChild(progress);
+                footerLeft.appendChild(durationText);
+            }
+            const footerRight = document.createElement('div');
+            footerRight.className = 'trailer-control-right';
+            footerRight.appendChild(qualityBar);
             footer.appendChild(footerLeft);
-            footer.appendChild(sourceLink);
+            footerRight.appendChild(fullscreenBtn);
+            footer.appendChild(footerRight);
 
-            modal.appendChild(header);
             modal.appendChild(screen);
-            modal.appendChild(footer);
+            screen.appendChild(header);
+            screen.appendChild(footer);
             overlay.appendChild(modal);
+            screen.addEventListener('mousemove', showTrailerControls);
+            screen.addEventListener('mouseenter', showTrailerControls);
+            screen.addEventListener('mouseleave', () => {
+                if (video && !video.paused) screen.classList.add('is-controls-hidden');
+            });
+            footer.addEventListener('mouseenter', () => {
+                screen.classList.remove('is-controls-hidden');
+                clearTimeout(controlsHideTimer);
+            });
+            footer.addEventListener('mouseleave', scheduleHideTrailerControls);
 
             const closeOverlay = (event = null) => {
                 if (event) {
@@ -2480,11 +2892,12 @@
                 overlay.remove();
                 document.documentElement.style.overflow = originalHtmlOverflow;
                 document.body.style.overflow = originalBodyOverflow;
-                document.removeEventListener('keydown', escHandler);
                 window.removeEventListener('pointerdown', overlayCloseGuard, true);
                 window.removeEventListener('mousedown', overlayCloseGuard, true);
                 window.removeEventListener('click', overlayCloseGuard, true);
+                document.removeEventListener('keydown', escHandler, true);
                 clearTimeout(volumeIndicatorTimer);
+                clearTimeout(controlsHideTimer);
             };
 
             const overlayCloseGuard = (event) => {
@@ -2504,20 +2917,33 @@
                     closeOverlay();
                     return;
                 }
-                if (!video || type === 'iframe') return;
-                if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+                const key = e.key;
+                const shouldCapture = [' ', 'Spacebar', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(key);
+                if (shouldCapture) {
                     e.preventDefault();
                     e.stopPropagation();
+                    e.stopImmediatePropagation?.();
                 }
-                if (e.key === 'ArrowLeft') {
+                if (key === 'Enter') {
+                    toggleTrailerFullscreen();
+                    showTrailerControls();
+                    return;
+                }
+                if (!video || type === 'iframe') return;
+                if (key === ' ' || key === 'Spacebar') {
+                    if (video.paused) video.play().catch(() => {});
+                    else video.pause();
+                    syncTrailerControls();
+                    showTrailerControls();
+                } else if (key === 'ArrowLeft') {
                     video.currentTime = Math.max(0, (video.currentTime || 0) - 2);
-                } else if (e.key === 'ArrowRight') {
+                } else if (key === 'ArrowRight') {
                     const nextTime = (video.currentTime || 0) + 2;
                     video.currentTime = Number.isFinite(video.duration)
                         ? Math.min(video.duration, nextTime)
                         : nextTime;
-                } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                    const delta = e.key === 'ArrowUp' ? 0.05 : -0.05;
+                } else if (key === 'ArrowUp' || key === 'ArrowDown') {
+                    const delta = key === 'ArrowUp' ? 0.05 : -0.05;
                     video.volume = Math.min(1, Math.max(0, Math.round((video.volume + delta) * 100) / 100));
                     if (video.volume > 0) video.muted = false;
                     showVolumeIndicator();
@@ -2531,7 +2957,7 @@
             window.addEventListener('pointerdown', overlayCloseGuard, true);
             window.addEventListener('mousedown', overlayCloseGuard, true);
             window.addEventListener('click', overlayCloseGuard, true);
-            document.addEventListener('keydown', escHandler);
+            document.addEventListener('keydown', escHandler, true);
             document.body.appendChild(overlay);
         },
 
@@ -2793,9 +3219,14 @@
             return `trailer_cache_v8_${this.normalize(code)}`;
         },
 
+        debug(...args) {
+            console.log('[TrailerResolver]', ...args);
+        },
+
         async show(code) {
             const result = await this.get(code);
             if (result?.url) {
+                this.debug('打开播放器', { code: this.normalize(code), source: result.source, type: result.type || 'video', url: result.url });
                 Utils.showTrailerOverlay({
                     code: this.normalize(code),
                     url: result.url,
@@ -2806,6 +3237,7 @@
                     urls: result.urls
                 });
             } else {
+                this.debug('最终未找到可用视频源', { code: this.normalize(code) });
                 Utils.showToast('未找到可用的视频源。', '节点不可用，请将DMM域名分流到日本ip', 3000);
             }
         },
@@ -2814,6 +3246,7 @@
             const rawCode = String(code || '').trim();
             const id = this.normalize(code);
             const cacheEnabled = Settings.getTrailerCacheEnabled();
+            this.debug('开始查询', { rawCode, normalized: id, cacheEnabled });
             const directSample = this.classifyDirectSample(id, rawCode);
             const skipCache = directSample?.source === '1pondo';
             if (cacheEnabled && !skipCache) {
@@ -2821,11 +3254,17 @@
                 if (cached) {
                     try {
                         const cachedResult = JSON.parse(cached);
-                        if (cachedResult?.url) return cachedResult;
+                        if (cachedResult?.url) {
+                            this.debug('缓存命中', { source: cachedResult.source, url: cachedResult.url });
+                            return cachedResult;
+                        }
                     } catch {
                     }
+                    this.debug('缓存无效，已移除');
                     sessionStorage.removeItem(this.cacheKey(id));
                 }
+            } else if (skipCache) {
+                this.debug('跳过缓存', { reason: '1pondo 直连地址可能随页面变化' });
             }
 
             const resolvers = [
@@ -2839,14 +3278,18 @@
             ];
 
             for (const resolver of resolvers) {
+                const resolverName = resolver.name || 'anonymous';
                 try {
+                    this.debug('尝试来源', resolverName);
                     const result = await resolver.call(this, id, rawCode);
                     if (result?.url) {
+                        this.debug('来源命中', resolverName, { source: result.source, type: result.type || 'video', url: result.url, qualities: result.qualities ? Object.keys(result.qualities) : [] });
                         if (cacheEnabled) sessionStorage.setItem(this.cacheKey(id), JSON.stringify(result));
                         return result;
                     }
+                    this.debug('来源无结果', resolverName);
                 } catch (e) {
-                    console.warn(`Trailer resolver failed: ${resolver.name}`, e);
+                    console.warn(`[TrailerResolver] 来源异常: ${resolverName}`, e);
                 }
             }
             return null;
@@ -2928,7 +3371,11 @@
             NAMA: '332NAMA',
             HEN: '353HEN',
             ARA: '261ARA',
-            FCT: '326FCT'
+            FCT: '326FCT',
+            ERK: '420ERK',
+            STH: '420STH',
+            MLA: '476MLA',
+            MMC: '812MMC'
         },
 
         normalizeMgstageCode(text) {
@@ -2951,22 +3398,33 @@
 
         async fromMgstage(id, rawCode = '') {
             const code = this.normalizeMgstageCode(rawCode) || this.normalizeMgstageCode(id);
-            if (!code) return null;
+            if (!code) {
+                this.debug('MGStage 跳过：番号不在支持前缀内', { id, rawCode });
+                return null;
+            }
 
             const detailUrl = `https://www.mgstage.com/product/product_detail/${code}/?agef=1`;
+            this.debug('MGStage 请求详情页', { code, detailUrl });
             const headers = {
                 'accept-language': 'ja-JP,ja;q=0.9,en;q=0.8',
                 Cookie: 'adc=1; coc=1',
                 Referer: 'https://www.mgstage.com/'
             };
             const detail = await this.request(detailUrl, { timeout: 15000, headers });
-            if (!detail?.responseText || detail.status < 200 || detail.status >= 400) return null;
+            if (!detail?.responseText || detail.status < 200 || detail.status >= 400) {
+                this.debug('MGStage 详情页失败', { status: detail?.status, finalUrl: detail?.finalUrl || detailUrl });
+                return null;
+            }
 
             const pid = detail.responseText.match(/sampleplayer\.html\/([0-9a-f-]{36})/i)?.[1]
                 || detail.responseText.match(/[?&]pid=([0-9a-f-]{36})/i)?.[1];
-            if (!pid) return null;
+            if (!pid) {
+                this.debug('MGStage 未找到 pid');
+                return null;
+            }
 
             const apiUrl = `https://www.mgstage.com/sampleplayer/sampleRespons.php?pid=${encodeURIComponent(pid)}`;
+            this.debug('MGStage 请求 sample API', { pid, apiUrl });
             const api = await this.request(apiUrl, {
                 timeout: 15000,
                 headers: {
@@ -2975,7 +3433,10 @@
                     Referer: detailUrl
                 }
             });
-            if (!api?.responseText || api.status < 200 || api.status >= 400) return null;
+            if (!api?.responseText || api.status < 200 || api.status >= 400) {
+                this.debug('MGStage sample API 失败', { status: api?.status });
+                return null;
+            }
 
             let sampleUrl = '';
             try {
@@ -2985,9 +3446,13 @@
             }
 
             const mp4Url = this.mgstageSampleToMp4(sampleUrl);
-            if (!/\.mp4(?:[?#]|$)/i.test(mp4Url)) return null;
+            if (!/\.mp4(?:[?#]|$)/i.test(mp4Url)) {
+                this.debug('MGStage sample URL 未能转换为 mp4', { sampleUrl, mp4Url });
+                return null;
+            }
 
             const finalUrl = await this.head(mp4Url);
+            this.debug('MGStage mp4 检测', { mp4Url, finalUrl: finalUrl || null });
             return this.result(finalUrl || mp4Url, 'MGStage 直连预告', 'video', {
                 sourceName: 'MGStage',
                 sourceLabel: 'MGStage 直连预告',
@@ -3017,24 +3482,35 @@
 
         async fromJavpCcCd(id) {
             const query = String(id || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
-            if (!query) return null;
+            if (!query) {
+                this.debug('JAVP 跳过：查询词为空');
+                return null;
+            }
 
             const apiUrl = `https://javp.cc.cd/trailers/${encodeURIComponent(query)}`;
+            this.debug('JAVP 请求 API', { query, apiUrl });
             const r = await this.request(apiUrl, {
                 timeout: 12000,
                 headers: { Accept: 'application/json,text/plain,*/*' }
             });
-            if (!r?.responseText || r.status < 200 || r.status >= 400) return null;
+            if (!r?.responseText || r.status < 200 || r.status >= 400) {
+                this.debug('JAVP API 失败', { status: r?.status });
+                return null;
+            }
 
             let data;
             try {
                 data = JSON.parse(r.responseText);
             } catch {
+                this.debug('JAVP JSON 解析失败');
                 return null;
             }
 
             const trailerUrl = String(data?.trailer || '').trim();
-            if (!trailerUrl) return null;
+            if (!trailerUrl) {
+                this.debug('JAVP 无 trailer 字段', { keys: Object.keys(data || {}) });
+                return null;
+            }
 
             const qualityMap = {};
             const suffixes = ['4k', '4ks', '1080p', '720p', '480p', '360p', '240p'];
@@ -3050,7 +3526,10 @@
             });
 
             const highestQuality = this.selectHighestQuality(qualityMap);
-            if (!highestQuality) return null;
+            if (!highestQuality) {
+                this.debug('JAVP 未识别画质', { trailerUrl });
+                return null;
+            }
 
             return this.result(qualityMap[highestQuality], 'JAVP / DMM', 'video', {
                 qualities: qualityMap,
@@ -3060,12 +3539,20 @@
         },
 
         async fromDmmApi(id) {
-            if (!/^[A-Z]{2,10}-\d{2,6}$/i.test(id) || /^FC2-/i.test(id) || id.includes('VR-')) return null;
+            if (!/^[A-Z]{2,10}-\d{2,6}$/i.test(id) || /^FC2-/i.test(id) || id.includes('VR-')) {
+                this.debug('DMM API 跳过：番号格式不适用', { id });
+                return null;
+            }
 
             const items = await this.searchDmmContentIds(id);
-            if (!items.length) return null;
+            if (!items.length) {
+                this.debug('DMM API 未匹配商品', { id });
+                return null;
+            }
+            this.debug('DMM API 匹配商品', items.map(item => item.contentId));
 
             for (const item of items) {
+                this.debug('DMM API 尝试播放器页', item);
                 const qualityMap = await this.extractDmmTrailerLinks(item);
                 const highestQuality = this.selectHighestQuality(qualityMap);
                 if (highestQuality) {
@@ -3075,6 +3562,7 @@
                         urls: this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
                     });
                 }
+                this.debug('DMM API 播放器页无可用画质', item);
             }
             return null;
         },
@@ -3089,6 +3577,7 @@
             ];
 
             for (const attempt of keywordAttempts) {
+                this.debug('DMM API 搜索商品', attempt);
                 const params = new URLSearchParams({
                     api_id: 'UrwskPfkqQ0DuVry2gYL',
                     affiliate_id: '10278-996',
@@ -3102,16 +3591,21 @@
                     timeout: 15000,
                     headers: { Accept: 'application/json,text/plain,*/*' }
                 });
-                if (!r?.responseText || r.status < 200 || r.status >= 400) continue;
+                if (!r?.responseText || r.status < 200 || r.status >= 400) {
+                    this.debug('DMM API 搜索失败', { keyword: attempt.keyword, status: r?.status });
+                    continue;
+                }
 
                 let data;
                 try {
                     data = JSON.parse(r.responseText);
                 } catch {
+                    this.debug('DMM API 搜索 JSON 解析失败', { keyword: attempt.keyword });
                     continue;
                 }
 
                 const items = data?.result?.items || [];
+                this.debug('DMM API 搜索返回', { keyword: attempt.keyword, count: items.length });
                 const matched = [];
                 for (const item of items) {
                     if (matched.length >= 3) break;
@@ -3138,7 +3632,10 @@
         },
 
         async extractDmmTrailerLinks({ contentId, serviceCode, floorCode }) {
-            if (!contentId || !serviceCode || !floorCode) return null;
+            if (!contentId || !serviceCode || !floorCode) {
+                this.debug('DMM 播放器页跳过：缺少参数', { contentId, serviceCode, floorCode });
+                return null;
+            }
             const playerUrl = `https://www.dmm.co.jp/service/digitalapi/-/html5_player/=/cid=${contentId}/mtype=AhRVShI_/service=${serviceCode}/floor=${floorCode}/mode=/`;
             const r = await this.request(playerUrl, {
                 timeout: 15000,
@@ -3147,20 +3644,26 @@
                     Cookie: 'age_check_done=1'
                 }
             });
-            if (!r?.responseText || r.status < 200 || r.status >= 400) return null;
+            if (!r?.responseText || r.status < 200 || r.status >= 400) {
+                this.debug('DMM 播放器页请求失败', { contentId, status: r?.status });
+                return null;
+            }
             if (r.responseText.includes('このサービスはお住まいの地域からは')) {
-                console.warn('DMM/FANZA 播放器页提示地区不可用，继续尝试其它来源');
+                console.warn('[TrailerResolver] DMM/FANZA 播放器页提示地区不可用，继续尝试其它来源');
                 return null;
             }
 
             const argsMatch = r.responseText.match(/const\s+args\s*=\s*({[\s\S]*?});/);
-            if (!argsMatch) return null;
+            if (!argsMatch) {
+                this.debug('DMM 播放器页未找到 args', { contentId });
+                return null;
+            }
 
             let args;
             try {
                 args = JSON.parse(argsMatch[1]);
             } catch (e) {
-                console.warn('DMM/FANZA 播放器 args 解析失败:', e);
+                console.warn('[TrailerResolver] DMM/FANZA 播放器 args 解析失败:', e);
                 return null;
             }
 
@@ -3198,7 +3701,12 @@
                 addVideoUrl(args.src, 'mhb');
             }
 
-            return Object.keys(qualityMap).length ? qualityMap : null;
+            if (!Object.keys(qualityMap).length) {
+                this.debug('DMM 播放器页未解析到视频地址', { contentId, hasBitrates: Array.isArray(args.bitrates), hasSrc: Boolean(args.src) });
+                return null;
+            }
+            this.debug('DMM 播放器页解析画质', { contentId, qualities: Object.keys(qualityMap) });
+            return qualityMap;
         },
 
 
@@ -3388,7 +3896,7 @@
             const searchCode = String(rawCode || id || '').trim();
             if (!searchCode) return null;
 
-            const apiUrl = `https://javp.cc.cd/trailers/${encodeURIComponent(searchCode)}`;
+            const apiUrl = `https://jaxy.cc.cd/trailers/${encodeURIComponent(searchCode)}`;
             const r = await this.request(apiUrl, {
                 timeout: 15000,
                 headers: { Accept: 'application/json,text/plain,*/*' }
@@ -3464,6 +3972,8 @@
 
             return this.result(json.path, 'FC2Hub 预告', 'mp4');
         },
+
+
 
         async fromDmmPlayerPage(id) {
 
@@ -3853,9 +4363,10 @@
             jable: `https://jable.tv/videos/${codeLower}/`,
             '123av': `https://123av.com/zh/v/${codeLower}`,
             javday: `https://javday.app/videos/${codeCompactLower}/`,
+            supjav: `https://supjav.com/zh/?s=${encodeURIComponent(code)}`,
         };
         const enabledVideoKeys = new Set([
-            ...(showMissav ? ['missav', 'jable', '123av', 'javday'] : []),
+            ...(showMissav ? ['missav', 'jable', '123av', 'javday', 'supjav'] : []),
         ]);
         const videoButtons = Settings.getVideoEngines()
             .filter(item => enabledVideoKeys.has(item.key) && !item.host.test(location.hostname))
@@ -4165,7 +4676,7 @@
             id: 'supjav',
             name: 'SupJav',
             match: (url) => /supjav\.com/.test(url) && /\/\d+\.html$/.test(url),
-            titleSelector: '.archive-title h1'
+            titleSelector: '.clearfix.post-meta > h2'
         },
         {
             id: 'emby',
@@ -4219,6 +4730,12 @@
                 return /\/[a-z]{2,10}-\d+/i.test(pathname);
             },
             titleSelector: 'h1[class*="text-nord6"], h1'
+        },
+        {
+            id: 'jable',
+            name: 'Jable',
+            match: (url) => /jable\.tv/.test(url) && /\/videos\/[a-z0-9-]+\/?/i.test(new URL(url).pathname),
+            titleSelector: '.header-left > h4'
         }
     ];
 
@@ -4334,7 +4851,7 @@
             addMissAVBtn(code, btnGroup);
             addDmmBtn(code, btnGroup);
             addSearchMenu(code, btnGroup);
-            if (['javbus', 'javdb'].includes(site.id)) addJumpLineBreak(btnGroup);
+            if (['javbus', 'javdb', 'supjav', 'jable'].includes(site.id)) addJumpLineBreak(btnGroup);
             addPan115PlayBtn(code, btnGroup);
             addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
@@ -4372,6 +4889,22 @@
     }
 
     function placeJumpButtonGroup(site, titleElem, btnGroup) {
+        if (site.id === 'supjav') {
+            btnGroup.style.marginTop = '8px';
+            if (btnGroup.parentElement !== titleElem.parentElement || btnGroup.previousElementSibling !== titleElem) {
+                titleElem.insertAdjacentElement('afterend', btnGroup);
+            }
+            return;
+        }
+        if (site.id === 'jable') {
+            btnGroup.style.marginTop = '8px';
+            btnGroup.style.display = 'flex';
+            btnGroup.style.flexWrap = 'wrap';
+            if (btnGroup.parentElement !== titleElem) {
+                titleElem.appendChild(btnGroup);
+            }
+            return;
+        }
         const target = getJhsLikeJumpTarget(site);
         if (target) {
             allowJumpMenuOverflow(target);

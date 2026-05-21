@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.6.4
+// @version      5.6.5
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -22,6 +22,7 @@
 // @match        *://*169bbs*.*/*
 // @match        *://hjd2048.com/2048/*
 // @match        *://missav.ws/*
+// @match        *://jable.tv/videos/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -121,7 +122,8 @@
                 javrate: { list: false, detail: true },
                 '169bbs': { list: true, detail: true },
                 'hjd2048': { list: true, detail: true },
-                'missav': { list: true, detail: true }
+                'missav': { list: true, detail: true },
+                'jable': { list: false, detail: true }
             };
             for (let site in saved) {
                 if (!(site in defaults)) {
@@ -470,32 +472,6 @@
         .modern .btn.secondary:hover { background: #d1dbe8; }
 
         /* 滑动开关 */
-        .modern .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-        .modern .switch input { opacity: 0; width: 0; height: 0; }
-        .modern .slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #b9c7d9; transition: .2s; border-radius: 24px;
-        }
-        .modern .slider:before {
-            content: ""; position: absolute; height: 20px; width: 20px; left: 2px; bottom: 2px;
-            background-color: white; transition: .2s; border-radius: 50%;
-        }
-        .modern input:checked + .slider { background-color: var(--primary); }
-        .modern input:checked + .slider:before { transform: translateX(20px); }
-
-        .modern .sites-header-fixed,
-        .modern .sites-row-flex { display: flex; padding: 8px 12px; border-bottom: 1px solid var(--border); align-items: center; }
-        .modern .sites-header-fixed {
-            background-color: #e6edf5; border-bottom-width: 2px; border-bottom-color: #b9c7d9; font-weight: 600;
-        }
-        .modern .sites-header-fixed > div,
-        .modern .sites-row-flex > div { flex: 1; }
-        .modern .sites-header-fixed > div:nth-child(2),
-        .modern .sites-header-fixed > div:nth-child(3),
-        .modern .sites-row-flex > div:nth-child(2),
-        .modern .sites-row-flex > div:nth-child(3) { text-align: center; }
-        .modern .sites-row-flex { padding: 10px 12px; }
-
         .modern .settings-footer {
             padding: 16px 20px; background: #ffffffd9; backdrop-filter: blur(4px);
             border-top: 1px solid #d0d7dd; display: flex; justify-content: space-between;
@@ -518,9 +494,7 @@
         .modern.dark-mode .settings-footer,
         .modern.dark-mode .settings-card,
         .modern.dark-mode .servers-table-header,
-        .modern.dark-mode .server-row,
-        .modern.dark-mode .sites-header-fixed,
-        .modern.dark-mode .sites-row-flex {
+        .modern.dark-mode .server-row {
             background: #242435; border-color: #3a3a50; color: #c0c0d0;
         }
         .modern.dark-mode .settings-header h3 { color: #fff; }
@@ -883,12 +857,10 @@
                 badgeSize: Config.badgeSize,
                 badgeColor: Config.badgeColor,
                 badgeTextColor: Config.badgeTextColor,
-                enabledSites: Config.enabledSites,
                 darkMode: Config.darkMode
             };
             const initialServers = JSON.parse(JSON.stringify(Config.embyServers));
             const initialActiveIndex = Config.activeServerIndex;
-            const initialSites = JSON.parse(JSON.stringify(Config.enabledSites));
 
             const escapeHtml = (str) => String(str ?? '')
                 .replace(/&/g, '&amp;')
@@ -979,50 +951,16 @@
             const darkModeIcon = Config.darkMode ? '☀️' : '🌙';
             const darkModeTitle = Config.darkMode ? '切换浅色模式' : '切换深色模式';
 
-            const sitesHeaderHTML = `
-                <div class="sites-header-fixed">
-                    <div>站点</div>
-                    <div>列表页</div>
-                    <div>详情页</div>
-                </div>
-            `;
-
-            function generateSitesRows() {
-                const sites = currentConfig.enabledSites;
-                let rows = '';
-                for (const site in sites) {
-                    rows += `
-                        <div class="sites-row-flex">
-                            <div class="site-name">${site}</div>
-                            <div class="site-toggle">
-                                <label class="switch">
-                                    <input type="checkbox" data-site="${site}" data-type="list" ${sites[site].list ? 'checked' : ''}>
-                                    <span class="slider round"></span>
-                                </label>
-                            </div>
-                            <div class="site-toggle">
-                                <label class="switch">
-                                    <input type="checkbox" data-site="${site}" data-type="detail" ${sites[site].detail ? 'checked' : ''}>
-                                    <span class="slider round"></span>
-                                </label>
-                            </div>
-                        </div>
-                    `;
-                }
-                return rows;
-            }
-
             panel.innerHTML = `
                 <div class="settings-header">
                     <h3><span class="icon">⚙️</span> Emby 设置</h3>
                     <span class="close-btn">&times;</span>
                 </div>
                 <div class="settings-content">
-                    <!-- 服务器管理卡片（跨列） -->
                     <div class="settings-card" style="grid-column: 1 / -1;">
                         <div class="card-title">
-                            <span>🖥️ 服务器管理</span>
-                            <span style="font-size: 13px; color: #7c8b9c; font-weight: 500;"></span>
+                            <span>服务器管理</span>
+                            <span style="font-size: 13px; color: #7c8b9c; font-weight: 500;">管理多个 Emby 服务端</span>
                         </div>
                         <div class="card-body">
                             <div class="servers-grid">
@@ -1037,7 +975,7 @@
                             </div>
                             <div style="margin-top: 10px; display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
                                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                                    <button class="btn secondary" id="add-server-btn">➕ 新建服务器</button>
+                                    <button class="btn secondary" id="add-server-btn">新建服务器</button>
                                     <button class="test-btn" id="test-connection" type="button">测试当前连接</button>
                                 </div>
                                 <span id="test-result" style="font-size: 0.9rem;"></span>
@@ -1045,11 +983,9 @@
                         </div>
                     </div>
 
-                    <!-- 左列 -->
                     <div class="left-column">
-                        <!-- 外观设置卡片 -->
                         <div class="settings-card">
-                            <div class="card-title">🎨 外观设置</div>
+                            <div class="card-title">外观设置</div>
                             <div class="card-body two-columns">
                                 <div class="field color-field">
                                     <label for="highlight-color">高亮颜色</label>
@@ -1060,7 +996,7 @@
                                     <input type="color" id="badge-color" value="${currentConfig.badgeColor}">
                                 </div>
                                 <div class="field color-field">
-                                    <label for="badge-text-color">徽章文字颜色</label>
+                                    <label for="badge-text-color">徽章文字</label>
                                     <input type="color" id="badge-text-color" value="${currentConfig.badgeTextColor}">
                                 </div>
                                 <div class="field color-field">
@@ -1073,28 +1009,17 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- 高级选项卡片 -->
+                    <div class="right-column">
                         <div class="settings-card">
-                            <div class="card-title">⚡ 高级选项</div>
+                            <div class="card-title">运行设置</div>
                             <div class="card-body">
                                 <div class="field">
                                     <label for="max-requests">最大并发请求数</label>
                                     <input type="number" id="max-requests" min="1" max="100" value="${currentConfig.maxConcurrentRequests}">
-                                    <small>建议 20-50</small>
+                                    <small>建议 20-50，网络较慢时可适当调低。</small>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 右列 -->
-                    <div class="right-column">
-                        <!-- 站点开关卡片（表头固定，内容滚动） -->
-                        <div class="settings-card">
-                            <div class="card-title">🌐 站点开关</div>
-                            ${sitesHeaderHTML}
-                            <div class="card-body" id="sites-grid" style="max-height: 300px; overflow-y: auto; padding: 0;">
-                                ${generateSitesRows()}
                             </div>
                         </div>
                     </div>
@@ -1354,17 +1279,6 @@
                 Config.badgeColor = document.getElementById('badge-color').value;
                 Config.badgeTextColor = document.getElementById('badge-text-color').value;
 
-                const updatedSites = { ...Config.enabledSites };
-                panel.querySelectorAll('[data-site]').forEach(input => {
-                    const site = input.dataset.site;
-                    const type = input.dataset.type;
-                    if (!updatedSites[site]) {
-                        updatedSites[site] = { list: false, detail: false };
-                    }
-                    updatedSites[site][type] = input.checked;
-                });
-                Config.enabledSites = updatedSites;
-
                 refreshServersList();
                 refreshServerForm();
                 hideServerEditor();
@@ -1377,13 +1291,8 @@
 
                 const serversChanged = JSON.stringify(initialServers) !== JSON.stringify(Config.embyServers) ||
                                        initialActiveIndex !== Config.activeServerIndex;
-                const currentSite = detectSite();
-                const siteChanged = currentSite && (
-                    (initialSites[currentSite]?.list !== updatedSites[currentSite]?.list) ||
-                    (initialSites[currentSite]?.detail !== updatedSites[currentSite]?.detail)
-                );
 
-                if (serversChanged || siteChanged) {
+                if (serversChanged) {
                     setTimeout(() => location.reload(), 300);
                 } else {
                     setTimeout(() => {
@@ -3069,6 +2978,35 @@
                 else Prompt.queryNotFound(code);
             }
         }),
+
+        jable: Object.assign(Object.create(BaseProcessor), {
+            listSelector: '',
+
+            async process() {
+                const siteConfig = this.__siteConfig;
+                if (!siteConfig || !siteConfig.detail) return;
+
+                await this.processDetailPage();
+            },
+
+            async processDetailPage() {
+                if (document.querySelector('.emby-jump-link, .emby-badge, .emby-copy-btn')) return;
+
+                const titleElement = document.querySelector('.header-left h4');
+                if (!titleElement) return;
+
+                const code = extractCodeFromText(titleElement.textContent);
+                if (!code) return;
+
+                Prompt.queryStart(code);
+                const bestItem = await this.api.checkExists(code);
+                const link = bestItem ? this.api.createLink(bestItem) : null;
+                const copyBtn = this.api.createCopyButton(code);
+                this.appendToSharedRow(link, copyBtn, titleElement);
+                if (bestItem) Prompt.querySuccess(code);
+                else Prompt.queryNotFound(code);
+            }
+        }),
     };
 
     function detectSite() {
@@ -3086,6 +3024,7 @@
         if (host.includes('169bbs')) return '169bbs';
         if (host.includes('hjd2048.com')) return 'hjd2048';
         if (host.includes('missav.ws')) return 'missav';
+        if (host.includes('jable.tv')) return 'jable';
 
         return null;
     }
