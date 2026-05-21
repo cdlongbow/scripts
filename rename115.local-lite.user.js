@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         115 Local Rename Lite
 // @namespace    https://github.com/ZiPenOk
-// @version      2.4
+// @version      2.5
 // @description  115 local-only 借鉴115Rename2026 只做本地处理 自用脚本
 // @author       ZiPenOk
 // @match        https://115.com/*
@@ -48,6 +48,26 @@
         "HD", "FHD", "UHD", "SD", "VR", "AV", "AVC", "HEVC", "AAC", "AC3", "DTS", "WEB", "DVD",
         "BD", "MKV", "MP4", "AVI", "WMV", "SUB", "CHS", "CHT", "GB", "BIG5", "ISO", "TS"
     ]);
+    const PREFIX_ALIASES = Object.freeze({
+        LUXU: "259LUXU",
+        MIUM: "300MIUM",
+        GANA: "200GANA",
+        SIRO: "SIRO",
+        DCV: "277DCV",
+        JNT: "390JNT",
+        JAC: "390JAC",
+        HHH: "451HHH",
+        HLM: "436HLM",
+        SYS: "332SYS",
+        NAMA: "332NAMA",
+        HEN: "353HEN",
+        ARA: "261ARA",
+        FCT: "326FCT",
+        ERK: "420ERK",
+        STH: "420STH",
+        MLA: "476MLA",
+        MMC: "812MMC"
+    });
     const SUFFIX_SEP = "[-_.\\s\\[\\](){}]*";
     const REAL_EXTENSIONS = new Set([
         "MP4", "MKV", "AVI", "WMV", "M4V", "RMVB", "MOV", "TS", "M2TS", "ISO",
@@ -59,7 +79,8 @@
         "4K", "8K", "2160P", "1440P", "1080P", "720P", "480P"
     ]);
 
-    const KNOWN_PREFIXES = [
+    const KNOWN_PREFIXES = [...new Set([
+        ...Object.values(PREFIX_ALIASES),
         "200GANA", "230GANA", "24ID", "259LUXU", "261ADA", "277DCV", "300MAAN", "ABP", "ABS", "ADN",
         "ADZ", "AKB", "AKBD", "ALB", "ALD", "AND", "ANIX", "ANND", "ATAD", "ATHB",
         "ATID", "AYAKISAKI", "AZGB", "BBAN", "BBI", "BF", "BID", "BLK", "BMW", "BNDV",
@@ -92,7 +113,7 @@
         "VAGU", "VEMA", "VENU", "VOL", "VSPDR", "VSPDS", "WAAA", "WABB", "WANZ", "WPC",
         "XV", "XVSE", "XVSR", "YMDD", "YNO", "YRZ", "ZARD", "ZATS", "ZDAD", "ZKV",
         "ZUKO", "ZZR"
-    ].sort((a, b) => b.length - a.length);
+    ])].sort((a, b) => b.length - a.length);
 
     function ensureStyle() {
         if (document.getElementById(TOAST_STYLE_ID)) return;
@@ -268,6 +289,11 @@
         const upper = text.toUpperCase();
         for (const prefix of KNOWN_PREFIXES) {
             const m = upper.match(new RegExp(`(?:^|[^A-Z])${escapeRegExp(prefix)}[-_\\s.]*0*(\\d{2,6})(?=$|[^0-9])`, "i"));
+            if (m) return `${prefix}-${String(Number(m[1])).padStart(3, "0")}`;
+        }
+
+        for (const [alias, prefix] of Object.entries(PREFIX_ALIASES)) {
+            const m = upper.match(new RegExp(`(?:^|[^A-Z])${escapeRegExp(alias)}[-_\\s.]*0*(\\d{2,6})(?=$|[^0-9])`, "i"));
             if (m) return `${prefix}-${String(Number(m[1])).padStart(3, "0")}`;
         }
 
