@@ -1,6 +1,6 @@
-// CustomCssJS Provider: replace Emby's native trailer button with an external trailer source.
-// If Emby hides the native trailer button because NFO has no trailer URL, this script injects
-// a compatible trailer button for the enabled libraries.
+// 本脚本的作用为在 CustomCssJS 插件下：将 Emby 的原生预告片按钮替换为外部预告片源。
+// 如果 Emby 因为 NFO 文件中没有预告片 URL 而隐藏了原生预告片按钮，则此脚本会注入一个新的预告片按钮
+// 当用户点击预告片按钮时，脚本会尝试从页面中提取番号信息，并查找预告片并播放,特殊番号需要使用 EmbyCustomTrailerBridge.user.js 提供的桥接 API 查询
 (function () {
     "use strict";
 

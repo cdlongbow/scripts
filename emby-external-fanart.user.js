@@ -1,3 +1,8 @@
+//本脚本依赖CustomCssJS项目插件
+//并依赖于extrafanart&trailers.js
+//现在脚本以停止更新维护,
+//转而去增强extrafanart&trailers.js, 使其达到本脚本的所需要的效果
+//可以在仓库直接安装extrafanart&trailers.js了, 已经完美支持
 // ==UserScript==
 // @name         Emby External Fanart
 // @namespace    emby-external-fanart
