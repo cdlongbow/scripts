@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.3.5
+// @version      2.3.6
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -47,7 +47,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.3.5';
+    const SCRIPT_VERSION = '2.3.6';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -79,6 +79,7 @@
         get btnShowTrailer() { return GM_getValue('btn_show_trailer', true); },
         get btnShowPreview() { return GM_getValue('btn_show_preview', true); },
         get btnShowPan115()  { return GM_getValue('btn_show_pan115',  false); },
+        get magnetTable()    { return GM_getValue('magnet_table_enabled', true); },
         get infiniteScroll() { return GM_getValue('infinite_scroll_enabled', false); },
 
         set btnShowNyaa(v)    { GM_setValue('btn_show_nyaa',    v); },
@@ -90,6 +91,7 @@
         set btnShowTrailer(v) { GM_setValue('btn_show_trailer', v); },
         set btnShowPreview(v) { GM_setValue('btn_show_preview', v); },
         set btnShowPan115(v)  { GM_setValue('btn_show_pan115',  v); },
+        set magnetTable(v)    { GM_setValue('magnet_table_enabled', v); },
         set infiniteScroll(v) { GM_setValue('infinite_scroll_enabled', v); },
     };
 
@@ -206,6 +208,11 @@
                 #jav-settings-panel .sp-feature-order-row > .sp-card { height:100%; }
                 #jav-settings-panel .sp-feature-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
                 #jav-settings-panel .sp-feature-item { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; padding:10px 11px; border:1px solid #e2e8f0; border-radius:8px; background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); }
+                #jav-settings-panel .sp-feature-item:has(#sp-magnet-table) { order:1; }
+                #jav-settings-panel .sp-feature-item:has(#sp-btn-pan115) { order:2; }
+                #jav-settings-panel .sp-feature-item:has(#sp-infinite-scroll) { order:3; grid-column:1; }
+                #jav-settings-panel .sp-feature-item:has(#sp-preview-cache) { order:4; grid-column:1; }
+                #jav-settings-panel .sp-feature-item:has(#sp-trailer-cache) { order:5; grid-column:2; }
                 #jav-settings-panel .sp-feature-item .sp-desc { margin-top:2px; font-size:11px; }
                 #jav-settings-panel .sp-field { display:flex; flex-direction:column; gap:6px; min-width:0; }
                 #jav-settings-panel .sp-label { font-size:12px; font-weight:650; color:#475569; }
@@ -241,7 +248,7 @@
                 #jav-settings-panel .sp-btn-clear { background:#fff7ed; color:#9a3412; border-color:#fed7aa; }
                 #jav-settings-panel .sp-btn-clear:hover { background:#ffedd5; }
                 #jav-settings-panel .sp-btn-save { background:linear-gradient(135deg,#2563eb,#7c3aed); color:white; box-shadow:0 8px 20px rgba(79,70,229,.25); }
-                @media (max-width: 640px) { #jav-settings-panel .sp-grid, #jav-settings-panel .sp-engine-row, #jav-settings-panel .sp-feature-grid, #jav-settings-panel .sp-feature-order-row { grid-template-columns:1fr; } #jav-settings-panel .sp-cache-actions { margin-right:0; } #jav-settings-panel .sp-footer { flex-wrap:wrap; } }
+                @media (max-width: 640px) { #jav-settings-panel .sp-grid, #jav-settings-panel .sp-engine-row, #jav-settings-panel .sp-feature-grid, #jav-settings-panel .sp-feature-order-row { grid-template-columns:1fr; } #jav-settings-panel .sp-feature-item { grid-column:auto !important; } #jav-settings-panel .sp-cache-actions { margin-right:0; } #jav-settings-panel .sp-footer { flex-wrap:wrap; } }
             `);
 
             const overlay = document.createElement('div');
@@ -279,6 +286,10 @@
                         <section class="sp-card sp-card-features">
                             <div class="sp-card-title">功能项开关</div>
                             <div class="sp-feature-grid">
+                                <div class="sp-feature-item">
+                                    <div><div class="sp-label">磁力引擎</div></div>
+                                    <label class="sp-toggle"><input id="sp-magnet-table" type="checkbox"><span class="sp-toggle-track"></span></label>
+                                </div>
                                 <div class="sp-feature-item">
                                     <div><div class="sp-label">预览图缓存</div></div>
                                     <label class="sp-toggle"><input id="sp-preview-cache" type="checkbox"><span class="sp-toggle-track"></span></label>
@@ -349,6 +360,7 @@
             const domainInput = panel.querySelector('#sp-engine-domain');
             const jumpEngineSelect = panel.querySelector('#sp-jump-engine');
             const videoEngineSelect = panel.querySelector('#sp-video-engine');
+            const magnetTableCheckbox = panel.querySelector('#sp-magnet-table');
             const cacheCheckbox = panel.querySelector('#sp-preview-cache');
             const trailerCacheCheckbox = panel.querySelector('#sp-trailer-cache');
             const infiniteScrollCheckbox = panel.querySelector('#sp-infinite-scroll');
@@ -416,6 +428,7 @@
             jumpEngineSelect.value = String(GM_getValue('default_search_engine', 2));
             videoEngineSelect.value = CFG.defaultVideoEngine;
             if (![...videoEngineSelect.options].some(opt => opt.value === videoEngineSelect.value)) videoEngineSelect.value = 'missav';
+            magnetTableCheckbox.checked = CFG.magnetTable;
             cacheCheckbox.checked = GM_getValue('preview_cache_enabled', true);
             trailerCacheCheckbox.checked = GM_getValue('trailer_cache_enabled', true);
             infiniteScrollCheckbox.checked = CFG.infiniteScroll;
@@ -482,6 +495,7 @@
                 CFG.defaultEngine = defaultSelect.value;
                 GM_setValue('default_search_engine', parseInt(jumpEngineSelect.value, 10) || 0);
                 CFG.defaultVideoEngine = videoEngineSelect.value || 'missav';
+                CFG.magnetTable = magnetTableCheckbox.checked;
                 GM_setValue('preview_cache_enabled', cacheCheckbox.checked);
                 GM_setValue('trailer_cache_enabled', trailerCacheCheckbox.checked);
                 CFG.infiniteScroll = infiniteScrollCheckbox.checked;
@@ -1151,6 +1165,7 @@
             insertAvidCopyBtn(anchor || infoCol.querySelector('h3'), avid, null, true);
         },
         _insertMagnet(avid) {
+            if (!CFG.magnetTable) return;
             const infoCol = document.querySelector("div[class='col-md-3 info']");
             if (!infoCol) return;
             document.querySelectorAll('.jav-nong-slot').forEach(el => el.remove());
@@ -1198,6 +1213,7 @@
             insertAvidCopyBtn(anchor, avid, nativeCopy);
         },
         _insertMagnet(avid) {
+            if (!CFG.magnetTable) return;
             const coverCol  = document.querySelector('.column.column-video-cover');
             const infoPanel = document.querySelector('.movie-panel-info');
             if (!coverCol || !infoPanel) return;
@@ -1278,6 +1294,7 @@
             insertAvidCopyBtn(codeEl, avid);
         },
         _insertMagnet(avid) {
+            if (!CFG.magnetTable) return;
             const table = document.getElementById('video_jacket_info');
             if (!table) return;
             const row = table.querySelector('tr');
@@ -3472,7 +3489,7 @@
             const apiUrl = `https://javxy.cc.cd/trailers/${encodeURIComponent(query)}`;
             this.debug('Javxy 请求 API', { query, apiUrl });
             const r = await this.request(apiUrl, {
-                timeout: 8000,
+                timeout: 15000,
                 headers: { Accept: 'application/json,text/plain,*/*' }
             });
             if (!r?.responseText || r.status < 200 || r.status >= 400) {
