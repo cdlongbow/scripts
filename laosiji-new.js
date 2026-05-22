@@ -3340,7 +3340,8 @@
             ERK: '420ERK',
             STH: '420STH',
             MLA: '476MLA',
-            MMC: '812MMC'
+            MMC: '812MMC',
+            OERO: '892OERO'
         },
 
         normalizeMgstageCode(text) {
