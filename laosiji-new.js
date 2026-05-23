@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk
-// @version      2.3.6
+// @version      2.3.7
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -47,7 +47,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.3.6';
+    const SCRIPT_VERSION = '2.3.7';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -830,8 +830,48 @@
             }
             #jav-nong-table .nong-head-row th { background: #f8f8f8; font-weight: 600; }
             .nong-copy { color: #08c !important; cursor: pointer; }
+            .nong-check { color: #be185d !important; cursor: pointer; margin-left: 8px; }
             .nong-offline-115 { color: rgb(0,180,30) !important; cursor: pointer; }
             .nong-offline-115:hover { color: red !important; }
+            .whatslink-overlay { position: fixed; inset: 0; z-index: 10000040; display: flex; align-items: center; justify-content: center; padding: 22px; background: rgba(15,23,42,.66); backdrop-filter: blur(8px); }
+            .whatslink-modal { width: min(1100px,96vw); max-height: 90vh; display: grid; grid-template-columns: 1.55fr .75fr; background: #f5f7fb; border: 1px solid rgba(203,213,225,.9); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 80px rgba(2,8,23,.38); font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+            .whatslink-modal.no-shots { grid-template-columns: 1.1fr .9fr; }
+            .whatslink-viewer { min-width: 0; display: grid; grid-template-rows: minmax(430px,1fr) auto; gap: 10px; padding: 14px; background: radial-gradient(circle at 20% 0%,#fff1f8 0,transparent 34%),#eef3f8; }
+            .whatslink-stage { position: relative; min-height: 470px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #dde7f2; border-radius: 12px; background: #111827; box-shadow: 0 18px 36px rgba(15,23,42,.16); }
+            .whatslink-stage img { width: 100%; height: 100%; max-height: 68vh; object-fit: contain; border-radius: 10px; }
+            .whatslink-modal.no-shots .whatslink-viewer { grid-template-rows: minmax(430px,1fr); background: linear-gradient(135deg,#f8fafc,#eef2ff); }
+            .whatslink-modal.no-shots .whatslink-stage { background: linear-gradient(145deg,#fff,#f1f5f9); border-style: dashed; box-shadow: inset 0 0 0 1px rgba(255,255,255,.8),0 18px 36px rgba(15,23,42,.08); }
+            .whatslink-modal.no-shots .whatslink-stage img, .whatslink-modal.no-shots .whatslink-nav, .whatslink-modal.no-shots .whatslink-counter, .whatslink-modal.no-shots .whatslink-thumbs { display: none; }
+            .whatslink-empty { display: none; width: min(420px,72%); text-align: center; color: #475569; }
+            .whatslink-modal.no-shots .whatslink-empty { display: block; }
+            .whatslink-empty-icon { width: 62px; height: 62px; margin: 0 auto 15px; display: grid; place-items: center; border-radius: 18px; background: linear-gradient(135deg,#fce7f3,#e0e7ff); color: #be185d; font-size: 27px; box-shadow: 0 12px 26px rgba(190,24,93,.16); }
+            .whatslink-empty-title { font-size: 18px; font-weight: 800; color: #1e293b; margin-bottom: 7px; }
+            .whatslink-empty-text { margin: 0; font-size: 13px; line-height: 1.6; }
+            .whatslink-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 52px; border: 0; border-radius: 8px; background: rgba(255,255,255,.14); color: #fff; font-size: 28px; cursor: pointer; }
+            .whatslink-nav:hover { background: rgba(255,255,255,.24); }
+            .whatslink-prev { left: 12px; } .whatslink-next { right: 12px; }
+            .whatslink-counter { position: absolute; right: 14px; bottom: 12px; color: #e2e8f0; font-size: 12px; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+            .whatslink-thumbs { display: grid; grid-template-columns: repeat(5,1fr); gap: 7px; padding: 0; background: transparent; }
+            .whatslink-thumb { border: 2px solid #e2e8f0; border-radius: 9px; padding: 0; overflow: hidden; background: #fff; cursor: pointer; aspect-ratio: 16 / 9; box-shadow: 0 6px 14px rgba(15,23,42,.08); }
+            .whatslink-thumb.active { border-color: #db2777; box-shadow: 0 8px 18px rgba(219,39,119,.22); }
+            .whatslink-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+            .whatslink-info { min-width: 0; padding: 14px; background: #f8fafc; overflow: auto; color: #172033; }
+            .whatslink-head { position: sticky; top: 0; z-index: 2; margin: -14px -14px 12px; padding: 13px 14px; background: rgba(248,250,252,.94); border-bottom: 1px solid #e2e8f0; backdrop-filter: blur(10px); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+            .whatslink-kicker { color: #db2777; font-size: 12px; font-weight: 800; margin-bottom: 5px; }
+            .whatslink-title { margin: 0; font-size: 21px; line-height: 1.18; color: #111827; word-break: break-word; }
+            .whatslink-close { width: 32px; height: 32px; border: 0; border-radius: 8px; color: #64748b; background: transparent; cursor: pointer; font-size: 25px; line-height: 1; }
+            .whatslink-tag { display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; margin-top: 8px; border-radius: 999px; background: #ecfdf5; color: #047857; font-size: 12px; font-weight: 700; }
+            .whatslink-meta { display: grid; grid-template-columns: 1fr; gap: 7px; margin: 10px 0 12px; }
+            .whatslink-metric { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 11px; background: #fff; box-shadow: 0 8px 20px rgba(15,23,42,.06); }
+            .whatslink-metric b { color: #172033; font-size: 13px; order: 2; }
+            .whatslink-metric span { color: #64748b; font-size: 12px; order: 1; }
+            .whatslink-section, .whatslink-summary-card { border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; padding: 10px; box-shadow: 0 8px 20px rgba(15,23,42,.06); }
+            .whatslink-section h3 { margin: 0 0 8px; color: #be185d; font-size: 12px; }
+            .whatslink-magnet { word-break: break-all; max-height: 86px; overflow: auto; padding: 9px; border-radius: 8px; background: #f6f8fb; color: #334155; font-family: ui-monospace,SFMono-Regular,Consolas,monospace; font-size: 12px; }
+            .whatslink-summary { display: grid; gap: 8px; margin-top: 10px; }
+            .whatslink-summary-card strong { display: block; margin-bottom: 4px; color: #111827; font-size: 12px; }
+            .whatslink-summary-card p { margin: 0; color: #64748b; font-size: 11px; line-height: 1.45; }
+            .whatslink-loading { padding: 28px; text-align: center; color: #475569; font-size: 14px; }
             #jav-nong-notice { padding: 8px 0; }
             .nong-magnet-name {
                 max-width: 320px; white-space: nowrap;
@@ -843,6 +883,123 @@
                 color: #e74c3c; font-weight: bold; cursor: pointer;
             }
         `);
+
+        function formatBytes(bytes) {
+            const num = Number(bytes) || 0;
+            if (!num) return '-';
+            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            let value = num;
+            let index = 0;
+            while (value >= 1024 && index < units.length - 1) {
+                value /= 1024;
+                index += 1;
+            }
+            return `${value.toFixed(index >= 3 ? 2 : 1)} ${units[index]}`;
+        }
+
+        function formatWhatslinkType(payload) {
+            const raw = String(payload?.file_type || payload?.type || '').toUpperCase();
+            if (raw.includes('FOLDER')) return '文件夹';
+            if (raw.includes('FILE')) return '文件';
+            return '-';
+        }
+
+        function showWhatslinkModal(payload, magnet) {
+            document.querySelector('.whatslink-overlay')?.remove();
+            const shots = Array.isArray(payload?.screenshots) ? payload.screenshots.map(item => item?.screenshot).filter(Boolean) : [];
+            let index = 0;
+            const resourceType = formatWhatslinkType(payload);
+            const overlay = document.createElement('div');
+            overlay.className = 'whatslink-overlay';
+            const modal = document.createElement('section');
+            modal.className = `whatslink-modal${shots.length ? '' : ' no-shots'}`;
+            modal.innerHTML = `
+                <div class="whatslink-viewer">
+                    <div class="whatslink-stage">
+                        <button class="whatslink-nav whatslink-prev" type="button">‹</button>
+                        <img class="whatslink-hero" alt="截图预览">
+                        <button class="whatslink-nav whatslink-next" type="button">›</button>
+                        <div class="whatslink-counter"></div>
+                        <div class="whatslink-empty">
+                            <div class="whatslink-empty-icon">?</div>
+                            <div class="whatslink-empty-title">暂无截图</div>
+                            <p class="whatslink-empty-text">WhatsLink 已返回资源基础信息，但没有可展示的截图。可以通过名称、大小和文件数量先做基础判断。</p>
+                        </div>
+                    </div>
+                    <div class="whatslink-thumbs"></div>
+                </div>
+                <aside class="whatslink-info">
+                    <div class="whatslink-head">
+                        <div>
+                            <div class="whatslink-kicker">磁力验车</div>
+                            <h2 class="whatslink-title"></h2>
+                            <span class="whatslink-tag"></span>
+                        </div>
+                        <button class="whatslink-close" type="button">×</button>
+                    </div>
+                    <div class="whatslink-meta">
+                        <div class="whatslink-metric"><b>${formatBytes(payload?.size)}</b><span>资源大小</span></div>
+                        <div class="whatslink-metric"><b>${payload?.count ?? '-'}</b><span>文件数量</span></div>
+                        <div class="whatslink-metric"><b>${resourceType}</b><span>资源结构</span></div>
+                        <div class="whatslink-metric"><b>${shots.length}</b><span>截图数量</span></div>
+                        <div class="whatslink-metric"><b>${payload?.error ? '异常' : '无错误'}</b><span>接口状态</span></div>
+                    </div>
+                    <div class="whatslink-section">
+                        <h3>磁力链接</h3>
+                        <div class="whatslink-magnet"></div>
+                    </div>
+                    <div class="whatslink-summary">
+                        <div class="whatslink-summary-card"><strong>验车结论</strong><p>${shots.length ? 'WhatsLink 已返回截图，优先用左侧大图确认内容是否匹配番号。' : '当前没有截图，建议结合资源名称、大小和文件数量判断。'}</p></div>
+                    </div>
+                </aside>`;
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            modal.querySelector('.whatslink-title').textContent = payload?.name || '未知资源';
+            modal.querySelector('.whatslink-tag').textContent = resourceType;
+            modal.querySelector('.whatslink-magnet').textContent = magnet;
+            const hero = modal.querySelector('.whatslink-hero');
+            const thumbs = modal.querySelector('.whatslink-thumbs');
+            const counter = modal.querySelector('.whatslink-counter');
+            const render = () => {
+                if (!shots.length) return;
+                hero.src = shots[index];
+                counter.textContent = `${index + 1} / ${shots.length}`;
+                [...thumbs.children].forEach((btn, i) => btn.classList.toggle('active', i === index));
+            };
+            shots.forEach((url, i) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'whatslink-thumb';
+                btn.innerHTML = `<img src="${url}" alt="截图 ${i + 1}">`;
+                btn.addEventListener('click', () => { index = i; render(); });
+                thumbs.appendChild(btn);
+            });
+            modal.querySelector('.whatslink-prev').addEventListener('click', () => { if (!shots.length) return; index = (index + shots.length - 1) % shots.length; render(); });
+            modal.querySelector('.whatslink-next').addEventListener('click', () => { if (!shots.length) return; index = (index + 1) % shots.length; render(); });
+            const close = () => overlay.remove();
+            modal.querySelector('.whatslink-close').addEventListener('click', close);
+            overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+            render();
+        }
+
+        async function checkWhatslink(magnet) {
+            document.querySelector('.whatslink-overlay')?.remove();
+            const overlay = document.createElement('div');
+            overlay.className = 'whatslink-overlay';
+            overlay.innerHTML = '<div class="whatslink-modal no-shots"><div class="whatslink-loading">正在验车...</div></div>';
+            document.body.appendChild(overlay);
+            try {
+                const url = `https://whatslink.info/api/v1/link?url=${encodeURIComponent(magnet)}`;
+                const r = await gmFetch(url, { timeout: 20000 });
+                if (!r.loadstuts) throw new Error('WhatsLink 请求失败');
+                const data = JSON.parse(r.responseText || '{}');
+                overlay.remove();
+                showWhatslinkModal(data, magnet);
+            } catch (e) {
+                overlay.remove();
+                showWhatslinkModal({ error: e.message || '查询失败', name: '查询失败', type: '-', file_type: '-', size: 0, count: '-', screenshots: [] }, magnet);
+            }
+        }
 
         function buildTable(avid) {
             const table = document.createElement('table');
@@ -1030,6 +1187,15 @@
                     setTimeout(() => { copyBtn.textContent = '复制'; }, 1000);
                 });
                 tdOp.appendChild(copyBtn);
+                const checkBtn = document.createElement('a');
+                checkBtn.href = '#';
+                checkBtn.className = 'nong-check';
+                checkBtn.textContent = '验车';
+                checkBtn.addEventListener('click', e => {
+                    e.preventDefault();
+                    checkWhatslink(item.maglink);
+                });
+                tdOp.appendChild(checkBtn);
                 tr.appendChild(tdOp);
 
                 const tdOffline = document.createElement('td');
@@ -1141,12 +1307,13 @@
                     padding-left: 20px !important; padding-right: 20px !important; }
                 .row.movie { display: flex !important; gap: 20px !important;
                     align-items: flex-start !important; flex-wrap: nowrap !important; margin: 0 !important; }
-                .col-md-9.screencap { flex: 1.4 1 0 !important; min-width: 0 !important;
+                .row.movie { --javbus-cover-flex: 1.4; --javbus-info-flex: 1.0; --javbus-magnet-flex: 1.1; }
+                .col-md-9.screencap { flex: var(--javbus-cover-flex) 1 0 !important; min-width: 0 !important;
                     width: auto !important; float: none !important; padding: 0 !important; }
-                .col-md-3.info { flex: 1.0 1 0 !important; min-width: 0 !important;
+                .col-md-3.info { flex: var(--javbus-info-flex) 1 0 !important; min-width: 0 !important;
                     width: auto !important; float: none !important;
                     overflow: hidden !important; word-break: break-word !important; }
-                .jav-nong-slot { flex: 1.1 1 0 !important; min-width: 0 !important; align-self: flex-start !important; overflow: hidden !important; }
+                .jav-nong-slot { flex: var(--javbus-magnet-flex) 1 0 !important; min-width: 0 !important; align-self: flex-start !important; overflow: hidden !important; }
                 .jav-nong-wrapper { max-width: 100%; }
                 .screencap img { width: 100%; max-width: 100%; }
                 .footer { padding: 20px 0; }
@@ -1225,9 +1392,9 @@
             if (!flexContainer) {
                 flexContainer = document.createElement('div');
                 flexContainer.className = 'jav-flex-container';
-                flexContainer.style.cssText = 'display:flex;gap:20px;align-items:flex-start;width:100%;margin-top:16px;';
-                coverCol.style.cssText  += ';flex:1 1 0;min-width:0;';
-                infoPanel.style.cssText += ';flex:0.8 1 0;min-width:0;overflow:hidden;word-break:break-word;';
+                flexContainer.style.cssText = 'display:flex;gap:20px;align-items:flex-start;width:100%;margin-top:16px;--javdb-cover-flex:1;--javdb-info-flex:0.8;--javdb-magnet-flex:1.2;';
+                coverCol.style.cssText  += ';flex:var(--javdb-cover-flex) 1 0;min-width:0;';
+                infoPanel.style.cssText += ';flex:var(--javdb-info-flex) 1 0;min-width:0;overflow:hidden;word-break:break-word;';
                 flexContainer.appendChild(coverCol);
                 flexContainer.appendChild(infoPanel);
                 parent.appendChild(flexContainer);
@@ -1235,7 +1402,7 @@
 
             const slot = document.createElement('div');
             slot.className = 'jav-nong-slot';
-            slot.style.cssText = 'flex:1.2 1 0;min-width:0;align-self:flex-start;overflow:hidden;';
+            slot.style.cssText = 'flex:var(--javdb-magnet-flex) 1 0;min-width:0;align-self:flex-start;overflow:hidden;';
             const widget = Magnet.createMagnetWidget(avid);
             slot.appendChild(widget);
             flexContainer.appendChild(slot);
@@ -1303,11 +1470,11 @@
             document.querySelectorAll('.jav-nong-slot').forEach(el => el.remove());
 
             table.style.cssText = 'width:100%;display:block;';
-            row.style.cssText = 'display:flex;gap:20px;align-items:flex-start;width:100%;';
+            row.style.cssText = 'display:flex;gap:20px;align-items:flex-start;width:100%;--javlib-cover-flex:1.1;--javlib-info-flex:0.8;--javlib-magnet-flex:1.1;';
 
             const tds = row.querySelectorAll('td');
-            if (tds[0]) tds[0].style.cssText = 'flex:1.1 1 0;min-width:0;vertical-align:top;';
-            if (tds[1]) tds[1].style.cssText = 'flex:0.8 1 0;min-width:0;vertical-align:top;overflow:hidden;word-break:break-word;';
+            if (tds[0]) tds[0].style.cssText = 'flex:var(--javlib-cover-flex) 1 0;min-width:0;vertical-align:top;';
+            if (tds[1]) tds[1].style.cssText = 'flex:var(--javlib-info-flex) 1 0;min-width:0;vertical-align:top;overflow:hidden;word-break:break-word;';
 
             const jacketImg = document.getElementById('video_jacket_img');
             if (jacketImg) {
@@ -1318,7 +1485,7 @@
 
             const magnetTd = document.createElement('td');
             magnetTd.className = 'jav-nong-slot';
-            magnetTd.style.cssText = 'flex:1.1 1 0;min-width:0;vertical-align:top;align-self:flex-start;';
+            magnetTd.style.cssText = 'flex:var(--javlib-magnet-flex) 1 0;min-width:0;vertical-align:top;align-self:flex-start;';
 
             const innerWrap = document.createElement('div');
             innerWrap.style.cssText = 'display:inline-block;';

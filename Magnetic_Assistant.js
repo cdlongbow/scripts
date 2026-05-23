@@ -12,12 +12,11 @@
 // @grant        GM_registerMenuCommand
 // @connect      *
 // @connect      whatslink.info
-// @require      https://cdn.jsdelivr.net/npm/vue@3.5.27/dist/vue.global.prod.js
 // @updateURL    https://raw.githubusercontent.com/ZiPenOk/scripts/main/Magnetic_Assistant.js
 // @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/Magnetic_Assistant.js
 // ==/UserScript==
 
-(function (vue) {
+(function () {
     'use strict';
 
     // ================= 1. 基础配置 =================
@@ -114,151 +113,6 @@
             animation: popIn 0.2s ease-out;
         }
         /* 验车弹窗样式 */
-        .check-car-mask {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.35);
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-            z-index: 999998;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            animation: maskFadeIn 0.25s ease;
-        }
-        @keyframes maskFadeIn {
-            0% { opacity: 0; }
-            100% { opacity: 1; }
-        }
-        .check-car-panel {
-            animation: panelPop 0.25s ease;
-            position: relative;
-            width: 90%;
-            max-width: 500px;
-            max-height: 80%;
-            backdrop-filter: blur(16px) saturate(180%);
-            -webkit-backdrop-filter: blur(16px) saturate(180%);
-            background-color: rgba(255,255,255,0.95);
-            border-radius: 12px;
-            padding: 16px;
-            box-shadow: 0 12px 24px rgba(0,0,0,0.08);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            overflow-y: auto;
-            overscroll-behavior: contain;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: thin;
-            scrollbar-color: rgba(0,0,0,0.2) transparent;
-            color: #000;
-        }
-        .check-car-panel::-webkit-scrollbar {
-            width: 6px;
-        }
-        .check-car-panel::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .check-car-panel::-webkit-scrollbar-thumb {
-            background-color: rgba(0,0,0,0.18);
-            border-radius: 6px;
-        }
-        .check-car-panel h3 {
-            color: #ff4080;
-            font-size: 1.2rem;
-            margin: 0;
-        }
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-        .check-car-close {
-            cursor: pointer;
-            color: #888;
-            font-weight: bold;
-            font-size: 1.4rem;
-            transition: color 0.2s;
-        }
-        .check-car-close:hover {
-            color: #ff4080;
-        }
-        .check-car-panel .info div {
-            background: #fff;
-            padding: 8px 12px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
-            font-size: 1rem;
-            margin: 8px 0;
-            word-wrap: break-word;
-        }
-        .screenshots p {
-            font-size: 1rem;
-            margin-bottom: 6px;
-        }
-        .screenshots ul {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-            gap: 6px;
-            padding: 0;
-            list-style: none;
-        }
-        .screenshots img {
-            width: 100%;
-            height: auto;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            transition: transform 0.2s;
-            cursor: pointer;
-        }
-        .screenshots img:hover {
-            transform: scale(1.05);
-        }
-        /* 图片轮播弹窗（无X按钮） */
-        .gallery-mask {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.8);
-            z-index: 1000000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-        }
-        .gallery-container {
-            position: relative;
-            max-width: 90%;
-            max-height: 90%;
-            cursor: default;
-        }
-        .gallery-img {
-            max-width: 100%;
-            max-height: 90vh;
-            object-fit: contain;
-            border-radius: 8px;
-        }
-        .gallery-nav {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(255,255,255,0.3);
-            color: white;
-            border: none;
-            font-size: 2rem;
-            padding: 0 15px;
-            cursor: pointer;
-            border-radius: 4px;
-            user-select: none;
-            backdrop-filter: blur(4px);
-        }
-        .gallery-nav:hover {
-            background: rgba(255,255,255,0.5);
-        }
-        .gallery-prev {
-            left: 10px;
-        }
-        .gallery-next {
-            right: 10px;
-        }
-        /* 链接样式 */
         .magnet-link {
             color: #1b6ad0;
             word-break: break-all;
@@ -291,9 +145,51 @@
             color: #218838;
             text-decoration: underline;
         }
+        .whatslink-overlay { position: fixed; inset: 0; z-index: 10000040; display: flex; align-items: center; justify-content: center; padding: 22px; background: rgba(15,23,42,.66); backdrop-filter: blur(8px); }
+        .whatslink-modal { width: min(1100px,96vw); max-height: 90vh; display: grid; grid-template-columns: 1.55fr .75fr; background: #f5f7fb; border: 1px solid rgba(203,213,225,.9); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 80px rgba(2,8,23,.38); font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+        .whatslink-modal.no-shots { grid-template-columns: 1.1fr .9fr; }
+        .whatslink-viewer { min-width: 0; display: grid; grid-template-rows: minmax(430px,1fr) auto; gap: 10px; padding: 14px; background: radial-gradient(circle at 20% 0%,#fff1f8 0,transparent 34%),#eef3f8; }
+        .whatslink-stage { position: relative; min-height: 470px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #dde7f2; border-radius: 12px; background: #111827; box-shadow: 0 18px 36px rgba(15,23,42,.16); }
+        .whatslink-stage img { width: 100%; height: 100%; max-height: 68vh; object-fit: contain; border-radius: 10px; }
+        .whatslink-modal.no-shots .whatslink-viewer { grid-template-rows: minmax(430px,1fr); background: linear-gradient(135deg,#f8fafc,#eef2ff); }
+        .whatslink-modal.no-shots .whatslink-stage { background: linear-gradient(145deg,#fff,#f1f5f9); border-style: dashed; box-shadow: inset 0 0 0 1px rgba(255,255,255,.8),0 18px 36px rgba(15,23,42,.08); }
+        .whatslink-modal.no-shots .whatslink-stage img, .whatslink-modal.no-shots .whatslink-nav, .whatslink-modal.no-shots .whatslink-counter, .whatslink-modal.no-shots .whatslink-thumbs { display: none; }
+        .whatslink-empty { display: none; width: min(420px,72%); text-align: center; color: #475569; }
+        .whatslink-modal.no-shots .whatslink-empty { display: block; }
+        .whatslink-empty-icon { width: 62px; height: 62px; margin: 0 auto 15px; display: grid; place-items: center; border-radius: 18px; background: linear-gradient(135deg,#fce7f3,#e0e7ff); color: #be185d; font-size: 27px; box-shadow: 0 12px 26px rgba(190,24,93,.16); }
+        .whatslink-empty-title { font-size: 18px; font-weight: 800; color: #1e293b; margin-bottom: 7px; }
+        .whatslink-empty-text { margin: 0; font-size: 13px; line-height: 1.6; }
+        .whatslink-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 52px; border: 0; border-radius: 8px; background: rgba(255,255,255,.14); color: #fff; font-size: 28px; cursor: pointer; }
+        .whatslink-nav:hover { background: rgba(255,255,255,.24); }
+        .whatslink-prev { left: 12px; } .whatslink-next { right: 12px; }
+        .whatslink-counter { position: absolute; right: 14px; bottom: 12px; color: #e2e8f0; font-size: 12px; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+        .whatslink-thumbs { display: grid; grid-template-columns: repeat(5,1fr); gap: 7px; padding: 0; background: transparent; }
+        .whatslink-thumb { border: 2px solid #e2e8f0; border-radius: 9px; padding: 0; overflow: hidden; background: #fff; cursor: pointer; aspect-ratio: 16 / 9; box-shadow: 0 6px 14px rgba(15,23,42,.08); }
+        .whatslink-thumb.active { border-color: #db2777; box-shadow: 0 8px 18px rgba(219,39,119,.22); }
+        .whatslink-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .whatslink-info { min-width: 0; padding: 14px; background: #f8fafc; overflow: auto; color: #172033; }
+        .whatslink-head { position: sticky; top: 0; z-index: 2; margin: -14px -14px 12px; padding: 13px 14px; background: rgba(248,250,252,.94); border-bottom: 1px solid #e2e8f0; backdrop-filter: blur(10px); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+        .whatslink-kicker { color: #db2777; font-size: 12px; font-weight: 800; margin-bottom: 5px; }
+        .whatslink-title { margin: 0; font-size: 21px; line-height: 1.18; color: #111827; word-break: break-word; }
+        .whatslink-close { width: 32px; height: 32px; border: 0; border-radius: 8px; color: #64748b; background: transparent; cursor: pointer; font-size: 25px; line-height: 1; }
+        .whatslink-tag { display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; margin-top: 8px; border-radius: 999px; background: #ecfdf5; color: #047857; font-size: 12px; font-weight: 700; }
+        .whatslink-meta { display: grid; grid-template-columns: 1fr; gap: 7px; margin: 10px 0 12px; }
+        .whatslink-metric { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 11px; background: #fff; box-shadow: 0 8px 20px rgba(15,23,42,.06); }
+        .whatslink-metric b { color: #172033; font-size: 13px; order: 2; }
+        .whatslink-metric span { color: #64748b; font-size: 12px; order: 1; }
+        .whatslink-section, .whatslink-summary-card { border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; padding: 10px; box-shadow: 0 8px 20px rgba(15,23,42,.06); }
+        .whatslink-section h3 { margin: 0 0 8px; color: #be185d; font-size: 12px; }
+        .whatslink-magnet { word-break: break-all; max-height: 86px; overflow: auto; padding: 9px; border-radius: 8px; background: #f6f8fb; color: #334155; font-family: ui-monospace,SFMono-Regular,Consolas,monospace; font-size: 12px; }
+        .whatslink-summary { display: grid; gap: 8px; margin-top: 10px; }
+        .whatslink-summary-card strong { display: block; margin-bottom: 4px; color: #111827; font-size: 12px; }
+        .whatslink-summary-card p { margin: 0; color: #64748b; font-size: 11px; line-height: 1.45; }
+        .whatslink-loading { padding: 28px; text-align: center; color: #475569; font-size: 14px; }
         @media (max-width: 768px) {
-            .check-car-panel { padding: 12px; }
-            .info div { font-size: 0.95rem; padding: 6px 10px; }
+            .whatslink-overlay { padding: 10px; }
+            .whatslink-modal { width: 96vw; max-height: 92vh; grid-template-columns: 1fr; }
+            .whatslink-viewer { grid-template-rows: minmax(260px,42vh) auto; padding: 10px; }
+            .whatslink-stage { min-height: 260px; }
+            .whatslink-info { max-height: 40vh; }
         }
         /* 深色模式 */
         @media (prefers-color-scheme: dark) {
@@ -312,14 +208,6 @@
             .mag-btn.active {
                 background: #1e3a2a !important;
                 border-color: #34ce57 !important;
-            }
-            .check-car-panel {
-                background-color: #2d2d2d;
-                color: #e0e0e0;
-            }
-            .check-car-panel .info div {
-                background: #3a3a3a;
-                color: #e0e0e0;
             }
             .magnet-link { color: #66b0ff; }
             .ed2k-link { color: #ff79b0; }
@@ -363,7 +251,7 @@
             '.magnet-combined-button',
             '.magnet-button-part',
             '.magnet-loading-btn',
-            '.check-car-panel'
+            '.whatslink-modal'
         ];
         return otherSelectors.some(sel => parent.querySelector(sel));
     }
@@ -400,136 +288,7 @@
     }
 
     // ================= 5. 图片轮播函数 =================
-    function showImageGallery(images, startIndex = 0) {
-        if (!images || images.length === 0) return;
-
-        let currentIndex = startIndex;
-        const mask = document.createElement('div');
-        mask.className = 'gallery-mask';
-        mask.addEventListener('click', (e) => {
-            if (e.target === mask) mask.remove();
-        });
-
-        const updateImage = () => {
-            img.src = images[currentIndex];
-        };
-
-        const img = document.createElement('img');
-        img.className = 'gallery-img';
-        img.src = images[currentIndex];
-
-        const container = document.createElement('div');
-        container.className = 'gallery-container';
-
-        if (images.length > 1) {
-            const prevBtn = document.createElement('button');
-            prevBtn.className = 'gallery-nav gallery-prev';
-            prevBtn.innerHTML = '‹';
-            prevBtn.onclick = (e) => {
-                e.stopPropagation();
-                currentIndex = (currentIndex - 1 + images.length) % images.length;
-                updateImage();
-            };
-
-            const nextBtn = document.createElement('button');
-            nextBtn.className = 'gallery-nav gallery-next';
-            nextBtn.innerHTML = '›';
-            nextBtn.onclick = (e) => {
-                e.stopPropagation();
-                currentIndex = (currentIndex + 1) % images.length;
-                updateImage();
-            };
-
-            container.appendChild(prevBtn);
-            container.appendChild(nextBtn);
-        }
-
-        container.appendChild(img);
-        mask.appendChild(container);
-        document.body.appendChild(mask);
-    }
-
-    // ================= 6. 验车功能 =================
-    const MagnetPanel = {
-        name: 'MagnetPanel',
-        props: {
-            show: { type: Boolean, required: true },
-            magnet: { type: String, required: true },
-            info: { type: Object, required: false, default: () => ({}) }
-        },
-        emits: ['close'],
-        setup(props, { emit }) {
-            const formatSize = (bytes) => {
-                if (!bytes) return '0 B';
-                const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-                let i = 0;
-                let size = bytes;
-                while (size >= 1024 && i < units.length - 1) {
-                    size /= 1024;
-                    i++;
-                }
-                return size.toFixed(2) + ' ' + units[i];
-            };
-
-            const decodeMagnetLink = (magnet) => {
-                return magnet.replace(/([?&])([^=]+)=([^&]*)/g, (match, sep, key, value) => {
-                    try {
-                        return `${sep}${key}=${decodeURIComponent(value)}`;
-                    } catch (e) {
-                        return match;
-                    }
-                });
-            };
-
-            const preview = (src) => {
-                const shots = props.info.screenshots || [];
-                const urls = shots.map(s => s.screenshot || s);
-                const currentIndex = urls.indexOf(src);
-                showImageGallery(urls, currentIndex !== -1 ? currentIndex : 0);
-            };
-
-            return () => vue.h('div', {
-                class: 'check-car-mask',
-                onClick: (e) => { if (e.target === e.currentTarget) emit('close'); }
-            }, [
-                vue.h('div', { class: 'check-car-panel' }, [
-                    vue.h('div', { class: 'panel-header' }, [
-                        vue.h('h3', null, [
-                            vue.h('span', { style: { fontSize: '22px' } }, '🚗'),
-                            ' ',
-                            vue.h('b', null, '磁力信息')
-                        ]),
-                        vue.h('span', { class: 'check-car-close', onClick: () => emit('close') }, '✖')
-                    ]),
-                    vue.h('div', { class: 'panel-body' }, [
-                        props.info ? vue.h('div', { class: 'info' }, [
-                            vue.h('div', { class: 'magnet' }, [
-                                vue.h('b', null, '磁力链接：'),
-                                vue.h('a', { href: props.magnet, target: '_blank' }, decodeMagnetLink(props.magnet))
-                            ]),
-                            vue.h('div', null, [vue.h('b', null, '名称：'), ' ', props.info.name || '未知']),
-                            vue.h('div', null, [vue.h('b', null, '文件类型：'), ' ', props.info.file_type || '未知']),
-                            vue.h('div', null, [vue.h('b', null, '大小：'), ' ', formatSize(props.info.size)]),
-                            vue.h('div', null, [vue.h('b', null, '文件数量：'), ' ', props.info.count || 0]),
-                            props.info.screenshots && props.info.screenshots.length ? vue.h('div', { class: 'screenshots' }, [
-                                vue.h('p', null, [vue.h('b', null, '截图：')]),
-                                vue.h('ul', null, props.info.screenshots.map((shot, idx) =>
-                                    vue.h('li', { key: idx }, [
-                                        vue.h('img', {
-                                            src: shot.screenshot,
-                                            onClick: () => preview(shot.screenshot),
-                                            alt: '截图 ' + (idx + 1)
-                                        })
-                                    ])
-                                ))
-                            ]) : null
-                        ]) : vue.h('div', null, '等待获取...')
-                    ])
-                ])
-            ]);
-        }
-    };
-
+    // ================= 5. ???? =================
     function GM_Request({ method = "GET", url, data = null, headers = {} }) {
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
@@ -564,30 +323,118 @@
         }
     }
 
+    function formatBytes(bytes) {
+        const num = Number(bytes) || 0;
+        if (!num) return '-';
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let value = num;
+        let index = 0;
+        while (value >= 1024 && index < units.length - 1) {
+            value /= 1024;
+            index += 1;
+        }
+        return `${value.toFixed(index >= 3 ? 2 : 1)} ${units[index]}`;
+    }
+
+    function formatWhatslinkType(payload) {
+        const raw = String(payload?.file_type || payload?.type || '').toUpperCase();
+        if (raw.includes('FOLDER')) return '文件夹';
+        if (raw.includes('FILE')) return '文件';
+        return '-';
+    }
+
+    function showWhatslinkModal(payload, magnet) {
+        document.querySelector('.whatslink-overlay')?.remove();
+        const shots = Array.isArray(payload?.screenshots) ? payload.screenshots.map(item => item?.screenshot).filter(Boolean) : [];
+        let index = 0;
+        const resourceType = formatWhatslinkType(payload);
+        const overlay = document.createElement('div');
+        overlay.className = 'whatslink-overlay';
+        const modal = document.createElement('section');
+        modal.className = `whatslink-modal${shots.length ? '' : ' no-shots'}`;
+        modal.innerHTML = `
+            <div class="whatslink-viewer">
+                <div class="whatslink-stage">
+                    <button class="whatslink-nav whatslink-prev" type="button">‹</button>
+                    <img class="whatslink-hero" alt="截图预览">
+                    <button class="whatslink-nav whatslink-next" type="button">›</button>
+                    <div class="whatslink-counter"></div>
+                    <div class="whatslink-empty">
+                        <div class="whatslink-empty-icon">?</div>
+                        <div class="whatslink-empty-title">暂无截图</div>
+                        <p class="whatslink-empty-text">WhatsLink 已返回资源基础信息，但没有可展示的截图。可以通过名称、大小和文件数量先做基础判断。</p>
+                    </div>
+                </div>
+                <div class="whatslink-thumbs"></div>
+            </div>
+            <aside class="whatslink-info">
+                <div class="whatslink-head">
+                    <div>
+                        <div class="whatslink-kicker">磁力验车</div>
+                        <h2 class="whatslink-title"></h2>
+                        <span class="whatslink-tag"></span>
+                    </div>
+                    <button class="whatslink-close" type="button">×</button>
+                </div>
+                <div class="whatslink-meta">
+                    <div class="whatslink-metric"><b>${formatBytes(payload?.size)}</b><span>资源大小</span></div>
+                    <div class="whatslink-metric"><b>${payload?.count ?? '-'}</b><span>文件数量</span></div>
+                    <div class="whatslink-metric"><b>${resourceType}</b><span>资源结构</span></div>
+                    <div class="whatslink-metric"><b>${shots.length}</b><span>截图数量</span></div>
+                    <div class="whatslink-metric"><b>${payload?.error ? '异常' : '无错误'}</b><span>接口状态</span></div>
+                </div>
+                <div class="whatslink-section">
+                    <h3>磁力链接</h3>
+                    <div class="whatslink-magnet"></div>
+                </div>
+                <div class="whatslink-summary">
+                    <div class="whatslink-summary-card"><strong>验车结论</strong><p>${shots.length ? 'WhatsLink 已返回截图，优先用左侧大图确认内容是否匹配番号。' : '当前没有截图，建议结合资源名称、大小和文件数量判断。'}</p></div>
+                </div>
+            </aside>`;
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        modal.querySelector('.whatslink-title').textContent = payload?.name || '未知资源';
+        modal.querySelector('.whatslink-tag').textContent = resourceType;
+        modal.querySelector('.whatslink-magnet').textContent = magnet;
+        const hero = modal.querySelector('.whatslink-hero');
+        const thumbs = modal.querySelector('.whatslink-thumbs');
+        const counter = modal.querySelector('.whatslink-counter');
+        const render = () => {
+            if (!shots.length) return;
+            hero.src = shots[index];
+            counter.textContent = `${index + 1} / ${shots.length}`;
+            [...thumbs.children].forEach((btn, i) => btn.classList.toggle('active', i === index));
+        };
+        shots.forEach((url, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'whatslink-thumb';
+            btn.innerHTML = `<img src="${url}" alt="">`;
+            btn.addEventListener('click', () => { index = i; render(); });
+            thumbs.appendChild(btn);
+        });
+        modal.querySelector('.whatslink-prev').addEventListener('click', () => { if (!shots.length) return; index = (index + shots.length - 1) % shots.length; render(); });
+        modal.querySelector('.whatslink-next').addEventListener('click', () => { if (!shots.length) return; index = (index + 1) % shots.length; render(); });
+        const close = () => overlay.remove();
+        modal.querySelector('.whatslink-close').addEventListener('click', close);
+        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+        render();
+    }
+
     async function handleCheckCar(link, btn) {
         highlightBtn(btn);
-        showToast('🔍 正在查询磁力信息...', true);
+        document.querySelector('.whatslink-overlay')?.remove();
+        const overlay = document.createElement('div');
+        overlay.className = 'whatslink-overlay';
+        overlay.innerHTML = '<div class="whatslink-modal no-shots"><div class="whatslink-loading">正在验车...</div></div>';
+        document.body.appendChild(overlay);
+
         const info = await getMagnetInfo(link);
+        overlay.remove();
         if (!info) {
-            showToast('❌ 查询失败', false);
+            showWhatslinkModal({ error: '查询失败', name: '查询失败', type: '-', file_type: '-', size: 0, count: '-', screenshots: [] }, link);
             return;
         }
-
-        const mountPoint = document.createElement('div');
-        document.body.appendChild(mountPoint);
-
-        const app = vue.createApp({
-            render: () => vue.h(MagnetPanel, {
-                show: true,
-                magnet: link,
-                info: info,
-                onClose: () => {
-                    app.unmount();
-                    mountPoint.remove();
-                }
-            })
-        });
-        app.mount(mountPoint);
+        showWhatslinkModal(info, link);
     }
 
     // ================= 7. 精简磁力链接 =================
@@ -835,7 +682,7 @@
         const textNodes = [];
         while (node = walker.nextNode()) {
             const parent = node.parentElement;
-            if (!parent || parent.closest('#nong-table-new') || parent.closest('.check-car-panel') || parent.closest('.mag-btn-group') || parent.closest('[data-mag-processed]') ||
+            if (!parent || parent.closest('#nong-table-new') || parent.closest('.whatslink-modal') || parent.closest('.mag-btn-group') || parent.closest('[data-mag-processed]') ||
                 ['SCRIPT', 'STYLE', 'A', 'TEXTAREA', 'INPUT'].includes(parent.tagName)) continue;
             textNodes.push(node);
         }
@@ -850,7 +697,7 @@
         // 处理 <a> 标签（排除 laosiji 表格内的链接）
         document.querySelectorAll('a').forEach(a => {
             if (a.closest('#nong-table-new')) return;
-            if (a.closest('.check-car-panel')) return;
+            if (a.closest('.whatslink-modal')) return;
             if (a.dataset.magProcessed) return;
             const href = a.href || '';
             // 支持 magnet, ed2k, ftp
@@ -1088,4 +935,4 @@
     const observer = new MutationObserver(lazyRun);
     observer.observe(document.body, { childList: true, subtree: true });
 
-})(Vue);
+})();
