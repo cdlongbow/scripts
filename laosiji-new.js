@@ -340,7 +340,7 @@
                         <div class="sp-footer-links">
                             <a class="sp-footer-link" href="https://github.com/ZiPenOk/scripts" target="_blank" rel="noopener noreferrer">Github</a>
                             <span class="sp-footer-sep"></span>
-                            <a class="sp-footer-link" href="https://t.me/+yqIM65zNJss4OWFl" target="_blank" rel="noopener noreferrer">反馈</a>
+                            <a class="sp-footer-link" href="https://sleazyfork.org/zh-CN/scripts/576375-jav%E8%80%81%E5%8F%B8%E6%9C%BA-%E6%96%B0/feedback" target="_blank" rel="noopener noreferrer">反馈</a>
                             <span class="sp-footer-sep"></span>
                             <span class="sp-footer-link" style="cursor:default;color:#94a3b8;">v${SCRIPT_VERSION}</span>
                         </div>
