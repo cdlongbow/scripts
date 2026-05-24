@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         JAV老司机-新
-// @namespace    https://github.com/ZiPenOk/scripts
+// @namespace    https://github.com/ZiPenOk
 // @version      2.3.7
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk

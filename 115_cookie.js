@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         115网盘-cookie-扫码登录
-// @namespace    https://github.com/ZiPenOk/scripts
+// @namespace    115-qrcode-cookie-login
 // @version      3.0
 // @author       提取自 JAV-JHS (并做插入稳定性增强)
 // @namespace    https://github.com/ZiPenOk/scripts
