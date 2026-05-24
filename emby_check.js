@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.6.5
-// @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
+// @version      5.6.6
+// @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
 // @match        *://javdb*.com/v/*
@@ -14,8 +14,6 @@
 // @match        *://sukebei.nyaa.si/view/*
 // @match        *://sukebei.nyaa.si/*
 // @match        *://www.javlibrary.com/*/*
-// @match        *://madou.com/archives/*
-// @match        *://*.madou.com/archives/*
 // @match        *://javrate.com/*
 // @match        *://*.javrate.com/*
 // @match        *://169bbs.com/*
@@ -30,8 +28,8 @@
 // @grant        GM_addStyle
 // @run-at       document-start
 // @license      MIT
-// @homepageURL  https://github.com/ZiPenOk/scripts
 // @supportURL   https://github.com/ZiPenOk/scripts/issues
+// @homepageURL  https://github.com/ZiPenOk/scripts
 // @icon         https://img.icons8.com/fluency/96/emby.png
 // @updateURL    https://raw.githubusercontent.com/ZiPenOk/scripts/main/emby_check.js
 // @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/emby_check.js
@@ -115,15 +113,14 @@
                 javbus: { list: true, detail: true },
                 javdb: { list: true, detail: true },
                 supjav: { list: true, detail: true },
-                sehuatang: { list: false, detail: true },
+                sehuatang: { list: true, detail: true },
                 sukebei: { list: true, detail: true },
                 javlibrary: { list: true, detail: true },
-                madou: { list: false, detail: true },
-                javrate: { list: false, detail: true },
+                javrate: { list: true, detail: true },
                 '169bbs': { list: true, detail: true },
                 'hjd2048': { list: true, detail: true },
                 'missav': { list: true, detail: true },
-                'jable': { list: false, detail: true }
+                'jable': { list: true, detail: true }
             };
             for (let site in saved) {
                 if (!(site in defaults)) {
@@ -2548,53 +2545,6 @@
             });
         })(),
 
-        madou: Object.assign(Object.create(BaseProcessor), {
-            listSelector: '',
-
-            async process() {
-                const siteConfig = this.__siteConfig;
-                if (!siteConfig || !siteConfig.detail) return;
-
-                await this.processDetailPage();
-            },
-
-            async processDetailPage() {
-                if (document.querySelector('.emby-jump-link, .emby-badge, .emby-copy-btn')) return;
-
-                let code = null;
-
-                const keywords = document.querySelector('meta[name="keywords"]')?.content || "";
-                code = extractCodeFromText(keywords);
-                if (code) code = code.toUpperCase();
-
-                if (!code) {
-                    const info = document.querySelector('.vd-infos');
-                    if (info) {
-                        const ps = info.querySelectorAll('p');
-                        for (const p of ps) {
-                            const text = p.textContent || '';
-                            code = extractCodeFromText(text);
-                            if (code) {
-                                code = code.toUpperCase();
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (code) {
-                    Prompt.queryStart(code);
-                    const bestItem = await this.api.checkExists(code);
-                    const link = bestItem ? this.api.createLink(bestItem) : null;
-                    const copyBtn = this.api.createCopyButton(code);
-                    const titleElement = document.querySelector('h1');
-                    this.appendToSharedRow(link, copyBtn, titleElement || document.body);
-                    if (bestItem) Prompt.querySuccess(code);
-                    else Prompt.queryNotFound(code);
-                }
-            }
-        }),
-
         javrate: Object.assign(Object.create(BaseProcessor), {
             listSelector: '.mgn-item',
 
@@ -3019,7 +2969,6 @@
         if (host.includes('sehuatang')) return 'sehuatang';
         if (host.includes('nyaa.si')) return 'sukebei';
         if (host.includes('javlibrary')) return 'javlibrary';
-        if (host.includes('madou')) return 'madou';
         if (host.includes('javrate')) return 'javrate';
         if (host.includes('169bbs')) return '169bbs';
         if (host.includes('hjd2048.com')) return 'hjd2048';
