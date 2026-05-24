@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
-// @namespace    https://github.com/ZiPenOk
-// @version      2.3.7
+// @namespace    https://github.com/ZiPenOk/scripts
+// @version      2.3.8
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -47,7 +47,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.3.7';
+    const SCRIPT_VERSION = '2.3.8';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -103,6 +103,7 @@
         { key: '123av',  label: '123AV',  host: /123av\.com/i, color: '#10b981' },
         { key: 'javday', label: 'JavDay', host: /javday\.app/i, color: '#0ea5e9' },
         { key: 'supjav', label: 'SupJav', host: /supjav\.com/i, color: '#ef4444' },
+        { key: 'javrate', label: 'JavRate', host: /javrate\.com/i, color: '#8b5cf6' },
     ];
     window.__LAOSIJI_VIDEO_ENGINES__ = VIDEO_ENGINES;
 
@@ -211,9 +212,19 @@
                 #jav-settings-panel .sp-feature-item:has(#sp-magnet-table) { order:1; }
                 #jav-settings-panel .sp-feature-item:has(#sp-btn-pan115) { order:2; }
                 #jav-settings-panel .sp-feature-item:has(#sp-infinite-scroll) { order:3; grid-column:1; }
-                #jav-settings-panel .sp-feature-item:has(#sp-preview-cache) { order:4; grid-column:1; }
-                #jav-settings-panel .sp-feature-item:has(#sp-trailer-cache) { order:5; grid-column:2; }
+                #jav-settings-panel .sp-feature-item:has(#sp-clear-preview-cache) { order:4; grid-column:1; }
+                #jav-settings-panel .sp-feature-item:has(#sp-clear-trailer-cache) { order:5; grid-column:2; }
                 #jav-settings-panel .sp-feature-item .sp-desc { margin-top:2px; font-size:11px; }
+                #jav-settings-panel .sp-cache-clean { background:linear-gradient(135deg,#fff 0%,#f8fbff 58%,#f0f9ff 100%); }
+                #jav-settings-panel .sp-cache-clear-btn { position:relative; width:34px; height:34px; flex:0 0 auto; display:grid; place-items:center; border:1px solid #bae6fd; border-radius:10px; background:linear-gradient(180deg,#f0f9ff,#fff); color:#0284c7; cursor:pointer; overflow:hidden; transition:transform .16s, border-color .16s, background .16s, color .16s, box-shadow .16s; }
+                #jav-settings-panel .sp-cache-clear-btn::after { content:''; position:absolute; inset:-8px; border-radius:inherit; background:radial-gradient(circle,rgba(14,165,233,.22),transparent 62%); opacity:0; transform:scale(.45); transition:opacity .22s, transform .22s; }
+                #jav-settings-panel .sp-cache-clear-btn:hover { transform:translateY(-1px); border-color:#38bdf8; color:#0369a1; box-shadow:0 8px 18px rgba(14,165,233,.18); }
+                #jav-settings-panel .sp-cache-clear-btn:active { transform:translateY(0) scale(.96); }
+                #jav-settings-panel .sp-cache-clear-btn.is-clearing::after { opacity:1; transform:scale(1); }
+                #jav-settings-panel .sp-cache-clear-btn.is-done { border-color:#86efac; background:linear-gradient(180deg,#ecfdf5,#fff); color:#15803d; }
+                #jav-settings-panel .sp-cache-clear-icon { position:relative; z-index:1; display:inline-block; font-size:15px; line-height:1; }
+                #jav-settings-panel .sp-cache-clear-btn.is-clearing .sp-cache-clear-icon { animation:spCacheSpin .48s ease; }
+                @keyframes spCacheSpin { to { transform:rotate(360deg); } }
                 #jav-settings-panel .sp-field { display:flex; flex-direction:column; gap:6px; min-width:0; }
                 #jav-settings-panel .sp-label { font-size:12px; font-weight:650; color:#475569; }
                 #jav-settings-panel .sp-input, #jav-settings-panel .sp-select { width:100%; min-width:0; height:34px; padding:6px 9px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:#0f172a; font-size:13px; outline:none; }
@@ -290,13 +301,13 @@
                                     <div><div class="sp-label">磁力引擎</div></div>
                                     <label class="sp-toggle"><input id="sp-magnet-table" type="checkbox"><span class="sp-toggle-track"></span></label>
                                 </div>
-                                <div class="sp-feature-item">
-                                    <div><div class="sp-label">预览图缓存</div></div>
-                                    <label class="sp-toggle"><input id="sp-preview-cache" type="checkbox"><span class="sp-toggle-track"></span></label>
+                                <div class="sp-feature-item sp-cache-clean">
+                                    <div><div class="sp-label">预览图缓存</div><div class="sp-desc">清理本页会话缓存</div></div>
+                                    <button class="sp-cache-clear-btn" id="sp-clear-preview-cache" type="button" title="清理预览图缓存"><span class="sp-cache-clear-icon">↻</span></button>
                                 </div>
-                                <div class="sp-feature-item">
-                                    <div><div class="sp-label">预告片缓存</div></div>
-                                    <label class="sp-toggle"><input id="sp-trailer-cache" type="checkbox"><span class="sp-toggle-track"></span></label>
+                                <div class="sp-feature-item sp-cache-clean">
+                                    <div><div class="sp-label">预告片缓存</div><div class="sp-desc">清理解析结果缓存</div></div>
+                                    <button class="sp-cache-clear-btn" id="sp-clear-trailer-cache" type="button" title="清理预告片缓存"><span class="sp-cache-clear-icon">↻</span></button>
                                 </div>
                                 <div class="sp-feature-item">
                                     <div><div class="sp-label">115匹配</div></div>
@@ -340,7 +351,7 @@
                         <div class="sp-footer-links">
                             <a class="sp-footer-link" href="https://github.com/ZiPenOk/scripts" target="_blank" rel="noopener noreferrer">Github</a>
                             <span class="sp-footer-sep"></span>
-                            <a class="sp-footer-link" href="https://sleazyfork.org/zh-CN/scripts/576375-jav%E8%80%81%E5%8F%B8%E6%9C%BA-%E6%96%B0/feedback" target="_blank" rel="noopener noreferrer">反馈</a>
+                            <a class="sp-footer-link" href="https://t.me/+yqIM65zNJss4OWFl" target="_blank" rel="noopener noreferrer">反馈</a>
                             <span class="sp-footer-sep"></span>
                             <span class="sp-footer-link" style="cursor:default;color:#94a3b8;">v${SCRIPT_VERSION}</span>
                         </div>
@@ -361,8 +372,8 @@
             const jumpEngineSelect = panel.querySelector('#sp-jump-engine');
             const videoEngineSelect = panel.querySelector('#sp-video-engine');
             const magnetTableCheckbox = panel.querySelector('#sp-magnet-table');
-            const cacheCheckbox = panel.querySelector('#sp-preview-cache');
-            const trailerCacheCheckbox = panel.querySelector('#sp-trailer-cache');
+            const clearPreviewCacheBtn = panel.querySelector('#sp-clear-preview-cache');
+            const clearTrailerCacheBtn = panel.querySelector('#sp-clear-trailer-cache');
             const infiniteScrollCheckbox = panel.querySelector('#sp-infinite-scroll');
             const btnToggles = {
                 nyaa:    panel.querySelector('#sp-btn-nyaa'),
@@ -429,8 +440,6 @@
             videoEngineSelect.value = CFG.defaultVideoEngine;
             if (![...videoEngineSelect.options].some(opt => opt.value === videoEngineSelect.value)) videoEngineSelect.value = 'missav';
             magnetTableCheckbox.checked = CFG.magnetTable;
-            cacheCheckbox.checked = GM_getValue('preview_cache_enabled', true);
-            trailerCacheCheckbox.checked = GM_getValue('trailer_cache_enabled', true);
             infiniteScrollCheckbox.checked = CFG.infiniteScroll;
             btnToggles.nyaa.checked    = CFG.btnShowNyaa;
             btnToggles.javbus.checked  = CFG.btnShowJavbus;
@@ -469,8 +478,7 @@
                 [currentOrder[from], currentOrder[to]] = [currentOrder[to], currentOrder[from]];
                 renderOrder();
             });
-            clearCacheBtn.addEventListener('click', () => {
-                const prefixes = ['thumb_cache_', 'trailer_cache_v3_', 'pan115_cache_'];
+            const clearCacheByPrefixes = (prefixes) => {
                 let count = 0;
                 Object.keys(sessionStorage).forEach(key => {
                     if (prefixes.some(prefix => key.startsWith(prefix))) {
@@ -478,6 +486,30 @@
                         count += 1;
                     }
                 });
+                return count;
+            };
+            const flashCacheButton = (btn, label, count) => {
+                if (!btn) return;
+                btn.classList.remove('is-done');
+                btn.classList.add('is-clearing');
+                setTimeout(() => {
+                    btn.classList.remove('is-clearing');
+                    btn.classList.add('is-done');
+                    cacheFeedback.textContent = count ? `${label} ${count} 项` : `${label}无缓存`;
+                    setTimeout(() => btn.classList.remove('is-done'), 900);
+                    setTimeout(() => { cacheFeedback.textContent = ''; }, 1800);
+                }, 260);
+            };
+            clearPreviewCacheBtn.addEventListener('click', () => {
+                const count = clearCacheByPrefixes(['thumb_cache_']);
+                flashCacheButton(clearPreviewCacheBtn, '预览图已清理', count);
+            });
+            clearTrailerCacheBtn.addEventListener('click', () => {
+                const count = clearCacheByPrefixes(['trailer_cache_']);
+                flashCacheButton(clearTrailerCacheBtn, '预告片已清理', count);
+            });
+            clearCacheBtn.addEventListener('click', () => {
+                const count = clearCacheByPrefixes(['thumb_cache_', 'trailer_cache_', 'pan115_cache_']);
                 cacheFeedback.textContent = count ? `已清空 ${count} 项` : '无缓存';
                 setTimeout(() => { cacheFeedback.textContent = ''; }, 1800);
             });
@@ -496,8 +528,6 @@
                 GM_setValue('default_search_engine', parseInt(jumpEngineSelect.value, 10) || 0);
                 CFG.defaultVideoEngine = videoEngineSelect.value || 'missav';
                 CFG.magnetTable = magnetTableCheckbox.checked;
-                GM_setValue('preview_cache_enabled', cacheCheckbox.checked);
-                GM_setValue('trailer_cache_enabled', trailerCacheCheckbox.checked);
                 CFG.infiniteScroll = infiniteScrollCheckbox.checked;
                 CFG.btnShowNyaa    = btnToggles.nyaa.checked;
                 CFG.btnShowJavbus  = btnToggles.javbus.checked;
@@ -1527,6 +1557,7 @@
         { key: '123av',  label: '123AV',  host: /123av\.com/i, color: '#10b981' },
         { key: 'javday', label: 'JavDay', host: /javday\.app/i, color: '#0ea5e9' },
         { key: 'supjav', label: 'SupJav', host: /supjav\.com/i, color: '#ef4444' },
+        { key: 'javrate', label: 'JavRate', host: /javrate\.com/i, color: '#8b5cf6' },
     ];
 
     GM_addStyle(`
@@ -2669,6 +2700,32 @@
                 : [url].filter(Boolean);
             let fallbackIndex = Math.max(0, fallbackUrls.indexOf(url));
             const sourceLink = { href: activeUrl };
+            const playbackKeyBase = `trailer_playback_${String(code || '').trim().toUpperCase()}_${String(url || '').slice(0, 160)}`;
+            const readPlaybackTime = (key = playbackKeyBase) => {
+                const value = Number(sessionStorage.getItem(key) || 0);
+                return Number.isFinite(value) && value > 0 ? value : 0;
+            };
+            const writePlaybackTime = (time = video?.currentTime || 0, key = playbackKeyBase) => {
+                if (!Number.isFinite(time) || time < 3) return;
+                const duration = Number(video?.duration || 0);
+                if (Number.isFinite(duration) && duration > 0 && duration - time < 3) {
+                    sessionStorage.removeItem(key);
+                    return;
+                }
+                sessionStorage.setItem(key, String(Math.floor(time)));
+            };
+            const clearPlaybackTime = (key = playbackKeyBase) => sessionStorage.removeItem(key);
+            const restorePlaybackTime = (key = playbackKeyBase) => {
+                if (!video || video.dataset.playbackRestored === '1') return;
+                const savedTime = readPlaybackTime(key);
+                if (!savedTime) return;
+                const duration = Number(video.duration || 0);
+                if (Number.isFinite(duration) && duration > 0 && savedTime < duration - 3) {
+                    video.currentTime = savedTime;
+                    video.dataset.playbackRestored = '1';
+                    syncTrailerControls();
+                }
+            };
 
             const formatTime = (seconds) => {
                 if (!Number.isFinite(seconds) || seconds < 0) return '00:00';
@@ -2896,9 +2953,19 @@
                     screen.classList.remove('is-controls-hidden');
                     clearTimeout(controlsHideTimer);
                 });
-                video.addEventListener('timeupdate', syncTrailerControls);
-                video.addEventListener('durationchange', syncTrailerControls);
-                video.addEventListener('loadedmetadata', syncTrailerControls);
+                video.addEventListener('timeupdate', () => {
+                    syncTrailerControls();
+                    writePlaybackTime();
+                });
+                video.addEventListener('durationchange', () => {
+                    syncTrailerControls();
+                    restorePlaybackTime();
+                });
+                video.addEventListener('loadedmetadata', () => {
+                    syncTrailerControls();
+                    restorePlaybackTime();
+                });
+                video.addEventListener('ended', () => clearPlaybackTime());
                 video.addEventListener('error', () => {
                     if (fallbackIndex >= fallbackUrls.length - 1) return;
                     fallbackIndex += 1;
@@ -2958,6 +3025,7 @@
                 progress.addEventListener('change', () => {
                     if (video && Number.isFinite(video.duration) && video.duration > 0) {
                         video.currentTime = (Number(progress.value) / 1000) * video.duration;
+                        writePlaybackTime(video.currentTime);
                     }
                     seekingByProgress = false;
                     syncTrailerControls();
@@ -3013,7 +3081,9 @@
                     if (!video || !qualityMap[key] || activeQuality === key) return;
                     const currentTime = video.currentTime || 0;
                     const shouldPlay = !video.paused;
+                    writePlaybackTime(currentTime);
                     video.src = qualityMap[key];
+                    video.dataset.playbackRestored = '1';
                     fallbackIndex = Math.max(0, fallbackUrls.indexOf(qualityMap[key]));
                     video.load();
                     video.currentTime = currentTime;
@@ -3069,6 +3139,7 @@
                 }
                 const video = overlay.querySelector('video');
                 if (video) {
+                    writePlaybackTime(video.currentTime || 0);
                     video.pause();
                     video.removeAttribute('src');
                     video.load();
@@ -3996,13 +4067,13 @@
 
     const Settings = {
         getPreviewCacheEnabled() {
-            return GM_getValue('preview_cache_enabled', true);
+            return true;
         },
         setPreviewCacheEnabled(value) {
             GM_setValue('preview_cache_enabled', value);
         },
         getTrailerCacheEnabled() {
-            return GM_getValue('trailer_cache_enabled', true);
+            return true;
         },
         setTrailerCacheEnabled(value) {
             GM_setValue('trailer_cache_enabled', value);
@@ -4283,9 +4354,10 @@
             '123av': `https://123av.com/zh/v/${codeLower}`,
             javday: `https://javday.app/videos/${codeCompactLower}/`,
             supjav: `https://supjav.com/zh/?s=${encodeURIComponent(code)}`,
+            javrate: `https://www.javrate.com/search/${encodeURIComponent(codeLower)}`,
         };
         const enabledVideoKeys = new Set([
-            ...(showMissav ? ['missav', 'jable', '123av', 'javday', 'supjav'] : []),
+            ...(showMissav ? ['missav', 'jable', '123av', 'javday', 'supjav', 'javrate'] : []),
         ]);
         const videoButtons = Settings.getVideoEngines()
             .filter(item => enabledVideoKeys.has(item.key) && !item.host.test(location.hostname))
