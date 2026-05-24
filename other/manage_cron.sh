@@ -1,5 +1,5 @@
 #!/bin/bash
-# Debian 计划任务 自动化管理 V8
+# Debian 计划任务 自动化管理 V10
 
 # 获取当前 crontab 内容
 get_cron_data() {
@@ -25,6 +25,12 @@ translate_cron() {
     
     local time_desc=""
     local date_desc=""
+
+    # 常见场景：每 30 分钟执行，但跳过凌晨 4 点这一小时
+    if [[ "$m" == "0,30" && "$h" == "0-3,5-23" && "$d" == "*" && "$mon" == "*" && "$w" == "*" ]]; then
+        echo "每天除凌晨 4 点外，每 30 分钟运行一次（整点、半点）"
+        return
+    fi
 
     # 1. 解析日期/周期部分 (Day/Week)
     if [[ "$w" =~ ^[0-6,7]+$ ]]; then          # 匹配一个或多个数字、逗号、7
@@ -68,6 +74,44 @@ translate_cron() {
     echo "${date_desc} ${time_desc}"
 }
 
+# 自动备注在显示时重新翻译时间，避免旧备注里出现 “0-3,5-23点0,30分” 这种机器表达
+format_note_for_display() {
+    local note="$1"
+    local time_expr="$2"
+
+    note=$(echo "$note" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+
+    if [[ "$time_expr" == "0,30 0-3,5-23 * * *" ]]; then
+        local note_prefix="$note"
+
+        if [[ "$note" == *"："* ]]; then
+            note_prefix="${note%%：*}"
+        elif [[ "$note" == *":"* ]]; then
+            note_prefix="${note%%:*}"
+        fi
+
+        echo "${note_prefix}：每天除凌晨 4 点外，每 30 分钟运行一次（整点、半点）"
+        return
+    fi
+
+    if [[ "$note" =~ ^[0-9]+\.[[:space:]]* ]]; then
+        local note_prefix="$note"
+
+        if [[ "$note" == *"："* ]]; then
+            note_prefix="${note%%：*}"
+        elif [[ "$note" == *":"* ]]; then
+            note_prefix="${note%%:*}"
+        else
+            echo "$note"
+            return
+        fi
+
+        echo "${note_prefix}：$(translate_cron "$time_expr")"
+    else
+        echo "$note"
+    fi
+}
+
 # 验证格式
 validate_cron() {
     local expr="$1"
@@ -84,11 +128,12 @@ validate_cron() {
 
 show_menu() {
     echo -e "\n=========================================="
-    echo -e "       Debian 计划任务 自动化管理 V9"
+    echo -e "       Debian 计划任务 自动化管理 V10"
     echo -e "=========================================="
     get_cron_data
     TASK_MAPPING=()
     local display_idx=0
+    local notes_changed=0
     echo -e "序号   状态      时间进度          命令内容"
     echo "------------------------------------------"
     
@@ -112,12 +157,22 @@ show_menu() {
             prev_idx=$((i-1))
             if [ $prev_idx -ge 0 ] && ! is_real_task "${ALL_LINES[$prev_idx]}" && [[ -n "${ALL_LINES[$prev_idx]}" ]]; then
                 note_content=$(echo "${ALL_LINES[$prev_idx]}" | sed 's/^[[:space:]]*#//')
+                note_content=$(format_note_for_display "$note_content" "$time_part")
+                if [[ "${ALL_LINES[$prev_idx]}" != "# $note_content" ]]; then
+                    ALL_LINES[$prev_idx]="# $note_content"
+                    notes_changed=1
+                fi
                 echo -e "      \033[90m(备注: $note_content)\033[0m"
             fi
 
             next_idx=$((i+1))
             if [ $next_idx -lt ${#ALL_LINES[@]} ] && ! is_real_task "${ALL_LINES[$next_idx]}" && [[ -n "${ALL_LINES[$next_idx]}" ]]; then
                 note_content=$(echo "${ALL_LINES[$next_idx]}" | sed 's/^[[:space:]]*#//')
+                note_content=$(format_note_for_display "$note_content" "$time_part")
+                if [[ "${ALL_LINES[$next_idx]}" != "# $note_content" ]]; then
+                    ALL_LINES[$next_idx]="# $note_content"
+                    notes_changed=1
+                fi
                 echo -e "      \033[90m(备注: $note_content)\033[0m"
             fi
 
@@ -125,6 +180,10 @@ show_menu() {
             ((display_idx++))
         fi
     done
+
+    if [ "$notes_changed" -eq 1 ]; then
+        save_to_system >/dev/null
+    fi
 }
 
 edit_task() {

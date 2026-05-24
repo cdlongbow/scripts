@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         论坛居中显示
-// @namespace    https://github.com/ZiPenOk
+// @namespace    https://github.com/ZiPenOk/scripts
 // @version      1.0.1
 // @description  将 sehuatang.net 的论坛布局水平居中并限制最大宽度，适配 Discuz! X3.4 常见结构
 // @author       ZiPenOk

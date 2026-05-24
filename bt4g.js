@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         BT4G 磁力链提取器
-// @namespace    https://github.com/ZiPenOk
+// @namespace    https://github.com/ZiPenOk/scripts
 // @version      1.0
 // @description  为 BT4G 搜索结果页和详情页添加磁力链接（显示纯 hash，复制/打开带 dn）
 // @author       ZiPenOk
 // @match        https://*.bt4gprx.com/*
 // @grant        none
 // @run-at       document-idle
-// @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @homepageURL  https://github.com/ZiPenOk/scripts
+// @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @icon         https://bt4gprx.com/static/favicon.ico
 // @updateURL    https://raw.githubusercontent.com/ZiPenOk/scripts/main/bt4g.js
 // @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/bt4g.js

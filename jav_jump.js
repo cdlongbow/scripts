@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         番号跳转加预览图
-// @namespace    https://github.com/ZiPenOk
+// @namespace    https://github.com/ZiPenOk/scripts
 // @version      6.0.0
 // @icon         https://javdb.com/favicon.ico
 // @description  所有站点统一使用强番号逻辑 + JavBus 智能路径，表格开关，手动关闭，按钮统一在标题下方新行显示。新增 JavBus、JAVLibrary、JavDB、javrate , 增加javstore预览图来源, 并添加缓存控制选择。新增 MissAV 站点适配。增加ProjectJav预览图来源。新增预告片影院式播放。
@@ -28,6 +28,8 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_addStyle
 // @connect      *
+// @homepageURL  https://github.com/ZiPenOk/scripts
+// @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/jav_jump.js
 // @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/jav_jump.js
 // ==/UserScript==

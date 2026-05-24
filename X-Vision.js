@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         改 - X-Vision：沉浸式影院播放器
-// @namespace    https://github.com/ZiPenOk
+// @namespace    https://github.com/ZiPenOk/scripts
 // @version      2.0.6
 // @description  改 - X-Vision：沉浸式影院播放器 - Apple风格设计，支持长按2倍速、智能预加载、手势快捷操作、PiP画中画、智能续播（记住进度）修复背景播放问题
 // @author       ZiPenOK (原作者Luke Liou)
@@ -15,6 +15,8 @@
 // @connect      video.twimg.com
 // @connect      pbs.twimg.com
 // @connect      *
+// @homepageURL  https://github.com/ZiPenOk/scripts
+// @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/X-Vision.js
 // @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/X-Vision.js
 // @run-at       document-start

@@ -1,11 +1,13 @@
 // ==UserScript==
 // @name         115 Local Rename Lite
-// @namespace    https://github.com/ZiPenOk
+// @namespace    https://github.com/ZiPenOk/scripts
 // @version      2.5
 // @description  115 local-only 借鉴115Rename2026 只做本地处理 自用脚本
 // @author       ZiPenOk
 // @match        https://115.com/*
 // @icon         https://115.com/favicon.ico
+// @homepageURL  https://github.com/ZiPenOk/scripts
+// @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/rename115.local-lite.user.js
 // @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/rename115.local-lite.user.js
 // @grant        none

@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
-// @namespace    https://github.com/ZiPenOk
+// @namespace    https://github.com/ZiPenOk/scripts
 // @version      5.6.5
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅madou ✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
@@ -30,8 +30,8 @@
 // @grant        GM_addStyle
 // @run-at       document-start
 // @license      MIT
-// @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @homepageURL  https://github.com/ZiPenOk/scripts
+// @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @icon         https://img.icons8.com/fluency/96/emby.png
 // @updateURL    https://raw.githubusercontent.com/ZiPenOk/scripts/main/emby_check.js
 // @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/emby_check.js

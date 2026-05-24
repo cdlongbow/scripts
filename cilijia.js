@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         磁力家磁力链提取
-// @namespace    https://github.com/ZiPenOk
+// @namespace    https://github.com/ZiPenOk/scripts
 // @version      1.2
 // @description  磁力家搜索结果加载后为每个资源添加磁力链接和复制按钮,可能需要手动刷新一次页面
 // @author       ZiPenOk
@@ -8,8 +8,8 @@
 // @match        https://taocili.com/search*
 // @grant        none
 // @run-at       document-idle
-// @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @homepageURL  https://github.com/ZiPenOk/scripts
+// @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @icon         https://taocili.com/favicon.ico
 // @updateURL    https://raw.githubusercontent.com/ZiPenOk/scripts/main/cilijia.js
 // @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/cilijia.js

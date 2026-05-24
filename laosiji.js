@@ -2,8 +2,6 @@
 // @name         JAV老司机-改
 // @namespace    https://github.com/ZiPenOk/scripts
 // @version      4.5
-// @supportURL   https://github.com/ZiPenOk/scripts/issues
-// @source       https://github.com/ZiPenOk/scripts
 // @description  基于老司机最后一版修改自用,修复预览图来源,添加预览图开关, 修复javdb,javlibrary挊表格的插入
 // @author       Hobby (ZiPenOK fix)
 // @require      https://raw.githubusercontent.com/Tampermonkey/utils/refs/heads/main/requires/gh_2215_make_GM_xhr_more_parallel_again.js
@@ -14,6 +12,8 @@
 // @require      https://cdn.jsdelivr.net/npm/lovefield@2.1.12/dist/lovefield.min.js
 // @require      https://cdn.jsdelivr.net/npm/sweetalert2@9.17.2/dist/sweetalert2.all.min.js
 // @resource     icon https://cdn.jsdelivr.net/gh/hobbyfang/javOldDriver@master/115helper_icon_001.jpg
+// @homepageURL  https://github.com/ZiPenOk/scripts
+// @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @updateURL    https://raw.githubusercontent.com/ZiPenOk/scripts/main/laosiji.js
 // @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/laosiji.js
 

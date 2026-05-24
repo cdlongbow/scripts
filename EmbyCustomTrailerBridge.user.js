@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Emby Custom Trailer Bridge
-// @namespace    emby-custom-trailer
+// @namespace    https://github.com/ZiPenOk/scripts
 // @version      0.1.2
 // @description  脚本的作用为给EmbyNativeTrailer.js脚本提供特权请求桥接，用于MGStage预告片查找。
 // @author       ZiPenOk

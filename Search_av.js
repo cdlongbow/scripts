@@ -1,12 +1,10 @@
 // ==UserScript==
 // @name         (改)根据番号快速搜索
-// @namespace    https://github.com/ZiPenOk
+// @namespace    https://github.com/ZiPenOk/scripts
 // @version      2.0.1
 // @description  划词识别番号并在弹出面板中快速搜索、跳转、预览与查询媒体库 自用修改 原作者(iqxin)
 // @author       ZiPenOK
 // @icon         https://img.sh1nyan.fun/file/1778493368757_searchav.png
-// @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/Search_av.js
-// @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/Search_av.js
 // @license      MIT
 // @match        *://**/*
 // @require     https://update.greasyfork.org/scripts/447533/1214813/findAndReplaceDOMText%20v%20046.js
@@ -40,7 +38,11 @@
 // @grant       GM_registerMenuCommand
 // @grant       GM_openInTab
 // @run-at      document-idle
- 
+// @homepageURL  https://github.com/ZiPenOk/scripts
+// @supportURL   https://github.com/ZiPenOk/scripts/issues
+// @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/Search_av.js
+// @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/Search_av.js
+
 // ==/UserScript==
  
 (function() {

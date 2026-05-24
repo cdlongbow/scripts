@@ -5,11 +5,10 @@
 //可以在仓库直接安装extrafanart&trailers.js了, 已经完美支持
 // ==UserScript==
 // @name         Emby External Fanart
-// @namespace    emby-external-fanart
+// @namespace    https://github.com/ZiPenOk/scripts
 // @version      3.9.2
 // @description  在 Emby 详情页从 JavBus / JavDB / DMM 抓取外部剧照并替换原有embycss剧照区块，保留预告片卡片
 // @author       ZiPenOk
-// @namespace    https://github.com/ZiPenOk
 // @match        *://*/web/index.html*
 // @match        *://*/web/
 // @grant        GM_xmlhttpRequest
@@ -23,6 +22,8 @@
 // @connect      c0.jdbstatic.com
 // @run-at       document-end
 // @icon         https://img.icons8.com/fluency/96/emby.png
+// @homepageURL  https://github.com/ZiPenOk/scripts
+// @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/emby-external-fanart.user.js
 // @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/emby-external-fanart.user.js
 // ==/UserScript==

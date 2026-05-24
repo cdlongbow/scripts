@@ -24,6 +24,8 @@
 // @connect      ip-api.com
 // @connect      ipwhois.app
 // @connect      ipinfo.io
+// @homepageURL  https://github.com/ZiPenOk/scripts
+// @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/youtube_tool.js
 // @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/youtube_tool.js
 // ==/UserScript==
