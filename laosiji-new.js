@@ -536,11 +536,35 @@
             panel.querySelector('.sp-close').addEventListener('click', closePanel);
             panel.querySelector('.sp-btn-cancel').addEventListener('click', closePanel);
             panel.querySelector('.sp-btn-save').addEventListener('click', () => {
+                const snapshotNonPan115 = () => JSON.stringify({
+                    domains: MAGNET_ENGINES.map(item => CFG[item.key]),
+                    defaultEngine: CFG.defaultEngine,
+                    defaultSearchEngine: GM_getValue('default_search_engine', 2),
+                    defaultVideoEngine: CFG.defaultVideoEngine,
+                    magnetTable: CFG.magnetTable,
+                    infiniteScroll: CFG.infiniteScroll,
+                    buttons: {
+                        nyaa: CFG.btnShowNyaa,
+                        javbus: CFG.btnShowJavbus,
+                        javdb: CFG.btnShowJavdb,
+                        missav: CFG.btnShowMissav,
+                        fanza: CFG.btnShowFanza,
+                        search: CFG.btnShowSearch,
+                        trailer: CFG.btnShowTrailer,
+                        preview: CFG.btnShowPreview,
+                    },
+                    thumbOrder: GM_getValue('thumb_source_order', ['javfree', 'projectjav', 'javstore']),
+                });
+                const beforeNonPan115 = snapshotNonPan115();
+                const beforePan115 = CFG.btnShowPan115;
+                const beforePan115Player = CFG.pan115Player;
+                const nextPan115 = btnToggles.pan115.checked;
+                const nextPan115Player = pan115PlayerSelect?.value === '115master' ? '115master' : 'official';
                 MAGNET_ENGINES.forEach(item => { CFG[item.key] = stripProtocol(domainDraft[item.key]); });
                 CFG.defaultEngine = defaultSelect.value;
                 GM_setValue('default_search_engine', parseInt(jumpEngineSelect.value, 10) || 0);
                 CFG.defaultVideoEngine = videoEngineSelect.value || 'missav';
-                CFG.pan115Player = pan115PlayerSelect?.value === '115master' ? '115master' : 'official';
+                CFG.pan115Player = nextPan115Player;
                 CFG.magnetTable = magnetTableCheckbox.checked;
                 CFG.infiniteScroll = infiniteScrollCheckbox.checked;
                 CFG.btnShowNyaa    = btnToggles.nyaa.checked;
@@ -551,10 +575,18 @@
                 CFG.btnShowSearch  = btnToggles.search.checked;
                 CFG.btnShowTrailer = btnToggles.trailer.checked;
                 CFG.btnShowPreview = btnToggles.preview.checked;
-                CFG.btnShowPan115  = btnToggles.pan115.checked;
+                CFG.btnShowPan115  = nextPan115;
                 GM_setValue('thumb_source_order', currentOrder);
+                const pan115Changed = beforePan115 !== nextPan115 || beforePan115Player !== nextPan115Player;
+                const nonPan115Changed = beforeNonPan115 !== snapshotNonPan115();
                 closePanel();
-                location.reload();
+                if (nonPan115Changed) {
+                    location.reload();
+                    return;
+                }
+                if (pan115Changed && typeof window.__LAOSIJI_SYNC_PAN115__ === 'function') {
+                    window.__LAOSIJI_SYNC_PAN115__(nextPan115);
+                }
             });
         }
 
@@ -4203,13 +4235,8 @@
                 sessionStorage.setItem(this.cacheKey(code), JSON.stringify(value || null));
             } catch {}
         },
-        variants(code) {
-            const normalized = this.normalizeCode(code);
-            return [...new Set([
-                normalized,
-                normalized.replace(/-/g, ''),
-                normalized.toLowerCase(),
-            ].filter(Boolean))];
+        searchKeyword(code) {
+            return this.normalizeCode(code).toLowerCase().replace(/^fc2-/, '');
         },
         codeRegex(code) {
             const normalized = this.normalizeCode(code);
@@ -4240,9 +4267,7 @@
         async requestSearch(keyword) {
             const query = new URLSearchParams({
                 search_value: keyword,
-                type: '99',
-                fc: '2',
-                limit: '20',
+                limit: '30',
                 offset: '0',
             });
             return new Promise((resolve, reject) => {
@@ -4267,19 +4292,17 @@
         async search(code) {
             const matcher = this.codeRegex(code);
             const seen = new Set();
-            for (const keyword of this.variants(code)) {
-                const payload = await this.requestSearch(keyword);
-                const state = payload?.state ?? payload?.success;
-                if (state === false) {
-                    const msg = payload?.error || payload?.message || payload?.errno || '115查询失败';
-                    throw new Error(String(msg));
-                }
-                for (const item of this.flattenFiles(payload)) {
-                    const key = item.pickcode || item.name;
-                    if (seen.has(key)) continue;
-                    seen.add(key);
-                    if (matcher.test(item.name) && this.isVideoName(item.name)) return item;
-                }
+            const payload = await this.requestSearch(this.searchKeyword(code));
+            const state = payload?.state ?? payload?.success;
+            if (state === false) {
+                const msg = payload?.error || payload?.message || payload?.errno || '115查询失败';
+                throw new Error(String(msg));
+            }
+            for (const item of this.flattenFiles(payload)) {
+                const key = item.pickcode || item.name;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                if (matcher.test(item.name) && this.isVideoName(item.name)) return item;
             }
             return null;
         },
@@ -4452,6 +4475,7 @@
                 btn.style.opacity = '';
             }
         }, useCapture);
+        btn.classList.add('jav-trailer-btn');
         container.appendChild(btn);
     }
 
@@ -4460,6 +4484,7 @@
         const btn = Utils.createBtn('🖼️ 预览图', '#28a745', async () => {
             await Thumbnail.show(code);
         }, useCapture);
+        btn.classList.add('jav-preview-btn');
         container.appendChild(btn);
     }
 
@@ -4469,12 +4494,14 @@
         if (!normalized || container.dataset.pan115PlayCode === normalized) return;
         container.dataset.pan115PlayCode = normalized;
         const marker = document.createComment('pan115-play');
-        container.appendChild(marker);
+        const anchor = container.querySelector('.jav-trailer-btn, .jav-preview-btn, .jav-settings-btn');
+        container.insertBefore(marker, anchor || null);
         Pan115.searchCached(normalized).then(hit => {
             const pickcode = hit?.pickcode;
-            if (!pickcode || !marker.parentNode) return;
+            if (!Pan115.enabled() || !pickcode || !marker.parentNode) return;
             const btn = Utils.createJumpLinkBtn('115播放', '#00a85a', Pan115.playUrl(pickcode));
             btn.classList.add('jav-pan115-play-btn');
+            btn.dataset.pickcode = pickcode;
             btn.title = hit.name || `115播放：${normalized}`;
             marker.parentNode.insertBefore(btn, marker);
         }).catch(err => {
@@ -4546,6 +4573,7 @@
         badge.className = 'jav-pan115-badge';
         badge.textContent = '115匹配';
         badge.title = hit.name || `115播放：${Pan115.normalizeCode(code)}`;
+        badge.dataset.pickcode = hit.pickcode;
         if (asAnchor) {
             badge.href = url;
             badge.target = '_blank';
@@ -4559,7 +4587,7 @@
             const open = e => {
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                window.open(url, '_blank', 'noopener,noreferrer');
+                window.open(Pan115.playUrl(badge.dataset.pickcode), '_blank', 'noopener,noreferrer');
             };
             badge.addEventListener('click', open, true);
             badge.addEventListener('keydown', e => {
@@ -4631,7 +4659,7 @@
     }
 
     function insertPan115ListBadge(anchor, hit, code) {
-        if (!hit?.pickcode || !anchor || anchor.dataset.pan115HasBadge === '1') return;
+        if (!Pan115.enabled() || !hit?.pickcode || !anchor || anchor.dataset.pan115HasBadge === '1') return;
         const textNode = findPan115TitleTextNode(anchor);
         if (textNode?.parentNode && anchor.contains(textNode.parentNode)) {
             const badge = createPan115Badge(hit, code, false);
@@ -4649,15 +4677,17 @@
         pan115ListRunning = true;
         const targets = collectPan115ListTargets().slice(0, 36);
         try {
-            for (const { anchor, code } of targets) {
+            targets.forEach(({ anchor }) => {
                 anchor.dataset.pan115Checked = '1';
+            });
+            await Promise.all(targets.map(async ({ anchor, code }) => {
                 try {
                     const hit = await Pan115.searchCached(code);
                     insertPan115ListBadge(anchor, hit, code);
                 } catch (err) {
                     console.warn('[老司机] 115列表单项查询失败:', err);
                 }
-            }
+            }));
         } catch (err) {
             console.warn('[老司机] 115列表自动查询失败:', err);
         } finally {
@@ -4665,6 +4695,43 @@
             if (Pan115.enabled() && collectPan115ListTargets().length) schedulePan115ListBadges();
         }
     }
+
+    function removePan115Ui() {
+        clearTimeout(pan115ListTimer);
+        document.querySelectorAll('.jav-pan115-badge, .jav-pan115-play-btn').forEach(el => el.remove());
+        document.querySelectorAll('[data-pan115-checked], [data-pan115-has-badge]').forEach(el => {
+            delete el.dataset.pan115Checked;
+            delete el.dataset.pan115HasBadge;
+        });
+        document.querySelectorAll('[data-pan115-play-code]').forEach(el => {
+            delete el.dataset.pan115PlayCode;
+        });
+    }
+
+    function refreshPan115PlayerLinks() {
+        document.querySelectorAll('.jav-pan115-badge[data-pickcode], .jav-pan115-play-btn[data-pickcode]').forEach(el => {
+            const url = Pan115.playUrl(el.dataset.pickcode);
+            if (el.tagName === 'A') el.href = url;
+        });
+    }
+
+    function forceRenderPan115Ui() {
+        refreshPan115PlayerLinks();
+        if (isCurrentDetailPage()) {
+            renderButtonsForCurrentPage();
+        } else {
+            schedulePan115ListBadges();
+        }
+    }
+
+    function syncPan115AfterSettingsSave(enabled = Pan115.enabled()) {
+        if (!enabled) {
+            removePan115Ui();
+            return;
+        }
+        setTimeout(forceRenderPan115Ui, 0);
+    }
+    window.__LAOSIJI_SYNC_PAN115__ = syncPan115AfterSettingsSave;
 
     function addJumpLineBreak(container) {
         const lineBreak = document.createElement('span');
@@ -4769,6 +4836,8 @@
 
         const existingBtnGroup = document.querySelector('.jav-jump-btn-group[data-laosiji-jump="1"]');
         if (existingBtnGroup) {
+            const code = Utils.extractCode(titleElem.textContent);
+            if (code) addPan115PlayBtn(code, existingBtnGroup);
             addSettingsBtn(existingBtnGroup);
             placeJumpButtonGroup(site, titleElem, existingBtnGroup);
             return;
