@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.3.8
+// @version      2.3.9
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -47,7 +47,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.3.8';
+    const SCRIPT_VERSION = '2.3.9';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -58,6 +58,7 @@
 
         get defaultEngine()    { return GM_getValue('cfg_default_engine', 'sukebei.nyaa.si'); },
         get defaultVideoEngine() { return GM_getValue('default_video_engine', 'missav'); },
+        get pan115Player() { return GM_getValue('pan115_player_mode', 'official'); },
 
         get thumbSourceOrder() { return GM_getValue('thumb_source_order', ['javfree', 'projectjav', 'javstore']); },
 
@@ -68,6 +69,7 @@
         set sokittyUrl(v)       { GM_setValue('cfg_sokitty_url', v); },
         set defaultEngine(v)    { GM_setValue('cfg_default_engine', v); },
         set defaultVideoEngine(v) { GM_setValue('default_video_engine', v); },
+        set pan115Player(v) { GM_setValue('pan115_player_mode', v); },
         set thumbSourceOrder(v) { GM_setValue('thumb_source_order', v); },
 
         get btnShowNyaa()    { return GM_getValue('btn_show_nyaa',    true); },
@@ -215,6 +217,8 @@
                 #jav-settings-panel .sp-feature-item:has(#sp-clear-preview-cache) { order:4; grid-column:1; }
                 #jav-settings-panel .sp-feature-item:has(#sp-clear-trailer-cache) { order:5; grid-column:2; }
                 #jav-settings-panel .sp-feature-item .sp-desc { margin-top:2px; font-size:11px; }
+                #jav-settings-panel .sp-feature-select { order:3; grid-column:2; display:grid; grid-template-columns:1fr 64px; align-items:center; gap:10px; min-width:0; padding:10px 11px; border:1px solid #e2e8f0; border-radius:8px; background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); }
+                #jav-settings-panel .sp-feature-select .sp-select { height:28px; padding:3px 2px 3px 4px; font-size:12px; text-align:left; }
                 #jav-settings-panel .sp-cache-clean { background:linear-gradient(135deg,#fff 0%,#f8fbff 58%,#f0f9ff 100%); }
                 #jav-settings-panel .sp-cache-clear-btn { position:relative; width:34px; height:34px; flex:0 0 auto; display:grid; place-items:center; border:1px solid #bae6fd; border-radius:10px; background:linear-gradient(180deg,#f0f9ff,#fff); color:#0284c7; cursor:pointer; overflow:hidden; transition:transform .16s, border-color .16s, background .16s, color .16s, box-shadow .16s; }
                 #jav-settings-panel .sp-cache-clear-btn::after { content:''; position:absolute; inset:-8px; border-radius:inherit; background:radial-gradient(circle,rgba(14,165,233,.22),transparent 62%); opacity:0; transform:scale(.45); transition:opacity .22s, transform .22s; }
@@ -317,6 +321,13 @@
                                     <div><div class="sp-label">瀑布流加载</div></div>
                                     <label class="sp-toggle"><input id="sp-infinite-scroll" type="checkbox"><span class="sp-toggle-track"></span></label>
                                 </div>
+                                <label class="sp-feature-select">
+                                    <div><div class="sp-label">115播放器</div></div>
+                                    <select class="sp-select" id="sp-pan115-player">
+                                        <option value="official">官方</option>
+                                        <option value="115master">Master</option>
+                                    </select>
+                                </label>
                             </div>
                         </section>
                         <section class="sp-card sp-card-order">
@@ -351,7 +362,7 @@
                         <div class="sp-footer-links">
                             <a class="sp-footer-link" href="https://github.com/ZiPenOk/scripts" target="_blank" rel="noopener noreferrer">Github</a>
                             <span class="sp-footer-sep"></span>
-                            <a class="sp-footer-link" href="https://t.me/+yqIM65zNJss4OWFl" target="_blank" rel="noopener noreferrer">反馈</a>
+                            <a class="sp-footer-link" href="https://sleazyfork.org/zh-CN/scripts/576375-jav%E8%80%81%E5%8F%B8%E6%9C%BA-%E6%96%B0/feedback" target="_blank" rel="noopener noreferrer">反馈</a>
                             <span class="sp-footer-sep"></span>
                             <span class="sp-footer-link" style="cursor:default;color:#94a3b8;">v${SCRIPT_VERSION}</span>
                         </div>
@@ -375,6 +386,7 @@
             const clearPreviewCacheBtn = panel.querySelector('#sp-clear-preview-cache');
             const clearTrailerCacheBtn = panel.querySelector('#sp-clear-trailer-cache');
             const infiniteScrollCheckbox = panel.querySelector('#sp-infinite-scroll');
+            const pan115PlayerSelect = panel.querySelector('#sp-pan115-player');
             const btnToggles = {
                 nyaa:    panel.querySelector('#sp-btn-nyaa'),
                 javbus:  panel.querySelector('#sp-btn-javbus'),
@@ -439,6 +451,7 @@
             jumpEngineSelect.value = String(GM_getValue('default_search_engine', 2));
             videoEngineSelect.value = CFG.defaultVideoEngine;
             if (![...videoEngineSelect.options].some(opt => opt.value === videoEngineSelect.value)) videoEngineSelect.value = 'missav';
+            if (pan115PlayerSelect) pan115PlayerSelect.value = CFG.pan115Player === '115master' ? '115master' : 'official';
             magnetTableCheckbox.checked = CFG.magnetTable;
             infiniteScrollCheckbox.checked = CFG.infiniteScroll;
             btnToggles.nyaa.checked    = CFG.btnShowNyaa;
@@ -527,6 +540,7 @@
                 CFG.defaultEngine = defaultSelect.value;
                 GM_setValue('default_search_engine', parseInt(jumpEngineSelect.value, 10) || 0);
                 CFG.defaultVideoEngine = videoEngineSelect.value || 'missav';
+                CFG.pan115Player = pan115PlayerSelect?.value === '115master' ? '115master' : 'official';
                 CFG.magnetTable = magnetTableCheckbox.checked;
                 CFG.infiniteScroll = infiniteScrollCheckbox.checked;
                 CFG.btnShowNyaa    = btnToggles.nyaa.checked;
@@ -4165,7 +4179,12 @@
             return String(code || '').trim().toUpperCase().replace(/[_\s]+/g, '-');
         },
         playUrl(pickcode) {
-            return `https://115vod.com/?pickcode=${encodeURIComponent(pickcode)}&share_id=0`;
+            const encoded = encodeURIComponent(pickcode);
+            const playerMode = GM_getValue('pan115_player_mode', 'official');
+            if (playerMode === '115master') {
+                return `https://115.com/web/lixian/master/video/?pick_code=${encoded}`;
+            }
+            return `https://115vod.com/?pickcode=${encoded}&share_id=0`;
         },
         cacheKey(code) {
             return `${this.cachePrefix}${this.normalizeCode(code)}`;
