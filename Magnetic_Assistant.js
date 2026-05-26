@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         磁力&电驴链接助手
 // @namespace    https://github.com/ZiPenOk
-// @version      3.4.3
+// @version      3.4.4
 // @description  点击按钮显示绿色勾（验车按钮除外），支持复制（自动精简链接，保留xt和dn并提取番号）、推送到qB/115，新增磁力信息验车功能，截图轮播。
 // @icon         https://uxwing.com/wp-content/themes/uxwing/download/seo-marketing/magnet-magnetic-icon.png
 // @match        *://*/*
@@ -16,6 +16,7 @@
 // @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @updateURL    https://raw.githubusercontent.com/ZiPenOk/scripts/main/Magnetic_Assistant.js
 // @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/Magnetic_Assistant.js
+// @run-at       document-start
 // ==/UserScript==
 
 (function () {
@@ -113,6 +114,68 @@
         }
         .mag-btn.active svg {
             animation: popIn 0.2s ease-out;
+        }
+        #jav-nong-table .nong-copy,
+        #jav-nong-table .nong-check,
+        #nong-table-new .nong-copy,
+        #nong-table-new .nong-check {
+            display: none !important;
+            pointer-events: none !important;
+        }
+        #jav-nong-table .nong-115-head,
+        #jav-nong-table .nong-115-cell,
+        #nong-table-new .nong-115-head,
+        #nong-table-new .nong-115-cell {
+            display: none !important;
+        }
+        #jav-nong-table td:nth-child(3),
+        #nong-table-new td:nth-child(3) {
+            min-width: 88px;
+            text-align: center;
+        }
+        #jav-nong-table td:nth-child(3):not(.mag-laosiji-ready-cell)::after,
+        #nong-table-new td:nth-child(3):not(.mag-laosiji-ready-cell)::after {
+            content: '';
+            display: inline-block;
+            width: 84px;
+            height: 24px;
+            border-radius: 7px;
+            border: 1px solid #e5e7eb;
+            background: linear-gradient(90deg, #f8fafc 0%, #eef2f7 48%, #f8fafc 100%);
+            background-size: 180% 100%;
+            vertical-align: middle;
+            animation: magLaosijiHold 1.2s ease-in-out infinite;
+        }
+        #jav-nong-table td.mag-laosiji-ready-cell::after,
+        #nong-table-new td.mag-laosiji-ready-cell::after {
+            content: none !important;
+        }
+        @keyframes magLaosijiHold {
+            0%, 100% { background-position: 0 0; opacity: .62; }
+            50% { background-position: 100% 0; opacity: .9; }
+        }
+        #jav-nong-table .mag-btn-group,
+        #nong-table-new .mag-btn-group {
+            margin-left: 0 !important;
+            gap: 2px !important;
+            padding: 2px 2px !important;
+            border-radius: 6px !important;
+            vertical-align: middle !important;
+        }
+        #jav-nong-table .mag-btn,
+        #nong-table-new .mag-btn {
+            width: 22px !important;
+            height: 20px !important;
+            border-radius: 5px !important;
+        }
+        #jav-nong-table .mag-btn svg,
+        #nong-table-new .mag-btn svg {
+            width: 13px !important;
+            height: 13px !important;
+        }
+        #jav-nong-table td,
+        #nong-table-new td {
+            overflow: hidden;
         }
         /* 验车弹窗样式 */
         .magnet-link {
@@ -217,7 +280,7 @@
             .http-link { color: #6fcf97; }
         }
     `;
-    document.head.appendChild(style);
+    (document.head || document.documentElement).appendChild(style);
 
     // ================= 3. 工具函数 =================
     function showToast(msg, success = true) {
@@ -564,12 +627,14 @@
     }
 
     function pushTo115(link) {
-        if (!config.u115Uid) { showToast('⚠️ 未设置 115 UID', false); return; }
+        const data = new URLSearchParams();
+        data.set('url', link);
+        if (config.u115Uid) data.set('uid', config.u115Uid);
         GM_xmlhttpRequest({
             method: 'POST',
             url: 'https://115.com/web/lixian/?ct=lixian&ac=add_task_url',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            data: `url=${encodeURIComponent(link)}&uid=${config.u115Uid}`,
+            data: data.toString(),
             onload: (response) => {
                 try {
                     const res = JSON.parse(response.responseText);
@@ -604,10 +669,14 @@
 
             operationCell.querySelectorAll('.nong-copy, .nong-check').forEach(el => el.remove());
 
-            if (operationCell.querySelector('.mag-btn-group')) return;
+            if (operationCell.querySelector('.mag-btn-group')) {
+                operationCell.classList.add('mag-laosiji-ready-cell');
+                return;
+            }
 
             const btnGroup = createBtnGroup(magnetLink);
             operationCell.appendChild(btnGroup);
+            operationCell.classList.add('mag-laosiji-ready-cell');
         });
     }
 
@@ -684,7 +753,7 @@
         const textNodes = [];
         while (node = walker.nextNode()) {
             const parent = node.parentElement;
-            if (!parent || parent.closest('#nong-table-new') || parent.closest('.whatslink-modal') || parent.closest('.mag-btn-group') || parent.closest('[data-mag-processed]') ||
+            if (!parent || parent.closest('#jav-nong-table') || parent.closest('#nong-table-new') || parent.closest('.whatslink-modal') || parent.closest('.mag-btn-group') || parent.closest('[data-mag-processed]') ||
                 ['SCRIPT', 'STYLE', 'A', 'TEXTAREA', 'INPUT'].includes(parent.tagName)) continue;
             textNodes.push(node);
         }
@@ -698,6 +767,7 @@
 
         // 处理 <a> 标签（排除 laosiji 表格内的链接）
         document.querySelectorAll('a').forEach(a => {
+            if (a.closest('#jav-nong-table')) return;
             if (a.closest('#nong-table-new')) return;
             if (a.closest('.whatslink-modal')) return;
             if (a.dataset.magProcessed) return;
@@ -764,10 +834,10 @@
             `,
             '115': `
                 <div style="border-top:1px solid #eee;padding-top:15px;">
-                    <input id="in_uid" type="text" placeholder="115文件夹识别码（离线任务保存目录）" value="${config.u115Uid}" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;">
+                    <input id="in_uid" type="text" placeholder="可选：115文件夹识别码，不填则保存到默认目录" value="${config.u115Uid}" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;">
                     <button id="test_115" style="padding:8px 15px;background:#28a745;color:white;border:none;border-radius:4px;cursor:pointer;margin-top:10px;">检查115登录状态</button>
                     <span id="u115_test_result" style="margin-left:10px;font-size:13px;"></span>
-                    <p style="font-size:12px;color:#666;margin-top:8px;">需要先在浏览器中登录115官网，然后点击检查状态。</p>
+                    <p style="font-size:12px;color:#666;margin-top:8px;">需要先在浏览器中登录115官网。文件夹识别码只用于指定保存目录，留空会使用115默认离线目录。</p>
                 </div>
             `,
             advanced: `
@@ -932,9 +1002,20 @@
 
     // ================= 14. 启动监听 =================
     let timer = null;
-    function lazyRun() { if (timer) clearTimeout(timer); timer = setTimeout(processPage, 500); }
-    processPage();
-    const observer = new MutationObserver(lazyRun);
-    observer.observe(document.body, { childList: true, subtree: true });
+    let observer = null;
+    function lazyRun(delay = 120) {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(processPage, delay);
+    }
+    function startObserver() {
+        if (!document.body) {
+            setTimeout(startObserver, 30);
+            return;
+        }
+        processPage();
+        observer = new MutationObserver(() => lazyRun());
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+    startObserver();
 
 })();

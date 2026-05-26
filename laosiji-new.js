@@ -848,6 +848,7 @@
 
         GM_addStyle(`
             #jav-nong-table {
+                width: 100%;
                 margin: 8px 0; color: #666;
                 font-size: 13px; text-align: center;
                 background: #f2f2f2; border-collapse: collapse;
@@ -902,7 +903,9 @@
             .whatslink-summary-card strong { display: block; margin-bottom: 4px; color: #111827; font-size: 12px; }
             .whatslink-summary-card p { margin: 0; color: #64748b; font-size: 11px; line-height: 1.45; }
             .whatslink-loading { padding: 28px; text-align: center; color: #475569; font-size: 14px; }
-            #jav-nong-notice { padding: 8px 0; }
+            #jav-nong-notice {
+                padding: 8px 0;
+            }
             .nong-magnet-name {
                 max-width: 320px; white-space: nowrap;
                 overflow: hidden; text-overflow: ellipsis;
@@ -1044,7 +1047,7 @@
             const allEngines = Engines.getAll();
             const curKey = CFG.defaultEngine;
             const sel = document.createElement('select');
-            sel.style.cssText = 'font-size:12px;border:1px solid #ddd;border-radius:4px;padding:2px 4px;min-width:80px;';
+            sel.style.cssText = 'height:22px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;padding:1px 22px 1px 6px;min-width:84px;background:#fff;color:#172033;font-weight:650;';
             const labels = ENGINE_LABELS();
             Object.keys(allEngines).forEach(k => {
                 const op = document.createElement('option');
@@ -1067,10 +1070,10 @@
             thEngine.appendChild(sel);
             headRow.appendChild(thEngine);
 
-            ['大小', '操作', '115离线'].forEach(txt => {
+            ['大小', '操作', '115'].forEach(txt => {
                 const th = document.createElement('th');
                 th.textContent = txt;
-                if (txt === '115离线') th.className = 'nong-115-head';
+                if (txt === '115') th.className = 'nong-115-head';
                 headRow.appendChild(th);
             });
 
@@ -1153,21 +1156,21 @@
                 if (isChinese) {
                     const badge = document.createElement('span');
                     badge.textContent = '[中字]';
-                    badge.style.cssText = 'display:inline-block;margin-right:4px;padding:0 4px;font-size:11px;font-weight:700;color:#fff;background:#27ae60;border-radius:3px;vertical-align:middle;flex-shrink:0;';
+                    badge.style.cssText = 'display:inline-block;margin-right:5px;padding:1px 5px;font-size:11px;font-weight:800;color:#fff;background:#16a34a;border-radius:4px;vertical-align:middle;flex-shrink:0;box-shadow:0 0 0 1px rgba(22,163,74,.18);';
                     nameSpan.appendChild(badge);
-                    nameSpan.style.background = 'linear-gradient(90deg,#f0fff4 0%,#fff 100%)';
-                    nameSpan.style.borderLeft = '3px solid #27ae60';
-                    nameSpan.style.paddingLeft = '4px';
+                    nameSpan.style.background = 'linear-gradient(90deg,#dcfce7 0%,#f0fdf4 55%,#fff 100%)';
+                    nameSpan.style.borderLeft = '4px solid #16a34a';
+                    nameSpan.style.paddingLeft = '5px';
                 }
                 if (is4K) {
                     const badge4k = document.createElement('span');
                     badge4k.textContent = '[4K]';
-                    badge4k.style.cssText = 'display:inline-block;margin-right:4px;padding:0 4px;font-size:11px;font-weight:700;color:#fff;background:#1a6fa8;border-radius:3px;vertical-align:middle;flex-shrink:0;';
+                    badge4k.style.cssText = 'display:inline-block;margin-right:5px;padding:1px 5px;font-size:11px;font-weight:800;color:#fff;background:#2563eb;border-radius:4px;vertical-align:middle;flex-shrink:0;box-shadow:0 0 0 1px rgba(37,99,235,.18);';
                     nameSpan.insertBefore(badge4k, nameSpan.firstChild);
                     if (!isChinese) {
-                        nameSpan.style.background = 'linear-gradient(90deg,#f0f7ff 0%,#fff 100%)';
-                        nameSpan.style.borderLeft = '3px solid #1a6fa8';
-                        nameSpan.style.paddingLeft = '4px';
+                        nameSpan.style.background = 'linear-gradient(90deg,#dbeafe 0%,#eff6ff 55%,#fff 100%)';
+                        nameSpan.style.borderLeft = '4px solid #2563eb';
+                        nameSpan.style.paddingLeft = '5px';
                     }
                 }
                 const titleLink = document.createElement('a');
@@ -1290,6 +1293,7 @@
             wrapper.className = 'jav-nong-wrapper';
             wrapper.style.cssText = `
                 display: inline-block;
+                width: 560px;
                 max-width: 100%;
                 box-sizing: border-box;
                 padding: 12px 14px;
@@ -1344,7 +1348,7 @@
                     width: auto !important; float: none !important;
                     overflow: hidden !important; word-break: break-word !important; }
                 .jav-nong-slot { flex: var(--javbus-magnet-flex) 1 0 !important; min-width: 0 !important; align-self: flex-start !important; overflow: hidden !important; }
-                .jav-nong-wrapper { max-width: 100%; }
+                .jav-nong-wrapper { width: 560px; max-width: 100%; }
                 .screencap img { width: 100%; max-width: 100%; }
                 .footer { padding: 20px 0; }
             `);
@@ -1481,7 +1485,7 @@
                 #video_info .jav-jump-btn-group {
                     justify-content: flex-start !important;
                 }
-                .jav-nong-slot .jav-nong-wrapper { max-width: 100%; margin-top: 16px; }
+                .jav-nong-slot .jav-nong-wrapper { width: 560px; max-width: 100%; margin-top: 16px; }
             `);
 
             this._insertMagnet(avid);
