@@ -17,7 +17,6 @@
 // @match        *://javrate.com/*
 // @match        *://*.javrate.com/*
 // @match        *://169bbs.com/*
-// @match        *://*169bbs*.*/*
 // @match        *://hjd2048.com/2048/*
 // @match        *://missav.ws/*
 // @match        *://jable.tv/videos/*
