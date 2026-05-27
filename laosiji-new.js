@@ -17,14 +17,14 @@
 // @match        *://sukebei.nyaa.si/*
 // @match        *://169bbs.com/*
 // @match        *://supjav.com/*
-// @match        *://emby.*/web/index.html*
-// @match        *://10.*:*/web/index.html*
 // @match        *://javrate.com/*
 // @match        *://www.javrate.com/*
 // @match        *://sehuatang.net/*
 // @match        *://hjd2048.com/2048/*
-// @match        *://missav.*/*
 // @match        *://jable.tv/*
+// @include      /^[^:]*?:\/\/missav\.[^/]*?\/.*?$/
+// @include      /^[^:]*?:\/\/emby\.[^/]*?\/web\/index\.html.*?$/
+// @include      /^[^:]*?:\/\/10\.[^/]*?:[^/]*?\/web\/index\.html.*?$/
 
 // Runtime
 // @run-at       document-idle
@@ -3983,7 +3983,7 @@
             this.debug('DMM 播放器页解析画质', { contentId, qualities: Object.keys(qualityMap) });
             return qualityMap;
         },
-        
+
         async fromFc2Hub(id, rawCode) {
             const checkCode = rawCode || id;
             if (!/FC2/i.test(checkCode)) return null;
@@ -4609,6 +4609,7 @@
 
     function findPan115TitleAnchor(anchor) {
         if (!anchor || anchor.closest('.jav-jump-btn-group, .jav-pan115-badge')) return null;
+        if (anchor.closest('.emby-btn, .emby-badge, .emby-button-group, .emby-javlibrary-list-badge')) return null;
         const href = anchor.getAttribute('href') || '';
         if (/^(?:magnet:|javascript:|#)/i.test(href)) return null;
         const text = [
@@ -4636,7 +4637,9 @@
 
     function collectPan115ListTargets() {
         if (isCurrentDetailPage()) return [];
+        const isSupjavList = /supjav\.com/.test(location.hostname);
         const selectors = [
+            ...(isSupjavList ? ['.post h3 a[href]'] : []),
             '.movie-list a[href]',
             '.movies a[href]',
             '.grid a[href]',
@@ -4651,6 +4654,7 @@
         const targets = [];
         document.querySelectorAll(selectors.join(',')).forEach(anchor => {
             if (seen.has(anchor) || anchor.dataset.pan115Checked === '1') return;
+            if (isSupjavList && !anchor.matches('.post h3 a[href]')) return;
             seen.add(anchor);
             const target = findPan115TitleAnchor(anchor);
             if (target) targets.push(target);
