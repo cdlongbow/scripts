@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.3.9
+// @version      2.4.0
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -47,7 +47,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.3.9';
+    const SCRIPT_VERSION = '2.4.0';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -3983,7 +3983,7 @@
             this.debug('DMM 播放器页解析画质', { contentId, qualities: Object.keys(qualityMap) });
             return qualityMap;
         },
-
+        
         async fromFc2Hub(id, rawCode) {
             const checkCode = rawCode || id;
             if (!/FC2/i.test(checkCode)) return null;
@@ -4203,12 +4203,47 @@
         api: 'https://webapi.115.com/files/search',
         videoExts: new Set(['mp4', 'mkv', 'avi', 'wmv', 'mov', 'm4v', 'ts', 'flv', 'rmvb', 'webm']),
         pending: new Map(),
-        cachePrefix: 'pan115_cache_',
+        cachePrefix: 'pan115_cache_v5_',
+        mgstagePrefixMap: {
+            LUXU: '259LUXU',
+            MIUM: '300MIUM',
+            GANA: '200GANA',
+            SIRO: 'SIRO',
+            DCV: '277DCV',
+            JNT: '390JNT',
+            JAC: '390JAC',
+            HHH: '451HHH',
+            HLM: '436HLM',
+            SYS: '332SYS',
+            NAMA: '332NAMA',
+            HEN: '353HEN',
+            ARA: '261ARA',
+            FCT: '326FCT',
+            ERK: '420ERK',
+            STH: '420STH',
+            MLA: '476MLA',
+            MMC: '812MMC',
+            OERO: '892OERO',
+        },
+        sourceAliases: {
+            PACO: ['PACO', 'PACOPACOMAMA'],
+            PACOPACOMAMA: ['PACO', 'PACOPACOMAMA'],
+            '10MU': ['10MU', '10MUSUME'],
+            '10MUSUME': ['10MU', '10MUSUME'],
+            '1PON': ['1PON', '1PONDO'],
+            '1PONDO': ['1PON', '1PONDO'],
+            CARIB: ['CARIB', 'CARIBBEANCOM'],
+            CARIBBEANCOM: ['CARIB', 'CARIBBEANCOM'],
+            HEYZO: ['HEYZO'],
+        },
         enabled() {
             return GM_getValue('btn_show_pan115', false);
         },
         normalizeCode(code) {
             return String(code || '').trim().toUpperCase().replace(/[_\s]+/g, '-');
+        },
+        normalizeKeepSeparator(code) {
+            return String(code || '').trim().toUpperCase().replace(/\s+/g, '-');
         },
         playUrl(pickcode) {
             const encoded = encodeURIComponent(pickcode);
@@ -4219,7 +4254,7 @@
             return `https://115vod.com/?pickcode=${encoded}&share_id=0`;
         },
         cacheKey(code) {
-            return `${this.cachePrefix}${this.normalizeCode(code)}`;
+            return `${this.cachePrefix}${this.normalizeKeepSeparator(code)}`;
         },
         getCached(code) {
             try {
@@ -4235,14 +4270,79 @@
                 sessionStorage.setItem(this.cacheKey(code), JSON.stringify(value || null));
             } catch {}
         },
+        sourcePattern() {
+            return Object.keys(this.sourceAliases).sort((a, b) => b.length - a.length).join('|');
+        },
+        sourceGroup(source) {
+            return this.sourceAliases[String(source || '').toUpperCase()] || [String(source || '').toUpperCase()].filter(Boolean);
+        },
+        uncensoredParts(code) {
+            const normalized = this.normalizeKeepSeparator(code);
+            const match = normalized.match(/^(\d{6})([-_])(\d{2,3})(?:[-_]([A-Z0-9]+))?$/);
+            return match ? { date: match[1], sep: match[2], num: match[3], source: match[4] || '' } : null;
+        },
+        uncensoredDigitKey(code) {
+            const parts = this.uncensoredParts(code);
+            return parts ? `${parts.date}${parts.sep}${parts.num}` : '';
+        },
+        extractCode(text, fallbackCode = '') {
+            const sourcePattern = this.sourcePattern();
+            const tail = String(text || '').match(new RegExp(`\\b(\\d{6})([-_])(\\d{2,3})[-_\\s]*(${sourcePattern})\\b`, 'i'));
+            if (tail) {
+                const source = tail[4].toUpperCase();
+                const sep = tail[2] === '_' ? '_' : '-';
+                return `${tail[1]}${sep}${tail[3]}-${source}`;
+            }
+            const head = String(text || '').match(new RegExp(`\\b(${sourcePattern})[-_\\s]*(\\d{6})([-_])(\\d{2,3})\\b`, 'i'));
+            if (head) {
+                const source = head[1].toUpperCase();
+                const sep = head[3] === '_' ? '_' : '-';
+                return `${head[2]}${sep}${head[4]}-${source}`;
+            }
+            return fallbackCode || Utils.extractCode(text);
+        },
         searchKeyword(code) {
-            return this.normalizeCode(code).toLowerCase().replace(/^fc2-/, '');
+            return String(code || '').trim().toLowerCase().replace(/^fc2-/, '');
+        },
+        searchVariants(code) {
+            const normalized = this.normalizeKeepSeparator(code);
+            const variants = [normalized];
+            const mgstage = normalized.match(/^(\d{3})([A-Z]{2,10})-(\d{2,6})$/);
+            if (mgstage && Object.values(this.mgstagePrefixMap).includes(`${mgstage[1]}${mgstage[2]}`)) {
+                variants.push(`${mgstage[2]}-${mgstage[3]}`);
+            }
+            const shortMgstage = normalized.match(/^([A-Z]{2,10})-(\d{2,6})$/);
+            if (shortMgstage && this.mgstagePrefixMap[shortMgstage[1]]) {
+                variants.push(`${this.mgstagePrefixMap[shortMgstage[1]]}-${shortMgstage[2]}`);
+            }
+            const uncensored = this.uncensoredParts(normalized);
+            if (uncensored) {
+                variants.push(`${uncensored.date}${uncensored.sep}${uncensored.num}`);
+                if (uncensored.source) {
+                    this.sourceGroup(uncensored.source).forEach(source => {
+                        variants.push(`${uncensored.date}${uncensored.sep}${uncensored.num}-${source}`);
+                        variants.push(`${source}-${uncensored.date}${uncensored.sep}${uncensored.num}`);
+                    });
+                }
+            }
+            return [...new Set(variants.filter(Boolean))];
         },
         codeRegex(code) {
-            const normalized = this.normalizeCode(code);
-            const compact = normalized.replace(/-/g, '');
-            const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/-/g, '[-_\\s]?');
-            return new RegExp(`(?:${escaped}|${compact})`, 'i');
+            const digitKey = this.uncensoredDigitKey(code);
+            if (digitKey) {
+                const parts = this.uncensoredParts(code);
+                const sep = parts.sep === '_' ? '_' : '-';
+                return new RegExp(`(^|[^0-9])${parts.date}${sep}${parts.num}([^0-9]|$)`, 'i');
+            }
+            const patterns = [];
+            const add = value => {
+                const normalized = this.normalizeCode(value);
+                if (!normalized) return;
+                const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[-_]/g, '[-_\\s]?');
+                patterns.push(escaped, normalized.replace(/[-_]/g, ''));
+            };
+            this.searchVariants(code).forEach(add);
+            return new RegExp(`(?:${[...new Set(patterns)].join('|')})`, 'i');
         },
         isVideoName(name) {
             const ext = String(name || '').split('.').pop().toLowerCase();
@@ -4292,22 +4392,24 @@
         async search(code) {
             const matcher = this.codeRegex(code);
             const seen = new Set();
-            const payload = await this.requestSearch(this.searchKeyword(code));
-            const state = payload?.state ?? payload?.success;
-            if (state === false) {
-                const msg = payload?.error || payload?.message || payload?.errno || '115查询失败';
-                throw new Error(String(msg));
-            }
-            for (const item of this.flattenFiles(payload)) {
-                const key = item.pickcode || item.name;
-                if (seen.has(key)) continue;
-                seen.add(key);
-                if (matcher.test(item.name) && this.isVideoName(item.name)) return item;
+            for (const keyword of this.searchVariants(code).map(item => this.searchKeyword(item))) {
+                const payload = await this.requestSearch(keyword);
+                const state = payload?.state ?? payload?.success;
+                if (state === false) {
+                    const msg = payload?.error || payload?.message || payload?.errno || '115查询失败';
+                    throw new Error(String(msg));
+                }
+                for (const item of this.flattenFiles(payload)) {
+                    const key = item.pickcode || item.name;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    if (matcher.test(item.name) && this.isVideoName(item.name)) return item;
+                }
             }
             return null;
         },
         async searchCached(code) {
-            const normalized = this.normalizeCode(code);
+            const normalized = this.normalizeKeepSeparator(code);
             if (!normalized) return null;
             const cached = this.getCached(normalized);
             if (cached !== undefined) return cached;
@@ -4490,7 +4592,7 @@
 
     function addPan115PlayBtn(code, container, useCapture = false) {
         if (!Pan115.enabled() || !code || !container) return;
-        const normalized = Pan115.normalizeCode(code);
+        const normalized = Pan115.normalizeKeepSeparator(code);
         if (!normalized || container.dataset.pan115PlayCode === normalized) return;
         container.dataset.pan115PlayCode = normalized;
         const marker = document.createComment('pan115-play');
@@ -4572,7 +4674,7 @@
         const badge = document.createElement(asAnchor ? 'a' : 'span');
         badge.className = 'jav-pan115-badge';
         badge.textContent = '115匹配';
-        badge.title = hit.name || `115播放：${Pan115.normalizeCode(code)}`;
+        badge.title = hit.name || `115播放：${Pan115.normalizeKeepSeparator(code)}`;
         badge.dataset.pickcode = hit.pickcode;
         if (asAnchor) {
             badge.href = url;
@@ -4619,7 +4721,8 @@
             href,
         ].filter(Boolean).join(' ');
         const code = Utils.extractCode(text);
-        if (!code) return null;
+        const pan115Code = Pan115.extractCode(text, code);
+        if (!code || !pan115Code) return null;
         const visibleTitle = (anchor.textContent || anchor.getAttribute('title') || '').trim();
         const hasTitleText = visibleTitle.length > 0;
         if (!hasTitleText) return null;
@@ -4632,7 +4735,7 @@
         const inListContainer = !!anchor.closest('.movie-list, .movies, .grid, #waterfall, .movie-box, .box, .thumbnail, .video-list, .video-list-row, .section-container');
         if (!looksLikeVideoLink && !inListContainer) return null;
         if (hasTitleText && !Utils.extractCode(visibleTitle) && !looksLikeVideoLink) return null;
-        return { anchor, code };
+        return { anchor, code: pan115Code };
     }
 
     function collectPan115ListTargets() {
@@ -4841,7 +4944,8 @@
         const existingBtnGroup = document.querySelector('.jav-jump-btn-group[data-laosiji-jump="1"]');
         if (existingBtnGroup) {
             const code = Utils.extractCode(titleElem.textContent);
-            if (code) addPan115PlayBtn(code, existingBtnGroup);
+            const pan115Code = Pan115.extractCode(titleElem.textContent, code);
+            if (pan115Code) addPan115PlayBtn(pan115Code, existingBtnGroup);
             addSettingsBtn(existingBtnGroup);
             placeJumpButtonGroup(site, titleElem, existingBtnGroup);
             return;
@@ -4867,7 +4971,7 @@
             addDmmBtn(code, btnGroup);
             addSearchMenu(code, btnGroup);
             addJumpLineBreak(btnGroup);
-            addPan115PlayBtn(code, btnGroup);
+            addPan115PlayBtn(Pan115.extractCode(titleText, code), btnGroup);
             addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
             addSettingsBtn(btnGroup);
@@ -4915,7 +5019,7 @@
             bindJumpMenu(searchMenuDiv, toggleBtn, subMenu, mainSearchBtn);
             btnGroup.appendChild(searchMenuDiv);
 
-            addPan115PlayBtn(code, btnGroup);
+            addPan115PlayBtn(Pan115.extractCode(titleText, code), btnGroup);
             addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
             addSettingsBtn(btnGroup);
@@ -4939,7 +5043,7 @@
             addDmmBtn(code, btnGroup);
             addSearchMenu(code, btnGroup);
             if (['javbus', 'javdb', 'supjav', 'jable'].includes(site.id)) addJumpLineBreak(btnGroup);
-            addPan115PlayBtn(code, btnGroup);
+            addPan115PlayBtn(Pan115.extractCode(titleText, code), btnGroup);
             addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
             addSettingsBtn(btnGroup);
