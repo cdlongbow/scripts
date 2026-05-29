@@ -2067,13 +2067,16 @@
             min-width: 78px;
             max-width: 140px;
             height: 30px;
-            padding: 0 9px;
+            padding: 0 10px;
             border-radius: 999px;
             border: 1px solid rgba(255, 255, 255, 0.16);
             background: rgba(255, 255, 255, 0.12);
             color: #f8fafc;
             outline: none;
             font-size: 12px;
+            line-height: 28px;
+            text-align: center;
+            text-align-last: center;
             appearance: none;
             cursor: pointer;
         }
@@ -2170,7 +2173,7 @@
             left: 50%;
             bottom: calc(100% + 8px);
             width: 34px;
-            height: 124px;
+            height: 118px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -2190,13 +2193,78 @@
             pointer-events: auto;
             transform: translate(-50%, 0);
         }
+        .trailer-volume-rail {
+            position: absolute;
+            left: 50%;
+            top: 14px;
+            bottom: 14px;
+            width: 4px;
+            transform: translateX(-50%);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.32);
+            pointer-events: none;
+        }
+        .trailer-volume-fill {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: var(--volume-percent, 35%);
+            border-radius: 999px;
+            background: #38bdf8;
+        }
+        .trailer-volume-thumb {
+            position: absolute;
+            left: 50%;
+            bottom: var(--volume-percent, 35%);
+            width: 16px;
+            height: 16px;
+            transform: translate(-50%, 50%);
+            border-radius: 50%;
+            background: #38bdf8;
+            border: 2px solid rgba(255, 255, 255, 0.92);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.38);
+        }
         .trailer-volume-slider {
-            width: 92px;
-            height: 4px;
+            position: absolute;
+            top: 8px;
+            bottom: 8px;
+            left: 50%;
+            width: 16px;
+            height: calc(100% - 16px);
             margin: 0;
-            accent-color: #38bdf8;
+            transform: translateX(-50%);
+            appearance: none;
+            -webkit-appearance: none;
+            writing-mode: vertical-lr;
+            direction: rtl;
+            background: transparent;
             cursor: pointer;
-            transform: rotate(-90deg);
+        }
+        .trailer-volume-slider::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+        }
+        .trailer-volume-slider::-moz-range-track {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+        }
+        .trailer-volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 16px;
+            background: transparent;
+            border: 0;
+            box-shadow: none;
+        }
+        .trailer-volume-slider::-moz-range-thumb {
+            width: 24px;
+            height: 16px;
+            background: transparent;
+            border: 0;
+            box-shadow: none;
         }
         .trailer-time {
             flex: 0 0 auto;
@@ -2709,6 +2777,12 @@
             volumeWrap.className = 'trailer-volume-wrap';
             const volumePopover = document.createElement('div');
             volumePopover.className = 'trailer-volume-popover';
+            const volumeRail = document.createElement('div');
+            volumeRail.className = 'trailer-volume-rail';
+            const volumeFill = document.createElement('div');
+            volumeFill.className = 'trailer-volume-fill';
+            const volumeThumb = document.createElement('div');
+            volumeThumb.className = 'trailer-volume-thumb';
             const volumeSlider = document.createElement('input');
             volumeSlider.className = 'trailer-volume-slider';
             volumeSlider.type = 'range';
@@ -2717,6 +2791,9 @@
             volumeSlider.step = '1';
             volumeSlider.value = '35';
             volumeSlider.title = '音量';
+            volumeRail.appendChild(volumeFill);
+            volumeRail.appendChild(volumeThumb);
+            volumePopover.appendChild(volumeRail);
             volumePopover.appendChild(volumeSlider);
             volumeWrap.appendChild(volumeBtn);
             volumeWrap.appendChild(volumePopover);
@@ -2793,6 +2870,7 @@
                 playBtn.textContent = video.paused ? '▶' : '⏸';
                 volumeBtn.textContent = video.muted || video.volume <= 0 ? '🔇' : '🔊';
                 volumeSlider.value = String(Math.round((video.muted ? 0 : video.volume) * 100));
+                volumeRail.style.setProperty('--volume-percent', `${volumeSlider.value}%`);
                 currentTimeText.textContent = formatTime(video.currentTime || 0);
                 durationText.textContent = formatTime(video.duration || 0);
                 if (!seekingByProgress && Number.isFinite(video.duration) && video.duration > 0) {
