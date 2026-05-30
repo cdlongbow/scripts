@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.4.0.1
+// @version      2.4.1
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -47,7 +47,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.4.0.1';
+    const SCRIPT_VERSION = '2.4.1';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -3647,9 +3647,10 @@
             }
 
             const resolvers = [
-                this.fromMgstage,
                 this.fromFc2Hub,
+                this.fromMgstage,
                 this.fromJavxyCcCd,
+                this.fromMgstageRetail,
                 this.fromDmmApi,
                 this.fromDmmPlayerPage,
                 this.fromJavSpyl
@@ -3745,23 +3746,32 @@
             return cleaned.split('?')[0].replace(/\.ism\/request$/i, '.mp4');
         },
 
-        async fromMgstage(id, rawCode = '') {
-            const code = this.normalizeMgstageCode(rawCode) || this.normalizeMgstageCode(id);
-            if (!code) {
-                this.debug('MGStage 跳过：番号不在支持前缀内', { id, rawCode });
-                return null;
-            }
-
-            const detailUrl = `https://www.mgstage.com/product/product_detail/${code}/?agef=1`;
-            this.debug('MGStage 请求详情页', { code, detailUrl });
-            const headers = {
+        mgstageHeaders(referer = 'https://www.mgstage.com/') {
+            return {
                 'accept-language': 'ja-JP,ja;q=0.9,en;q=0.8',
                 Cookie: 'adc=1; coc=1',
-                Referer: 'https://www.mgstage.com/'
+                Referer: referer
             };
+        },
+
+        normalizeMgstageGenericCode(text) {
+            const raw = String(text || '').toUpperCase().replace(/\s+/g, '-');
+            const match = raw.match(/\b((?:\d{3})?[A-Z]{2,15})[-_](\d{2,9})\b/);
+            if (!match || /^FC2$/i.test(match[1])) return '';
+            return `${match[1]}-${match[2]}`;
+        },
+
+        async fetchMgstageProductTrailer(code, sourceLabel = 'MGStage 素人') {
+            const detailUrl = `https://www.mgstage.com/product/product_detail/${code}/?agef=1`;
+            this.debug('MGStage 请求详情页', { code, detailUrl });
+            const headers = this.mgstageHeaders();
             const detail = await this.request(detailUrl, { timeout: 15000, headers });
             if (!detail?.responseText || detail.status < 200 || detail.status >= 400) {
                 this.debug('MGStage 详情页失败', { status: detail?.status, finalUrl: detail?.finalUrl || detailUrl });
+                return null;
+            }
+            if (!this.normalizeForCompare(detail.responseText).includes(this.normalizeForCompare(code))) {
+                this.debug('MGStage 详情页未匹配当前番号', { code, finalUrl: detail?.finalUrl || detailUrl });
                 return null;
             }
 
@@ -3802,12 +3812,40 @@
 
             const finalUrl = await this.head(mp4Url);
             this.debug('MGStage mp4 检测', { mp4Url, finalUrl: finalUrl || null });
-            return this.result(finalUrl || mp4Url, 'MGStage 直连预告', 'video', {
+            return this.result(finalUrl || mp4Url, sourceLabel, 'video', {
                 sourceName: 'MGStage',
-                sourceLabel: 'MGStage 直连预告',
+                sourceLabel,
                 sourceTag: 'MGStage',
                 trailerSource: 'MGStage'
             });
+        },
+
+        async fromMgstage(id, rawCode = '') {
+            const code = this.normalizeMgstageCode(rawCode) || this.normalizeMgstageCode(id);
+            if (!code) {
+                this.debug('MGStage 跳过：番号不在支持前缀内', { id, rawCode });
+                return null;
+            }
+            return this.fetchMgstageProductTrailer(code, 'MGStage 素人');
+        },
+
+        async fromMgstageRetail(id, rawCode = '') {
+            const targets = [
+                this.normalizeMgstageGenericCode(rawCode),
+                this.normalizeMgstageGenericCode(id)
+            ].filter(Boolean);
+            const uniqueTargets = [...new Set(targets)];
+            if (!uniqueTargets.length) {
+                this.debug('MGStage 動画跳过：番号格式不适用', { id, rawCode });
+                return null;
+            }
+
+            for (const code of uniqueTargets) {
+                this.debug('MGStage 動画直连尝试', { code });
+                const result = await this.fetchMgstageProductTrailer(code, 'MGStage 動画');
+                if (result?.url) return result;
+            }
+            return null;
         },
 
         qualityOptions: [
