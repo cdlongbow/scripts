@@ -1,13 +1,11 @@
 // ==UserScript==
 // @name         115 Local Rename Lite
-// @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.5
+// @namespace    https://github.com/ZiPenOk
+// @version      2.6
 // @description  115 local-only 借鉴115Rename2026 只做本地处理 自用脚本
 // @author       ZiPenOk
 // @match        https://115.com/*
 // @icon         https://115.com/favicon.ico
-// @homepageURL  https://github.com/ZiPenOk/scripts
-// @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/rename115.local-lite.user.js
 // @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/rename115.local-lite.user.js
 // @grant        none
@@ -388,9 +386,36 @@
     }
 
     // ========== 改名结果对比 ==========
+    function textDisplayWidth(value) {
+        return [...String(value || "")].reduce((sum, char) => {
+            const code = char.codePointAt(0);
+            return sum + (
+                code >= 0x1100 &&
+                (code <= 0x115f || code === 0x2329 || code === 0x232a ||
+                    (code >= 0x2e80 && code <= 0xa4cf) ||
+                    (code >= 0xac00 && code <= 0xd7a3) ||
+                    (code >= 0xf900 && code <= 0xfaff) ||
+                    (code >= 0xfe10 && code <= 0xfe19) ||
+                    (code >= 0xfe30 && code <= 0xfe6f) ||
+                    (code >= 0xff00 && code <= 0xff60) ||
+                    (code >= 0xffe0 && code <= 0xffe6))
+                ? 2
+                : 1
+            );
+        }, 0);
+    }
+
+    function padRightDisplay(value, width) {
+        const text = String(value || "");
+        return text + " ".repeat(Math.max(0, width - textDisplayWidth(text)));
+    }
+
     function buildCompareText(list) {
-        const header = "【旧文件名】\t【新文件名】";
-        const rows = list.map(item => `${item.original}\t${item.renamed}`);
+        const leftHeader = "【新文件名】";
+        const rightHeader = "【旧文件名】";
+        const leftWidth = Math.max(textDisplayWidth(leftHeader), ...list.map(item => textDisplayWidth(item.renamed))) + 4;
+        const header = `${padRightDisplay(leftHeader, leftWidth)}${rightHeader}`;
+        const rows = list.map(item => `${padRightDisplay(item.renamed, leftWidth)}${item.original}`);
         return [header, ...rows].join("\n");
     }
 
