@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         磁力&电驴链接助手
 // @namespace    https://github.com/ZiPenOk
-// @version      3.4.4
+// @version      3.5.0
 // @description  点击按钮显示绿色勾（验车按钮除外），支持复制（自动精简链接，保留xt和dn并提取番号）、推送到qB/115，新增磁力信息验车功能，截图轮播。
 // @icon         https://uxwing.com/wp-content/themes/uxwing/download/seo-marketing/magnet-magnetic-icon.png
 // @match        *://*/*
@@ -31,6 +31,7 @@
         qbtHost: GM_getValue('qbtHost', 'http://127.0.0.1:8080'),
         qbtUser: GM_getValue('qbtUser', 'admin'),
         qbtPass: GM_getValue('qbtPass', 'adminadmin'),
+        u115Cid: GM_getValue('u115Cid', GM_getValue('u115Uid', '')),
         u115Uid: GM_getValue('u115Uid', '')
     };
 
@@ -626,22 +627,67 @@
         });
     }
 
+    function get115Cid() {
+        return (config.u115Cid || config.u115Uid || '').trim();
+    }
+
     function pushTo115(link) {
-        const data = new URLSearchParams();
-        data.set('url', link);
-        if (config.u115Uid) data.set('uid', config.u115Uid);
         GM_xmlhttpRequest({
-            method: 'POST',
-            url: 'https://115.com/web/lixian/?ct=lixian&ac=add_task_url',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            data: data.toString(),
-            onload: (response) => {
+            method: 'GET',
+            url: 'https://115.com/?ct=offline&ac=space&_=' + Date.now(),
+            anonymous: false,
+            headers: {
+                'Accept': 'application/json, text/plain, */*',
+                'Origin': 'https://115.com',
+                'Referer': 'https://115.com/?tab=offline&mode=wangpan'
+            },
+            onload: (signResponse) => {
+                let signInfo = null;
                 try {
-                    const res = JSON.parse(response.responseText);
-                    if (res.state) showToast('✅ 已发送到 115');
-                    else showToast('❌ 115错误: ' + res.error_msg, false);
-                } catch(e) { showToast('❌ 115 响应解析失败', false); }
-            }
+                    signInfo = JSON.parse(signResponse.responseText);
+                } catch (_) {}
+
+                if (!signInfo || !signInfo.state || !signInfo.sign || !signInfo.time) {
+                    showToast('❌ 115登录失效或签名获取失败', false);
+                    return;
+                }
+
+                const data = new URLSearchParams();
+                data.set('url', link);
+                data.set('sign', signInfo.sign);
+                data.set('time', signInfo.time);
+
+                const cid = get115Cid();
+                if (cid) {
+                    data.set('wp_path_id', cid);
+                }
+
+                GM_xmlhttpRequest({
+                    method: 'POST',
+                    url: 'https://115.com/web/lixian/?ct=lixian&ac=add_task_url',
+                    anonymous: false,
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                        'Accept': 'application/json, text/javascript, */*; q=0.01',
+                        'Origin': 'https://115.com',
+                        'Referer': 'https://115.com/?tab=offline&mode=wangpan',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    data: data.toString(),
+                    onload: (response) => {
+                        try {
+                            const res = JSON.parse(response.responseText);
+                            if (res.state) {
+                                showToast(cid ? '✅ 已发送到 115 指定目录' : '✅ 已发送到 115');
+                            } else {
+                                showToast('❌ 115错误: ' + (res.error_msg || res.msg || '未知错误'), false);
+                            }
+                        } catch(e) { showToast('❌ 115 响应解析失败', false); }
+                    },
+                    onerror: () => showToast('❌ 115 推送请求失败', false)
+                });
+            },
+            onerror: () => showToast('❌ 115 签名请求失败', false)
         });
     }
 
@@ -834,7 +880,7 @@
             `,
             '115': `
                 <div style="border-top:1px solid #eee;padding-top:15px;">
-                    <input id="in_uid" type="text" placeholder="可选：115文件夹识别码，不填则保存到默认目录" value="${config.u115Uid}" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;">
+                    <input id="in_115_cid" type="text" placeholder="可选：115目录 CID / wp_path_id，不填则保存到默认目录" value="${config.u115Cid || config.u115Uid}" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;">
                     <button id="test_115" style="padding:8px 15px;background:#28a745;color:white;border:none;border-radius:4px;cursor:pointer;margin-top:10px;">检查115登录状态</button>
                     <span id="u115_test_result" style="margin-left:10px;font-size:13px;"></span>
                     <p style="font-size:12px;color:#666;margin-top:8px;">需要先在浏览器中登录115官网。文件夹识别码只用于指定保存目录，留空会使用115默认离线目录。</p>
@@ -949,7 +995,8 @@
                 qbtHost: modal.querySelector('#in_host')?.value.trim() ?? config.qbtHost,
                 qbtUser: modal.querySelector('#in_user')?.value.trim() ?? config.qbtUser,
                 qbtPass: modal.querySelector('#in_pass')?.value.trim() ?? config.qbtPass,
-                u115Uid: modal.querySelector('#in_uid')?.value.trim() ?? config.u115Uid
+                u115Cid: modal.querySelector('#in_115_cid')?.value.trim() ?? config.u115Cid,
+                u115Uid: modal.querySelector('#in_115_cid')?.value.trim() ?? config.u115Uid
             };
             const blob = new Blob([JSON.stringify(currentConfig, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -974,7 +1021,7 @@
                     if (modal.querySelector('#in_host')) modal.querySelector('#in_host').value = imported.qbtHost || 'http://127.0.0.1:8080';
                     if (modal.querySelector('#in_user')) modal.querySelector('#in_user').value = imported.qbtUser || 'admin';
                     if (modal.querySelector('#in_pass')) modal.querySelector('#in_pass').value = imported.qbtPass || 'adminadmin';
-                    if (modal.querySelector('#in_uid')) modal.querySelector('#in_uid').value = imported.u115Uid || '';
+                    if (modal.querySelector('#in_115_cid')) modal.querySelector('#in_115_cid').value = imported.u115Cid || imported.u115Uid || '';
                     showToast('✅ 配置导入成功，请检查后保存');
                 } catch (err) {
                     showToast('❌ 配置文件格式错误', false);
@@ -991,7 +1038,8 @@
             GM_setValue('qbtHost', modal.querySelector('#in_host')?.value.trim() ?? config.qbtHost);
             GM_setValue('qbtUser', modal.querySelector('#in_user')?.value.trim() ?? config.qbtUser);
             GM_setValue('qbtPass', modal.querySelector('#in_pass')?.value.trim() ?? config.qbtPass);
-            GM_setValue('u115Uid', modal.querySelector('#in_uid')?.value.trim() ?? config.u115Uid);
+            GM_setValue('u115Cid', modal.querySelector('#in_115_cid')?.value.trim() ?? config.u115Cid);
+            GM_setValue('u115Uid', modal.querySelector('#in_115_cid')?.value.trim() ?? config.u115Uid);
             mask.remove();
             showToast('✅ 设置已保存，刷新页面生效');
             setTimeout(() => location.reload(), 1000);
