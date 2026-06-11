@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.4.2
+// @version      2.5.0
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -47,7 +47,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.4.2';
+    const SCRIPT_VERSION = '2.5.0';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -1455,7 +1455,7 @@
 
     const SiteJavBus = {
         match() {
-            return location.hostname.includes('javbus') && !!document.querySelector('.header');
+            return location.hostname.includes('javbus');
         },
         getVid() {
             const kw = document.querySelector('meta[name="keywords"]')?.content || '';
@@ -1463,6 +1463,8 @@
         },
         initPage(avid) {
             document.querySelector('.ad-box')?.remove();
+            this._insertTopSettingsButton();
+            setTimeout(() => this._insertTopSettingsButton(), 500);
             this._insertCopyButton(avid);
 
             GM_addStyle(`
@@ -1485,6 +1487,49 @@
             if (document.querySelector('#waterfall div.item') && document.querySelector('.masonry')) return;
 
             this._insertMagnet(avid);
+        },
+        _insertTopSettingsButton() {
+            const navbar = document.querySelector('#navbar');
+            if (!navbar || navbar.querySelector('.javbus-top-settings-nav')) return;
+
+            const magnetNav = [...navbar.querySelectorAll(':scope > ul.nav.navbar-nav.navbar-right')].find(ul => {
+                return ul.querySelector('.glyphicon-magnet') || /\u5df2\u6709\u78c1\u529b/.test(ul.textContent || '');
+            });
+
+            const settingsNav = document.createElement('ul');
+            settingsNav.className = 'nav navbar-nav navbar-right javbus-top-settings-nav';
+            settingsNav.innerHTML = `
+                <li>
+                    <a href="javascript:void(0)" class="javbus-top-settings-btn" title="\u6253\u5f00\u8001\u53f8\u673a\u8bbe\u7f6e">
+                        <span class="glyphicon glyphicon-cog" style="font-size:12px;"></span>
+                        <span class="hidden-md hidden-sm">\u8001\u53f8\u673a\u8bbe\u7f6e</span>
+                    </a>
+                </li>
+            `;
+            settingsNav.querySelector('.javbus-top-settings-btn')?.addEventListener('click', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.__LAOSIJI_OPEN_SETTINGS__?.();
+            });
+
+            if (magnetNav) {
+                magnetNav.insertAdjacentElement('afterend', settingsNav);
+            } else {
+                navbar.appendChild(settingsNav);
+            }
+
+            if (document.documentElement.dataset.laosijiJavbusTopSettingsStyle === '1') return;
+            document.documentElement.dataset.laosijiJavbusTopSettingsStyle = '1';
+            GM_addStyle(`
+                #navbar .javbus-top-settings-btn {
+                    color: #2563eb !important;
+                    font-weight: 700 !important;
+                }
+                #navbar .javbus-top-settings-btn:hover {
+                    color: #1d4ed8 !important;
+                    background: rgba(37, 99, 235, .08) !important;
+                }
+            `);
         },
         _insertCopyButton(avid) {
             const infoCol = document.querySelector("div[class='col-md-3 info']");
@@ -1519,6 +1564,7 @@
         initPage(avid) {
             document.querySelector('.app-desktop-banner')?.remove();
             document.querySelector('.modal.is-active.over18-modal')?.remove();
+            this._insertTopSettingsButton();
             this._insertCopyButton(avid);
 
             GM_addStyle(`
@@ -1530,6 +1576,37 @@
 
             if (!location.pathname.startsWith('/v/')) return;
             this._insertMagnet(avid);
+        },
+        _insertTopSettingsButton() {
+            const navbarEnd = document.querySelector('#navbar-menu-user .navbar-end');
+            if (!navbarEnd || navbarEnd.querySelector('.javdb-top-settings-btn')) return;
+
+            const btn = document.createElement('a');
+            btn.href = 'javascript:void(0)';
+            btn.className = 'navbar-item javdb-top-settings-btn';
+            btn.textContent = '\u8001\u53f8\u673a\u8bbe\u7f6e';
+            btn.title = '\u6253\u5f00\u8001\u53f8\u673a\u8bbe\u7f6e';
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.__LAOSIJI_OPEN_SETTINGS__?.();
+            });
+
+            const userMenu = navbarEnd.querySelector('a[href="/users/profile"]')?.closest('.navbar-item.has-dropdown');
+            navbarEnd.insertBefore(btn, userMenu || null);
+
+            if (document.documentElement.dataset.laosijiJavdbTopSettingsStyle === '1') return;
+            document.documentElement.dataset.laosijiJavdbTopSettingsStyle = '1';
+            GM_addStyle(`
+                #navbar-menu-user .javdb-top-settings-btn {
+                    color: #2563eb !important;
+                    font-weight: 700 !important;
+                }
+                #navbar-menu-user .javdb-top-settings-btn:hover {
+                    color: #1d4ed8 !important;
+                    background: rgba(37, 99, 235, .08) !important;
+                }
+            `);
         },
         _insertCopyButton(avid) {
             const infoPanel = document.querySelector('.movie-panel-info');
@@ -1580,6 +1657,11 @@
             return !!document.querySelector('#video_id .text') &&
                    !!document.querySelector('meta[name="keywords"]');
         },
+        isHomePage() {
+            return document.body?.classList.contains('main') &&
+                   !this.isDetailPage() &&
+                   !!document.querySelector('#rightcolumn > .videothumblist .videos');
+        },
         getVid() {
             const el = document.querySelector('#video_id .text');
             if (el?.textContent?.trim()) return normalizeAvid(el.textContent.trim());
@@ -1587,7 +1669,12 @@
             return m ? m[1].toUpperCase() : '';
         },
         initPage(avid) {
-            if (!this.isDetailPage()) return;
+            this._insertTopSettingsButton();
+            if (!this.isDetailPage()) {
+                this._initListPage();
+                if (this.isHomePage()) this._initHomePage();
+                return;
+            }
             if (!avid) return;
 
             document.querySelector('.socialmedia')?.remove();
@@ -1618,6 +1705,212 @@
             `);
 
             this._insertMagnet(avid);
+        },
+        _initListPage() {
+            const list = document.querySelector('.videothumblist .videos');
+            if (!list) return;
+            const needStyle = list.dataset.laosijiGrid !== '1';
+            const cards = [...list.querySelectorAll(':scope > .video:not([data-laosiji-grid-card="1"])')];
+            if (!cards.length && !needStyle) return;
+
+            list.dataset.laosijiGrid = '1';
+            cards.forEach(card => {
+                card.dataset.laosijiGridCard = '1';
+                card.classList.add('javlib-grid-card');
+                const anchor = card.querySelector(':scope > a[href]:not(.emby-javlibrary-list-badge)');
+                if (anchor && !anchor.querySelector('.jav-pan115-badge')) {
+                    delete anchor.dataset.pan115Checked;
+                    delete anchor.dataset.pan115HasBadge;
+                }
+                const idEl = card.querySelector('.id');
+                const titleEl = card.querySelector('.title');
+                if (idEl && titleEl && titleEl.dataset.laosijiCodeMerged !== '1') {
+                    const code = idEl.textContent.trim();
+                    const titleText = titleEl.textContent.trim();
+                    titleEl.textContent = '';
+                    const strong = document.createElement('strong');
+                    strong.textContent = code;
+                    titleEl.appendChild(strong);
+                    titleEl.appendChild(document.createTextNode(` ${titleText}`));
+                    titleEl.dataset.laosijiCodeMerged = '1';
+                }
+                const img = card.querySelector('img[src]');
+                if (!img) return;
+                const src = img.getAttribute('src') || '';
+                const fullSrc = src.replace(/ps\.jpg(?:([?#].*)?)$/i, 'pl.jpg$1');
+                if (fullSrc !== src) {
+                    img.src = fullSrc;
+                    img.setAttribute('src', fullSrc);
+                }
+                img.removeAttribute('width');
+                img.removeAttribute('height');
+                if (!img.closest('.javlib-cover-frame')) {
+                    const frame = document.createElement('div');
+                    frame.className = 'javlib-cover-frame';
+                    img.parentNode.insertBefore(frame, img);
+                    frame.appendChild(img);
+                }
+            });
+
+            if (needStyle) {
+                GM_addStyle(`
+                    .videothumblist { width: 100% !important; }
+                    .videothumblist .videos {
+                        --javlib-list-columns: 5;
+                        display: grid !important;
+                        grid-template-columns: repeat(var(--javlib-list-columns), minmax(0, 1fr)) !important;
+                        gap: 14px !important;
+                        align-items: stretch !important;
+                        width: 100% !important;
+                        box-sizing: border-box !important;
+                    }
+                    .videothumblist .video.javlib-grid-card {
+                        float: none !important;
+                        display: block !important;
+                        width: auto !important;
+                        height: 100% !important;
+                        max-height: none !important;
+                        min-width: 0 !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        box-sizing: border-box !important;
+                        text-align: left !important;
+                        background: #fff !important;
+                        border: 1px solid #e5e7eb !important;
+                        border-radius: 6px !important;
+                        overflow: hidden !important;
+                        box-shadow: 0 1px 4px rgba(15, 23, 42, .08) !important;
+                    }
+                    .videothumblist .video.javlib-grid-card > a:not(.emby-javlibrary-list-badge) {
+                        display: flex !important;
+                        flex-direction: column !important;
+                        height: 100% !important;
+                        max-height: none !important;
+                        overflow: hidden !important;
+                        color: #2563eb !important;
+                        text-decoration: none !important;
+                    }
+                    .videothumblist .video.javlib-grid-card > a:not(.emby-javlibrary-list-badge):visited {
+                        color: #7c3aed !important;
+                    }
+                    .videothumblist .video.javlib-grid-card .id {
+                        display: none !important;
+                    }
+                    .videothumblist .video.javlib-grid-card .javlib-cover-frame {
+                        display: block !important;
+                        width: 100% !important;
+                        height: auto !important;
+                        aspect-ratio: auto !important;
+                        overflow: hidden !important;
+                        background: #f8fafc !important;
+                        border-bottom: 1px solid #f1f5f9 !important;
+                    }
+                    .videothumblist .video.javlib-grid-card img {
+                        display: block !important;
+                        width: 100% !important;
+                        height: auto !important;
+                        max-height: none !important;
+                        object-fit: contain !important;
+                        object-position: center center !important;
+                        background: #f8fafc !important;
+                        border: 0 !important;
+                    }
+                    .videothumblist .video.javlib-grid-card .title {
+                        display: block !important;
+                        width: 100% !important;
+                        max-width: none !important;
+                        height: auto !important;
+                        max-height: none !important;
+                        box-sizing: border-box !important;
+                        flex: 1 1 auto !important;
+                        min-height: 0 !important;
+                        margin: 0 !important;
+                        padding: 7px 8px 9px !important;
+                        overflow: visible !important;
+                        color: inherit !important;
+                        font-size: 13px !important;
+                        line-height: 1.5 !important;
+                        text-align: left !important;
+                        white-space: normal !important;
+                        word-break: break-word !important;
+                    }
+                    .videothumblist .video.javlib-grid-card .title strong {
+                        color: inherit !important;
+                        font-size: 16px !important;
+                        font-weight: 800 !important;
+                    }
+                    .videothumblist .video.javlib-grid-card .toolbar {
+                        display: none !important;
+                    }
+                    @media (max-width: 1100px) {
+                        .videothumblist .videos { --javlib-list-columns: 4; }
+                    }
+                    @media (max-width: 820px) {
+                        .videothumblist .videos { --javlib-list-columns: 3; }
+                    }
+                    @media (max-width: 560px) {
+                        .videothumblist .videos { --javlib-list-columns: 2; gap: 10px !important; }
+                    }
+                `);
+            }
+            setTimeout(() => window.__LAOSIJI_SCHEDULE_PAN115__?.(), 0);
+        },
+        _initHomePage() {
+            if (document.body.dataset.laosijiJavlibHome === '1') return;
+            document.body.dataset.laosijiJavlibHome = '1';
+            document.body.classList.add('javlib-home-page');
+
+            const rightColumn = document.querySelector('#rightcolumn');
+            rightColumn?.querySelectorAll(':scope > .titlebox, :scope > table.about').forEach(el => {
+                el.style.setProperty('display', 'none', 'important');
+            });
+
+            GM_addStyle(`
+                body.javlib-home-page #rightcolumn > .videothumblist {
+                    height: auto !important;
+                    max-height: none !important;
+                    overflow: visible !important;
+                }
+            `);
+        },
+        _insertTopSettingsButton() {
+            const menu = document.querySelector('#topmenu .menutext, .menutext');
+            if (!menu || menu.querySelector('.javlib-top-settings-btn')) return;
+
+            const btn = document.createElement('a');
+            btn.href = 'javascript:void(0)';
+            btn.className = 'javlib-top-settings-btn';
+            btn.textContent = '\u8001\u53f8\u673a\u8bbe\u7f6e';
+            btn.title = '\u6253\u5f00\u8001\u53f8\u673a\u8bbe\u7f6e';
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.__LAOSIJI_OPEN_SETTINGS__?.();
+            });
+
+            const accountLink = menu.querySelector('a[href*="myaccount.php"]');
+            const sep = document.createTextNode(' | ');
+            if (accountLink) {
+                accountLink.after(sep, btn);
+            } else {
+                menu.append(sep, btn);
+            }
+
+            if (document.documentElement.dataset.laosijiJavlibTopSettingsStyle === '1') return;
+            document.documentElement.dataset.laosijiJavlibTopSettingsStyle = '1';
+            GM_addStyle(`
+                #topmenu .menutext .javlib-top-settings-btn,
+                .menutext .javlib-top-settings-btn {
+                    color: #2563eb !important;
+                    font-weight: 700 !important;
+                    text-decoration: none !important;
+                }
+                #topmenu .menutext .javlib-top-settings-btn:hover,
+                .menutext .javlib-top-settings-btn:hover {
+                    color: #1d4ed8 !important;
+                    text-decoration: underline !important;
+                }
+            `);
         },
         _insertCopyButton(avid) {
             const codeEl = document.querySelector('#video_id .text');
@@ -4928,11 +5221,12 @@
         if (!hasTitleText) return null;
         const looksLikeVideoLink =
             /\/v\/\w+/i.test(href) ||
+            /(?:^|\/|\.)jav\w+\.html(?:[?#].*)?$/i.test(href) ||
             /\/videos\/[a-z0-9-]+\/?/i.test(href) ||
             /\/(?:[a-z]{2,15}-\d{2,10}|fc2[-_]?ppv[-_]?\d{6,9})\/?$/i.test(href) ||
             /\/(?:[a-z]{2,15}\d{3,6})\/?$/i.test(href) ||
             /(?:movie|video|detail|view|jav)/i.test(href);
-        const inListContainer = !!anchor.closest('.movie-list, .movies, .grid, #waterfall, .movie-box, .box, .thumbnail, .video-list, .video-list-row, .section-container');
+        const inListContainer = !!anchor.closest('.movie-list, .movies, .grid, #waterfall, .movie-box, .box, .thumbnail, .video-list, .video-list-row, .section-container, .videothumblist');
         if (!looksLikeVideoLink && !inListContainer) return null;
         if (hasTitleText && !Utils.extractCode(visibleTitle) && !looksLikeVideoLink) return null;
         return { anchor, code: pan115Code };
@@ -4941,9 +5235,30 @@
     function collectPan115ListTargets() {
         if (isCurrentDetailPage()) return [];
         const isSupjavList = /supjav\.com/.test(location.hostname);
+        const seen = new Set();
+        const targets = [];
+        if (/(javlibrary|javlib|r86m|s87n)/i.test(location.hostname)) {
+            document.querySelectorAll('.videothumblist .video > a[href]:not(.emby-javlibrary-list-badge)').forEach(anchor => {
+                if (seen.has(anchor) || anchor.dataset.pan115Checked === '1') return;
+                if (anchor.closest('.emby-btn, .emby-badge, .emby-button-group, .emby-javlibrary-list-badge')) return;
+                const card = anchor.closest('.video');
+                const text = [
+                    card?.querySelector('.id')?.textContent,
+                    card?.querySelector('.title')?.textContent,
+                    anchor.getAttribute('title'),
+                    anchor.href,
+                ].filter(Boolean).join(' ');
+                const code = Utils.extractCode(text);
+                const pan115Code = Pan115.extractCode(text, code);
+                if (!code || !pan115Code) return;
+                seen.add(anchor);
+                targets.push({ anchor, code: pan115Code });
+            });
+        }
         const selectors = [
             ...(isSupjavList ? ['.post h3 a[href]'] : []),
             '.movie-list a[href]',
+            '.videothumblist .video > a[href]:not(.emby-javlibrary-list-badge)',
             '.movies a[href]',
             '.grid a[href]',
             '.item a[href]',
@@ -4953,8 +5268,6 @@
             'a[href*="/v/"]',
             'a[title][href]',
         ];
-        const seen = new Set();
-        const targets = [];
         document.querySelectorAll(selectors.join(',')).forEach(anchor => {
             if (seen.has(anchor) || anchor.dataset.pan115Checked === '1') return;
             if (isSupjavList && !anchor.matches('.post h3 a[href]')) return;
@@ -4967,6 +5280,14 @@
 
     function insertPan115ListBadge(anchor, hit, code) {
         if (!Pan115.enabled() || !hit?.pickcode || !anchor || anchor.dataset.pan115HasBadge === '1') return;
+        if (anchor.matches?.('.emby-javlibrary-list-badge') || anchor.closest?.('.emby-btn, .emby-badge, .emby-button-group, .emby-javlibrary-list-badge')) return;
+        const title = anchor.querySelector('.title');
+        if (title) {
+            const badge = createPan115Badge(hit, code, false);
+            title.insertBefore(badge, title.firstChild);
+            anchor.dataset.pan115HasBadge = '1';
+            return;
+        }
         const textNode = findPan115TitleTextNode(anchor);
         if (textNode?.parentNode && anchor.contains(textNode.parentNode)) {
             const badge = createPan115Badge(hit, code, false);
@@ -5482,6 +5803,7 @@
         clearTimeout(pan115ListTimer);
         pan115ListTimer = setTimeout(renderPan115ListBadges, 300);
     }
+    window.__LAOSIJI_SCHEDULE_PAN115__ = schedulePan115ListBadges;
 
     const observer = new MutationObserver(() => {
         renderButtonsForCurrentPage();

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.6.6
+// @version      5.6.7
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -521,9 +521,10 @@
         .modern.dark-mode .btn.save { background: #3e9e37; }
         .modern.dark-mode .close-btn { color: #aaa; }
 
-        .video.emby-javlibrary-hit {
+        .video.emby-javlibrary-hit,
+        .videothumblist .video.javlib-grid-card.emby-javlibrary-hit {
             position: relative !important;
-            overflow: visible !important;
+            overflow: hidden !important;
             vertical-align: top !important;
             outline: none !important;
         }
@@ -535,21 +536,34 @@
             box-shadow: inset 0 0 0 4px ${Config.highlightColor} !important;
             z-index: 19 !important;
         }
-        .video > a.emby-javlibrary-list-badge {
+        .video > a.emby-javlibrary-list-badge,
+        .videothumblist .video.javlib-grid-card > a.emby-javlibrary-list-badge {
             all: unset !important;
             position: absolute !important;
             top: 5px !important;
             right: 5px !important;
+            bottom: auto !important;
+            left: auto !important;
             display: inline-flex !important;
+            flex: 0 0 auto !important;
+            flex-direction: row !important;
             align-items: center !important;
             justify-content: center !important;
+            align-self: auto !important;
+            justify-self: auto !important;
             width: auto !important;
             height: auto !important;
+            min-width: 0 !important;
+            min-height: 0 !important;
+            max-width: max-content !important;
+            max-height: max-content !important;
             margin: 0 !important;
             padding: ${badgeSize.padding} !important;
             box-sizing: border-box !important;
+            aspect-ratio: auto !important;
             float: none !important;
             clear: none !important;
+            overflow: visible !important;
             color: ${Config.badgeTextColor} !important;
             font: 700 ${badgeSize.fontSize}/1.15 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
             letter-spacing: 0 !important;
