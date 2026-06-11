@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.4.1
+// @version      2.4.2
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -47,12 +47,13 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.4.1';
+    const SCRIPT_VERSION = '2.4.2';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
         get ciligouUrl()       { return GM_getValue('cfg_ciligou_url',       'clg55.top'); },
         get btdigUrl()         { return GM_getValue('cfg_btdig_url',         'btdig.com'); },
+        get btsearchUrl()      { return GM_getValue('cfg_btsearch_url',      'btsearch.love'); },
         get sukebeiUrl()       { return GM_getValue('cfg_sukebei_url',       'sukebei.nyaa.si'); },
         get sokittyUrl()       { return GM_getValue('cfg_sokitty_url',       'w1.sokitty.me'); },
 
@@ -65,6 +66,7 @@
         set javdbSearchUrl(v)   { GM_setValue('cfg_javdb_search_url', v); },
         set ciligouUrl(v)       { GM_setValue('cfg_ciligou_url', v); },
         set btdigUrl(v)         { GM_setValue('cfg_btdig_url', v); },
+        set btsearchUrl(v)      { GM_setValue('cfg_btsearch_url', v); },
         set sukebeiUrl(v)       { GM_setValue('cfg_sukebei_url', v); },
         set sokittyUrl(v)       { GM_setValue('cfg_sokitty_url', v); },
         set defaultEngine(v)    { GM_setValue('cfg_default_engine', v); },
@@ -174,6 +176,7 @@
             { key: 'javdbSearchUrl',  label: 'JavDB',        placeholder: 'javdb.com' },
             { key: 'ciligouUrl',      label: 'CiliGou',      placeholder: 'clg55.top' },
             { key: 'btdigUrl',        label: 'BtDig',        placeholder: 'btdig.com' },
+            { key: 'btsearchUrl',     label: 'BTSearch',     placeholder: 'btsearch.love' },
             { key: 'sukebeiUrl',      label: 'Sukebei',      placeholder: 'sukebei.nyaa.si' },
             { key: 'sokittyUrl',      label: 'SoKitty',      placeholder: 'w1.sokitty.me' },
         ];
@@ -601,6 +604,7 @@
             [CFG.javdbSearchUrl]: 'JavDB',
             [CFG.ciligouUrl]:     'CiliGou',
             [CFG.btdigUrl]:       'BtDig',
+            [CFG.btsearchUrl]:    'BTSearch',
             [CFG.sukebeiUrl]:     'Sukebei',
             [CFG.sokittyUrl]:     'SoKitty',
         });
@@ -611,6 +615,7 @@
                     [CFG.javdbSearchUrl]: _searchJavDB,
                     [CFG.ciligouUrl]:     _searchCiligou,
                     [CFG.btdigUrl]:       _searchBtdig,
+                    [CFG.btsearchUrl]:    _searchBTSearch,
                     [CFG.sukebeiUrl]:     _searchsukebei,
                     [CFG.sokittyUrl]:     _searchSokitty,
                 };
@@ -801,6 +806,84 @@
                 src:     el.querySelector('.torrent_name a')?.href || '',
             }));
             return { url: r.finalUrl || base, data };
+        }
+
+        function pickBTSearchItems(json) {
+            if (Array.isArray(json?.data)) return json.data;
+            if (Array.isArray(json?.data?.data)) return json.data.data;
+            return [];
+        }
+
+        function cleanBTSearchText(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return '';
+            if (!/[<&]/.test(raw)) return raw.replace(/\s+/g, ' ');
+            const doc = parseHTML(`<body>${raw}</body>`);
+            return (doc.body?.textContent || raw.replace(/<[^>]+>/g, ''))
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function normalizeBTSearchItem(item, base, searchUrl, keyword) {
+            const title = cleanBTSearchText(item?.name);
+            const hash = String(item?.hash || '').replace(/^magnet:\?xt=urn:btih:/i, '').replace(/[^a-z0-9]/gi, '');
+            if (!/^[a-f0-9]{32,40}$/i.test(hash)) return null;
+
+            const maglink = `magnet:?xt=urn:btih:${hash}`;
+            const size = formatBytes(item?.size);
+            const src = item?.id
+                ? `${base}/torrent/${encodeURIComponent(item.id)}?keyword=${encodeURIComponent(keyword)}`
+                : searchUrl;
+
+            return { title: title || maglink, maglink, size, src };
+        }
+
+        function randomBTSearchNonce(length = 8) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let nonce = '';
+            for (let i = 0; i < length; i++) nonce += chars.charAt(Math.floor(Math.random() * chars.length));
+            return nonce;
+        }
+
+        function buildBTSearchHeaders(params, referer) {
+            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const nonce = randomBTSearchNonce();
+            const parts = [`timestamp=${timestamp}`, `nonce=${nonce}`];
+            Object.keys(params).forEach(key => parts.push(`${key}=${params[key]}`));
+            const signText = `${parts.sort().join('&')}&key=long2ice`;
+            return {
+                Accept: 'application/json, text/plain, */*',
+                Referer: referer,
+                'x-timestamp': timestamp,
+                'x-nonce': nonce,
+                'x-sign': javdbMd5(signText).toUpperCase()
+            };
+        }
+
+        async function _searchBTSearch(kw) {
+            const base = 'https://' + CFG.btsearchUrl;
+            const searchUrl = `${base}/search?keyword=${encodeURIComponent(kw)}`;
+            const params = {
+                keyword: kw,
+                limit: '10',
+                offset: '0',
+                mode: '',
+                time: '',
+                sort: 'size',
+                sort_type: 'desc',
+                size: ''
+            };
+            const apiUrl = `${base}/api/search?${new URLSearchParams(params).toString()}`;
+            const r = await gmFetch(apiUrl, {
+                headers: buildBTSearchHeaders(params, searchUrl)
+            });
+            if (!r.loadstuts || r.status < 200 || r.status >= 400) return { url: searchUrl, data: [] };
+
+            const json = parseJson(r.responseText);
+            const data = pickBTSearchItems(json)
+                .map(item => normalizeBTSearchItem(item, base, searchUrl, kw))
+                .filter(Boolean);
+            return { url: searchUrl, data };
         }
 
         async function _searchsukebei(kw) {
@@ -3725,7 +3808,8 @@
             STH: '420STH',
             MLA: '476MLA',
             MMC: '812MMC',
-            OERO: '892OERO'
+            OERO: '892OERO', 
+            HOI: '420HOI'
         },
 
         normalizeMgstageCode(text) {
