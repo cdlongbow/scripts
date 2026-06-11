@@ -1780,6 +1780,15 @@
                         border-radius: 6px !important;
                         overflow: hidden !important;
                         box-shadow: 0 1px 4px rgba(15, 23, 42, .08) !important;
+                        transform: translateZ(0) !important;
+                        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;
+                        will-change: transform !important;
+                    }
+                    .videothumblist .video.javlib-grid-card:hover {
+                        border-color: rgba(37, 99, 235, .35) !important;
+                        box-shadow: 0 10px 24px rgba(15, 23, 42, .16) !important;
+                        transform: translateY(-2px) scale(1.01) !important;
+                        z-index: 2 !important;
                     }
                     .videothumblist .video.javlib-grid-card > a:not(.emby-javlibrary-list-badge) {
                         display: flex !important;
