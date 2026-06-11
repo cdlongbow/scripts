@@ -1714,16 +1714,19 @@
             if (!cards.length && !needStyle) return;
 
             list.dataset.laosijiGrid = '1';
+            list.classList.add('jav-card-grid', 'javlib-card-grid');
             cards.forEach(card => {
                 card.dataset.laosijiGridCard = '1';
-                card.classList.add('javlib-grid-card');
+                card.classList.add('jav-card', 'javlib-grid-card');
                 const anchor = card.querySelector(':scope > a[href]:not(.emby-javlibrary-list-badge)');
+                anchor?.classList.add('jav-card-link', 'javlib-card-link');
                 if (anchor && !anchor.querySelector('.jav-pan115-badge')) {
                     delete anchor.dataset.pan115Checked;
                     delete anchor.dataset.pan115HasBadge;
                 }
                 const idEl = card.querySelector('.id');
                 const titleEl = card.querySelector('.title');
+                titleEl?.classList.add('jav-card-title', 'javlib-card-title');
                 if (idEl && titleEl && titleEl.dataset.laosijiCodeMerged !== '1') {
                     const code = idEl.textContent.trim();
                     const titleText = titleEl.textContent.trim();
@@ -1744,27 +1747,28 @@
                 }
                 img.removeAttribute('width');
                 img.removeAttribute('height');
+                img.classList.add('jav-card-image', 'javlib-card-image');
                 if (!img.closest('.javlib-cover-frame')) {
                     const frame = document.createElement('div');
-                    frame.className = 'javlib-cover-frame';
+                    frame.className = 'jav-card-cover javlib-cover-frame';
                     img.parentNode.insertBefore(frame, img);
                     frame.appendChild(img);
+                } else {
+                    img.closest('.javlib-cover-frame')?.classList.add('jav-card-cover');
                 }
             });
 
             if (needStyle) {
                 GM_addStyle(`
-                    .videothumblist { width: 100% !important; }
-                    .videothumblist .videos {
-                        --javlib-list-columns: 5;
+                    .jav-card-grid {
                         display: grid !important;
-                        grid-template-columns: repeat(var(--javlib-list-columns), minmax(0, 1fr)) !important;
+                        grid-template-columns: repeat(var(--jav-card-columns, 5), minmax(0, 1fr)) !important;
                         gap: 14px !important;
                         align-items: stretch !important;
                         width: 100% !important;
                         box-sizing: border-box !important;
                     }
-                    .videothumblist .video.javlib-grid-card {
+                    .jav-card {
                         float: none !important;
                         display: block !important;
                         width: auto !important;
@@ -1784,13 +1788,13 @@
                         transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;
                         will-change: transform !important;
                     }
-                    .videothumblist .video.javlib-grid-card:hover {
+                    .jav-card:hover {
                         border-color: rgba(37, 99, 235, .35) !important;
                         box-shadow: 0 10px 24px rgba(15, 23, 42, .16) !important;
                         transform: translateY(-2px) scale(1.01) !important;
                         z-index: 2 !important;
                     }
-                    .videothumblist .video.javlib-grid-card > a:not(.emby-javlibrary-list-badge) {
+                    .jav-card-link {
                         display: flex !important;
                         flex-direction: column !important;
                         height: 100% !important;
@@ -1799,13 +1803,10 @@
                         color: #2563eb !important;
                         text-decoration: none !important;
                     }
-                    .videothumblist .video.javlib-grid-card > a:not(.emby-javlibrary-list-badge):visited {
+                    .jav-card-link:visited {
                         color: #7c3aed !important;
                     }
-                    .videothumblist .video.javlib-grid-card .id {
-                        display: none !important;
-                    }
-                    .videothumblist .video.javlib-grid-card .javlib-cover-frame {
+                    .jav-card-cover {
                         display: block !important;
                         width: 100% !important;
                         height: auto !important;
@@ -1814,7 +1815,7 @@
                         background: #f8fafc !important;
                         border-bottom: 1px solid #f1f5f9 !important;
                     }
-                    .videothumblist .video.javlib-grid-card img {
+                    .jav-card-image {
                         display: block !important;
                         width: 100% !important;
                         height: auto !important;
@@ -1824,7 +1825,7 @@
                         background: #f8fafc !important;
                         border: 0 !important;
                     }
-                    .videothumblist .video.javlib-grid-card .title {
+                    .jav-card-title {
                         display: block !important;
                         width: 100% !important;
                         max-width: none !important;
@@ -1843,22 +1844,29 @@
                         white-space: normal !important;
                         word-break: break-word !important;
                     }
-                    .videothumblist .video.javlib-grid-card .title strong {
+                    .jav-card-title strong {
                         color: inherit !important;
                         font-size: 16px !important;
                         font-weight: 800 !important;
+                    }
+                    .videothumblist { width: 100% !important; }
+                    .videothumblist .videos.javlib-card-grid {
+                        --jav-card-columns: 5;
+                    }
+                    .videothumblist .video.javlib-grid-card .id {
+                        display: none !important;
                     }
                     .videothumblist .video.javlib-grid-card .toolbar {
                         display: none !important;
                     }
                     @media (max-width: 1100px) {
-                        .videothumblist .videos { --javlib-list-columns: 4; }
+                        .videothumblist .videos.javlib-card-grid { --jav-card-columns: 4; }
                     }
                     @media (max-width: 820px) {
-                        .videothumblist .videos { --javlib-list-columns: 3; }
+                        .videothumblist .videos.javlib-card-grid { --jav-card-columns: 3; }
                     }
                     @media (max-width: 560px) {
-                        .videothumblist .videos { --javlib-list-columns: 2; gap: 10px !important; }
+                        .videothumblist .videos.javlib-card-grid { --jav-card-columns: 2; gap: 10px !important; }
                     }
                 `);
             }
