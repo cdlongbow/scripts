@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.5.0
+// @version      2.5.1
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -47,7 +47,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.5.0';
+    const SCRIPT_VERSION = '2.5.1';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -5407,7 +5407,15 @@
         {
             id: 'emby',
             name: 'Emby',
-            match: (url) => /10\.10\.10\.\d+:\d+\/web\/index\.html/.test(url) || /emby\.sh1nyan\.fun\/web\/index\.html/.test(url),
+            match: (url) => {
+                try {
+                    const u = new URL(url);
+                    if (!/\/web\/index\.html/.test(u.pathname)) return false;
+                    return /emby|jellyfin/i.test(u.hostname) || /^\d{1,3}(?:\.\d{1,3}){3}$/.test(u.hostname);
+                } catch {
+                    return false;
+                }
+            },
             titleSelector: 'h1'
         },
         {
@@ -5472,21 +5480,92 @@
         return Sites.some(site => site.match(window.location.href));
     }
 
+    function isElemVisible(el) {
+        if (!el) return false;
+        if (el.closest('.hide, [hidden], [aria-hidden="true"]')) return false;
+        const rects = el.getClientRects();
+        if (!rects || rects.length === 0) return false;
+        const cs = window.getComputedStyle(el);
+        if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+        return true;
+    }
+
+    function resolveEmbyTitleElem() {
+        // Emby is an SPA: many hidden .view containers keep stale/empty <h1>.
+        // Prefer the visible title that actually carries a recognizable code.
+        const nodes = Array.from(document.querySelectorAll(
+            'h1, h2, h3.itemName, .itemName-primary, .pageTitle, .nameContainer h3, [class*="itemName"]'
+        ));
+        let firstVisible = null;
+        for (const el of nodes) {
+            const txt = (el.textContent || '').trim();
+            if (!txt) continue;
+            if (!isElemVisible(el)) continue;
+            if (!firstVisible) firstVisible = el;
+            if (Utils.extractCode(txt)) return el;
+        }
+        return firstVisible;
+    }
+
+    // The visible title (h1.itemName-primary) sits inside a flex container that
+    // also holds Emby's native edit buttons. Insert our row AFTER that whole
+    // container so it lands on its own clean line instead of between the title
+    // and the edit buttons. Fall back to the title element itself.
+    function getEmbyInsertAnchor(titleElem) {
+        return titleElem.closest('.itemPrimaryNameContainer, .nameContainer, .detailPageWrapperContainer .infoWrapper') || titleElem;
+    }
+
     function renderButtonsForCurrentPage() {
         const site = Sites.find(s => s.match(window.location.href));
         if (!site) return;
 
-        const titleElem = document.querySelector(site.titleSelector);
+        let titleElem = site.id === 'emby'
+            ? resolveEmbyTitleElem()
+            : document.querySelector(site.titleSelector);
         if (!titleElem) return;
+        if (site.id === 'emby' && !Utils.extractCode(titleElem.textContent || '')) return;
+
+        const getEmbyRenderKey = () => {
+            const hash = location.hash || '';
+            const itemId = hash.match(/item\?id=([^&]+)/i)?.[1]
+                || new URLSearchParams(hash.split('?')[1] || '').get('id')
+                || '';
+            const title = (titleElem.textContent || '').trim();
+            return `${itemId}::${title}`;
+        };
 
         const existingBtnGroup = document.querySelector('.jav-jump-btn-group[data-laosiji-jump="1"]');
+        if (site.id === 'emby') {
+            const renderKey = getEmbyRenderKey();
+            const existingKey = existingBtnGroup?.dataset.embyRenderKey || '';
+            if (existingBtnGroup) {
+                // Re-render only when the displayed item changed, OR when our group
+                // got detached from the DOM by an Emby view rebuild.
+                if ((existingKey && existingKey !== renderKey) || !existingBtnGroup.isConnected) {
+                    existingBtnGroup.remove();
+                } else {
+                    // Same item, still attached: make sure it sits right after the
+                    // title container (Emby may have moved/rebuilt the title).
+                    const anchor = getEmbyInsertAnchor(titleElem);
+                    if (anchor.nextElementSibling !== existingBtnGroup) {
+                        anchor.insertAdjacentElement('afterend', existingBtnGroup);
+                    }
+                    return;
+                }
+            }
+            delete titleElem.dataset.enhanced;
+        }
         if (existingBtnGroup) {
+            if (site.id === 'emby') {
+                // handled above; if we reach here the stale group was removed
+            } else {
             const code = Utils.extractCode(titleElem.textContent);
             const pan115Code = Pan115.extractCode(titleElem.textContent, code);
             if (pan115Code) addPan115PlayBtn(pan115Code, existingBtnGroup);
             addSettingsBtn(existingBtnGroup);
             placeJumpButtonGroup(site, titleElem, existingBtnGroup);
             return;
+            }
         }
 
         if (titleElem.dataset.enhanced === '1') return;
@@ -5587,26 +5666,16 @@
             addSettingsBtn(btnGroup);
 
             if (site.id === 'emby') {
+                // Inject as its own standalone row directly under the visible title.
+                // Do NOT merge into Emby's native .emby-button-group toolbar: that
+                // toolbar is owned by the framework and gets rebuilt on view changes,
+                // which silently drops our buttons.
                 btnGroup.classList.add('emby-fix');
-                const parent = titleElem.parentNode;
-                if (parent) {
-                    parent.appendChild(btnGroup);
-                } else {
-                    titleElem.insertAdjacentElement('afterend', btnGroup);
-                }
+                btnGroup.dataset.embyRenderKey = getEmbyRenderKey();
+                getEmbyInsertAnchor(titleElem).insertAdjacentElement('afterend', btnGroup);
             } else {
                 placeJumpButtonGroup(site, titleElem, btnGroup);
             }
-        }
-
-        const embyGroup = document.querySelector('.emby-button-group');
-        if (embyGroup && btnGroup.isConnected) {
-            const jumpBtnCount = btnGroup.childElementCount;
-            [...btnGroup.children].forEach(el => embyGroup.insertBefore(el, embyGroup.firstChild));
-            const sep = document.createElement('span');
-            sep.style.cssText = 'display:inline-block;width:1px;height:16px;background:rgba(128,128,128,0.35);margin:0 4px;align-self:center;flex-shrink:0;';
-            embyGroup.insertBefore(sep, embyGroup.children[jumpBtnCount] || null);
-            btnGroup.remove();
         }
     }
 
@@ -5822,6 +5891,12 @@
     }
     window.__LAOSIJI_SCHEDULE_PAN115__ = schedulePan115ListBadges;
 
+    function resetEmbyButtonState() {
+        if (!Sites.find(s => s.id === 'emby')?.match(window.location.href)) return;
+        document.querySelectorAll('.jav-jump-btn-group[data-laosiji-jump="1"]').forEach(el => el.remove());
+        document.querySelectorAll('h1[data-enhanced="1"]').forEach(el => delete el.dataset.enhanced);
+    }
+
     const observer = new MutationObserver(() => {
         renderButtonsForCurrentPage();
         schedulePan115ListBadges();
@@ -5829,7 +5904,70 @@
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-    renderButtonsForCurrentPage();
+    // ---- Emby SPA navigation handling ----
+    // Emby navigates via hashchange AND history pushState/replaceState. A fixed
+    // 120/420ms pair often fires before the title text has been fetched, so we
+    // use a retry ladder that bails out as soon as buttons are successfully shown.
+    let lastEmbyLoc = location.href;
+
+    function embyButtonsPresent() {
+        const g = document.querySelector('.jav-jump-btn-group[data-laosiji-jump="1"]');
+        return !!(g && g.isConnected);
+    }
+
+    let embyRetryTimers = [];
+    function clearEmbyRetries() {
+        embyRetryTimers.forEach(t => clearTimeout(t));
+        embyRetryTimers = [];
+    }
+    function embyRenderWithRetry() {
+        clearEmbyRetries();
+        // Ladder spans ~6s to cover slow async title loads; stops once injected.
+        const delays = [0, 80, 200, 400, 700, 1100, 1700, 2500, 3500, 5000, 6500];
+        delays.forEach(d => {
+            embyRetryTimers.push(setTimeout(() => {
+                renderButtonsForCurrentPage();
+                if (embyButtonsPresent()) clearEmbyRetries();
+            }, d));
+        });
+    }
+
+    function onEmbyNavigate() {
+        if (location.href === lastEmbyLoc) return;
+        lastEmbyLoc = location.href;
+        const isEmby = Sites.find(s => s.id === 'emby')?.match(window.location.href);
+        if (isEmby) {
+            resetEmbyButtonState();
+            embyRenderWithRetry();
+        } else {
+            renderButtonsForCurrentPage();
+        }
+    }
+
+    window.addEventListener('hashchange', onEmbyNavigate);
+    window.addEventListener('popstate', onEmbyNavigate);
+
+    (function hookHistory() {
+        const wrap = (type) => {
+            const orig = history[type];
+            if (typeof orig !== 'function') return;
+            history[type] = function () {
+                const ret = orig.apply(this, arguments);
+                // Defer so the SPA router can update the DOM/URL first.
+                setTimeout(onEmbyNavigate, 0);
+                return ret;
+            };
+        };
+        wrap('pushState');
+        wrap('replaceState');
+    })();
+
+    // Initial render: on Emby use the retry ladder, elsewhere render once.
+    if (Sites.find(s => s.id === 'emby')?.match(window.location.href)) {
+        embyRenderWithRetry();
+    } else {
+        renderButtonsForCurrentPage();
+    }
     schedulePan115ListBadges();
     InfiniteScroll.init();
 
