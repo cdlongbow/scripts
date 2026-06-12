@@ -1810,7 +1810,7 @@
                         display: block !important;
                         width: 100% !important;
                         height: auto !important;
-                        aspect-ratio: auto !important;
+                        aspect-ratio: 800 / 538 !important;
                         overflow: hidden !important;
                         background: #f8fafc !important;
                         border-bottom: 1px solid #f1f5f9 !important;
@@ -1818,9 +1818,9 @@
                     .jav-card-image {
                         display: block !important;
                         width: 100% !important;
-                        height: auto !important;
+                        height: 100% !important;
                         max-height: none !important;
-                        object-fit: contain !important;
+                        object-fit: cover !important;
                         object-position: center center !important;
                         background: #f8fafc !important;
                         border: 0 !important;
