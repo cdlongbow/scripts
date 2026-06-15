@@ -1405,7 +1405,7 @@
 
         async function _searchCiligou(kw) {
             const base = 'https://' + CFG.ciligouUrl;
-
+            
             const encoded = btoa(unescape(encodeURIComponent(kw))).replace(/=+$/, '');
             const searchUrl = `${base}/search?word=${encoded}`;
 
@@ -2156,13 +2156,13 @@
             this._insertTopSettingsButton();
             setTimeout(() => this._insertTopSettingsButton(), 500);
 
-
+            
             if (document.querySelector('#waterfall div.item')) {
                 this._initListPage();
                 return;
             }
 
-
+            
             this._insertCopyButton(avid);
             GM_addStyle(`
                 .container { max-width: 100% !important; width: 100% !important;
@@ -2256,7 +2256,7 @@
         },
         _swapCover(img) {
             const src = img.getAttribute('src') || '';
-
+            
             if (!/\/(imgs|pics)\/(thumb|thumbs)\//i.test(src)) return;
             if (img.dataset.laosijiCoverSwapped === '1') return;
             let full = src.replace(/\/(imgs|pics)\/(thumb|thumbs)\//i, '/$1/cover/');
@@ -7138,8 +7138,8 @@
     }
 
     function resolveEmbyTitleElem() {
-
-
+        
+        
         const nodes = Array.from(document.querySelectorAll(
             'h1, h2, h3.itemName, .itemName-primary, .pageTitle, .nameContainer h3, [class*="itemName"]'
         ));
@@ -7154,10 +7154,10 @@
         return firstVisible;
     }
 
-
-
-
-
+    
+    
+    
+    
     function getEmbyInsertAnchor(titleElem) {
         return titleElem.closest('.itemPrimaryNameContainer, .nameContainer, .detailPageWrapperContainer .infoWrapper') || titleElem;
     }
@@ -7186,13 +7186,13 @@
             const renderKey = getEmbyRenderKey();
             const existingKey = existingBtnGroup?.dataset.embyRenderKey || '';
             if (existingBtnGroup) {
-
-
+                
+                
                 if ((existingKey && existingKey !== renderKey) || !existingBtnGroup.isConnected) {
                     existingBtnGroup.remove();
                 } else {
-
-
+                    
+                    
                     const anchor = getEmbyInsertAnchor(titleElem);
                     if (anchor.nextElementSibling !== existingBtnGroup) {
                         anchor.insertAdjacentElement('afterend', existingBtnGroup);
@@ -7204,7 +7204,7 @@
         }
         if (existingBtnGroup) {
             if (site.id === 'emby') {
-
+                
             } else {
             const code = Utils.extractCode(titleElem.textContent);
             const pan115Code = Pan115.extractCode(titleElem.textContent, code);
@@ -7313,10 +7313,10 @@
             addSettingsBtn(btnGroup);
 
             if (site.id === 'emby') {
-
-
-
-
+                
+                
+                
+                
                 btnGroup.classList.add('emby-fix');
                 btnGroup.dataset.embyRenderKey = getEmbyRenderKey();
                 getEmbyInsertAnchor(titleElem).insertAdjacentElement('afterend', btnGroup);
@@ -7554,7 +7554,7 @@
         reflow() {
             try {
                 if (this.state.site === 'javbus') {
-
+                    
                     const container = window.__LAOSIJI_SITE_JAVBUS__._getGridContainer() || this.state.container;
                     container.querySelectorAll(':scope > .item').forEach(item => {
                         window.__LAOSIJI_SITE_JAVBUS__._decorateCard?.(item);
@@ -7602,10 +7602,10 @@
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-
-
-
-
+    
+    
+    
+    
     let lastEmbyLoc = location.href;
 
     function embyButtonsPresent() {
@@ -7620,7 +7620,7 @@
     }
     function embyRenderWithRetry() {
         clearEmbyRetries();
-
+        
         const delays = [0, 80, 200, 400, 700, 1100, 1700, 2500, 3500, 5000, 6500];
         delays.forEach(d => {
             embyRetryTimers.push(setTimeout(() => {
@@ -7650,7 +7650,7 @@
             if (typeof orig !== 'function') return;
             history[type] = function () {
                 const ret = orig.apply(this, arguments);
-
+                
                 setTimeout(onEmbyNavigate, 0);
                 return ret;
             };
@@ -7659,7 +7659,7 @@
         wrap('replaceState');
     })();
 
-
+    
     if (Sites.find(s => s.id === 'emby')?.match(window.location.href)) {
         embyRenderWithRetry();
     } else {
