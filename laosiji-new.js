@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.5.4
+// @version      2.5.4.1
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -44,7 +44,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.5.4';
+    const SCRIPT_VERSION = '2.5.4.1';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -3401,7 +3401,7 @@
             if (!row) return;
 
             const magnetTd = document.createElement('td');
-            magnetTd.className = 'jav-nong-slot';
+            magnetTd.className = 'jav-nong-slot javlib-nong-slot';
             magnetTd.style.cssText = 'flex:var(--javlib-magnet-flex) 1 0;min-width:0;vertical-align:top;align-self:flex-start;';
 
             const innerWrap = document.createElement('div');
@@ -5686,9 +5686,27 @@
                     gap: 12px !important;
                     overflow: visible !important;
                 }
+                .javlib-nong-slot.has-detail-preview-inline {
+                    width: 100% !important;
+                }
                 .jav-nong-slot.has-detail-preview-inline .jav-nong-wrapper {
                     flex: 1 1 auto !important;
                     min-width: 0 !important;
+                }
+                .javlib-nong-slot.has-detail-preview-inline > div:not(.jav-detail-preview-wrap) {
+                    flex: 1 1 0 !important;
+                    min-width: 0 !important;
+                    display: block !important;
+                }
+                .javlib-nong-slot.has-detail-preview-inline > .jav-detail-preview-wrap {
+                    flex: 0 0 180px !important;
+                    width: 180px !important;
+                    max-width: 180px !important;
+                    min-width: 160px !important;
+                    height: 480px !important;
+                    max-height: 480px !important;
+                    overflow: hidden !important;
+                    display: block !important;
                 }
                 .jav-detail-preview-wrap {
                     flex: 0 1 280px;
@@ -5699,9 +5717,6 @@
                     position: relative;
                     box-sizing: border-box;
                 }
-                .jav-detail-preview-wrap.is-loading {
-                    min-height: 120px;
-                }
                 .jav-detail-preview-inline {
                     display: block;
                     width: auto;
@@ -5710,6 +5725,13 @@
                     object-fit: contain;
                     border-radius: 6px;
                     cursor: zoom-in;
+                }
+                .javlib-nong-slot.has-detail-preview-inline .jav-detail-preview-inline {
+                    width: 100% !important;
+                    height: 100% !important;
+                    max-width: 100% !important;
+                    max-height: 100% !important;
+                    object-fit: contain !important;
                 }
                 .jav-detail-preview-loading {
                     position: absolute;
@@ -5735,6 +5757,13 @@
                         max-height: 420px;
                         margin: 0 auto;
                     }
+                    .javlib-nong-slot.has-detail-preview-inline > .jav-detail-preview-wrap {
+                        flex-basis: 100% !important;
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        height: 480px !important;
+                        max-height: 480px !important;
+                    }
                 }
             `);
         }
@@ -5752,16 +5781,19 @@
             if (!site) return '';
             const titleElem = site.id === 'emby'
                 ? resolveEmbyTitleElem()
-                : document.querySelector(site.titleSelector);
-            const titleText = titleElem?.textContent || '';
+                : document.querySelector(site.titleSelector || '');
+            const titleText = titleElem?.textContent || document.title || '';
             return Utils.extractCode(titleText) || '';
         }
 
         function getInsertTarget() {
             const slot = document.querySelector('.jav-nong-slot');
             if (!slot) return null;
-            const wrapper = slot.querySelector('.jav-nong-wrapper');
-            return { slot, wrapper };
+            let anchor = slot.querySelector('.jav-nong-wrapper');
+            while (anchor?.parentElement && anchor.parentElement !== slot) {
+                anchor = anchor.parentElement;
+            }
+            return { slot, anchor };
         }
 
         function remove() {
@@ -5769,40 +5801,6 @@
             document.querySelectorAll('.jav-nong-slot.has-detail-preview-inline').forEach(el => {
                 el.classList.remove('has-detail-preview-inline');
             });
-        }
-
-        function renderPreview(code, result) {
-            if (!result?.url) return;
-            const target = getInsertTarget();
-            if (!target) return;
-
-            remove();
-            target.slot.classList.add('has-detail-preview-inline');
-
-            const wrap = document.createElement('div');
-            wrap.className = 'jav-detail-preview-wrap';
-            wrap.dataset.code = code;
-            wrap.dataset.state = 'loaded';
-
-            const img = document.createElement('img');
-            img.className = 'jav-detail-preview-inline';
-            img.dataset.code = code;
-            img.src = result.url;
-            img.alt = code;
-            img.loading = 'lazy';
-            img.title = '点击查看预览图';
-            img.addEventListener('click', e => {
-                e.preventDefault();
-                e.stopPropagation();
-                Utils.showOverlay(result.url, code, result.source);
-            });
-            wrap.appendChild(img);
-
-            if (target.wrapper?.parentElement === target.slot) {
-                target.slot.insertBefore(wrap, target.wrapper);
-            } else {
-                target.slot.insertBefore(wrap, target.slot.firstChild);
-            }
         }
 
         async function sync() {
@@ -5833,7 +5831,9 @@
             if (existingWrap && existingWrap.dataset.code !== code) existingWrap.remove();
 
             const target = getInsertTarget();
-            if (!target) return;
+            if (!target) {
+                return;
+            }
 
             target.slot.classList.add('has-detail-preview-inline');
             let wrap = document.querySelector('.jav-detail-preview-wrap');
@@ -5846,8 +5846,8 @@
                 loading.className = 'jav-detail-preview-loading';
                 loading.textContent = '预览图加载中...';
                 wrap.appendChild(loading);
-                if (target.wrapper?.parentElement === target.slot) {
-                    target.slot.insertBefore(wrap, target.wrapper);
+                if (target.anchor?.parentElement === target.slot) {
+                    target.slot.insertBefore(wrap, target.anchor);
                 } else {
                     target.slot.insertBefore(wrap, target.slot.firstChild);
                 }
@@ -7138,8 +7138,7 @@
     }
 
     function resolveEmbyTitleElem() {
-        
-        
+
         const nodes = Array.from(document.querySelectorAll(
             'h1, h2, h3.itemName, .itemName-primary, .pageTitle, .nameContainer h3, [class*="itemName"]'
         ));
@@ -7154,10 +7153,6 @@
         return firstVisible;
     }
 
-    
-    
-    
-    
     function getEmbyInsertAnchor(titleElem) {
         return titleElem.closest('.itemPrimaryNameContainer, .nameContainer, .detailPageWrapperContainer .infoWrapper') || titleElem;
     }
@@ -7602,10 +7597,6 @@
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-    
-    
-    
-    
     let lastEmbyLoc = location.href;
 
     function embyButtonsPresent() {
@@ -7659,7 +7650,6 @@
         wrap('replaceState');
     })();
 
-    
     if (Sites.find(s => s.id === 'emby')?.match(window.location.href)) {
         embyRenderWithRetry();
     } else {
@@ -7671,4 +7661,3 @@
     InfiniteScroll.init();
 
 })();
-
