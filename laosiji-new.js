@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.5.2
+// @version      2.5.3
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -44,7 +44,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.5.2';
+    const SCRIPT_VERSION = '2.5.3';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -63,7 +63,9 @@
         get javbusPageZoom() { return Math.min(100, Math.max(60, parseInt(GM_getValue('cfg_javbus_page_zoom', 100), 10) || 100)); },
         get javdbPageZoom()  { return Math.min(100, Math.max(60, parseInt(GM_getValue('cfg_javdb_page_zoom', 100), 10) || 100)); },
         get javlibPageZoom() { return Math.min(100, Math.max(60, parseInt(GM_getValue('cfg_javlib_page_zoom', 100), 10) || 100)); },
+        get listPreviewQuick() { return GM_getValue('list_preview_quick_enabled', false); },
         get thumbSourceOrder() { return GM_getValue('thumb_source_order', ['javfree', 'projectjav', 'javstore']); },
+        get detailFlex() { return GM_getValue('detail_flex_settings', {}); },
 
         set javdbSearchUrl(v)   { GM_setValue('cfg_javdb_search_url', v); },
         set ciligouUrl(v)       { GM_setValue('cfg_ciligou_url', v); },
@@ -80,7 +82,9 @@
         set javbusPageZoom(v) { GM_setValue('cfg_javbus_page_zoom', Math.min(100, Math.max(60, parseInt(v, 10) || 100))); },
         set javdbPageZoom(v)  { GM_setValue('cfg_javdb_page_zoom', Math.min(100, Math.max(60, parseInt(v, 10) || 100))); },
         set javlibPageZoom(v) { GM_setValue('cfg_javlib_page_zoom', Math.min(100, Math.max(60, parseInt(v, 10) || 100))); },
+        set listPreviewQuick(v) { GM_setValue('list_preview_quick_enabled', !!v); },
         set thumbSourceOrder(v) { GM_setValue('thumb_source_order', v); },
+        set detailFlex(v) { GM_setValue('detail_flex_settings', v || {}); },
 
         get btnShowNyaa()    { return GM_getValue('btn_show_nyaa',    true); },
         get btnShowJavbus()  { return GM_getValue('btn_show_javbus',  true); },
@@ -184,12 +188,22 @@
                     content.style.setProperty('margin-left', 'auto', 'important');
                     content.style.setProperty('margin-right', 'auto', 'important');
                     content.style.setProperty('box-sizing', 'border-box', 'important');
+                    content.style.setProperty('padding-left', '12px', 'important');
+                    content.style.setProperty('padding-right', '12px', 'important');
                     content.style.setProperty('min-width', '0', 'important');
+                    content.style.setProperty('overflow', 'visible', 'important');
                 }
                 document.documentElement?.style.setProperty('background', '#fff', 'important');
                 document.body?.style.setProperty('background', '#fff', 'important');
                 document.querySelectorAll('#page, #content, #rightcolumn').forEach(el => {
                     el?.style.setProperty('background', '#fff', 'important');
+                    el?.style.setProperty('box-sizing', 'border-box', 'important');
+                    el?.style.setProperty('max-width', '100%', 'important');
+                    el?.style.setProperty('overflow', 'visible', 'important');
+                });
+                document.querySelectorAll('#rightcolumn > .videothumblist, #rightcolumn > .videothumblist .videos').forEach(el => {
+                    el.style.setProperty('box-sizing', 'border-box', 'important');
+                    el.style.setProperty('max-width', '100%', 'important');
                 });
                 return;
             }
@@ -215,6 +229,104 @@
         }
 
         return { LIMITS, clamp, get, set, apply, applyCurrent, detectCurrentSite };
+    })();
+
+    const DetailFlex = (() => {
+        const LIMITS = { min: 50, max: 200 };
+        const DEFAULTS = {
+            javbus: { cover: 140, info: 100, magnet: 110 },
+            javdb:  { cover: 100, info: 80,  magnet: 120 },
+            javlib: { cover: 110, info: 80,  magnet: 110 },
+        };
+        const META = {
+            javbus: {
+                host: /(?:^|\.)javbus\.com$/i,
+                detail: () => !!document.querySelector('.row.movie') && !document.querySelector('#waterfall div.item'),
+                root: () => document.querySelector('.row.movie'),
+                vars: { cover: '--javbus-cover-flex', info: '--javbus-info-flex', magnet: '--javbus-magnet-flex' },
+            },
+            javdb: {
+                host: /javdb/i,
+                detail: () => /\/v\//i.test(location.pathname),
+                root: () => document.querySelector('.jav-flex-container'),
+                vars: { cover: '--javdb-cover-flex', info: '--javdb-info-flex', magnet: '--javdb-magnet-flex' },
+            },
+            javlib: {
+                host: /(javlibrary|javlib|r86m|s87n)/i,
+                detail: () => !!document.querySelector('#video_jacket_info #video_info, #video_id .text'),
+                root: () => document.querySelector('#video_jacket_info tr'),
+                vars: { cover: '--javlib-cover-flex', info: '--javlib-info-flex', magnet: '--javlib-magnet-flex' },
+            },
+        };
+
+        function clamp(value) {
+            return Math.min(LIMITS.max, Math.max(LIMITS.min, parseInt(value, 10) || 100));
+        }
+
+        function detectCurrentSite() {
+            const host = location.hostname;
+            return Object.entries(META).find(([, meta]) => meta.host.test(host) && meta.detail())?.[0] || '';
+        }
+
+        function getAll() {
+            const saved = CFG.detailFlex;
+            return saved && typeof saved === 'object' ? saved : {};
+        }
+
+        function get(siteId) {
+            const all = getAll();
+            const defaults = DEFAULTS[siteId] || DEFAULTS.javbus;
+            const saved = all[siteId] || {};
+            return {
+                cover: clamp(saved.cover ?? defaults.cover),
+                info: clamp(saved.info ?? defaults.info),
+                magnet: clamp(saved.magnet ?? defaults.magnet),
+            };
+        }
+
+        function set(siteId, key, value) {
+            if (!META[siteId] || !DEFAULTS[siteId] || !DEFAULTS[siteId].hasOwnProperty(key)) return;
+            const all = getAll();
+            all[siteId] = { ...get(siteId), [key]: clamp(value) };
+            CFG.detailFlex = all;
+        }
+
+        function toFlex(value) {
+            return (clamp(value) / 100).toFixed(2).replace(/\.?0+$/, '');
+        }
+
+        function hasMagnet(siteId = detectCurrentSite()) {
+            if (!siteId || !CFG.magnetTable) return false;
+            return !!document.querySelector('.jav-nong-slot');
+        }
+
+        function hasLayout(siteId = detectCurrentSite()) {
+            const meta = META[siteId];
+            return !!meta?.root?.();
+        }
+
+        function apply(siteId = detectCurrentSite()) {
+            const meta = META[siteId];
+            if (!meta) return;
+            const root = meta.root();
+            if (!root) return;
+            const values = get(siteId);
+            root.style.setProperty(meta.vars.cover, toFlex(values.cover));
+            root.style.setProperty(meta.vars.info, toFlex(values.info));
+            if (hasMagnet(siteId)) {
+                root.style.setProperty(meta.vars.magnet, toFlex(values.magnet));
+            }
+        }
+
+        function reset(siteId = detectCurrentSite()) {
+            if (!DEFAULTS[siteId]) return;
+            const all = getAll();
+            delete all[siteId];
+            CFG.detailFlex = all;
+            apply(siteId);
+        }
+
+        return { LIMITS, DEFAULTS, clamp, detectCurrentSite, get, set, apply, hasMagnet, hasLayout, reset };
     })();
 
     const log = (...args) => console.log('[老司机]', ...args);
@@ -315,7 +427,6 @@
                 #jav-settings-panel * { box-sizing:border-box; }
                 #jav-settings-panel .sp-header { padding:18px 22px; background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 54%,#7c2d12 100%); border-bottom:1px solid rgba(255,255,255,.12); display:flex; align-items:center; justify-content:space-between; }
                 #jav-settings-panel .sp-title { font-size:18px; font-weight:750; color:#fff; }
-                #jav-settings-panel .sp-subtitle { margin-top:3px; font-size:12px; color:#cbd5e1; }
                 #jav-settings-panel .sp-close { width:32px; height:32px; border:1px solid rgba(255,255,255,.24); border-radius:8px; background:rgba(255,255,255,.1); color:#fff; cursor:pointer; font-size:18px; line-height:1; }
                 #jav-settings-panel .sp-close:hover { background:rgba(255,255,255,.18); }
                 #jav-settings-panel .sp-body { padding:18px 22px; overflow:auto; display:grid; gap:14px; }
@@ -328,26 +439,15 @@
                 #jav-settings-panel .sp-card-title { font-size:13px; font-weight:750; color:#1e293b; margin-bottom:12px; }
                 #jav-settings-panel .sp-card-jump::before { background:#6366f1; }
                 #jav-settings-panel .sp-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 12px; }
-                #jav-settings-panel .sp-column-grid { display:grid; gap:10px; }
-                #jav-settings-panel .sp-column-item { display:grid; grid-template-columns:112px 1fr 38px; gap:10px; align-items:center; padding:10px 11px; border:1px solid #e2e8f0; border-radius:8px; background:linear-gradient(180deg,#f8fbff 0%,#eff6ff 100%); box-shadow:inset 0 0 0 1px rgba(37,99,235,.08); }
-                #jav-settings-panel .sp-column-name { font-size:13px; font-weight:700; color:#1e293b; white-space:nowrap; }
-                #jav-settings-panel .sp-column-note { margin-top:2px; font-size:11px; color:#64748b; }
-                #jav-settings-panel .sp-column-value { display:grid; place-items:center; width:38px; height:26px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:12px; font-weight:800; }
-                #jav-settings-panel .sp-range { -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:999px; background:linear-gradient(90deg,#93c5fd 0%,#dbeafe 100%); outline:none; }
-                #jav-settings-panel .sp-range::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:18px; height:18px; border-radius:50%; border:2px solid #ffffff; background:#2563eb; box-shadow:0 4px 10px rgba(37,99,235,.28); cursor:pointer; }
-                #jav-settings-panel .sp-range::-moz-range-track { height:6px; border:none; border-radius:999px; background:linear-gradient(90deg,#93c5fd 0%,#dbeafe 100%); }
-                #jav-settings-panel .sp-range::-moz-range-thumb { width:18px; height:18px; border:none; border-radius:50%; background:#2563eb; box-shadow:0 4px 10px rgba(37,99,235,.28); cursor:pointer; }
                 #jav-settings-panel .sp-feature-order-row { display:grid; grid-template-columns:2fr 1fr; gap:14px; align-items:stretch; }
                 #jav-settings-panel .sp-feature-order-row > .sp-card { height:100%; }
                 #jav-settings-panel .sp-feature-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
                 #jav-settings-panel .sp-feature-item { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; padding:10px 11px; border:1px solid #e2e8f0; border-radius:8px; background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); }
-                #jav-settings-panel .sp-feature-item:has(#sp-magnet-table) { order:1; }
-                #jav-settings-panel .sp-feature-item:has(#sp-btn-pan115) { order:2; }
-                #jav-settings-panel .sp-feature-item:has(#sp-infinite-scroll) { order:3; grid-column:1; }
-                #jav-settings-panel .sp-feature-item:has(#sp-clear-preview-cache) { order:4; grid-column:1; }
-                #jav-settings-panel .sp-feature-item:has(#sp-clear-trailer-cache) { order:5; grid-column:2; }
+                #jav-settings-panel .sp-feature-item:has(#sp-magnet-table) { order:1; grid-column:1; }
+                #jav-settings-panel .sp-feature-item:has(#sp-clear-preview-cache) { order:2; grid-column:1; }
+                #jav-settings-panel .sp-feature-item:has(#sp-clear-trailer-cache) { order:2; grid-column:2; }
                 #jav-settings-panel .sp-feature-item .sp-desc { margin-top:2px; font-size:11px; }
-                #jav-settings-panel .sp-feature-select { order:3; grid-column:2; display:grid; grid-template-columns:1fr 64px; align-items:center; gap:10px; min-width:0; padding:10px 11px; border:1px solid #e2e8f0; border-radius:8px; background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); }
+                #jav-settings-panel .sp-feature-select { order:1; grid-column:2; display:grid; grid-template-columns:1fr 64px; align-items:center; gap:10px; min-width:0; padding:10px 11px; border:1px solid #e2e8f0; border-radius:8px; background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); }
                 #jav-settings-panel .sp-feature-select .sp-select { height:28px; padding:3px 2px 3px 4px; font-size:12px; text-align:left; }
                 #jav-settings-panel .sp-cache-clean { background:linear-gradient(135deg,#fff 0%,#f8fbff 58%,#f0f9ff 100%); }
                 #jav-settings-panel .sp-cache-clear-btn { position:relative; width:34px; height:34px; flex:0 0 auto; display:grid; place-items:center; border:1px solid #bae6fd; border-radius:10px; background:linear-gradient(180deg,#f0f9ff,#fff); color:#0284c7; cursor:pointer; overflow:hidden; transition:transform .16s, border-color .16s, background .16s, color .16s, box-shadow .16s; }
@@ -364,8 +464,6 @@
                 #jav-settings-panel .sp-input, #jav-settings-panel .sp-select { width:100%; min-width:0; height:34px; padding:6px 9px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:#0f172a; font-size:13px; outline:none; }
                 #jav-settings-panel .sp-input:focus, #jav-settings-panel .sp-select:focus { border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.13); }
                 #jav-settings-panel .sp-engine-row { display:grid; grid-template-columns:170px 1fr; gap:10px; align-items:end; }
-                #jav-settings-panel .sp-stack { display:flex; flex-direction:column; gap:10px; min-width:0; }
-                #jav-settings-panel .sp-toggle-row { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:34px; }
                 #jav-settings-panel .sp-cache-actions { display:flex; align-items:center; gap:8px; margin-right:auto; }
                 #jav-settings-panel .sp-cache-feedback { min-width:64px; color:#059669; font-size:12px; font-weight:650; }
                 #jav-settings-panel .sp-footer-links { display:flex; align-items:center; gap:8px; margin-right:4px; }
@@ -443,14 +541,6 @@
                                     <div><div class="sp-label">预告片缓存</div><div class="sp-desc">清理解析结果缓存</div></div>
                                     <button class="sp-cache-clear-btn" id="sp-clear-trailer-cache" type="button" title="清理预告片缓存"><span class="sp-cache-clear-icon">↻</span></button>
                                 </div>
-                                <div class="sp-feature-item">
-                                    <div><div class="sp-label">115匹配</div></div>
-                                    <label class="sp-toggle"><input id="sp-btn-pan115" type="checkbox"><span class="sp-toggle-track"></span></label>
-                                </div>
-                                <div class="sp-feature-item">
-                                    <div><div class="sp-label">瀑布流加载</div></div>
-                                    <label class="sp-toggle"><input id="sp-infinite-scroll" type="checkbox"><span class="sp-toggle-track"></span></label>
-                                </div>
                                 <label class="sp-feature-select">
                                     <div><div class="sp-label">115播放器</div></div>
                                     <select class="sp-select" id="sp-pan115-player">
@@ -515,7 +605,6 @@
             const magnetTableCheckbox = panel.querySelector('#sp-magnet-table');
             const clearPreviewCacheBtn = panel.querySelector('#sp-clear-preview-cache');
             const clearTrailerCacheBtn = panel.querySelector('#sp-clear-trailer-cache');
-            const infiniteScrollCheckbox = panel.querySelector('#sp-infinite-scroll');
             const pan115PlayerSelect = panel.querySelector('#sp-pan115-player');
             const btnToggles = {
                 nyaa:    panel.querySelector('#sp-btn-nyaa'),
@@ -526,7 +615,6 @@
                 search:  panel.querySelector('#sp-btn-search'),
                 trailer: panel.querySelector('#sp-btn-trailer'),
                 preview: panel.querySelector('#sp-btn-preview'),
-                pan115:  panel.querySelector('#sp-btn-pan115'),
             };
             const clearCacheBtn = panel.querySelector('#sp-clear-cache');
             const cacheFeedback = panel.querySelector('#sp-cache-feedback');
@@ -583,7 +671,6 @@
             if (![...videoEngineSelect.options].some(opt => opt.value === videoEngineSelect.value)) videoEngineSelect.value = 'missav';
             if (pan115PlayerSelect) pan115PlayerSelect.value = CFG.pan115Player === '115master' ? '115master' : 'official';
             magnetTableCheckbox.checked = CFG.magnetTable;
-            infiniteScrollCheckbox.checked = CFG.infiniteScroll;
             btnToggles.nyaa.checked    = CFG.btnShowNyaa;
             btnToggles.javbus.checked  = CFG.btnShowJavbus;
             btnToggles.javdb.checked   = CFG.btnShowJavdb;
@@ -592,7 +679,6 @@
             btnToggles.search.checked  = CFG.btnShowSearch;
             btnToggles.trailer.checked = CFG.btnShowTrailer;
             btnToggles.preview.checked = CFG.btnShowPreview;
-            btnToggles.pan115.checked  = CFG.btnShowPan115;
 
             const renderOrder = () => {
                 orderList.innerHTML = '';
@@ -691,9 +777,7 @@
                     thumbOrder: GM_getValue('thumb_source_order', ['javfree', 'projectjav', 'javstore']),
                 });
                 const beforeNonPan115 = snapshotNonPan115();
-                const beforePan115 = CFG.btnShowPan115;
                 const beforePan115Player = CFG.pan115Player;
-                const nextPan115 = btnToggles.pan115.checked;
                 const nextPan115Player = pan115PlayerSelect?.value === '115master' ? '115master' : 'official';
                 MAGNET_ENGINES.forEach(item => { CFG[item.key] = stripProtocol(domainDraft[item.key]); });
                 CFG.defaultEngine = defaultSelect.value;
@@ -701,7 +785,6 @@
                 CFG.defaultVideoEngine = videoEngineSelect.value || 'missav';
                 CFG.pan115Player = nextPan115Player;
                 CFG.magnetTable = magnetTableCheckbox.checked;
-                CFG.infiniteScroll = infiniteScrollCheckbox.checked;
                 CFG.btnShowNyaa    = btnToggles.nyaa.checked;
                 CFG.btnShowJavbus  = btnToggles.javbus.checked;
                 CFG.btnShowJavdb   = btnToggles.javdb.checked;
@@ -710,9 +793,8 @@
                 CFG.btnShowSearch  = btnToggles.search.checked;
                 CFG.btnShowTrailer = btnToggles.trailer.checked;
                 CFG.btnShowPreview = btnToggles.preview.checked;
-                CFG.btnShowPan115  = nextPan115;
                 GM_setValue('thumb_source_order', currentOrder);
-                const pan115Changed = beforePan115 !== nextPan115 || beforePan115Player !== nextPan115Player;
+                const pan115Changed = beforePan115Player !== nextPan115Player;
                 const nonPan115Changed = beforeNonPan115 !== snapshotNonPan115();
                 closePanel();
                 if (nonPan115Changed) {
@@ -720,7 +802,7 @@
                     return;
                 }
                 if (pan115Changed && typeof window.__LAOSIJI_SYNC_PAN115__ === 'function') {
-                    window.__LAOSIJI_SYNC_PAN115__(nextPan115);
+                    window.__LAOSIJI_SYNC_PAN115__(CFG.btnShowPan115);
                 }
             });
         }
@@ -745,13 +827,13 @@
                     position: fixed;
                     z-index: 10000030;
                     width: 286px;
-                    padding: 12px;
-                    border: 1px solid rgba(203,213,225,.9);
-                    border-radius: 12px;
-                    background: rgba(255,255,255,.97);
+                    padding: 10px;
+                    border: 1px solid rgba(203,213,225,.85);
+                    border-radius: 10px;
+                    background: rgba(255,255,255,.985);
                     color: #0f172a;
-                    box-shadow: 0 18px 48px rgba(15,23,42,.22);
-                    backdrop-filter: blur(10px);
+                    box-shadow: 0 12px 28px rgba(15,23,42,.16);
+                    backdrop-filter: blur(6px);
                     font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
                     box-sizing: border-box;
                 }
@@ -761,7 +843,7 @@
                     align-items: center;
                     justify-content: space-between;
                     gap: 10px;
-                    margin-bottom: 10px;
+                    margin-bottom: 8px;
                 }
                 #jav-quick-settings-popover .qs-title {
                     font-size: 13px;
@@ -769,21 +851,21 @@
                     color: #1e293b;
                 }
                 #jav-quick-settings-popover .qs-site {
-                    margin-top: 2px;
+                    margin-top: 1px;
                     font-size: 11px;
                     font-weight: 650;
                     color: #64748b;
                 }
                 #jav-quick-settings-popover .qs-close {
-                    width: 26px;
-                    height: 26px;
+                    width: 24px;
+                    height: 24px;
                     border: 1px solid #cbd5e1;
-                    border-radius: 7px;
+                    border-radius: 6px;
                     background: #fff;
                     color: #64748b;
                     cursor: pointer;
                     line-height: 1;
-                    font-size: 15px;
+                    font-size: 14px;
                 }
                 #jav-quick-settings-popover .qs-close:hover { color: #1d4ed8; border-color: #93c5fd; background: #eff6ff; }
                 #jav-quick-settings-popover .qs-row {
@@ -791,12 +873,56 @@
                     grid-template-columns: 72px 1fr 42px;
                     align-items: center;
                     gap: 9px;
-                    padding: 10px;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 9px;
-                    background: linear-gradient(180deg,#f8fbff 0%,#eff6ff 100%);
+                    padding: 4px 0;
+                    border: 0;
+                    border-radius: 0;
+                    background: transparent;
                 }
-                #jav-quick-settings-popover .qs-row + .qs-row { margin-top: 8px; }
+                #jav-quick-settings-popover .qs-row + .qs-row { margin-top: 4px; }
+                #jav-quick-settings-popover .qs-detail-flex {
+                    display: none;
+                    margin-top: 8px;
+                    padding-top: 7px;
+                    border-top: 1px solid #e2e8f0;
+                }
+                #jav-quick-settings-popover .qs-detail-flex.is-visible { display: block; }
+                #jav-quick-settings-popover .qs-section-title {
+                    margin-bottom: 3px;
+                    font-size: 12px;
+                    font-weight: 850;
+                    color: #1e293b;
+                }
+                #jav-quick-settings-popover .qs-row.is-disabled {
+                    opacity: .48;
+                }
+                #jav-quick-settings-popover .qs-row.is-disabled .qs-range {
+                    cursor: not-allowed;
+                    background: #e2e8f0;
+                }
+                #jav-quick-settings-popover .qs-row.is-disabled .qs-range::-webkit-slider-thumb {
+                    background: #94a3b8;
+                    cursor: not-allowed;
+                }
+                #jav-quick-settings-popover .qs-row.is-disabled .qs-range::-moz-range-thumb {
+                    background: #94a3b8;
+                    cursor: not-allowed;
+                }
+                #jav-quick-settings-popover .qs-switch-grid {
+                    display: grid;
+                    grid-template-columns: 1fr;
+                    gap: 6px;
+                    margin-top: 6px;
+                }
+                #jav-quick-settings-popover .qs-switch-row {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 8px;
+                    padding: 0;
+                    border: 0;
+                    border-radius: 0;
+                    background: transparent;
+                }
                 #jav-quick-settings-popover .qs-name {
                     font-size: 12px;
                     font-weight: 750;
@@ -806,8 +932,8 @@
                 #jav-quick-settings-popover .qs-value {
                     display: grid;
                     place-items: center;
-                    min-width: 38px;
-                    height: 24px;
+                    min-width: 34px;
+                    height: 22px;
                     border-radius: 999px;
                     background: #fff;
                     color: #1d4ed8;
@@ -819,7 +945,7 @@
                     -webkit-appearance: none;
                     appearance: none;
                     width: 100%;
-                    height: 6px;
+                    height: 5px;
                     border-radius: 999px;
                     background: linear-gradient(90deg,#93c5fd 0%,#dbeafe 100%);
                     outline: none;
@@ -827,39 +953,77 @@
                 #jav-quick-settings-popover .qs-range::-webkit-slider-thumb {
                     -webkit-appearance: none;
                     appearance: none;
-                    width: 18px;
-                    height: 18px;
+                    width: 16px;
+                    height: 16px;
                     border-radius: 50%;
                     border: 2px solid #fff;
                     background: #2563eb;
-                    box-shadow: 0 4px 10px rgba(37,99,235,.28);
+                    box-shadow: 0 3px 8px rgba(37,99,235,.22);
                     cursor: pointer;
                 }
                 #jav-quick-settings-popover .qs-range::-moz-range-thumb {
-                    width: 18px;
-                    height: 18px;
+                    width: 16px;
+                    height: 16px;
                     border: none;
                     border-radius: 50%;
                     background: #2563eb;
-                    box-shadow: 0 4px 10px rgba(37,99,235,.28);
+                    box-shadow: 0 3px 8px rgba(37,99,235,.22);
                     cursor: pointer;
+                }
+                #jav-quick-settings-popover .qs-toggle {
+                    position: relative;
+                    display: inline-block;
+                    width: 36px;
+                    height: 20px;
+                    flex: 0 0 auto;
+                }
+                #jav-quick-settings-popover .qs-toggle input {
+                    opacity: 0;
+                    width: 0;
+                    height: 0;
+                }
+                #jav-quick-settings-popover .qs-toggle-track {
+                    position: absolute;
+                    inset: 0;
+                    border-radius: 999px;
+                    background: #cbd5e1;
+                    cursor: pointer;
+                    transition: background .18s;
+                }
+                #jav-quick-settings-popover .qs-toggle-track::before {
+                    content: '';
+                    position: absolute;
+                    width: 14px;
+                    height: 14px;
+                    left: 3px;
+                    top: 3px;
+                    border-radius: 50%;
+                    background: #fff;
+                    box-shadow: 0 1px 3px rgba(15,23,42,.22);
+                    transition: transform .18s;
+                }
+                #jav-quick-settings-popover .qs-toggle input:checked + .qs-toggle-track {
+                    background: #2563eb;
+                }
+                #jav-quick-settings-popover .qs-toggle input:checked + .qs-toggle-track::before {
+                    transform: translateX(14px);
                 }
                 #jav-quick-settings-popover .qs-footer {
                     display: flex;
                     justify-content: flex-end;
                     gap: 8px;
-                    margin-top: 10px;
-                    padding-top: 10px;
+                    margin-top: 8px;
+                    padding-top: 8px;
                     border-top: 1px solid #e2e8f0;
                 }
                 #jav-quick-settings-popover .qs-more {
-                    height: 30px;
+                    height: 28px;
                     padding: 0 12px;
                     border: 1px solid #c7d2fe;
-                    border-radius: 8px;
+                    border-radius: 7px;
                     background: #eef2ff;
                     color: #4338ca;
-                    font-size: 12px;
+                    font-size: 11px;
                     font-weight: 800;
                     cursor: pointer;
                 }
@@ -871,7 +1035,7 @@
             const rect = anchor?.getBoundingClientRect?.();
             const margin = 10;
             const width = panel.offsetWidth || 286;
-            const height = panel.offsetHeight || 190;
+            const height = panel.offsetHeight || 150;
             let left = rect ? rect.right - width : window.innerWidth - width - 18;
             let top = rect ? rect.bottom + 8 : 64;
             left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
@@ -910,6 +1074,47 @@
                     <input class="qs-range" id="qs-zoom" type="range" min="60" max="100" step="1">
                     <span class="qs-value" id="qs-zoom-value">100%</span>
                 </div>
+                <div class="qs-detail-flex" id="qs-detail-flex">
+                    <div class="qs-section-title">详情比例</div>
+                    <div class="qs-row" data-detail-flex-row="cover">
+                        <div class="qs-name">封面</div>
+                        <input class="qs-range" id="qs-detail-cover" type="range" min="50" max="200" step="5">
+                        <span class="qs-value" id="qs-detail-cover-value">1.0</span>
+                    </div>
+                    <div class="qs-row" data-detail-flex-row="info">
+                        <div class="qs-name">信息</div>
+                        <input class="qs-range" id="qs-detail-info" type="range" min="50" max="200" step="5">
+                        <span class="qs-value" id="qs-detail-info-value">1.0</span>
+                    </div>
+                    <div class="qs-row" data-detail-flex-row="magnet">
+                        <div class="qs-name">磁力</div>
+                        <input class="qs-range" id="qs-detail-magnet" type="range" min="50" max="200" step="5">
+                        <span class="qs-value" id="qs-detail-magnet-value">关闭</span>
+                    </div>
+                </div>
+                <div class="qs-switch-grid">
+                    <div class="qs-switch-row">
+                        <div class="qs-name">115匹配</div>
+                        <label class="qs-toggle">
+                            <input id="qs-pan115" type="checkbox">
+                            <span class="qs-toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="qs-switch-row">
+                        <div class="qs-name">瀑布流</div>
+                        <label class="qs-toggle">
+                            <input id="qs-infinite-scroll" type="checkbox">
+                            <span class="qs-toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="qs-switch-row">
+                        <div class="qs-name">快捷预览图</div>
+                        <label class="qs-toggle">
+                            <input id="qs-list-preview" type="checkbox">
+                            <span class="qs-toggle-track"></span>
+                        </label>
+                    </div>
+                </div>
                 <div class="qs-footer">
                     <button class="qs-more" type="button">更多设置</button>
                 </div>
@@ -921,6 +1126,30 @@
             const columnsValue = panel.querySelector('#qs-columns-value');
             const zoomInput = panel.querySelector('#qs-zoom');
             const zoomValue = panel.querySelector('#qs-zoom-value');
+            const pan115Input = panel.querySelector('#qs-pan115');
+            const infiniteInput = panel.querySelector('#qs-infinite-scroll');
+            const listPreviewInput = panel.querySelector('#qs-list-preview');
+            const detailSite = DetailFlex.detectCurrentSite();
+            const detailWrap = panel.querySelector('#qs-detail-flex');
+            const detailInputs = {
+                cover: panel.querySelector('#qs-detail-cover'),
+                info: panel.querySelector('#qs-detail-info'),
+                magnet: panel.querySelector('#qs-detail-magnet'),
+            };
+            const detailValues = {
+                cover: panel.querySelector('#qs-detail-cover-value'),
+                info: panel.querySelector('#qs-detail-info-value'),
+                magnet: panel.querySelector('#qs-detail-magnet-value'),
+            };
+            const formatFlexValue = value => (DetailFlex.clamp(value) / 100).toFixed(2).replace(/\.?0+$/, '');
+            const syncDetailMagnetState = () => {
+                const hasMagnet = detailSite && DetailFlex.hasMagnet(detailSite);
+                const row = panel.querySelector('[data-detail-flex-row="magnet"]');
+                if (row) row.classList.toggle('is-disabled', !hasMagnet);
+                if (detailInputs.magnet) detailInputs.magnet.disabled = !hasMagnet;
+                if (detailValues.magnet && !hasMagnet) detailValues.magnet.textContent = CFG.magnetTable ? '未渲染' : '关闭';
+                return hasMagnet;
+            };
 
             const columns = CardColumns.get(site);
             columnsInput.value = String(columns);
@@ -940,6 +1169,46 @@
                 zoomValue.textContent = `${next}%`;
                 PageZoom.set(site, next);
                 PageZoom.apply(site, next);
+            });
+            if (detailSite && DetailFlex.hasLayout(detailSite)) {
+                const flexValues = DetailFlex.get(detailSite);
+                detailWrap?.classList.add('is-visible');
+                Object.entries(detailInputs).forEach(([key, input]) => {
+                    const valueEl = detailValues[key];
+                    if (!input || !valueEl) return;
+                    input.value = String(flexValues[key]);
+                    valueEl.textContent = formatFlexValue(flexValues[key]);
+                    input.addEventListener('input', () => {
+                        const hasMagnet = key !== 'magnet' || syncDetailMagnetState();
+                        if (!hasMagnet) return;
+                        const next = DetailFlex.clamp(input.value);
+                        valueEl.textContent = formatFlexValue(next);
+                        DetailFlex.set(detailSite, key, next);
+                        DetailFlex.apply(detailSite);
+                    });
+                });
+                syncDetailMagnetState();
+            }
+            pan115Input.checked = CFG.btnShowPan115;
+            pan115Input.addEventListener('change', () => {
+                CFG.btnShowPan115 = pan115Input.checked;
+                if (typeof window.__LAOSIJI_SYNC_PAN115__ === 'function') {
+                    window.__LAOSIJI_SYNC_PAN115__(pan115Input.checked);
+                }
+            });
+            infiniteInput.checked = CFG.infiniteScroll;
+            infiniteInput.addEventListener('change', () => {
+                CFG.infiniteScroll = infiniteInput.checked;
+                if (infiniteInput.checked) {
+                    window.__LAOSIJI_INFINITE_SCROLL__?.init?.();
+                } else {
+                    window.__LAOSIJI_INFINITE_SCROLL__?.destroy?.();
+                }
+            });
+            listPreviewInput.checked = CFG.listPreviewQuick;
+            listPreviewInput.addEventListener('change', () => {
+                CFG.listPreviewQuick = listPreviewInput.checked;
+                window.__LAOSIJI_LIST_PREVIEW__?.sync?.();
             });
             panel.querySelector('.qs-close').addEventListener('click', close);
             panel.querySelector('.qs-more').addEventListener('click', () => {
@@ -1953,7 +2222,11 @@
             img.setAttribute('src', full);
         },
         _decorateCard(item) {
-            if (!item || item.dataset.laosijiGridCard === '1') return;
+            if (!item) return;
+            if (item.dataset.laosijiGridCard === '1') {
+                window.__LAOSIJI_LIST_PREVIEW__?.attach?.(item);
+                return;
+            }
             item.dataset.laosijiGridCard = '1';
             item.classList.add('jav-card', 'javbus-grid-card');
             item.style.removeProperty('position');
@@ -2010,36 +2283,43 @@
                 firstDate.dataset.laosijiCode = '1';
                 firstDate.classList.add('javbus-card-code');
             }
+            window.__LAOSIJI_LIST_PREVIEW__?.attach?.(item);
         },
         _flattenWaterfall() {
-            
-            
             document.querySelectorAll('[id="waterfall"]').forEach(wf => {
-                if (!wf.classList.contains('masonry')) {
-                    while (wf.firstChild) wf.parentNode.insertBefore(wf.firstChild, wf);
-                    wf.remove();
-                }
+                wf.querySelectorAll(':scope > #waterfall, :scope > .masonry').forEach(nested => {
+                    while (nested.firstChild) wf.insertBefore(nested.firstChild, nested);
+                    nested.remove();
+                });
+                wf.classList.remove('masonry');
+                wf.style.setProperty('position', 'static', 'important');
+                wf.style.setProperty('height', 'auto', 'important');
+                wf.style.setProperty('width', 'auto', 'important');
+                wf.querySelectorAll(':scope > .item').forEach(item => {
+                    item.style.removeProperty('position');
+                    item.style.removeProperty('top');
+                    item.style.removeProperty('left');
+                    item.style.removeProperty('width');
+                });
             });
         },
         _getGridContainer() {
             return document.querySelector('#waterfall.jav-card-grid') ||
-                   document.querySelector('#waterfall.masonry') ||
-                   document.querySelector('.masonry') ||
                    document.querySelector('#waterfall');
         },
         _initListPage() {
             this._flattenWaterfall();
             const container = this._getGridContainer();
             if (!container) return;
+            this._destroyMasonry(container);
+            container.classList.remove('masonry');
+            container.style.setProperty('position', 'static', 'important');
+            container.style.setProperty('height', 'auto', 'important');
+            container.style.setProperty('width', 'auto', 'important');
 
             const needStyle = container.dataset.laosijiGrid !== '1';
             if (needStyle) {
                 container.dataset.laosijiGrid = '1';
-                this._destroyMasonry(container);
-                container.classList.remove('masonry');
-                container.style.setProperty('position', 'static', 'important');
-                container.style.setProperty('height', 'auto', 'important');
-                container.style.setProperty('width', 'auto', 'important');
                 container.classList.add('jav-card-grid', 'javbus-card-grid');
             }
             CardColumns.apply('javbus');
@@ -2140,16 +2420,26 @@
                         --jav-card-columns: 5;
                         box-sizing: border-box !important;
                     }
+                    #waterfall.javbus-card-grid {
+                        display: grid !important;
+                        grid-template-columns: repeat(var(--jav-card-columns, 5), minmax(0, 1fr)) !important;
+                        gap: 14px !important;
+                        align-items: stretch !important;
+                        min-height: 0 !important;
+                    }
                     body .container-fluid {
                         padding-left: 28px !important;
                         padding-right: 28px !important;
                         box-sizing: border-box !important;
                     }
+                    #waterfall.javbus-card-grid > .item,
                     .javbus-card-grid .item.javbus-grid-card {
                         position: static !important;
                         width: auto !important;
                         float: none !important;
                         margin: 0 !important;
+                        top: auto !important;
+                        left: auto !important;
                     }
                     .javbus-card-grid .item .jav-card-link.javbus-card-link {
                         width: 100% !important;
@@ -2223,9 +2513,15 @@
                 `);
             }
             setTimeout(() => {
+                window.__LAOSIJI_LIST_PREVIEW__?.sync?.();
                 window.__LAOSIJI_RENDER_BUTTONS__?.();
                 window.__LAOSIJI_SCHEDULE_PAN115__?.();
             }, 0);
+            setTimeout(() => {
+                this._flattenWaterfall();
+                container.querySelectorAll(':scope > .item').forEach(item => this._decorateCard(item));
+                window.__LAOSIJI_LIST_PREVIEW__?.sync?.();
+            }, 450);
         },
     };
 
@@ -2253,6 +2549,7 @@
                 .movie-panel-info .panel-block { flex-wrap: wrap; }
                 .movie-panel-info .value { overflow: hidden; word-break: break-word; }
             `);
+            this._ensureDetailLayout();
             this._insertMagnet(avid);
         },
         _initListPage() {
@@ -2265,45 +2562,7 @@
             list.dataset.laosijiGrid = '1';
             list.classList.add('jav-card-grid', 'javdb-card-grid');
             CardColumns.apply('javdb');
-            cards.forEach(card => {
-                card.dataset.laosijiGridCard = '1';
-                card.classList.add('jav-card', 'javdb-grid-card');
-
-                const anchor = card.querySelector(':scope > a.box[href], :scope > a[href].box, a.box[href]');
-                anchor?.classList.add('jav-card-link', 'javdb-card-link');
-                if (anchor && !anchor.querySelector('.jav-pan115-badge')) {
-                    delete anchor.dataset.pan115Checked;
-                    delete anchor.dataset.pan115HasBadge;
-                }
-
-                const cover = card.querySelector('.cover');
-                cover?.classList.add('jav-card-cover', 'javdb-cover-frame');
-
-                const img = cover?.querySelector('img[src]') || card.querySelector('img[src]');
-                if (img) {
-                    img.removeAttribute('width');
-                    img.removeAttribute('height');
-                    img.classList.add('jav-card-image', 'javdb-card-image');
-                }
-
-                const titleEl = card.querySelector('.video-title');
-                titleEl?.classList.add('jav-card-title', 'javdb-card-title');
-                if (titleEl && !titleEl.querySelector('.javdb-card-headline')) {
-                    const headline = document.createElement('span');
-                    headline.className = 'javdb-card-headline';
-                    while (titleEl.firstChild) headline.appendChild(titleEl.firstChild);
-                    titleEl.appendChild(headline);
-                }
-
-                const scoreEl = card.querySelector('.score');
-                scoreEl?.classList.add('javdb-card-score');
-
-                const metaEl = card.querySelector('.meta');
-                metaEl?.classList.add('javdb-card-meta');
-
-                const tagsEl = card.querySelector('.tags');
-                tagsEl?.classList.add('javdb-card-tags');
-            });
+            cards.forEach(card => this._decorateCard(card));
 
             if (needStyle) {
                 GM_addStyle(`
@@ -2490,9 +2749,53 @@
                 `);
             }
             setTimeout(() => {
+                window.__LAOSIJI_LIST_PREVIEW__?.sync?.();
                 window.__LAOSIJI_RENDER_BUTTONS__?.();
                 window.__LAOSIJI_SCHEDULE_PAN115__?.();
             }, 0);
+        },
+        _decorateCard(card) {
+            if (!card) return;
+            if (card.dataset.laosijiGridCard !== '1') {
+                card.dataset.laosijiGridCard = '1';
+                card.classList.add('jav-card', 'javdb-grid-card');
+            }
+
+            const anchor = card.querySelector(':scope > a.box[href], :scope > a[href].box, a.box[href]');
+            anchor?.classList.add('jav-card-link', 'javdb-card-link');
+            if (anchor && !anchor.querySelector('.jav-pan115-badge')) {
+                delete anchor.dataset.pan115Checked;
+                delete anchor.dataset.pan115HasBadge;
+            }
+
+            const cover = card.querySelector('.cover');
+            cover?.classList.add('jav-card-cover', 'javdb-cover-frame');
+
+            const img = cover?.querySelector('img[src]') || card.querySelector('img[src]');
+            if (img) {
+                img.removeAttribute('width');
+                img.removeAttribute('height');
+                img.classList.add('jav-card-image', 'javdb-card-image');
+            }
+
+            const titleEl = card.querySelector('.video-title');
+            titleEl?.classList.add('jav-card-title', 'javdb-card-title');
+            if (titleEl && !titleEl.querySelector('.javdb-card-headline')) {
+                const headline = document.createElement('span');
+                headline.className = 'javdb-card-headline';
+                while (titleEl.firstChild) headline.appendChild(titleEl.firstChild);
+                titleEl.appendChild(headline);
+            }
+
+            const scoreEl = card.querySelector('.score');
+            scoreEl?.classList.add('javdb-card-score');
+
+            const metaEl = card.querySelector('.meta');
+            metaEl?.classList.add('javdb-card-meta');
+
+            const tagsEl = card.querySelector('.tags');
+            tagsEl?.classList.add('javdb-card-tags');
+            window.__LAOSIJI_LIST_PREVIEW__?.attach?.(card);
         },
         _insertTopSettingsButton() {
             const navbarEnd = document.querySelector('#navbar-menu-user .navbar-end');
@@ -2536,30 +2839,79 @@
                 });
             insertAvidCopyBtn(anchor, avid, nativeCopy);
         },
-        _insertMagnet(avid) {
-            if (!CFG.magnetTable) return;
+        _ensureDetailLayout() {
             const coverCol  = document.querySelector('.column.column-video-cover');
             const infoPanel = document.querySelector('.movie-panel-info');
-            if (!coverCol || !infoPanel) return;
+            if (!coverCol || !infoPanel) return null;
 
-            document.querySelectorAll('.jav-nong-slot').forEach(el => el.remove());
+            const infoCol = infoPanel.closest('.column') || infoPanel;
+            const currentContainer = coverCol.closest('.jav-flex-container');
+            const parent = currentContainer || coverCol.parentElement;
+            if (!parent) return null;
 
-            const parent = coverCol.parentElement;
-            let flexContainer = parent.querySelector('.jav-flex-container');
+            let flexContainer = currentContainer || parent.querySelector(':scope > .jav-flex-container');
             if (!flexContainer) {
                 flexContainer = document.createElement('div');
                 flexContainer.className = 'jav-flex-container';
-                flexContainer.style.cssText = 'display:flex;gap:20px;align-items:flex-start;width:100%;margin-top:16px;--javdb-cover-flex:1;--javdb-info-flex:0.8;--javdb-magnet-flex:1.2;';
-                coverCol.style.cssText  += ';flex:var(--javdb-cover-flex) 1 0;min-width:0;';
-                infoPanel.style.cssText += ';flex:var(--javdb-info-flex) 1 0;min-width:0;overflow:hidden;word-break:break-word;';
                 flexContainer.appendChild(coverCol);
-                flexContainer.appendChild(infoPanel);
+                flexContainer.appendChild(infoCol);
                 parent.appendChild(flexContainer);
+            } else {
+                if (coverCol.parentElement !== flexContainer) flexContainer.insertBefore(coverCol, flexContainer.firstChild);
+                if (infoCol.parentElement !== flexContainer) {
+                    const magnetSlot = flexContainer.querySelector(':scope > .jav-nong-slot');
+                    flexContainer.insertBefore(infoCol, magnetSlot || null);
+                }
             }
+            flexContainer.style.setProperty('display', 'flex', 'important');
+            flexContainer.style.setProperty('gap', '20px', 'important');
+            flexContainer.style.setProperty('align-items', 'flex-start', 'important');
+            flexContainer.style.setProperty('width', '100%', 'important');
+            flexContainer.style.setProperty('margin-top', '16px', 'important');
+            flexContainer.style.setProperty('--javdb-cover-flex', flexContainer.style.getPropertyValue('--javdb-cover-flex') || '1');
+            flexContainer.style.setProperty('--javdb-info-flex', flexContainer.style.getPropertyValue('--javdb-info-flex') || '0.8');
+            flexContainer.style.setProperty('--javdb-magnet-flex', flexContainer.style.getPropertyValue('--javdb-magnet-flex') || '1.2');
+
+            coverCol.style.setProperty('flex', 'var(--javdb-cover-flex) 1 0', 'important');
+            coverCol.style.setProperty('width', 'auto', 'important');
+            coverCol.style.setProperty('max-width', 'none', 'important');
+            coverCol.style.setProperty('min-width', '0', 'important');
+            infoCol.style.setProperty('flex', 'var(--javdb-info-flex) 1 0', 'important');
+            infoCol.style.setProperty('width', 'auto', 'important');
+            infoCol.style.setProperty('max-width', 'none', 'important');
+            infoCol.style.setProperty('min-width', '0', 'important');
+            infoCol.style.setProperty('overflow', 'hidden', 'important');
+            infoCol.style.setProperty('word-break', 'break-word', 'important');
+            infoPanel.style.setProperty('width', '100%', 'important');
+            infoPanel.style.setProperty('max-width', '100%', 'important');
+            infoPanel.style.setProperty('box-sizing', 'border-box', 'important');
+
+            const coverBox = coverCol.querySelector('.cover, .box');
+            if (coverBox) {
+                coverBox.style.setProperty('width', '100%', 'important');
+                coverBox.style.setProperty('max-width', '100%', 'important');
+                coverBox.style.setProperty('box-sizing', 'border-box', 'important');
+            }
+            const coverImg = coverCol.querySelector('img');
+            if (coverImg) {
+                coverImg.style.setProperty('width', '100%', 'important');
+                coverImg.style.setProperty('height', 'auto', 'important');
+                coverImg.style.setProperty('max-width', '100%', 'important');
+            }
+            return flexContainer;
+        },
+        _insertMagnet(avid) {
+            if (!CFG.magnetTable) return;
+            document.querySelectorAll('.jav-nong-slot').forEach(el => el.remove());
+            const flexContainer = this._ensureDetailLayout();
+            if (!flexContainer) return;
 
             const slot = document.createElement('div');
             slot.className = 'jav-nong-slot';
-            slot.style.cssText = 'flex:var(--javdb-magnet-flex) 1 0;min-width:0;align-self:flex-start;overflow:hidden;';
+            slot.style.setProperty('flex', 'var(--javdb-magnet-flex) 1 0', 'important');
+            slot.style.setProperty('min-width', '0', 'important');
+            slot.style.setProperty('align-self', 'flex-start', 'important');
+            slot.style.setProperty('overflow', 'hidden', 'important');
             const widget = Magnet.createMagnetWidget(avid);
             slot.appendChild(widget);
             flexContainer.appendChild(slot);
@@ -2618,9 +2970,56 @@
                 #video_info .jav-jump-btn-group {
                     justify-content: flex-start !important;
                 }
+                #video_reviews,
+                #video_comments,
+                #video_review_edit,
+                #video_comment_edit {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    box-sizing: border-box !important;
+                    overflow-x: hidden !important;
+                }
+                #video_reviews .comment,
+                #video_comments .comment {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    table-layout: fixed !important;
+                    box-sizing: border-box !important;
+                }
+                #video_reviews .comment td,
+                #video_comments .comment td {
+                    box-sizing: border-box !important;
+                    vertical-align: top !important;
+                }
+                #video_reviews .comment td.info,
+                #video_comments .comment td.info {
+                    width: 132px !important;
+                }
+                #video_reviews .comment td.scores,
+                #video_comments .comment td.scores {
+                    width: 92px !important;
+                }
+                #video_reviews .comment td.t,
+                #video_comments .comment td.t {
+                    width: auto !important;
+                    min-width: 0 !important;
+                    overflow: hidden !important;
+                }
+                #video_reviews .comment td.t .text,
+                #video_comments .comment td.t .text,
+                #video_reviews .comment td.t textarea,
+                #video_comments .comment td.t textarea {
+                    width: auto !important;
+                    max-width: 100% !important;
+                    box-sizing: border-box !important;
+                    white-space: normal !important;
+                    word-break: break-word !important;
+                    overflow-wrap: anywhere !important;
+                }
                 .jav-nong-slot .jav-nong-wrapper { width: 560px; max-width: 100%; margin-top: 16px; }
             `);
 
+            this._ensureDetailLayout();
             this._insertMagnet(avid);
         },
         _initListPage() {
@@ -2808,6 +3207,7 @@
                 `);
             }
             setTimeout(() => {
+                window.__LAOSIJI_LIST_PREVIEW__?.sync?.();
                 window.__LAOSIJI_SCHEDULE_PAN115__?.();
             }, 0);
         },
@@ -2872,28 +3272,51 @@
             const codeEl = document.querySelector('#video_id .text');
             insertAvidCopyBtn(codeEl, avid);
         },
-        _insertMagnet(avid) {
-            if (!CFG.magnetTable) return;
+        _ensureDetailLayout() {
             const table = document.getElementById('video_jacket_info');
-            if (!table) return;
+            if (!table) return null;
             const row = table.querySelector('tr');
-            if (!row) return;
+            if (!row) return null;
 
-            document.querySelectorAll('.jav-nong-slot').forEach(el => el.remove());
-
-            table.style.cssText = 'width:100%;display:block;';
-            row.style.cssText = 'display:flex;gap:20px;align-items:flex-start;width:100%;--javlib-cover-flex:1.1;--javlib-info-flex:0.8;--javlib-magnet-flex:1.1;';
+            table.style.setProperty('width', '100%', 'important');
+            table.style.setProperty('display', 'block', 'important');
+            row.style.setProperty('display', 'flex', 'important');
+            row.style.setProperty('gap', '20px', 'important');
+            row.style.setProperty('align-items', 'flex-start', 'important');
+            row.style.setProperty('width', '100%', 'important');
+            row.style.setProperty('--javlib-cover-flex', row.style.getPropertyValue('--javlib-cover-flex') || '1.1');
+            row.style.setProperty('--javlib-info-flex', row.style.getPropertyValue('--javlib-info-flex') || '0.8');
+            row.style.setProperty('--javlib-magnet-flex', row.style.getPropertyValue('--javlib-magnet-flex') || '1.1');
 
             const tds = row.querySelectorAll('td');
-            if (tds[0]) tds[0].style.cssText = 'flex:var(--javlib-cover-flex) 1 0;min-width:0;vertical-align:top;';
-            if (tds[1]) tds[1].style.cssText = 'flex:var(--javlib-info-flex) 1 0;min-width:0;vertical-align:top;overflow:hidden;word-break:break-word;';
+            if (tds[0]) {
+                tds[0].style.setProperty('flex', 'var(--javlib-cover-flex) 1 0', 'important');
+                tds[0].style.setProperty('min-width', '0', 'important');
+                tds[0].style.setProperty('vertical-align', 'top', 'important');
+            }
+            if (tds[1]) {
+                tds[1].style.setProperty('flex', 'var(--javlib-info-flex) 1 0', 'important');
+                tds[1].style.setProperty('min-width', '0', 'important');
+                tds[1].style.setProperty('vertical-align', 'top', 'important');
+                tds[1].style.setProperty('overflow', 'hidden', 'important');
+                tds[1].style.setProperty('word-break', 'break-word', 'important');
+            }
 
             const jacketImg = document.getElementById('video_jacket_img');
             if (jacketImg) {
                 jacketImg.removeAttribute('width');
                 jacketImg.removeAttribute('height');
-                jacketImg.style.cssText = 'width:100%;height:auto;max-width:100%;';
+                jacketImg.style.setProperty('width', '100%', 'important');
+                jacketImg.style.setProperty('height', 'auto', 'important');
+                jacketImg.style.setProperty('max-width', '100%', 'important');
             }
+            return row;
+        },
+        _insertMagnet(avid) {
+            if (!CFG.magnetTable) return;
+            document.querySelectorAll('.jav-nong-slot').forEach(el => el.remove());
+            const row = this._ensureDetailLayout();
+            if (!row) return;
 
             const magnetTd = document.createElement('td');
             magnetTd.className = 'jav-nong-slot';
@@ -2911,6 +3334,7 @@
 
     const SITES = [SiteJavBus, SiteJavDB, SiteJavLib];
     window.__LAOSIJI_SITE_JAVBUS__ = SiteJavBus;
+    window.__LAOSIJI_SITE_JAVDB__ = SiteJavDB;
 
     function mainRun() {
         const site = SITES.find(s => s.match());
@@ -2921,6 +3345,7 @@
 
         site.initPage(avid);
         PageZoom.applyCurrent();
+        DetailFlex.apply();
     }
 
     if (location.hostname.includes('javdb') && location.pathname.startsWith('/v/')) {
@@ -2945,16 +3370,6 @@
     ];
 
     GM_addStyle(`
-        #emby-config-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); font-family: sans-serif; }
-        .emby-config-modal { background: #2d2d2d; border: 1px solid #444; border-radius: 12px; width: 320px; padding: 25px; color: white; box-shadow: 0 10px 50px rgba(0,0,0,0.9); }
-        .emby-config-header { font-size: 18px; font-weight: bold; margin-bottom: 20px; text-align: center; color: #00a4dc; border-bottom: 1px solid #444; padding-bottom: 12px; }
-        .emby-config-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; cursor: pointer; user-select: none; }
-        .emby-config-item input { width: 18px; height: 18px; cursor: pointer; }
-        .emby-config-footer { margin-top: 25px; display: flex; gap: 12px; }
-        .emby-config-btn { flex: 1; padding: 10px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; font-size: 14px; }
-        .emby-config-save { background: #00a4dc; color: white; }
-        .emby-config-cancel { background: #444; color: #ccc; }
-
         .preview-overlay {
             position: fixed;
             inset: 0;
@@ -4989,6 +5404,169 @@
         }
     };
 
+    const ListPreview = (() => {
+        let styleReady = false;
+
+        function enabled() {
+            return GM_getValue('list_preview_quick_enabled', false);
+        }
+
+        function ensureStyle() {
+            if (styleReady) return;
+            styleReady = true;
+            GM_addStyle(`
+                .jav-card-cover {
+                    position: relative !important;
+                }
+                .jav-list-preview-btn {
+                    position: absolute;
+                    right: 8px;
+                    bottom: 8px;
+                    z-index: 3;
+                    width: 32px;
+                    height: 32px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    border: 1px solid rgba(255,255,255,.28);
+                    border-radius: 999px;
+                    background: rgba(15,23,42,.56);
+                    color: #fff;
+                    backdrop-filter: blur(8px);
+                    box-shadow: 0 4px 12px rgba(0,0,0,.24);
+                    cursor: pointer;
+                    user-select: none;
+                    transition: transform .16s ease, background .16s ease, border-color .16s ease, box-shadow .16s ease;
+                }
+                .jav-list-preview-btn:hover {
+                    transform: translateY(-1px) scale(1.04);
+                    background: rgba(37,99,235,.78);
+                    border-color: rgba(255,255,255,.42);
+                    box-shadow: 0 8px 18px rgba(15,23,42,.28);
+                }
+                .jav-list-preview-btn:active {
+                    transform: scale(.96);
+                }
+                .jav-list-preview-btn:focus-visible {
+                    outline: 2px solid rgba(191,219,254,.95);
+                    outline-offset: 2px;
+                }
+                .jav-list-preview-icon {
+                    width: 16px;
+                    height: 16px;
+                    display: block;
+                    background-repeat: no-repeat;
+                    background-position: center;
+                    background-size: contain;
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z'/%3E%3Ccircle cx='12' cy='12' r='2.9'/%3E%3C/svg%3E");
+                    opacity: .96;
+                }
+            `);
+        }
+
+        function isListPage() {
+            return !isCurrentDetailPage();
+        }
+
+        function detectCode(card) {
+            if (!card) return '';
+            const explicitCode = card.querySelector('.javbus-card-code, .javlib-card-code, .id, [data-code]')?.textContent?.trim();
+            if (explicitCode) {
+                const normalized = Utils.extractCode(explicitCode) || Utils.normalizeCode(explicitCode);
+                if (normalized) return normalized;
+            }
+            const titleText = [
+                card.querySelector('.javdb-card-headline')?.textContent,
+                card.querySelector('.javlib-card-headline')?.textContent,
+                card.querySelector('.javbus-card-headline')?.textContent,
+                card.querySelector('.video-title')?.textContent,
+                card.querySelector('.title')?.textContent,
+                card.querySelector('a[title]')?.getAttribute('title'),
+                card.textContent
+            ].filter(Boolean).join(' ');
+            return Utils.extractCode(titleText) || '';
+        }
+
+        function getCards() {
+            return [
+                ...document.querySelectorAll('.javbus-card-grid > .item, .javdb-card-grid > .item, .videothumblist .videos.javlib-card-grid > .video')
+            ];
+        }
+
+        function attachToCard(card) {
+            if (!card) return;
+            const cover = card.querySelector('.jav-card-cover');
+            if (!cover) return;
+            const existing = cover.querySelector('.jav-list-preview-btn');
+            if (!enabled()) {
+                existing?.remove();
+                return;
+            }
+            const code = detectCode(card);
+            if (!code) {
+                existing?.remove();
+                return;
+            }
+            if (existing) {
+                existing.dataset.code = code;
+                existing.title = `预览图 ${code}`;
+                return;
+            }
+            const btn = document.createElement('span');
+            btn.className = 'jav-list-preview-btn';
+            btn.dataset.code = code;
+            btn.setAttribute('role', 'button');
+            btn.tabIndex = 0;
+            btn.title = `预览图 ${code}`;
+            btn.innerHTML = '<span class="jav-list-preview-icon" aria-hidden="true"></span>';
+
+            const openPreview = async e => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation?.();
+                if (btn.dataset.loading === '1') return;
+                const targetCode = btn.dataset.code || detectCode(card);
+                if (!targetCode) return;
+                btn.dataset.loading = '1';
+                btn.style.pointerEvents = 'none';
+                btn.style.opacity = '.72';
+                try {
+                    await Thumbnail.show(targetCode);
+                } finally {
+                    delete btn.dataset.loading;
+                    btn.style.pointerEvents = '';
+                    btn.style.opacity = '';
+                }
+            };
+            btn.addEventListener('click', openPreview, true);
+            btn.addEventListener('keydown', e => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                openPreview(e);
+            }, true);
+            cover.appendChild(btn);
+        }
+
+        function removeAll() {
+            document.querySelectorAll('.jav-list-preview-btn').forEach(el => el.remove());
+        }
+
+        function sync() {
+            if (!isListPage()) {
+                removeAll();
+                return;
+            }
+            ensureStyle();
+            if (!enabled()) {
+                removeAll();
+                return;
+            }
+            getCards().forEach(attachToCard);
+        }
+
+        return { sync, removeAll, attach: attachToCard };
+    })();
+    window.__LAOSIJI_LIST_PREVIEW__ = ListPreview;
+
     const Trailer = {
         normalize(code) {
             return Utils.normalizeCode(code);
@@ -6504,19 +7082,28 @@
             this.createSentinel();
             this.observe();
         },
+        destroy() {
+            if (this.state?.observer) {
+                this.state.observer.disconnect();
+            }
+            this.state = null;
+            document.querySelectorAll('.jav-infinite-sentinel').forEach(el => el.remove());
+            document.querySelectorAll('#next, .pagination, nav.pagination').forEach(el => {
+                el.style.display = '';
+            });
+        },
         getConfig(doc = document, baseUrl = location.href) {
             if (/javbus\.com/i.test(location.hostname)) {
-                
                 const container = doc === document
                     ? window.__LAOSIJI_SITE_JAVBUS__?._getGridContainer()
-                    : (doc.querySelector('#waterfall .item')?.parentElement || doc.querySelector('#waterfall'));
+                    : doc.querySelector('#waterfall');
                 const next = doc.querySelector('a#next[href]');
                 if (!container || !next) return null;
                 return {
                     site: 'javbus',
                     container,
                     nextUrl: new URL(next.getAttribute('href'), baseUrl).href,
-                    itemSelector: '#waterfall .item',
+                    itemSelector: '#waterfall > .item',
                     paginationSelector: '.pagination',
                 };
             }
@@ -6576,7 +7163,7 @@
         },
         appendItems(doc) {
             const items = [...doc.querySelectorAll(this.state.itemSelector)];
-            
+
             let container = this.state.container;
             if (this.state.site === 'javbus') {
                 const live = window.__LAOSIJI_SITE_JAVBUS__._getGridContainer();
@@ -6592,9 +7179,13 @@
                     item.dataset.laosijiInfiniteItem = '1';
                     const adopted = document.adoptNode(item);
                     container.appendChild(adopted);
-                    
+
                     if (this.state.site === 'javbus') {
                         window.__LAOSIJI_SITE_JAVBUS__._decorateCard?.(adopted);
+                        ListPreview.attach(adopted);
+                    } else if (this.state.site === 'javdb') {
+                        window.__LAOSIJI_SITE_JAVDB__?._decorateCard?.(adopted);
+                        ListPreview.attach(adopted);
                     }
                     added += 1;
                 } catch (err) {
@@ -6610,14 +7201,18 @@
             try {
                 const currentUrl = this.state.nextUrl;
                 const doc = await this.fetchDoc(currentUrl);
+                if (!this.state) return;
                 const added = this.appendItems(doc);
                 const nextConfig = this.getConfig(doc, currentUrl);
+                if (!this.state) return;
                 this.state.nextUrl = nextConfig?.nextUrl || '';
                 this.hidePagination();
                 this.reflow();
+                ListPreview.sync();
                 schedulePan115ListBadges();
                 setTimeout(() => {
                     renderButtonsForCurrentPage();
+                    ListPreview.sync();
                     schedulePan115ListBadges();
                 }, 80);
                 if (!added || !this.state.nextUrl) {
@@ -6631,7 +7226,7 @@
                 console.warn('[老司机] 瀑布流加载失败:', err);
                 this.setStatus('加载失败，点击重试', 'is-error');
             } finally {
-                this.state.loading = false;
+                if (this.state) this.state.loading = false;
             }
         },
         reflow() {
@@ -6655,6 +7250,7 @@
             window.dispatchEvent(new Event('resize'));
         },
     };
+    window.__LAOSIJI_INFINITE_SCROLL__ = InfiniteScroll;
 
     let pan115ListTimer = null;
     function schedulePan115ListBadges() {
@@ -6671,10 +7267,15 @@
         document.querySelectorAll('h1[data-enhanced="1"]').forEach(el => delete el.dataset.enhanced);
     }
 
+    let mutationSyncTimer = null;
     const observer = new MutationObserver(() => {
+        clearTimeout(mutationSyncTimer);
+        mutationSyncTimer = setTimeout(() => {
         renderButtonsForCurrentPage();
+        ListPreview.sync();
         schedulePan115ListBadges();
         InfiniteScroll.init();
+        }, 120);
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
@@ -6741,6 +7342,7 @@
     } else {
         renderButtonsForCurrentPage();
     }
+    ListPreview.sync();
     schedulePan115ListBadges();
     InfiniteScroll.init();
 
