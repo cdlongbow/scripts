@@ -5691,6 +5691,25 @@
                     gap: 12px !important;
                     overflow: visible !important;
                 }
+                .jav-detail-preview-standalone {
+                    display: flex !important;
+                    align-items: flex-start !important;
+                    gap: 12px !important;
+                    min-width: 0 !important;
+                    align-self: flex-start !important;
+                    overflow: visible !important;
+                }
+                .row.movie > .jav-detail-preview-standalone {
+                    flex: 0 0 180px !important;
+                }
+                .jav-flex-container > .jav-detail-preview-standalone {
+                    flex: 0 0 180px !important;
+                }
+                #video_jacket_info tr > .jav-detail-preview-standalone {
+                    flex: 0 0 180px !important;
+                    min-width: 160px !important;
+                    vertical-align: top !important;
+                }
                 .javlib-nong-slot.has-detail-preview-inline {
                     width: 100% !important;
                 }
@@ -5755,6 +5774,9 @@
                     .jav-nong-slot.has-detail-preview-inline {
                         flex-wrap: wrap !important;
                     }
+                    .jav-detail-preview-standalone {
+                        flex-basis: 100% !important;
+                    }
                     .jav-detail-preview-wrap {
                         flex-basis: 100%;
                         width: 100%;
@@ -5796,16 +5818,61 @@
 
         function getInsertTarget() {
             const slot = document.querySelector('.jav-nong-slot');
-            if (!slot) return null;
-            let anchor = slot.querySelector('.jav-nong-wrapper');
-            while (anchor?.parentElement && anchor.parentElement !== slot) {
-                anchor = anchor.parentElement;
+            if (slot) {
+                document.querySelectorAll('.jav-detail-preview-standalone').forEach(el => el.remove());
+                let anchor = slot.querySelector('.jav-nong-wrapper');
+                while (anchor?.parentElement && anchor.parentElement !== slot) {
+                    anchor = anchor.parentElement;
+                }
+                return { slot, anchor };
             }
-            return { slot, anchor };
+            let standalone = document.querySelector('.jav-detail-preview-standalone');
+            if (!standalone) {
+                standalone = createStandaloneSlot();
+            }
+            if (!standalone) return null;
+            return { slot: standalone, anchor: null, standalone: true };
+        }
+
+        function createStandaloneSlot() {
+            const site = detectDetailLayoutSite();
+            const slot = document.createElement(site === 'javlib' ? 'td' : 'div');
+            slot.className = `jav-detail-preview-standalone${site ? ` jav-detail-preview-standalone-${site}` : ''}`;
+            if (site === 'javbus') {
+                const root = document.querySelector('.row.movie');
+                const info = root?.querySelector('.col-md-3.info');
+                if (!root || !info) return null;
+                info.insertAdjacentElement('afterend', slot);
+                return slot;
+            }
+            if (site === 'javdb') {
+                const root = document.querySelector('.jav-flex-container');
+                const info = root?.querySelector('.movie-panel-info')?.closest('.column') || root?.querySelector('.movie-panel-info');
+                if (!root || !info) return null;
+                info.insertAdjacentElement('afterend', slot);
+                return slot;
+            }
+            if (site === 'javlib') {
+                const row = document.querySelector('#video_jacket_info tr');
+                const info = row?.querySelector('#video_info')?.closest('td');
+                if (!row || !info) return null;
+                info.insertAdjacentElement('afterend', slot);
+                return slot;
+            }
+            return null;
+        }
+
+        function detectDetailLayoutSite() {
+            const host = location.hostname;
+            if (/(?:^|\.)javbus\.com$/i.test(host) && document.querySelector('.row.movie')) return 'javbus';
+            if (/javdb/i.test(host) && document.querySelector('.jav-flex-container, .column.column-video-cover')) return 'javdb';
+            if (/(javlibrary|javlib|r86m|s87n)/i.test(host) && document.querySelector('#video_jacket_info tr')) return 'javlib';
+            return '';
         }
 
         function remove() {
             document.querySelectorAll('.jav-detail-preview-wrap').forEach(el => el.remove());
+            document.querySelectorAll('.jav-detail-preview-standalone').forEach(el => el.remove());
             document.querySelectorAll('.jav-nong-slot.has-detail-preview-inline').forEach(el => {
                 el.classList.remove('has-detail-preview-inline');
             });
@@ -5843,7 +5910,7 @@
                 return;
             }
 
-            target.slot.classList.add('has-detail-preview-inline');
+            if (!target.standalone) target.slot.classList.add('has-detail-preview-inline');
             let wrap = document.querySelector('.jav-detail-preview-wrap');
             if (!wrap) {
                 wrap = document.createElement('div');
@@ -5870,7 +5937,7 @@
 
             if (!result?.url) {
                 wrap.remove();
-                target.slot.classList.remove('has-detail-preview-inline');
+                if (!target.standalone) target.slot.classList.remove('has-detail-preview-inline');
                 state = { code, status: 'missing' };
                 return;
             }
