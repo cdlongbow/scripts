@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.5.4.1
+// @version      2.5.4.2
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -44,7 +44,7 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.5.4.1';
+    const SCRIPT_VERSION = '2.5.4.2';
 
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
@@ -61,7 +61,7 @@
         get javdbCardColumns()  { return Math.min(10, Math.max(2, parseInt(GM_getValue('cfg_javdb_card_columns', 5), 10) || 5)); },
         get javlibCardColumns() { return Math.min(10, Math.max(2, parseInt(GM_getValue('cfg_javlib_card_columns', 5), 10) || 5)); },
         get javbusPageZoom() { return Math.min(100, Math.max(60, parseInt(GM_getValue('cfg_javbus_page_zoom', 86), 10) || 86)); },
-        get javdbPageZoom()  { return Math.min(100, Math.max(60, parseInt(GM_getValue('cfg_javdb_page_zoom', 88), 10) || 88)); },
+        get javdbPageZoom()  { return Math.min(100, Math.max(60, parseInt(GM_getValue('cfg_javdb_page_zoom', 86), 10) || 86)); },
         get javlibPageZoom() { return Math.min(100, Math.max(60, parseInt(GM_getValue('cfg_javlib_page_zoom', 86), 10) || 86)); },
         get listPreviewQuick() { return GM_getValue('list_preview_quick_enabled', true); },
         get detailPreviewInline() { return GM_getValue('detail_preview_inline_enabled', true); },
@@ -236,8 +236,8 @@
     const DetailFlex = (() => {
         const LIMITS = { min: 50, max: 200 };
         const DEFAULTS = {
-            javbus: { cover: 100, info: 75,  magnet: 120 },
-            javdb:  { cover: 160, info: 105, magnet: 150 },
+            javbus: { cover: 95,  info: 80,  magnet: 100 },
+            javdb:  { cover: 135, info: 105, magnet: 125 },
             javlib: { cover: 100, info: 85,  magnet: 100 },
         };
         const META = {
@@ -1625,8 +1625,14 @@
         }
 
         GM_addStyle(`
+            .jav-nong-wrapper {
+                overflow-x: auto !important;
+                overflow-y: hidden !important;
+                scrollbar-width: thin;
+            }
             #jav-nong-table {
                 width: 100%;
+                min-width: 320px;
                 table-layout: fixed;
                 margin: 8px 0; color: #666;
                 font-size: 13px; text-align: center;
@@ -1652,7 +1658,6 @@
                 overflow: visible;
             }
             #jav-nong-table td:first-child {
-                min-width: 0;
                 text-align: left;
             }
             #jav-nong-table .nong-head-row th { background: #f8f8f8; font-weight: 600; }
@@ -2169,7 +2174,7 @@
                     padding-left: 20px !important; padding-right: 20px !important; }
                 .row.movie { display: flex !important; gap: 20px !important;
                     align-items: flex-start !important; flex-wrap: nowrap !important; margin: 0 !important; }
-                .row.movie { --javbus-cover-flex: 1; --javbus-info-flex: .75; --javbus-magnet-flex: 1.2; }
+                .row.movie { --javbus-cover-flex: .95; --javbus-info-flex: .8; --javbus-magnet-flex: 1; }
                 .col-md-9.screencap { flex: var(--javbus-cover-flex) 1 0 !important; min-width: 0 !important;
                     width: auto !important; float: none !important; padding: 0 !important; }
                 .col-md-3.info { flex: var(--javbus-info-flex) 1 0 !important; min-width: 0 !important;
@@ -2950,9 +2955,9 @@
             flexContainer.style.setProperty('align-items', 'flex-start', 'important');
             flexContainer.style.setProperty('width', '100%', 'important');
             flexContainer.style.setProperty('margin-top', '16px', 'important');
-            flexContainer.style.setProperty('--javdb-cover-flex', flexContainer.style.getPropertyValue('--javdb-cover-flex') || '1.6');
+            flexContainer.style.setProperty('--javdb-cover-flex', flexContainer.style.getPropertyValue('--javdb-cover-flex') || '1.35');
             flexContainer.style.setProperty('--javdb-info-flex', flexContainer.style.getPropertyValue('--javdb-info-flex') || '1.05');
-            flexContainer.style.setProperty('--javdb-magnet-flex', flexContainer.style.getPropertyValue('--javdb-magnet-flex') || '1.5');
+            flexContainer.style.setProperty('--javdb-magnet-flex', flexContainer.style.getPropertyValue('--javdb-magnet-flex') || '1.25');
 
             coverCol.style.setProperty('flex', 'var(--javdb-cover-flex) 1 0', 'important');
             coverCol.style.setProperty('width', 'auto', 'important');
@@ -5709,19 +5714,21 @@
                     display: block !important;
                 }
                 .jav-detail-preview-wrap {
-                    flex: 0 1 280px;
-                    width: auto;
-                    max-width: min(38%, 300px);
-                    min-width: 0;
+                    flex: 0 0 180px;
+                    width: 180px;
+                    max-width: 180px;
+                    min-width: 150px;
                     align-self: flex-start;
                     position: relative;
                     box-sizing: border-box;
+                    overflow: hidden;
                 }
                 .jav-detail-preview-inline {
                     display: block;
-                    width: auto;
+                    width: 100%;
+                    height: auto;
                     max-width: 100%;
-                    max-height: 420px;
+                    max-height: 480px;
                     object-fit: contain;
                     border-radius: 6px;
                     cursor: zoom-in;
@@ -5750,11 +5757,12 @@
                     }
                     .jav-detail-preview-wrap {
                         flex-basis: 100%;
+                        width: 100%;
                         max-width: 100%;
                     }
                     .jav-detail-preview-inline {
                         max-width: 100%;
-                        max-height: 420px;
+                        max-height: 480px;
                         margin: 0 auto;
                     }
                     .javlib-nong-slot.has-detail-preview-inline > .jav-detail-preview-wrap {
