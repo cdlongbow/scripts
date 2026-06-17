@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.6.7
+// @version      5.7.0
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -773,6 +773,13 @@
     function extractCodeFromText(text) {
         if (!text) return null;
 
+        // 欧美厂商日期番号：BangBus.19.07.03 / blacked.22.02.05
+        // 格式：字母组成的厂商名 + 点 + YY.MM.DD（两位年月日各两位）
+        const westernHit = String(text).match(/\b([A-Za-z]{2,20})\.(\d{2})\.(\d{2})\.(\d{2})\b/);
+        if (westernHit) {
+            return `${westernHit[1]}.${westernHit[2]}.${westernHit[3]}.${westernHit[4]}`;
+        }
+
         const mgstageHit = String(text).match(/\b(\d{3}[A-Z]{2,10})[-_\s](\d{2,6})\b/i);
         if (mgstageHit) return normalizeCode(`${mgstageHit[1]}-${mgstageHit[2]}`);
 
@@ -1495,7 +1502,10 @@
 
             addCode(clean);
 
-            const isUncensored = /^\d{6}[-_]\d{2,3}$/i.test(clean);
+            // 欧美厂商日期番号（BangBus.19.07.03）：直接查询，不做任何降级处理
+            if (/^[A-Z]{2,20}\.\d{2}\.\d{2}\.\d{2}$/i.test(clean)) {
+                // tryCodes 只含原始番号，直接跳到搜索阶段
+            } else {
             const uncensoredFamily = getUncensoredFamily(clean);
             const isUncensoredWithPrefix = /(?:PACOPACOMAMA|PACO|1PONDO|CARIBBEANCOM|CARIB|HEYZO)[-_ ]+\d{6}[-_]\d{2,3}/i.test(clean);
 
@@ -1536,6 +1546,8 @@
                 addCode(base);
                 addCode(base.replace(/[-_]/, ''));
             }
+
+            } // end of JP-specific normalization else block
 
             for (const c of tryCodes) {
                 const cached = EmbyCache.get(c);
@@ -1704,6 +1716,18 @@
             if (!items || items.length === 0) return null;
 
             const target = queryCode.trim().toUpperCase();
+
+            // 欧美厂商日期番号精确匹配（BangBus.19.07.03）
+            // Emby 库里命名与番号完全一致，直接做大小写不敏感的完整包含匹配即可
+            const isWestern = /^[A-Z]{2,20}\.\d{2}\.\d{2}\.\d{2}$/i.test(queryCode);
+            if (isWestern) {
+                const exact = items.find(it => (it.Name || '').toUpperCase() === target);
+                if (exact) return exact;
+                // 次选：名称里包含完整番号（有时 Emby 名称带有额外描述）
+                const contains = items.find(it => (it.Name || '').toUpperCase().includes(target));
+                if (contains) return contains;
+                return null;
+            }
             const targetClean = target.replace(/[-_]/g, '');
             const mainTarget = target.replace(/-\d+$/, '');
             const cleanStr = s => (s || '').toUpperCase().replace(/[-_]/g, '');
