@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         跳转到Emby播放(改)
 // @namespace    https://github.com/ZiPenOk
-// @version      5.7.0
+// @version      5.7.1
 // @description  👆👆👆在 ✅JavBus✅Javdb✅Sehuatang ✅supjav ✅Sukebei ✅✅javrate ✅ 169bbs 高亮emby存在的视频，并提供标注一键跳转功能
 // @author       ZiPenOk
 // @match        *://www.javbus.com/*
@@ -1506,6 +1506,7 @@
             if (/^[A-Z]{2,20}\.\d{2}\.\d{2}\.\d{2}$/i.test(clean)) {
                 // tryCodes 只含原始番号，直接跳到搜索阶段
             } else {
+            const isUncensored = /^\d{6}[-_]\d{2,3}$/i.test(clean);
             const uncensoredFamily = getUncensoredFamily(clean);
             const isUncensoredWithPrefix = /(?:PACOPACOMAMA|PACO|1PONDO|CARIBBEANCOM|CARIB|HEYZO)[-_ ]+\d{6}[-_]\d{2,3}/i.test(clean);
 
