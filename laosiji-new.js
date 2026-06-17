@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.5.5
+// @version      2.5.6
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -44,7 +44,7 @@
 
 !function() {
     "use strict";
-    const e = "2.5.5", t = 86, n = {
+    const e = "2.5.6", t = 86, n = {
         get javdbSearchUrl() {
             return GM_getValue("cfg_javdb_search_url", "javdb.com");
         },
@@ -1729,11 +1729,11 @@
         },
         _ensureApiDetailShellStyle() {
             "1" !== document.documentElement.dataset.laosijiJavdbApiDetailStyle && (document.documentElement.dataset.laosijiJavdbApiDetailStyle = "1", 
-            GM_addStyle("\n                .javdb-api-detail-title {\n                    margin: 0 0 12px !important;\n                    font-size: 20px !important;\n                    font-weight: 850 !important;\n                    line-height: 1.45 !important;\n                    color: #172033 !important;\n                }\n                .javdb-api-detail-preview {\n                    margin-top: 18px !important;\n                    display: grid !important;\n                    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;\n                    gap: 10px !important;\n                }\n                .javdb-api-detail-preview a {\n                    display: block !important;\n                    border-radius: 6px !important;\n                    overflow: hidden !important;\n                    background: #f8fafc !important;\n                    border: 1px solid #e5e7eb !important;\n                }\n                .javdb-api-detail-preview img {\n                    width: 100% !important;\n                    height: 120px !important;\n                    object-fit: cover !important;\n                    display: block !important;\n                }\n            "));
+            GM_addStyle("\n                .javdb-api-detail .movie-panel-info .value.tags {\n                    display: inline-flex !important;\n                    flex-wrap: wrap !important;\n                    gap: 4px !important;\n                }\n            "));
         },
         _renderApiDetailField(e, t) {
             const n = Array.isArray(t) ? t.filter(Boolean).join(" / ") : String(t || "");
-            return n ? `<div class="panel-block"><span class="label">${this._escapeHtml(e)}</span><span class="value">${this._escapeHtml(n)}</span></div>` : "";
+            return n ? `<div class="panel-block"><strong>${this._escapeHtml(e)}:</strong>&nbsp;<span class="value">${this._escapeHtml(n)}</span></div>` : "";
         },
         _renderApiDetailTags(e) {
             const t = Array.isArray(e) ? e : [];
@@ -1742,18 +1742,18 @@
                 const t = e?.name || e?.title || e;
                 return t ? `<span class="tag">${this._escapeHtml(t)}</span>` : "";
             }).filter(Boolean).join("");
-            return n ? `<div class="panel-block"><span class="label">標籤</span><span class="value tags">${n}</span></div>` : "";
+            return n ? `<div class="panel-block"><strong>標籤:</strong>&nbsp;<span class="value tags">${n}</span></div>` : "";
         },
         _renderApiDetailImages(e) {
-            const t = Array.isArray(e) ? e : [], n = e => String(e || "").replace(/https:\/\/.*?\/rhe951l4q/g, "https://c0.jdbstatic.com"), a = t.map(e => {
-                const t = n(e?.large_url || e?.url || e?.thumb_url || ""), a = n(e?.thumb_url || e?.large_url || e?.url || "");
-                return t && a ? `<a href="${this._escapeHtml(t)}" target="_blank" rel="noopener"><img src="${this._escapeHtml(a)}" loading="lazy" alt=""></a>` : "";
+            const t = Array.isArray(e) ? e : [], n = e => String(e || "").replace(/https:\/\/.*?\/rhe951l4q/g, "https://c0.jdbstatic.com"), a = t.map((e, t) => {
+                const a = n(e?.large_url || e?.url || e?.thumb_url || ""), r = n(e?.thumb_url || e?.large_url || e?.url || "");
+                return a && r ? `\n                    <a class="tile-item" href="${this._escapeHtml(a)}" data-fancybox="gallery" data-caption="预览图 ${t + 1}">\n                        <img src="${this._escapeHtml(r)}" loading="lazy" alt="预览图 ${t + 1}">\n                    </a>` : "";
             }).filter(Boolean).join("");
-            return a ? `<div class="javdb-api-detail-preview">${a}</div>` : "";
+            return a ? `\n                <div class="columns javdb-api-detail-preview-columns">\n                    <div class="column">\n                        <article class="message video-panel">\n                            <div class="message-body">\n                                <div class="tile-images preview-images">${a}</div>\n                            </div>\n                        </article>\n                    </div>\n                </div>` : "";
         },
         _renderApiDetailPage(e) {
             const t = String(e?.number || ""), n = e?.origin_title || e?.title || "", a = (Array.isArray(e?.actors) ? e.actors : []).map(e => e?.name || e).filter(Boolean), r = String(e?.cover_url || e?.thumb_url || "").replace(/https:\/\/.*?\/rhe951l4q/g, "https://c0.jdbstatic.com");
-            return `\n                <div class="javdb-api-detail" data-javdb-api-detail="1">\n                    <h2 class="javdb-api-detail-title">${this._escapeHtml(t)} ${this._escapeHtml(n)}</h2>\n                    <div class="columns">\n                        <div class="column column-video-cover">\n                            <div class="cover box">\n                                <img src="${this._escapeHtml(r)}" alt="${this._escapeHtml(n)}">\n                            </div>\n                        </div>\n                        <div class="column">\n                            <div class="movie-panel-info panel">\n                                <div class="panel-block"><span class="label">番號</span><span class="value"><a class="button is-white copy-to-clipboard" title="複製番號" data-clipboard-text="${this._escapeHtml(t)}">${this._escapeHtml(t)}</a></span></div>\n                                ${this._renderApiDetailField("標題", n)}\n                                ${this._renderApiDetailField("日期", e?.release_date)}\n                                ${this._renderApiDetailField("時長", e?.duration ? `${e.duration} 分鐘` : "")}\n                                ${this._renderApiDetailField("評分", e?.score ? `${e.score} / ${e?.watched_count || 0} 人` : "")}\n                                ${this._renderApiDetailField("片商", e?.maker_name || e?.publisher_name)}\n                                ${this._renderApiDetailField("系列", e?.series_name)}\n                                ${this._renderApiDetailField("導演", e?.director_name)}\n                                ${this._renderApiDetailField("演員", a)}\n                                ${this._renderApiDetailTags(e?.tags)}\n                            </div>\n                        </div>\n                    </div>\n                    ${this._renderApiDetailImages(e?.preview_images)}\n                </div>\n            `;
+            return `\n                <div class="video-detail javdb-api-detail" data-javdb-api-detail="1">\n                    <h2 class="title is-4 javdb-api-detail-title">\n                        <strong>${this._escapeHtml(t)} </strong>\n                        <strong class="current-title">${this._escapeHtml(n)}</strong>\n                    </h2>\n                    <div class="video-meta-panel">\n                        <div class="columns is-desktop">\n                            <div class="column column-video-cover">\n                                <a data-fancybox="gallery" href="${this._escapeHtml(r)}">\n                                    <img src="${this._escapeHtml(r)}" class="video-cover" alt="${this._escapeHtml(n)}">\n                                </a>\n                            </div>\n                            <div class="column">\n                                <nav class="panel movie-panel-info">\n                                    <div class="panel-block first-block"><strong>番號:</strong>&nbsp;<span class="value">${this._escapeHtml(t)}</span>&nbsp;<a class="button is-white copy-to-clipboard" title="複製番號" data-clipboard-text="${this._escapeHtml(t)}"><span class="icon is-small"><i class="icon-copy"></i></span></a></div>\n                                    ${this._renderApiDetailField("標題", n)}\n                                    ${this._renderApiDetailField("日期", e?.release_date)}\n                                    ${this._renderApiDetailField("時長", e?.duration ? `${e.duration} 分鐘` : "")}\n                                    ${this._renderApiDetailField("評分", e?.score ? `${e.score} / ${e?.watched_count || 0} 人` : "")}\n                                    ${this._renderApiDetailField("片商", e?.maker_name || e?.publisher_name)}\n                                    ${this._renderApiDetailField("系列", e?.series_name)}\n                                    ${this._renderApiDetailField("導演", e?.director_name)}\n                                    ${this._renderApiDetailField("演員", a)}\n                                    ${this._renderApiDetailTags(e?.tags)}\n                                </nav>\n                            </div>\n                        </div>\n                    </div>\n                    ${this._renderApiDetailImages(e?.preview_images)}\n                </div>\n            `;
         },
         async _initApiDetailShellPage() {
             const e = this._getApiDetailShellMode();
@@ -2751,6 +2751,10 @@
     }, k = {
         sources: [ "javfree", "projectjav", "javstore" ],
         cacheKey: e => `thumb_cache_v3_${e}`,
+        lookupCode(e) {
+            const t = String(e || "").trim(), n = t.match(/^(?:FC2[-_\s]?(?:PPV[-_\s]?)?)?(\d{6,9})$/i);
+            return n ? n[1] : t;
+        },
         sourceOrder() {
             const e = q.getSourceOrder(), t = Array.isArray(e) ? e : [], n = new Set;
             return [ ...t, ...this.sources ].filter(e => !n.has(e) && "function" == typeof this[e] && (n.add(e), 
@@ -2758,7 +2762,7 @@
         },
         async fetchFromSource(e, t) {
             try {
-                return await this[e](t);
+                return await this[e](this.lookupCode(t));
             } catch (t) {
                 return console.warn(`Thumbnail[${e}] 异常:`, t.message), null;
             }
@@ -2774,14 +2778,15 @@
         },
         normalizePreviewUrl: (e, t = "") => e ? (/^https?:\/\//i.test(e) ? e : t ? new URL(e, t).href : e).replace(/^http:/, "https:") : "",
         isJavfreePreviewImage(e, t) {
-            const n = String(e || "").split("?")[0];
-            return this.isCodeMatched(n, t) && /-(?:1080p|demosaic)\.(?:jpe?g|png|webp)$/i.test(n);
+            const n = String(e || "").split("?")[0], a = this.lookupCode(t), r = /^\d{6,9}$/.test(a), i = r ? new RegExp(`${a}_\\d+\\.(?:jpe?g|png|webp)$`, "i") : null;
+            return this.isCodeMatched(n, t) && (/-(?:1080p|demosaic)\.(?:jpe?g|png|webp)$/i.test(n) || r && i.test(n));
         },
         selectJavfreePreviewUrl(e, t, n) {
             const a = [ ...e.querySelectorAll("p > img[src]") ].map(e => this.normalizePreviewUrl(e.getAttribute("src") || e.src || "", t)).filter(e => this.isJavfreePreviewImage(e, n));
-            return a.find(e => /-1080p\./i.test(e)) || a.find(e => /-demosaic\./i.test(e)) || "";
+            return a.find(e => /-1080p\./i.test(e)) || a.find(e => /-demosaic\./i.test(e)) || a.find(e => /_1\.(?:jpe?g|png|webp)$/i.test(e)) || "";
         },
         async javfree(e) {
+            e = this.lookupCode(e);
             const t = this.cacheKey(e), n = q.getPreviewCacheEnabled();
             if (n) {
                 const e = sessionStorage.getItem(t);
@@ -2799,6 +2804,7 @@
             }
         },
         async javstore(e) {
+            e = this.lookupCode(e);
             try {
                 const t = e.replace(/^fc2-?/i, "").replace(/-/g, "").toLowerCase();
                 console.log(`javstore: searching for code=${e}, normalized=${t}`);
@@ -2846,6 +2852,7 @@
             }
         },
         async projectjav(e) {
+            e = this.lookupCode(e);
             try {
                 const t = e => new Promise((t, n) => {
                     GM_xmlhttpRequest({
