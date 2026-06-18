@@ -99,6 +99,9 @@
         get titleTranslate() {
             return GM_getValue("title_translate_enabled", !0);
         },
+        get listOpenNewTab() {
+            return GM_getValue("list_open_new_tab_enabled", !1);
+        },
         get thumbSourceOrder() {
             return GM_getValue("thumb_source_order", [ "javfree", "projectjav", "javstore" ]);
         },
@@ -158,6 +161,9 @@
         },
         set titleTranslate(e) {
             GM_setValue("title_translate_enabled", !!e);
+        },
+        set listOpenNewTab(e) {
+            GM_setValue("list_open_new_tab_enabled", !!e);
         },
         set thumbSourceOrder(e) {
             GM_setValue("thumb_source_order", e);
@@ -737,7 +743,7 @@
                     const n = t.closest(".sp-order-item"), a = k.indexOf(n?.dataset.src), i = a + parseInt(t.dataset.dir, 10);
                     a < 0 || i < 0 || i >= k.length || ([k[a], k[i]] = [ k[i], k[a] ], E());
                 });
-                const q = (e, t, n) => {
+                const A = (e, t, n) => {
                     e && (e.classList.remove("is-done"), e.classList.add("is-clearing"), setTimeout(() => {
                         e.classList.remove("is-clearing"), e.classList.add("is-done"), w.textContent = n ? `${t} ${n} 项` : `${t}无缓存`, 
                         setTimeout(() => e.classList.remove("is-done"), 900), setTimeout(() => {
@@ -747,18 +753,18 @@
                 };
                 v.addEventListener("click", () => {
                     const e = d.clearSessionByPrefixes([ "thumb_cache_" ]);
-                    q(v, "预览图已清理", e);
+                    A(v, "预览图已清理", e);
                 }), b.addEventListener("click", () => {
                     const e = d.clearSessionByPrefixes([ "trailer_cache_" ]);
-                    q(b, "预告片已清理", e);
+                    A(b, "预告片已清理", e);
                 }), y.addEventListener("click", () => {
                     const e = d.clearSessionByPrefixes([ "thumb_cache_", "trailer_cache_", "pan115_cache_" ]);
                     w.textContent = e ? `已清空 ${e} 项` : "无缓存", setTimeout(() => {
                         w.textContent = "";
                     }, 1800);
                 }), p.value = "javdbSearchUrl", C(), S(), E();
-                const A = () => o.remove();
-                s.querySelector(".sp-close").addEventListener("click", A), s.querySelector(".sp-btn-cancel").addEventListener("click", A), 
+                const q = () => o.remove();
+                s.querySelector(".sp-close").addEventListener("click", q), s.querySelector(".sp-btn-cancel").addEventListener("click", q), 
                 s.querySelector(".sp-btn-save").addEventListener("click", () => {
                     const e = () => JSON.stringify({
                         domains: t.map(e => a[e.key]),
@@ -792,7 +798,7 @@
                     a.btnShowMissav = x.missav.checked, a.btnShowFanza = x.fanza.checked, a.btnShowSearch = x.search.checked, 
                     a.btnShowTrailer = x.trailer.checked, a.btnShowPreview = x.preview.checked, GM_setValue("thumb_source_order", k);
                     const s = i !== o, c = n !== e();
-                    A(), c ? location.reload() : s && oe.syncPan115(a.btnShowPan115);
+                    q(), c ? location.reload() : s && se.syncPan115(a.btnShowPan115);
                 });
             }
         };
@@ -811,20 +817,20 @@
                 const n = i.detectCurrentSite() || r.detectCurrentSite();
                 if (!n) return void v.open();
                 const s = document.createElement("div");
-                s.id = "jav-quick-settings-popover", s.innerHTML = `\n                <div class="qs-head">\n                    <div>\n                        <div class="qs-title">快捷设置</div>\n                        <div class="qs-site">${e[n] || "当前站点"}</div>\n                    </div>\n                    <button class="qs-close" type="button" title="关闭">×</button>\n                </div>\n                <div class="qs-row">\n                    <div class="qs-name">卡片列数</div>\n                    <input class="qs-range" id="qs-columns" type="range" min="2" max="10" step="1">\n                    <span class="qs-value" id="qs-columns-value">5</span>\n                </div>\n                <div class="qs-row">\n                    <div class="qs-name">页面宽度</div>\n                    <input class="qs-range" id="qs-zoom" type="range" min="60" max="100" step="1">\n                    <span class="qs-value" id="qs-zoom-value">100%</span>\n                </div>\n                <div class="qs-detail-flex" id="qs-detail-flex">\n                    <div class="qs-section-title">详情比例</div>\n                    <div class="qs-row" data-detail-flex-row="cover">\n                        <div class="qs-name">封面</div>\n                        <input class="qs-range" id="qs-detail-cover" type="range" min="50" max="200" step="5">\n                        <span class="qs-value" id="qs-detail-cover-value">1.0</span>\n                    </div>\n                    <div class="qs-row" data-detail-flex-row="info">\n                        <div class="qs-name">信息</div>\n                        <input class="qs-range" id="qs-detail-info" type="range" min="50" max="200" step="5">\n                        <span class="qs-value" id="qs-detail-info-value">1.0</span>\n                    </div>\n                    <div class="qs-row" data-detail-flex-row="magnet">\n                        <div class="qs-name">磁力</div>\n                        <input class="qs-range" id="qs-detail-magnet" type="range" min="50" max="200" step="5">\n                        <span class="qs-value" id="qs-detail-magnet-value">关闭</span>\n                    </div>\n                </div>\n                <div class="qs-switch-grid">\n                    <div class="qs-switch-row">\n                        <div class="qs-name">115匹配</div>\n                        <label class="qs-toggle">\n                            <input id="qs-pan115" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">瀑布流</div>\n                        <label class="qs-toggle">\n                            <input id="qs-infinite-scroll" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">翻译标题</div>\n                        <label class="qs-toggle">\n                            <input id="qs-title-translate" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">快捷预览图</div>\n                        <label class="qs-toggle">\n                            <input id="qs-list-preview" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">预览图直显</div>\n                        <label class="qs-toggle">\n                            <input id="qs-detail-preview-inline" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                </div>\n                <div class="qs-footer">\n                    <button class="qs-more" type="button">更多设置</button>\n                </div>\n            `, 
+                s.id = "jav-quick-settings-popover", s.innerHTML = `\n                <div class="qs-head">\n                    <div>\n                        <div class="qs-title">快捷设置</div>\n                        <div class="qs-site">${e[n] || "当前站点"}</div>\n                    </div>\n                    <button class="qs-close" type="button" title="关闭">×</button>\n                </div>\n                <div class="qs-row">\n                    <div class="qs-name">卡片列数</div>\n                    <input class="qs-range" id="qs-columns" type="range" min="2" max="10" step="1">\n                    <span class="qs-value" id="qs-columns-value">5</span>\n                </div>\n                <div class="qs-row">\n                    <div class="qs-name">页面宽度</div>\n                    <input class="qs-range" id="qs-zoom" type="range" min="60" max="100" step="1">\n                    <span class="qs-value" id="qs-zoom-value">100%</span>\n                </div>\n                <div class="qs-detail-flex" id="qs-detail-flex">\n                    <div class="qs-section-title">详情比例</div>\n                    <div class="qs-row" data-detail-flex-row="cover">\n                        <div class="qs-name">封面</div>\n                        <input class="qs-range" id="qs-detail-cover" type="range" min="50" max="200" step="5">\n                        <span class="qs-value" id="qs-detail-cover-value">1.0</span>\n                    </div>\n                    <div class="qs-row" data-detail-flex-row="info">\n                        <div class="qs-name">信息</div>\n                        <input class="qs-range" id="qs-detail-info" type="range" min="50" max="200" step="5">\n                        <span class="qs-value" id="qs-detail-info-value">1.0</span>\n                    </div>\n                    <div class="qs-row" data-detail-flex-row="magnet">\n                        <div class="qs-name">磁力</div>\n                        <input class="qs-range" id="qs-detail-magnet" type="range" min="50" max="200" step="5">\n                        <span class="qs-value" id="qs-detail-magnet-value">关闭</span>\n                    </div>\n                </div>\n                <div class="qs-switch-grid">\n                    <div class="qs-switch-row">\n                        <div class="qs-name">115匹配</div>\n                        <label class="qs-toggle">\n                            <input id="qs-pan115" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">瀑布流</div>\n                        <label class="qs-toggle">\n                            <input id="qs-infinite-scroll" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">翻译标题</div>\n                        <label class="qs-toggle">\n                            <input id="qs-title-translate" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">新标签打开页面</div>\n                        <label class="qs-toggle">\n                            <input id="qs-list-open-new-tab" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">快捷预览图</div>\n                        <label class="qs-toggle">\n                            <input id="qs-list-preview" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">预览图直显</div>\n                        <label class="qs-toggle">\n                            <input id="qs-detail-preview-inline" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                </div>\n                <div class="qs-footer">\n                    <button class="qs-more" type="button">更多设置</button>\n                </div>\n            `, 
                 document.body.appendChild(s);
-                const l = () => s.remove(), c = s.querySelector("#qs-columns"), p = s.querySelector("#qs-columns-value"), m = s.querySelector("#qs-zoom"), u = s.querySelector("#qs-zoom-value"), h = s.querySelector("#qs-pan115"), g = s.querySelector("#qs-infinite-scroll"), b = s.querySelector("#qs-list-preview"), f = s.querySelector("#qs-detail-preview-inline"), x = s.querySelector("#qs-title-translate"), y = o.detectCurrentSite(), w = s.querySelector("#qs-detail-flex"), j = {
+                const l = () => s.remove(), c = s.querySelector("#qs-columns"), p = s.querySelector("#qs-columns-value"), m = s.querySelector("#qs-zoom"), u = s.querySelector("#qs-zoom-value"), h = s.querySelector("#qs-pan115"), g = s.querySelector("#qs-infinite-scroll"), b = s.querySelector("#qs-list-preview"), f = s.querySelector("#qs-detail-preview-inline"), x = s.querySelector("#qs-title-translate"), y = s.querySelector("#qs-list-open-new-tab"), w = o.detectCurrentSite(), j = s.querySelector("#qs-detail-flex"), _ = {
                     cover: s.querySelector("#qs-detail-cover"),
                     info: s.querySelector("#qs-detail-info"),
                     magnet: s.querySelector("#qs-detail-magnet")
-                }, _ = {
+                }, k = {
                     cover: s.querySelector("#qs-detail-cover-value"),
                     info: s.querySelector("#qs-detail-info-value"),
                     magnet: s.querySelector("#qs-detail-magnet-value")
-                }, k = e => (o.clamp(e) / 100).toFixed(2).replace(/\.?0+$/, ""), S = () => {
-                    const e = y && o.hasMagnet(y), t = s.querySelector('[data-detail-flex-row="magnet"]');
-                    return t && t.classList.toggle("is-disabled", !e), j.magnet && (j.magnet.disabled = !e), 
-                    _.magnet && !e && (_.magnet.textContent = a.magnetTable ? "未渲染" : "关闭"), e;
+                }, S = e => (o.clamp(e) / 100).toFixed(2).replace(/\.?0+$/, ""), C = () => {
+                    const e = w && o.hasMagnet(w), t = s.querySelector('[data-detail-flex-row="magnet"]');
+                    return t && t.classList.toggle("is-disabled", !e), _.magnet && (_.magnet.disabled = !e), 
+                    k.magnet && !e && (k.magnet.textContent = a.magnetTable ? "未渲染" : "关闭"), e;
                 };
                 if (d.bindRange(c, p, i.get(n), e => String(i.clamp(e)), e => {
                     const t = i.clamp(e);
@@ -832,27 +838,29 @@
                 }), d.bindRange(m, u, r.get(n), e => `${r.clamp(e)}%`, e => {
                     const t = r.clamp(e);
                     r.set(n, t), r.apply(n, t);
-                }), y && o.hasLayout(y)) {
-                    const e = o.get(y);
-                    w?.classList.add("is-visible"), Object.entries(j).forEach(([t, n]) => {
-                        const a = _[t];
-                        n && a && d.bindRange(n, a, e[t], k, e => {
-                            if ("magnet" === t && !S()) return;
+                }), w && o.hasLayout(w)) {
+                    const e = o.get(w);
+                    j?.classList.add("is-visible"), Object.entries(_).forEach(([t, n]) => {
+                        const a = k[t];
+                        n && a && d.bindRange(n, a, e[t], S, e => {
+                            if ("magnet" === t && !C()) return;
                             const n = o.clamp(e);
-                            a.textContent = k(n), o.set(y, t, n), o.apply(y);
+                            a.textContent = S(n), o.set(w, t, n), o.apply(w);
                         });
-                    }), S();
+                    }), C();
                 }
                 d.bindCheckbox(h, a.btnShowPan115, e => {
-                    a.btnShowPan115 = e, oe.syncPan115(e);
+                    a.btnShowPan115 = e, se.syncPan115(e);
                 }), d.bindCheckbox(g, a.infiniteScroll, e => {
-                    a.infiniteScroll = e, oe.syncInfiniteScroll(e);
+                    a.infiniteScroll = e, se.syncInfiniteScroll(e);
                 }), d.bindCheckbox(b, a.listPreviewQuick, e => {
-                    a.listPreviewQuick = e, oe.syncListPreview();
+                    a.listPreviewQuick = e, se.syncListPreview();
                 }), d.bindCheckbox(f, a.detailPreviewInline, e => {
-                    a.detailPreviewInline = e, oe.syncDetailPreview();
+                    a.detailPreviewInline = e, se.syncDetailPreview();
                 }), d.bindCheckbox(x, a.titleTranslate, e => {
-                    a.titleTranslate = e, oe.syncTitleTranslate();
+                    a.titleTranslate = e, se.syncTitleTranslate();
+                }), d.bindCheckbox(y, a.listOpenNewTab, e => {
+                    a.listOpenNewTab = e, se.syncListOpenNewTab();
                 }), d.click(s.querySelector(".qs-close"), l), d.click(s.querySelector(".qs-more"), () => {
                     l(), v.open();
                 }), s.addEventListener("click", e => e.stopPropagation()), setTimeout(() => {
@@ -1608,7 +1616,7 @@
         },
         _decorateCard(e) {
             if (!e) return;
-            if ("1" === e.dataset.laosijiGridCard) return void E.attach(e);
+            if ("1" === e.dataset.laosijiGridCard) return void A.attach(e);
             e.dataset.laosijiGridCard = "1", e.classList.add("jav-card", "javbus-grid-card"), 
             e.style.removeProperty("position"), e.style.removeProperty("top"), e.style.removeProperty("left"), 
             e.style.removeProperty("width");
@@ -1637,7 +1645,7 @@
             }
             const o = i?.querySelector("date");
             o && "1" !== o.dataset.laosijiCode && (o.dataset.laosijiCode = "1", o.classList.add("javbus-card-code")), 
-            E.attach(e);
+            A.attach(e);
         },
         _flattenWaterfall() {
             document.querySelectorAll('[id="waterfall"]').forEach(e => {
@@ -1664,10 +1672,10 @@
             i.apply("javbus"), e.querySelectorAll(":scope > .item").forEach(e => this._decorateCard(e)), 
             t && GM_addStyle("\n                    .jav-card-grid {\n                        --jav-card-title-size: 15px;\n                        --jav-card-title-line-height: 1.5;\n                        --jav-card-title-lines: 3;\n                        display: grid !important;\n                        grid-template-columns: repeat(var(--jav-card-columns, 5), minmax(0, 1fr)) !important;\n                        gap: 14px !important;\n                        align-items: stretch !important;\n                        width: 100% !important;\n                        height: auto !important;\n                        box-sizing: border-box !important;\n                    }\n                    .jav-card {\n                        position: static !important;\n                        float: none !important;\n                        display: block !important;\n                        width: auto !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        min-width: 0 !important;\n                        margin: 0 !important;\n                        padding: 0 !important;\n                        box-sizing: border-box !important;\n                        text-align: left !important;\n                        background: #fff !important;\n                        border: 1px solid #e5e7eb !important;\n                        border-radius: 6px !important;\n                        overflow: hidden !important;\n                        box-shadow: 0 1px 4px rgba(15, 23, 42, .08) !important;\n                        transform: translateZ(0) !important;\n                        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;\n                        will-change: transform !important;\n                    }\n                    .jav-card:hover {\n                        border-color: rgba(37, 99, 235, .35) !important;\n                        box-shadow: 0 10px 24px rgba(15, 23, 42, .16) !important;\n                        transform: translateY(-4px) scale(1.018) !important;\n                        z-index: 2 !important;\n                    }\n                    .jav-card-link {\n                        display: flex !important;\n                        flex-direction: column !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        overflow: hidden !important;\n                        color: #2563eb !important;\n                        text-decoration: none !important;\n                    }\n                    .jav-card-link:visited { color: #7c3aed !important; }\n                    .jav-card-cover {\n                        display: block !important;\n                        width: 100% !important;\n                        height: auto !important;\n                        aspect-ratio: 800 / 538 !important;\n                        overflow: hidden !important;\n                        background: #f8fafc !important;\n                        border-bottom: 1px solid #f1f5f9 !important;\n                        margin: 0 !important;\n                    }\n                    .jav-card-image {\n                        display: block !important;\n                        width: 100% !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        object-fit: cover !important;\n                        object-position: center center !important;\n                        background: #f8fafc !important;\n                        border: 0 !important;\n                    }\n                    .jav-card-title {\n                        display: block !important;\n                        width: 100% !important;\n                        max-width: none !important;\n                        height: auto !important;\n                        max-height: none !important;\n                        box-sizing: border-box !important;\n                        flex: 1 1 auto !important;\n                        min-height: 0 !important;\n                        margin: 0 !important;\n                        padding: 7px 8px 9px !important;\n                        overflow: visible !important;\n                        color: inherit !important;\n                        font-size: var(--jav-card-title-size, 15px) !important;\n                        line-height: var(--jav-card-title-line-height, 1.5) !important;\n                        text-align: left !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                    }\n                    .javbus-card-grid {\n                        position: static !important;\n                        --jav-card-columns: 5;\n                        box-sizing: border-box !important;\n                    }\n                    #waterfall.javbus-card-grid {\n                        display: grid !important;\n                        grid-template-columns: repeat(var(--jav-card-columns, 5), minmax(0, 1fr)) !important;\n                        gap: 14px !important;\n                        align-items: stretch !important;\n                        min-height: 0 !important;\n                    }\n                    body .container-fluid {\n                        padding-left: 28px !important;\n                        padding-right: 28px !important;\n                        box-sizing: border-box !important;\n                    }\n                    #waterfall.javbus-card-grid > .item,\n                    .javbus-card-grid .item.javbus-grid-card {\n                        position: static !important;\n                        width: auto !important;\n                        float: none !important;\n                        margin: 0 !important;\n                        top: auto !important;\n                        left: auto !important;\n                    }\n                    .javbus-card-grid .item .jav-card-link.javbus-card-link {\n                        width: 100% !important;\n                        min-width: 0 !important;\n                        margin: 0 !important;\n                        padding: 0 !important;\n                        background: #fff !important;\n                        box-shadow: none !important;\n                        border-radius: 0 !important;\n                        overflow: hidden !important;\n                    }\n                    .javbus-card-grid .item .javbus-cover-frame.photo-frame {\n                        margin: 0 !important;\n                        height: auto !important;\n                    }\n                    .javbus-card-grid .item .javbus-card-image {\n                        height: 100% !important;\n                        margin: 0 !important;\n                    }\n                    .javbus-card-title > span {\n                        display: block !important;\n                    }\n                    .javbus-card-title .video-title {\n                        display: -webkit-box !important;\n                        -webkit-box-orient: vertical !important;\n                        -webkit-line-clamp: var(--jav-card-title-lines, 3) !important;\n                        line-clamp: var(--jav-card-title-lines, 3) !important;\n                        height: calc(var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) !important;\n                        max-height: calc(var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) !important;\n                        min-height: calc(var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) !important;\n                        overflow: hidden !important;\n                        text-overflow: ellipsis !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                        color: inherit !important;\n                        font-size: var(--jav-card-title-size, 15px) !important;\n                        line-height: var(--jav-card-title-line-height, 1.5) !important;\n                        margin-bottom: 6px !important;\n                    }\n                    .javbus-card-grid .item .javbus-card-title .jav-pan115-badge {\n                        display: inline-flex !important;\n                        width: auto !important;\n                        max-width: max-content !important;\n                        float: none !important;\n                        vertical-align: middle !important;\n                        margin: 0 6px 4px 0 !important;\n                    }\n                    .javbus-card-title .item-tag {\n                        margin: 6px 0 4px !important;\n                    }\n                    .javbus-card-title date {\n                        color: #94a3b8 !important;\n                        font-size: 12px !important;\n                    }\n                    .javbus-card-title date.javbus-card-code {\n                        display: inline-block !important;\n                        color: inherit !important;\n                        font-size: 15px !important;\n                        font-weight: 800 !important;\n                        margin-top: 2px !important;\n                    }\n                    @media (max-width: 1100px) {\n                        .javbus-card-grid { --jav-card-columns: 4; }\n                    }\n                    @media (max-width: 820px) {\n                        .javbus-card-grid { --jav-card-columns: 3; }\n                    }\n                    @media (max-width: 560px) {\n                        .javbus-card-grid { --jav-card-columns: 2; gap: 10px !important; }\n                    }\n                "), 
             setTimeout(() => {
-                oe.refreshListPage();
+                se.refreshListPage();
             }, 0), setTimeout(() => {
                 this._flattenWaterfall(), e.querySelectorAll(":scope > .item").forEach(e => this._decorateCard(e)), 
-                oe.syncListPreview();
+                se.syncListPreview();
             }, 450);
         }
     }, y = {
@@ -2164,7 +2172,7 @@
                 t.innerHTML = this._renderApiDetailPage(a);
                 const i = h(a.number);
                 return this._insertCopyButton(i), this._ensureDetailLayout(), this._insertMagnet(i), 
-                r.apply("javdb"), o.apply(), oe.refresh({
+                r.apply("javdb"), o.apply(), se.refresh({
                     detailPreview: !0,
                     infiniteScroll: !1
                 }), !0;
@@ -2210,7 +2218,7 @@
                 i.innerHTML = this._renderApiRankingMovies(n), a.textContent = s ? `已加载 ${n.length} 条数据，共 ${s} 条匹配` : `已加载 ${n.length} 条数据`;
                 const l = "top" === e.mode ? e.page < 5 : s ? 40 * e.page < s : n.length >= 40;
                 return o.innerHTML = this._renderApiRankingPagination(e, l), this._initListPage(), 
-                r.apply("javdb"), oe.refreshListPage(), !0;
+                r.apply("javdb"), se.refreshListPage(), !0;
             } catch (e) {
                 return console.warn("[老司机] JavDB API 榜单请求失败:", e), a.classList.add("is-error"), 
                 a.textContent = e.message || "JavDB API 请求失败", !0;
@@ -2224,7 +2232,7 @@
             i.apply("javdb"), n.forEach(e => this._decorateCard(e)), this._rewriteFc2DetailLinks(e), 
             t && GM_addStyle("\n                    .jav-card-grid {\n                        --jav-card-title-size: 15px;\n                        --jav-card-title-line-height: 1.5;\n                        --jav-card-title-lines: 3;\n                        display: grid !important;\n                        grid-template-columns: repeat(var(--jav-card-columns, 5), minmax(0, 1fr)) !important;\n                        gap: 14px !important;\n                        align-items: stretch !important;\n                        width: 100% !important;\n                        box-sizing: border-box !important;\n                    }\n                    .jav-card {\n                        float: none !important;\n                        display: block !important;\n                        width: auto !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        min-width: 0 !important;\n                        margin: 0 !important;\n                        padding: 0 !important;\n                        box-sizing: border-box !important;\n                        text-align: left !important;\n                        background: #fff !important;\n                        border: 1px solid #e5e7eb !important;\n                        border-radius: 6px !important;\n                        overflow: hidden !important;\n                        box-shadow: 0 1px 4px rgba(15, 23, 42, .08) !important;\n                        transform: translateZ(0) !important;\n                        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;\n                        will-change: transform !important;\n                    }\n                    .jav-card:hover {\n                        border-color: rgba(37, 99, 235, .35) !important;\n                        box-shadow: 0 10px 24px rgba(15, 23, 42, .16) !important;\n                        transform: translateY(-4px) scale(1.018) !important;\n                        z-index: 2 !important;\n                    }\n                    .jav-card-link {\n                        display: flex !important;\n                        flex-direction: column !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        overflow: hidden !important;\n                        color: #2563eb !important;\n                        text-decoration: none !important;\n                    }\n                    .jav-card-link:visited {\n                        color: #7c3aed !important;\n                    }\n                    .jav-card-cover {\n                        display: block !important;\n                        width: 100% !important;\n                        height: auto !important;\n                        aspect-ratio: 800 / 538 !important;\n                        overflow: hidden !important;\n                        background: #f8fafc !important;\n                        border-bottom: 1px solid #f1f5f9 !important;\n                    }\n                    .jav-card-image {\n                        display: block !important;\n                        width: 100% !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        object-fit: cover !important;\n                        object-position: center center !important;\n                        background: #f8fafc !important;\n                        border: 0 !important;\n                    }\n                    .jav-card-title {\n                        display: block !important;\n                        width: 100% !important;\n                        max-width: none !important;\n                        height: calc((var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) + 16px) !important;\n                        max-height: calc((var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) + 16px) !important;\n                        box-sizing: border-box !important;\n                        flex: 0 0 auto !important;\n                        min-height: calc((var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) + 16px) !important;\n                        margin: 0 !important;\n                        padding: 7px 8px 9px !important;\n                        overflow: hidden !important;\n                        color: inherit !important;\n                        font-size: var(--jav-card-title-size, 15px) !important;\n                        line-height: var(--jav-card-title-line-height, 1.5) !important;\n                        text-align: left !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                    }\n                    .javdb-card-headline {\n                        display: -webkit-box !important;\n                        -webkit-box-orient: vertical !important;\n                        -webkit-line-clamp: var(--jav-card-title-lines, 3) !important;\n                        line-clamp: var(--jav-card-title-lines, 3) !important;\n                        max-height: calc(var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) !important;\n                        overflow: hidden !important;\n                        text-overflow: ellipsis !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                    }\n                    .jav-card-title strong {\n                        color: inherit !important;\n                        font-size: 16px !important;\n                        font-weight: 800 !important;\n                    }\n                    .javdb-card-grid {\n                        --jav-card-columns: 5;\n                    }\n                    .javdb-card-grid .item.javdb-grid-card {\n                        position: static !important;\n                        width: auto !important;\n                        float: none !important;\n                        margin: 0 !important;\n                    }\n                    .javdb-card-grid .item .javdb-card-link.box {\n                        width: 100% !important;\n                        min-width: 0 !important;\n                        margin: 0 !important;\n                        padding: 0 !important;\n                        background: #fff !important;\n                        box-shadow: none !important;\n                        border-radius: 0 !important;\n                        overflow: hidden !important;\n                    }\n                    .javdb-card-grid .item .javdb-cover-frame.cover {\n                        margin: 0 !important;\n                        height: auto !important;\n                    }\n                    .javdb-card-grid .item .javdb-card-image {\n                        height: 100% !important;\n                        margin: 0 !important;\n                    }\n                    .javdb-card-grid .item .javdb-card-title .jav-pan115-badge {\n                        display: inline-flex !important;\n                        width: auto !important;\n                        max-width: max-content !important;\n                        float: none !important;\n                        vertical-align: middle !important;\n                        margin: 0 6px 4px 0 !important;\n                    }\n                    .javdb-card-score,\n                    .javdb-card-meta,\n                    .javdb-card-tags {\n                        padding-left: 8px !important;\n                        padding-right: 8px !important;\n                    }\n                    .javdb-card-score {\n                        margin-top: 2px !important;\n                        color: #64748b !important;\n                        font-size: 12px !important;\n                        line-height: 1.45 !important;\n                    }\n                    .javdb-card-score .value {\n                        color: inherit !important;\n                        font-size: inherit !important;\n                    }\n                    .javdb-card-meta {\n                        margin-top: 4px !important;\n                        color: #94a3b8 !important;\n                        font-size: 12px !important;\n                        line-height: 1.45 !important;\n                    }\n                    .javdb-card-tags {\n                        display: flex !important;\n                        flex-wrap: wrap !important;\n                        gap: 6px !important;\n                        margin-top: auto !important;\n                        padding-top: 8px !important;\n                        padding-bottom: 10px !important;\n                    }\n                    .javdb-card-tags .tag {\n                        margin: 0 !important;\n                    }\n                    @media (max-width: 1100px) {\n                        .javdb-card-grid { --jav-card-columns: 4; }\n                    }\n                    @media (max-width: 820px) {\n                        .javdb-card-grid { --jav-card-columns: 3; }\n                    }\n                    @media (max-width: 560px) {\n                        .javdb-card-grid { --jav-card-columns: 2; gap: 10px !important; }\n                    }\n                "), 
             setTimeout(() => {
-                oe.refreshListPage();
+                se.refreshListPage();
             }, 0));
         },
         _decorateCard(e) {
@@ -2248,7 +2256,7 @@
             const o = e.querySelector(".meta");
             o?.classList.add("javdb-card-meta");
             const s = e.querySelector(".tags");
-            s?.classList.add("javdb-card-tags"), E.attach(e);
+            s?.classList.add("javdb-card-tags"), A.attach(e);
         },
         _insertTopSettingsButton() {
             const e = document.querySelector("#navbar-menu-user .navbar-end");
@@ -2365,7 +2373,7 @@
                 }
             }), t && GM_addStyle("\n                    .jav-card-grid {\n                        --jav-card-title-size: 15px;\n                        --jav-card-title-line-height: 1.5;\n                        --jav-card-title-lines: 3;\n                        display: grid !important;\n                        grid-template-columns: repeat(var(--jav-card-columns, 5), minmax(0, 1fr)) !important;\n                        gap: 14px !important;\n                        align-items: stretch !important;\n                        width: 100% !important;\n                        box-sizing: border-box !important;\n                    }\n                    .jav-card {\n                        float: none !important;\n                        display: block !important;\n                        width: auto !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        min-width: 0 !important;\n                        margin: 0 !important;\n                        padding: 0 !important;\n                        box-sizing: border-box !important;\n                        text-align: left !important;\n                        background: #fff !important;\n                        border: 1px solid #e5e7eb !important;\n                        border-radius: 6px !important;\n                        overflow: hidden !important;\n                        box-shadow: 0 1px 4px rgba(15, 23, 42, .08) !important;\n                        transform: translateZ(0) !important;\n                        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;\n                        will-change: transform !important;\n                    }\n                    .jav-card:hover {\n                        border-color: rgba(37, 99, 235, .35) !important;\n                        box-shadow: 0 10px 24px rgba(15, 23, 42, .16) !important;\n                        transform: translateY(-4px) scale(1.018) !important;\n                        z-index: 2 !important;\n                    }\n                    .jav-card-link {\n                        display: flex !important;\n                        flex-direction: column !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        overflow: hidden !important;\n                        color: #2563eb !important;\n                        text-decoration: none !important;\n                    }\n                    .jav-card-link:visited {\n                        color: #7c3aed !important;\n                    }\n                    .jav-card-cover {\n                        display: block !important;\n                        width: 100% !important;\n                        height: auto !important;\n                        aspect-ratio: 800 / 538 !important;\n                        overflow: hidden !important;\n                        background: #f8fafc !important;\n                        border-bottom: 1px solid #f1f5f9 !important;\n                    }\n                    .jav-card-image {\n                        display: block !important;\n                        width: 100% !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        object-fit: cover !important;\n                        object-position: center center !important;\n                        background: #f8fafc !important;\n                        border: 0 !important;\n                    }\n                    .jav-card-title {\n                        display: block !important;\n                        width: 100% !important;\n                        max-width: none !important;\n                        height: calc((var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) + 16px) !important;\n                        max-height: calc((var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) + 16px) !important;\n                        box-sizing: border-box !important;\n                        flex: 1 1 auto !important;\n                        min-height: calc((var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) + 16px) !important;\n                        margin: 0 !important;\n                        padding: 7px 8px 9px !important;\n                        overflow: hidden !important;\n                        text-overflow: ellipsis !important;\n                        color: inherit !important;\n                        font-size: var(--jav-card-title-size, 15px) !important;\n                        line-height: var(--jav-card-title-line-height, 1.5) !important;\n                        text-align: left !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                    }\n                    .javlib-card-headline {\n                        display: -webkit-box !important;\n                        -webkit-box-orient: vertical !important;\n                        -webkit-line-clamp: var(--jav-card-title-lines, 3) !important;\n                        line-clamp: var(--jav-card-title-lines, 3) !important;\n                        max-height: calc(var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) !important;\n                        overflow: hidden !important;\n                        text-overflow: ellipsis !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                    }\n                    .jav-card-title strong {\n                        color: inherit !important;\n                        font-size: 16px !important;\n                        font-weight: 800 !important;\n                    }\n                    .videothumblist { width: 100% !important; }\n                    .videothumblist .videos.javlib-card-grid {\n                        --jav-card-columns: 5;\n                    }\n                    .videothumblist .video.javlib-grid-card .id {\n                        display: none !important;\n                    }\n                    .videothumblist .video.javlib-grid-card .toolbar {\n                        display: none !important;\n                    }\n                    @media (max-width: 1100px) {\n                        .videothumblist .videos.javlib-card-grid { --jav-card-columns: 4; }\n                    }\n                    @media (max-width: 820px) {\n                        .videothumblist .videos.javlib-card-grid { --jav-card-columns: 3; }\n                    }\n                    @media (max-width: 560px) {\n                        .videothumblist .videos.javlib-card-grid { --jav-card-columns: 2; gap: 10px !important; }\n                    }\n                "), 
             setTimeout(() => {
-                oe.refreshListDecorations();
+                se.refreshListDecorations();
             }, 0));
         },
         _initHomePage() {
@@ -2432,18 +2440,18 @@
         current() {
             return this.list.find(e => e.match()) || null;
         },
-        isDetailPage: () => /javbus\.com/i.test(location.hostname) ? /^\/(?:[a-z]{2}\/)?(?:[A-Z]{2,15}-?\d{2,10}(?:-\d{1,3})?|[A-Z]{2,10}\d{3,6}|FC2(?:-PPV)?-\d{6,9})\/?$/i.test(location.pathname) : Z.some(e => e.match(window.location.href)),
+        isDetailPage: () => /javbus\.com/i.test(location.hostname) ? /^\/(?:[a-z]{2}\/)?(?:[A-Z]{2,15}-?\d{2,10}(?:-\d{1,3})?|[A-Z]{2,10}\d{3,6}|FC2(?:-PPV)?-\d{6,9})\/?$/i.test(location.pathname) : Y.some(e => e.match(window.location.href)),
         getListCards: (e = document) => [ ...e.querySelectorAll(".javbus-card-grid > .item, .javdb-card-grid > .item, .videothumblist .videos.javlib-card-grid > .video") ],
         getCardCover: e => e?.querySelector(".jav-card-cover") || null,
         getCardCode(e) {
             if (!e) return "";
             const t = e.querySelector(".javbus-card-code, .javlib-card-code, .id, [data-code]")?.textContent?.trim();
             if (t) {
-                const e = S.extractCode(t) || S.normalizeCode(t);
+                const e = C.extractCode(t) || C.normalizeCode(t);
                 if (e) return e;
             }
             const n = [ e.querySelector(".javdb-card-headline")?.textContent, e.querySelector(".javlib-card-headline")?.textContent, e.querySelector(".javbus-card-headline")?.textContent, e.querySelector(".video-title")?.textContent, e.querySelector(".title")?.textContent, e.querySelector("a[title]")?.getAttribute("title"), e.textContent ].filter(Boolean).join(" ");
-            return S.extractCode(n) || "";
+            return C.extractCode(n) || "";
         },
         getInfiniteScrollContainer: (e, t = document) => "javbus" === e ? t === document ? x._getGridContainer() : t.querySelector("#waterfall") : "javdb" === e ? t.querySelector(".movie-list") || t.querySelector(".movies") || t.querySelector(".grid") : null,
         getInfiniteScrollConfig(e = document, t = location.href) {
@@ -2471,7 +2479,7 @@
             return null;
         },
         decorateInfiniteScrollItem(e, t) {
-            "javbus" === e && x._decorateCard?.(t), "javdb" === e && y._decorateCard?.(t), E.attach(t);
+            "javbus" === e && x._decorateCard?.(t), "javdb" === e && y._decorateCard?.(t), A.attach(t);
         },
         reflowInfiniteScroll(e, t) {
             if ("javbus" === e) {
@@ -2494,12 +2502,12 @@
             if (e.closest(".emby-btn, .emby-badge, .emby-button-group, .emby-javlibrary-list-badge")) return null;
             const t = e.getAttribute("href") || "";
             if (/^(?:magnet:|javascript:|#)/i.test(t)) return null;
-            const n = [ e.getAttribute("title"), e.getAttribute("aria-label"), e.textContent, t ].filter(Boolean).join(" "), a = S.extractCode(n), i = L.extractCode(n, a);
+            const n = [ e.getAttribute("title"), e.getAttribute("aria-label"), e.textContent, t ].filter(Boolean).join(" "), a = C.extractCode(n), i = P.extractCode(n, a);
             if (!a || !i) return null;
             const r = (e.textContent || e.getAttribute("title") || "").trim(), o = r.length > 0;
             if (!o) return null;
             const s = /\/v\/\w+/i.test(t) || /(?:^|\/|\.)jav\w+\.html(?:[?#].*)?$/i.test(t) || /\/videos\/[a-z0-9-]+\/?/i.test(t) || /\/(?:[a-z]{2,15}-\d{2,10}|fc2[-_]?ppv[-_]?\d{6,9})\/?$/i.test(t) || /\/(?:[a-z]{2,15}\d{3,6})\/?$/i.test(t) || /(?:movie|video|detail|view|jav)/i.test(t), l = !!e.closest(".movie-list, .movies, .grid, #waterfall, .movie-box, .box, .thumbnail, .video-list, .video-list-row, .section-container, .videothumblist");
-            return !s && !l || o && !S.extractCode(r) && !s ? null : {
+            return !s && !l || o && !C.extractCode(r) && !s ? null : {
                 anchor: e,
                 code: i
             };
@@ -2510,7 +2518,7 @@
             /(javlibrary|javlib|r86m|s87n)/i.test(location.hostname) && document.querySelectorAll(".videothumblist .video > a[href]:not(.emby-javlibrary-list-badge)").forEach(e => {
                 if (t.has(e) || "1" === e.dataset.pan115Checked) return;
                 if (e.closest(".emby-btn, .emby-badge, .emby-button-group, .emby-javlibrary-list-badge")) return;
-                const a = e.closest(".video"), i = [ a?.querySelector(".id")?.textContent, a?.querySelector(".title")?.textContent, e.getAttribute("title"), e.href ].filter(Boolean).join(" "), r = S.extractCode(i), o = L.extractCode(i, r);
+                const a = e.closest(".video"), i = [ a?.querySelector(".id")?.textContent, a?.querySelector(".title")?.textContent, e.getAttribute("title"), e.href ].filter(Boolean).join(" "), r = C.extractCode(i), o = P.extractCode(i, r);
                 r && o && (t.add(e), n.push({
                     anchor: e,
                     code: o
@@ -2526,11 +2534,11 @@
             }), n;
         },
         insertPan115ListBadge(e, t, n) {
-            if (!L.enabled() || !t?.pickcode || !e || "1" === e.dataset.pan115HasBadge) return;
+            if (!P.enabled() || !t?.pickcode || !e || "1" === e.dataset.pan115HasBadge) return;
             if (e.matches?.(".emby-javlibrary-list-badge") || e.closest?.(".emby-btn, .emby-badge, .emby-button-group, .emby-javlibrary-list-badge")) return;
             const a = e.querySelector(".title, .video-title");
             if (a) {
-                const i = H(t, n, !1), r = a.querySelector(".javlib-card-headline");
+                const i = O(t, n, !1), r = a.querySelector(".javlib-card-headline");
                 if (r) return r.insertBefore(i, r.firstChild), void (e.dataset.pan115HasBadge = "1");
                 const o = a.querySelector(".javdb-card-headline");
                 return o ? (o.insertBefore(i, o.firstChild), void (e.dataset.pan115HasBadge = "1")) : (a.insertBefore(i, a.firstChild), 
@@ -2538,20 +2546,20 @@
             }
             const i = this.findPan115TitleTextNode(e);
             if (i?.parentNode && e.contains(i.parentNode)) {
-                const e = H(t, n, !1);
+                const e = O(t, n, !1);
                 i.parentNode.insertBefore(e, i);
             } else {
-                const a = H(t, n, !0);
+                const a = O(t, n, !0);
                 e.parentNode?.insertBefore(a, e);
             }
             e.dataset.pan115HasBadge = "1";
         },
-        getDetailFeatureSite: () => Z.find(e => e.match(window.location.href)) || null,
+        getDetailFeatureSite: () => Y.find(e => e.match(window.location.href)) || null,
         getDetailCode() {
             const e = this.getDetailFeatureSite();
             if (!e) return "";
-            const t = "emby" === e.id ? Q() : document.querySelector(e.titleSelector || ""), n = t?.textContent || document.title || "";
-            return S.extractCode(n) || "";
+            const t = "emby" === e.id ? ee() : document.querySelector(e.titleSelector || ""), n = t?.textContent || document.title || "";
+            return C.extractCode(n) || "";
         },
         getDetailLayoutSite() {
             const e = location.hostname;
@@ -2600,14 +2608,14 @@
                 e.classList.remove("has-detail-preview-inline");
             });
         },
-        getJumpSite: (e = window.location.href) => Z.find(t => t.match(e)) || null,
-        getJumpTitleElement: e => e ? "emby" === e.id ? Q() : document.querySelector(e.titleSelector) : null,
+        getJumpSite: (e = window.location.href) => Y.find(t => t.match(e)) || null,
+        getJumpTitleElement: e => e ? "emby" === e.id ? ee() : document.querySelector(e.titleSelector) : null,
         getEmbyInsertAnchor: e => e?.closest(".itemPrimaryNameContainer, .nameContainer, .detailPageWrapperContainer .infoWrapper") || e,
         getEmbyRenderKey(e) {
             const t = location.hash || "";
             return `${t.match(/item\?id=([^&]+)/i)?.[1] || new URLSearchParams(t.split("?")[1] || "").get("id") || ""}::${(e?.textContent || "").trim()}`;
         },
-        isEmbyPage: (e = window.location.href) => !!Z.find(e => "emby" === e.id)?.match(e),
+        isEmbyPage: (e = window.location.href) => !!Y.find(e => "emby" === e.id)?.match(e),
         setupJavDbGuards() {
             !this.javdbGuardsReady && y.match() && (this.javdbGuardsReady = !0, y._dismissOver18Modal(), 
             y._hideDownloadCorrectionBlock(), new MutationObserver(() => {
@@ -2629,6 +2637,54 @@
             o.apply();
         }
     }, _ = (() => {
+        const e = "laosijiListNewTab";
+        function t(t) {
+            !function(t) {
+                "1" !== t.dataset[e] && (t.dataset[e] = "1", t.dataset.laosijiHadTarget = t.hasAttribute("target") ? "1" : "0", 
+                t.dataset.laosijiHadRel = t.hasAttribute("rel") ? "1" : "0", t.dataset.laosijiOriginalTarget = t.getAttribute("target") || "", 
+                t.dataset.laosijiOriginalRel = t.getAttribute("rel") || "");
+            }(t);
+            const n = new Set((t.getAttribute("rel") || "").split(/\s+/).filter(Boolean));
+            n.add("noopener"), n.add("noreferrer"), t.setAttribute("target", "_blank"), t.setAttribute("rel", [ ...n ].join(" "));
+        }
+        function n(t = new Set) {
+            document.querySelectorAll('a[data-laosiji-list-new-tab="1"]').forEach(n => {
+                t.has(n) || function(t) {
+                    "1" === t.dataset[e] && ("1" === t.dataset.laosijiHadTarget ? t.setAttribute("target", t.dataset.laosijiOriginalTarget || "") : t.removeAttribute("target"), 
+                    "1" === t.dataset.laosijiHadRel ? t.setAttribute("rel", t.dataset.laosijiOriginalRel || "") : t.removeAttribute("rel"), 
+                    delete t.dataset[e], delete t.dataset.laosijiHadTarget, delete t.dataset.laosijiHadRel, 
+                    delete t.dataset.laosijiOriginalTarget, delete t.dataset.laosijiOriginalRel);
+                }(n);
+            });
+        }
+        return {
+            sync: function() {
+                if (!a.listOpenNewTab) return void n();
+                const e = function() {
+                    if (j.isDetailPage()) return [];
+                    if (x.match() && x.isActorIndexPage()) return [];
+                    let e = [];
+                    if (x.match() ? e = [ "#waterfall.javbus-card-grid > .item > a.movie-box[href]", ".javbus-card-grid .javbus-card-link[href]" ] : y.match() ? e = [ ".javdb-card-grid > .item > a.box[href]", ".movie-list.javdb-card-grid > .item > a.box[href]", ".movies.javdb-card-grid > .item > a.box[href]", ".grid.javdb-card-grid > .item > a.box[href]" ] : w.match() && (e = [ ".videothumblist .videos.javlib-card-grid > .video > a[href]:not(.emby-javlibrary-list-badge)" ]), 
+                    !e.length) return [];
+                    const t = new Set;
+                    return e.flatMap(e => [ ...document.querySelectorAll(e) ]).filter(e => !(t.has(e) || !function(e) {
+                        const t = e?.getAttribute?.("href") || "";
+                        if (!t || /^(?:javascript:|#|magnet:|mailto:|tel:)/i.test(t)) return !1;
+                        try {
+                            const e = new URL(t, location.href);
+                            return /^https?:$/i.test(e.protocol);
+                        } catch (e) {
+                            return !1;
+                        }
+                    }(e) || (t.add(e), 0)));
+                }(), i = new Set(e);
+                e.forEach(t), n(i);
+            },
+            clear: () => n()
+        };
+    })();
+    l.expose("__LAOSIJI_LIST_OPEN_NEW_TAB__", _);
+    const k = (() => {
         let e = null;
         function t(e, t, n, a) {
             const i = document.createElement("button");
@@ -2704,10 +2760,10 @@
                     if (function(e) {
                         const t = e?.getAttribute?.("href") || "", n = t.startsWith("#") ? document.getElementById(t.slice(1)) : null;
                         if (!n || "VIDEO" !== n.tagName) return !1;
-                        const a = j.getDetailCode?.() || S.extractCode(document.title || "") || "";
-                        if (!a) return S.showToast("无法识别番号", "未能从当前页面读取预告片查询番号", 2600), !0;
+                        const a = j.getDetailCode?.() || C.extractCode(document.title || "") || "";
+                        if (!a) return C.showToast("无法识别番号", "未能从当前页面读取预告片查询番号", 2600), !0;
                         const i = e.querySelector("span"), r = i?.textContent || "";
-                        return i && (i.textContent = "解析中..."), A.show(a).finally(() => {
+                        return i && (i.textContent = "解析中..."), M.show(a).finally(() => {
                             i?.isConnected && (i.textContent = r || "预告片");
                         }), !0;
                     }(i)) return t.preventDefault(), t.stopPropagation(), void t.stopImmediatePropagation?.();
@@ -2793,13 +2849,13 @@
             }
         };
     })();
-    function k() {
+    function S() {
         j.initCurrent();
     }
     l.expose("__LAOSIJI_SITE_MANAGER__", j), l.expose("__LAOSIJI_SITE_JAVBUS__", x), 
-    l.expose("__LAOSIJI_SITE_JAVDB__", y), l.expose("__LAOSIJI_SITE_JAVLIB__", w), l.expose("__LAOSIJI_STILLS_GALLERY__", _), 
+    l.expose("__LAOSIJI_SITE_JAVDB__", y), l.expose("__LAOSIJI_SITE_JAVLIB__", w), l.expose("__LAOSIJI_STILLS_GALLERY__", k), 
     GM_addStyle('\n        .preview-overlay {\n            position: fixed;\n            inset: 0;\n            background: rgba(0,0,0,0.85);\n            z-index: 2147483647;\n            display: flex;\n            overflow: auto;\n            cursor: zoom-out;\n            backdrop-filter: blur(5px);\n        }\n        .preview-img {\n            border-radius: 4px;\n            margin: auto;\n            cursor: zoom-in;\n            max-width: 95vw;\n            max-height: 95vh;\n            object-fit: contain;\n            display: block;\n            box-shadow: 0 0 20px rgba(0,0,0,0.5);\n        }\n        .preview-img.zoomed {\n            max-width: none;\n            max-height: none;\n            cursor: zoom-out;\n        }\n        a:focus:not(:focus-visible),\n        button:focus:not(:focus-visible),\n        [role="button"]:focus:not(:focus-visible),\n        input[type="button"]:focus:not(:focus-visible),\n        input[type="submit"]:focus:not(:focus-visible) {\n            outline: none !important;\n        }\n\n        .jav-jump-btn-group {\n            margin-top: 8px;\n            margin-bottom: 4px;\n            display: flex;\n            flex-wrap: wrap;\n            gap: 8px;\n            align-items: center;\n        }\n\n\n        .emby-fix {\n            width: 100% !important;\n            flex-basis: 100% !important;\n            clear: both !important;\n            margin-top: 8px !important;\n            margin-bottom: 4px !important;\n        }\n\n        .mini-switch {\n            width: 40px;\n            height: 20px;\n            appearance: none;\n            background: #e0e0e0;\n            border-radius: 20px;\n            position: relative;\n            cursor: pointer;\n            outline: none;\n            transition: background 0.2s;\n        }\n        .mini-switch:checked {\n            background: #4CAF50;\n        }\n        .mini-switch::before {\n            content: \'\';\n            position: absolute;\n            width: 16px;\n            height: 16px;\n            border-radius: 50%;\n            background: white;\n            top: 2px;\n            left: 2px;\n            transition: left 0.2s;\n        }\n        .mini-switch:checked::before {\n            left: calc(100% - 18px);\n        }\n\n        @keyframes btnSlideIn {\n            from {\n                opacity: 0;\n                transform: translateX(-10px);\n            }\n            to {\n                opacity: 1;\n                transform: translateX(0);\n            }\n        }\n\n        .jav-jump-btn-group a {\n            transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;\n            animation: btnSlideIn 0.3s ease-out;\n        }\n\n        .jav-jump-btn-group a:hover {\n            background: var(--jav-btn-hover-bg, #f8fafc) !important;\n            transform: translateY(-1px) !important;\n            filter: none !important;\n            box-shadow: 0 5px 14px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.76) !important;\n            text-decoration: none !important;\n        }\n\n        @keyframes menuFadeIn {\n            from {\n                opacity: 0;\n                transform: translateY(-10px);\n            }\n            to {\n                opacity: 1;\n                transform: translateY(0);\n            }\n        }\n\n        .search-menu {\n            position: relative;\n            display: inline-block;\n            border-radius: 4px;\n        }\n        .search-main-btn {\n            padding-right: 28px !important;\n        }\n        .search-toggle-btn {\n            position: absolute;\n            right: 4px;\n            top: 50%;\n            transform: translateY(-50%);\n            width: 16px;\n            height: 16px;\n            padding: 0 !important;\n            margin: 0 !important;\n            display: inline-flex !important;\n            align-items: center;\n            justify-content: center;\n            flex-shrink: 0;\n            font-size: 10px !important;\n            line-height: 1;\n            opacity: 1;\n            background: color-mix(in srgb, var(--jav-btn-accent, #64748b) 18%, #ffffff) !important;\n            color: inherit !important;\n            border: 1px solid color-mix(in srgb, var(--jav-btn-accent, #64748b) 26%, #ffffff) !important;\n            border-radius: 999px !important;\n            box-shadow: 0 1px 2px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.7) !important;\n            cursor: pointer;\n        }\n        .search-toggle-btn:hover { filter: none; background: color-mix(in srgb, var(--jav-btn-accent, #64748b) 26%, #ffffff) !important; }\n        .search-toggle-btn .search-arrow { display: inline-block; transform: translateY(-1px); pointer-events: none; }\n        .search-submenu {\n            position: absolute;\n            top: calc(100% + 4px);\n            left: 0;\n            display: none;\n            flex-direction: column;\n            gap: 4px;\n            padding: 4px;\n            background: rgba(255,255,255,0.95);\n            border-radius: 6px;\n            box-shadow: 0 4px 12px rgba(0,0,0,0.2);\n            z-index: 10000;\n            min-width: 120px;\n            backdrop-filter: blur(5px);\n        }\n        .search-submenu.is-open { display: flex; }\n        .search-submenu a { transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; }\n        .search-submenu a:hover { transform: translateX(5px) scale(1.02); filter: brightness(1.1); }\n        .jav-pan115-badge {\n            display: inline-flex;\n            align-items: center;\n            justify-content: center;\n            min-width: 58px;\n            height: 22px !important;\n            padding: 0 7px;\n            margin-right: 6px;\n            position: static !important;\n            top: auto !important;\n            transform: none !important;\n            border-radius: 6px;\n            background: #bbf7d0;\n            border: 1px solid #22c55e;\n            color: #065f46;\n            font-size: 12px !important;\n            font-weight: 800;\n            line-height: 22px !important;\n            text-decoration: none;\n            box-sizing: border-box;\n            vertical-align: middle;\n            box-shadow: inset 0 1px 0 rgba(255,255,255,0.72);\n        }\n        .jav-pan115-badge:hover {\n            background: #86efac;\n            color: #064e3b;\n            text-decoration: none;\n            box-shadow: 0 4px 12px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.76);\n        }\n        span.jav-pan115-badge {\n            cursor: pointer;\n        }\n        .jav-infinite-sentinel {\n            width: 100%;\n            padding: 14px 0;\n            color: #64748b;\n            font-size: 13px;\n            font-weight: 700;\n            text-align: center;\n            clear: both;\n        }\n        .jav-infinite-sentinel.is-loading { color: #2563eb; }\n        .jav-infinite-sentinel.is-done { color: #94a3b8; }\n        .jav-infinite-sentinel.is-error { color: #dc2626; cursor: pointer; }\n\n        .preview-toolbar {\n            position: fixed;\n            top: 20px;\n            right: 20px;\n            display: flex;\n            gap: 8px;\n            z-index: 2147483648;\n            background: rgba(30, 30, 30, 0.75);\n            backdrop-filter: blur(10px);\n            padding: 6px 12px;\n            border-radius: 30px;\n            border: 1px solid rgba(255, 255, 255, 0.08);\n            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);\n        }\n\n        .preview-btn {\n            border: none;\n            color: #eee;\n            font-size: 13px;\n            font-weight: 450;\n            cursor: pointer;\n            padding: 6px 14px;\n            border-radius: 24px;\n            transition: all 0.2s ease;\n            display: inline-flex;\n            align-items: center;\n            gap: 6px;\n            background: rgba(100, 100, 120, 0.3);\n            border: 1px solid rgba(255, 255, 255, 0.05);\n            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);\n            letter-spacing: 0.2px;\n        }\n\n        .preview-btn:hover {\n            background: rgba(140, 140, 160, 0.4);\n            transform: translateY(-2px);\n            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);\n        }\n\n        .preview-btn.javfree.active {\n            background: #2ecc71;\n            color: white;\n            border-color: rgba(255, 255, 255, 0.3);\n            box-shadow: 0 0 16px rgba(46, 204, 113, 0.6);\n            font-weight: 500;\n        }\n\n        .preview-btn.javstore.active {\n            background: #e74c3c;\n            color: white;\n            border-color: rgba(255, 255, 255, 0.3);\n            box-shadow: 0 0 16px rgba(231, 76, 60, 0.6);\n            font-weight: 500;\n        }\n\n        .preview-btn.action {\n            background: rgba(100, 100, 120, 0.3);\n        }\n        .preview-btn.action:hover {\n            background: rgba(140, 140, 160, 0.5);\n        }\n\n        .preview-btn:active {\n            transform: translateY(0);\n            box-shadow: 0 2px 4px rgba(0,0,0,0.15);\n        }\n\n        .trailer-overlay {\n            position: fixed;\n            inset: 0;\n            z-index: 2147483647;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            padding: 34px;\n            background:\n                radial-gradient(circle at 50% 18%, rgba(56, 189, 248, 0.16), transparent 32%),\n                linear-gradient(180deg, rgba(5, 7, 12, 0.88), rgba(0, 0, 0, 0.96));\n            backdrop-filter: blur(16px) saturate(0.85);\n            cursor: default;\n        }\n        .trailer-modal {\n            width: min(1120px, 94vw);\n            max-height: 92vh;\n            display: flex;\n            flex-direction: column;\n            overflow: hidden;\n            color: #f8fafc;\n            background: #05070c;\n            border: 1px solid rgba(255, 255, 255, 0.12);\n            border-radius: 8px;\n            box-shadow:\n                0 30px 80px rgba(0, 0, 0, 0.68),\n                0 0 0 1px rgba(255, 255, 255, 0.04) inset;\n            cursor: default;\n            animation: trailerFadeIn .18s ease-out;\n        }\n        @keyframes trailerFadeIn {\n            from { opacity: 0; transform: translateY(14px) scale(.985); }\n            to { opacity: 1; transform: translateY(0) scale(1); }\n        }\n        .trailer-header {\n            position: absolute;\n            top: 0;\n            left: 0;\n            right: 0;\n            z-index: 4;\n            display: flex;\n            align-items: center;\n            justify-content: space-between;\n            gap: 16px;\n            padding: 16px 18px 34px;\n            background: linear-gradient(180deg, rgba(0, 0, 0, 0.66), rgba(0, 0, 0, 0));\n            border: 0;\n            pointer-events: none;\n            opacity: 1;\n            transition: opacity .18s ease, transform .18s ease;\n        }\n        .trailer-title {\n            min-width: 0;\n            display: flex;\n            align-items: center;\n            gap: 10px;\n            font: 700 15px/1.3 Arial, "Microsoft YaHei", sans-serif;\n            pointer-events: auto;\n        }\n        .trailer-code {\n            overflow: hidden;\n            text-overflow: ellipsis;\n            white-space: nowrap;\n            letter-spacing: .4px;\n        }\n        .trailer-source {\n            flex-shrink: 0;\n            padding: 3px 9px;\n            border-radius: 999px;\n            color: rgba(255, 255, 255, 0.82);\n            background: rgba(255, 255, 255, 0.12);\n            border: 1px solid rgba(255, 255, 255, 0.18);\n            font-size: 12px;\n            font-weight: 500;\n            backdrop-filter: blur(12px);\n        }\n        .jav-player-close {\n            width: 34px;\n            height: 34px;\n            border: 0;\n            border-radius: 50%;\n            color: #fff;\n            background: rgba(255, 255, 255, 0.14);\n            cursor: pointer;\n            font-size: 18px;\n            line-height: 34px;\n            pointer-events: auto;\n            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);\n            transition: transform .15s ease, background .15s ease, box-shadow .15s ease;\n        }\n        .jav-player-close:hover {\n            transform: scale(1.08);\n            background: rgba(248, 113, 113, 0.34);\n            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);\n        }\n        .trailer-screen {\n            position: relative;\n            aspect-ratio: 16 / 9;\n            width: 100%;\n            max-height: 82vh;\n            overflow: hidden;\n            background:\n                radial-gradient(circle at center, rgba(31, 41, 55, .75), #000 62%),\n                #000;\n        }\n        .trailer-screen:fullscreen {\n            width: 100vw;\n            height: 100vh;\n            max-height: none;\n            aspect-ratio: auto;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            background: #000;\n        }\n        .trailer-screen:-webkit-full-screen {\n            width: 100vw;\n            height: 100vh;\n            max-height: none;\n            aspect-ratio: auto;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            background: #000;\n        }\n        .trailer-screen::before {\n            content: "";\n            position: absolute;\n            inset: 0;\n            z-index: 1;\n            pointer-events: none;\n            background:\n                linear-gradient(180deg, rgba(0, 0, 0, 0.52), rgba(0, 0, 0, 0) 30%),\n                linear-gradient(0deg, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0) 36%);\n        }\n        .trailer-screen video,\n        .trailer-screen iframe {\n            position: absolute;\n            inset: 0;\n            width: 100%;\n            height: 100%;\n            display: block;\n            border: 0;\n            background: #000;\n            object-fit: contain;\n        }\n        .trailer-volume-indicator {\n            position: absolute;\n            top: 62px;\n            right: 26px;\n            z-index: 5;\n            color: #f8fafc;\n            font: 750 24px/1 Arial, "Microsoft YaHei", sans-serif;\n            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.82);\n            opacity: 0;\n            pointer-events: none;\n            transition: opacity .14s ease;\n        }\n        .trailer-volume-indicator.is-visible {\n            opacity: 1;\n        }\n        .trailer-quality-bar {\n            display: flex;\n            align-items: center;\n            gap: 8px;\n            padding: 0;\n            background: transparent;\n            border: none;\n            border-radius: 0;\n            backdrop-filter: none;\n        }\n        .trailer-quality-select {\n            min-width: 78px;\n            max-width: 140px;\n            height: 30px;\n            padding: 0 10px;\n            border-radius: 999px;\n            border: 1px solid rgba(255, 255, 255, 0.16);\n            background: rgba(255, 255, 255, 0.12);\n            color: #f8fafc;\n            outline: none;\n            font-size: 12px;\n            line-height: 28px;\n            text-align: center;\n            text-align-last: center;\n            appearance: none;\n            cursor: pointer;\n        }\n        .trailer-quality-select option {\n            background: #0b1020;\n            color: #f8fafc;\n        }\n        .trailer-footer {\n            position: absolute;\n            left: 16px;\n            right: 16px;\n            bottom: 16px;\n            z-index: 4;\n            display: flex;\n            align-items: center;\n            justify-content: space-between;\n            gap: 10px;\n            padding: 9px 10px;\n            color: rgba(255, 255, 255, 0.78);\n            background: rgba(10, 14, 22, 0.62);\n            border: 1px solid rgba(255, 255, 255, 0.16);\n            border-radius: 8px;\n            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);\n            backdrop-filter: blur(16px) saturate(1.08);\n            font: 12px/1.4 Arial, "Microsoft YaHei", sans-serif;\n            opacity: 1;\n            transform: translateY(0);\n            transition: opacity .18s ease, transform .18s ease;\n        }\n        .trailer-screen.is-controls-hidden {\n            cursor: none;\n        }\n        .trailer-screen.is-controls-hidden .trailer-header {\n            opacity: 0;\n            transform: translateY(-8px);\n            pointer-events: none;\n        }\n        .trailer-screen.is-controls-hidden .trailer-footer {\n            opacity: 0;\n            transform: translateY(10px);\n            pointer-events: none;\n        }\n        .trailer-control-left,\n        .trailer-control-right {\n            display: flex;\n            align-items: center;\n            gap: 9px;\n            min-width: 0;\n        }\n        .trailer-control-left {\n            flex: 1 1 auto;\n        }\n        .trailer-control-right {\n            flex: 0 0 auto;\n        }\n        .trailer-control-btn {\n            width: 30px;\n            height: 30px;\n            display: inline-flex;\n            align-items: center;\n            justify-content: center;\n            flex: 0 0 auto;\n            padding: 0;\n            border: 0;\n            border-radius: 999px;\n            color: #fff;\n            background: rgba(255, 255, 255, 0.14);\n            cursor: pointer;\n            font: 700 13px/1 Arial, "Microsoft YaHei", sans-serif;\n            transition: background .15s ease, transform .15s ease;\n        }\n        .trailer-control-btn:hover {\n            background: rgba(255, 255, 255, 0.24);\n            transform: translateY(-1px);\n        }\n        .trailer-volume-wrap {\n            position: relative;\n            display: inline-flex;\n            flex: 0 0 auto;\n            align-items: center;\n            justify-content: center;\n        }\n        .trailer-volume-wrap::before {\n            content: "";\n            position: absolute;\n            left: 50%;\n            bottom: 100%;\n            width: 46px;\n            height: 14px;\n            transform: translateX(-50%);\n        }\n        .trailer-volume-popover {\n            position: absolute;\n            left: 50%;\n            bottom: calc(100% + 8px);\n            width: 34px;\n            height: 118px;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            padding: 10px 0;\n            border-radius: 999px;\n            background: rgba(10, 14, 22, 0.76);\n            border: 1px solid rgba(255, 255, 255, 0.16);\n            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.34);\n            backdrop-filter: blur(16px) saturate(1.08);\n            opacity: 0;\n            pointer-events: none;\n            transform: translate(-50%, 6px);\n            transition: opacity .15s ease, transform .15s ease;\n        }\n        .trailer-volume-wrap:hover .trailer-volume-popover {\n            opacity: 1;\n            pointer-events: auto;\n            transform: translate(-50%, 0);\n        }\n        .trailer-volume-rail {\n            position: absolute;\n            left: 50%;\n            top: 14px;\n            bottom: 14px;\n            width: 4px;\n            transform: translateX(-50%);\n            border-radius: 999px;\n            background: rgba(255, 255, 255, 0.32);\n            pointer-events: none;\n        }\n        .trailer-volume-fill {\n            position: absolute;\n            left: 0;\n            right: 0;\n            bottom: 0;\n            height: var(--volume-percent, 35%);\n            border-radius: 999px;\n            background: #38bdf8;\n        }\n        .trailer-volume-thumb {\n            position: absolute;\n            left: 50%;\n            bottom: var(--volume-percent, 35%);\n            width: 16px;\n            height: 16px;\n            transform: translate(-50%, 50%);\n            border-radius: 50%;\n            background: #38bdf8;\n            border: 2px solid rgba(255, 255, 255, 0.92);\n            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.38);\n        }\n        .trailer-volume-slider {\n            position: absolute;\n            top: 8px;\n            bottom: 8px;\n            left: 50%;\n            width: 16px;\n            height: calc(100% - 16px);\n            margin: 0;\n            transform: translateX(-50%);\n            appearance: none;\n            -webkit-appearance: none;\n            writing-mode: vertical-lr;\n            direction: rtl;\n            background: transparent;\n            cursor: pointer;\n        }\n        .trailer-volume-slider::-webkit-slider-runnable-track {\n            width: 100%;\n            height: 100%;\n            background: transparent;\n        }\n        .trailer-volume-slider::-moz-range-track {\n            width: 100%;\n            height: 100%;\n            background: transparent;\n        }\n        .trailer-volume-slider::-webkit-slider-thumb {\n            -webkit-appearance: none;\n            width: 24px;\n            height: 16px;\n            background: transparent;\n            border: 0;\n            box-shadow: none;\n        }\n        .trailer-volume-slider::-moz-range-thumb {\n            width: 24px;\n            height: 16px;\n            background: transparent;\n            border: 0;\n            box-shadow: none;\n        }\n        .trailer-time {\n            flex: 0 0 auto;\n            min-width: 36px;\n            color: rgba(255, 255, 255, 0.78);\n            font: 11px/1.3 Arial, "Microsoft YaHei", sans-serif;\n            white-space: nowrap;\n            text-align: center;\n        }\n        .trailer-progress {\n            flex: 1 1 160px;\n            min-width: 120px;\n            height: 4px;\n            margin: 0;\n            border-radius: 999px;\n            accent-color: #38bdf8;\n            cursor: pointer;\n        }\n        .jav-jump-toast {\n            position: fixed;\n            left: 50%;\n            top: 72px;\n            z-index: 2147483647;\n            display: flex;\n            align-items: flex-start;\n            gap: 12px;\n            width: min(420px, calc(100vw - 32px));\n            padding: 14px 16px;\n            color: #f8fafc;\n            background: rgba(15, 23, 42, 0.94);\n            border: 1px solid rgba(148, 163, 184, 0.28);\n            border-left: 4px solid #38bdf8;\n            border-radius: 12px;\n            box-shadow:\n                0 18px 44px rgba(0, 0, 0, 0.34),\n                0 0 0 1px rgba(255, 255, 255, 0.04) inset;\n            backdrop-filter: blur(14px) saturate(1.1);\n            font-family: Arial, "Microsoft YaHei", sans-serif;\n            transform: translate(-50%, -12px);\n            opacity: 0;\n            pointer-events: none;\n            transition: opacity .18s ease, transform .18s ease;\n        }\n        .jav-jump-toast.show {\n            opacity: 1;\n            transform: translate(-50%, 0);\n        }\n        .jav-jump-toast.hide {\n            opacity: 0;\n            transform: translate(-50%, -12px);\n        }\n        .jav-jump-toast-icon {\n            flex: 0 0 auto;\n            width: 24px;\n            height: 24px;\n            border-radius: 999px;\n            color: #082f49;\n            background: #7dd3fc;\n            font-size: 16px;\n            font-weight: 800;\n            line-height: 24px;\n            text-align: center;\n        }\n        .jav-jump-toast-title {\n            margin: 0 0 4px;\n            font-size: 14px;\n            font-weight: 700;\n            line-height: 1.35;\n        }\n        .jav-jump-toast-message {\n            margin: 0;\n            color: #cbd5e1;\n            font-size: 13px;\n            line-height: 1.45;\n        }\n        @media (max-width: 720px) {\n            .trailer-overlay { padding: 12px; }\n            .trailer-modal { width: 100%; border-radius: 8px; }\n            .trailer-header { padding: 12px 12px 30px; }\n            .trailer-title { gap: 7px; font-size: 13px; }\n            .trailer-source { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n            .trailer-footer {\n                left: 8px;\n                right: 8px;\n                bottom: 8px;\n                flex-direction: column;\n                align-items: stretch;\n                gap: 7px;\n                padding: 8px;\n            }\n            .trailer-control-left,\n            .trailer-control-right {\n                width: 100%;\n                justify-content: center;\n            }\n            .trailer-progress { min-width: 80px; }\n            .jav-jump-toast {\n                top: 18px;\n                width: calc(100vw - 24px);\n                padding: 13px 14px;\n            }\n        }\n    ');
-    const S = {
+    const C = {
         normalizeCode(e) {
             const t = String(e || "").trim();
             if (!t) return "";
@@ -2819,10 +2875,10 @@
         extractCode(e, t = {}) {
             if (!e) return null;
             const n = String(e).match(/\b(\d{3}[A-Z]{2,10})[-_\s](\d{2,6})\b/i);
-            if (n) return S.normalizeCode(`${n[1]}-${n[2]}`);
+            if (n) return C.normalizeCode(`${n[1]}-${n[2]}`);
             const a = String(e).match(/(?:(PACOPACOMAMA|PACO|10MUSUME|10MU|1PONDO|CARIBBEANCOM|CARIB|HEYZO)[-_\s]*)?(\d{6})([-_])(\d{2,3})/i);
             if (a) {
-                const e = S.normalizeCode(`${a[2]}${a[3]}${a[4]}`);
+                const e = C.normalizeCode(`${a[2]}${a[3]}${a[4]}`);
                 return t.keepUncensoredSource && a[1] ? `${a[1].toUpperCase()}_${e}` : e;
             }
             const i = [ {
@@ -2847,21 +2903,21 @@
             for (let t = 0; t < i.length; t++) {
                 const {regex: n, type: a} = i[t], o = e.match(n);
                 if (o) {
-                    if ("alphanum" === a) return S.normalizeCode(o[0].trim());
+                    if ("alphanum" === a) return C.normalizeCode(o[0].trim());
                     if ("standard" === a) {
                         const e = o[1].toUpperCase();
                         if (r.includes(e)) continue;
-                        return S.normalizeCode(o[3] ? `${e}-${o[2]}-${o[3]}` : `${e}-${o[2]}`);
+                        return C.normalizeCode(o[3] ? `${e}-${o[2]}-${o[3]}` : `${e}-${o[2]}`);
                     }
-                    if ("fc2" === a) return S.normalizeCode(`FC2-PPV-${o[1]}`);
-                    if ("numeric" === a) return "_" === o[2] ? S.normalizeCode(`${o[1]}_${o[3]}`) : S.normalizeCode(`${o[1]}-${o[3]}`);
+                    if ("fc2" === a) return C.normalizeCode(`FC2-PPV-${o[1]}`);
+                    if ("numeric" === a) return "_" === o[2] ? C.normalizeCode(`${o[1]}_${o[3]}`) : C.normalizeCode(`${o[1]}-${o[3]}`);
                     if ("compactStandard" === a) {
                         const e = o[1].toUpperCase();
                         if (r.includes(e)) continue;
                         const t = o[2].replace(/^0+(?=\d{3})/, "");
-                        return S.normalizeCode(`${e}-${t}`);
+                        return C.normalizeCode(`${e}-${t}`);
                     }
-                    if ("compact" === a) return S.normalizeCode(o[0].toUpperCase());
+                    if ("compact" === a) return C.normalizeCode(o[0].toUpperCase());
                 }
             }
             return null;
@@ -2881,27 +2937,27 @@
             };
         },
         mixColor(e, t = "#ffffff", n = .12) {
-            const a = S.hexToRgb(e), i = S.hexToRgb(t), r = e => Math.round(a[e] * n + i[e] * (1 - n));
+            const a = C.hexToRgb(e), i = C.hexToRgb(t), r = e => Math.round(a[e] * n + i[e] * (1 - n));
             return `rgb(${r("r")}, ${r("g")}, ${r("b")})`;
         },
         getModernBtnStyle(e) {
-            const t = e || "#64748b", n = S.mixColor(t, "#ffffff", .1), a = S.mixColor(t, "#dbe3ef", .28), i = S.mixColor(t, "#111827", .72);
-            return [ "height:30px", "padding:0 11px", `--jav-btn-accent:${t}`, `--jav-btn-hover-bg:${S.mixColor(t, "#ffffff", .16)}`, `background:${n}`, `color:${i}`, `border:1px solid ${a}`, "border-radius:7px", "font-size:13px", "font-weight:700", "line-height:1", "cursor:pointer", "text-decoration:none", "display:inline-flex", "align-items:center", "justify-content:center", "gap:6px", "white-space:nowrap", "box-shadow:inset 0 1px 0 rgba(255,255,255,0.7)", "box-sizing:border-box" ].join(";");
+            const t = e || "#64748b", n = C.mixColor(t, "#ffffff", .1), a = C.mixColor(t, "#dbe3ef", .28), i = C.mixColor(t, "#111827", .72);
+            return [ "height:30px", "padding:0 11px", `--jav-btn-accent:${t}`, `--jav-btn-hover-bg:${C.mixColor(t, "#ffffff", .16)}`, `background:${n}`, `color:${i}`, `border:1px solid ${a}`, "border-radius:7px", "font-size:13px", "font-weight:700", "line-height:1", "cursor:pointer", "text-decoration:none", "display:inline-flex", "align-items:center", "justify-content:center", "gap:6px", "white-space:nowrap", "box-shadow:inset 0 1px 0 rgba(255,255,255,0.7)", "box-sizing:border-box" ].join(";");
         },
         createLinkBtn(e, t, n) {
             const a = document.createElement("a");
             return a.textContent = e, a.href = n || "#", n && (a.target = "_blank"), a.rel = "noopener noreferrer", 
-            a.style.cssText = S.getModernBtnStyle(t), a;
+            a.style.cssText = C.getModernBtnStyle(t), a;
         },
         createJumpLinkBtn(e, t, n) {
-            const a = S.createLinkBtn(e, t, n);
+            const a = C.createLinkBtn(e, t, n);
             return a.addEventListener("click", e => {
                 e.stopImmediatePropagation();
             }, !0), a;
         },
         createBtn(e, t, n, a = !1) {
             const i = document.createElement("a");
-            return i.textContent = e, i.style.cssText = S.getModernBtnStyle(t), a ? i.addEventListener("click", e => {
+            return i.textContent = e, i.style.cssText = C.getModernBtnStyle(t), a ? i.addEventListener("click", e => {
                 e.preventDefault(), e.stopPropagation(), n();
             }, !0) : i.onclick = e => {
                 e.preventDefault(), n();
@@ -2969,15 +3025,15 @@
                 h.classList.toggle("active", "javstore" === e);
             }, m = d("javfree", "🟢", "javfree", async e => {
                 e.stopPropagation();
-                const n = await C.javfree(t);
+                const n = await E.javfree(t);
                 n ? (l(n, "javfree"), p("javfree")) : alert("javfree 未找到预览图");
             }), u = d("projectjav", "🟡", "javstore", async e => {
                 e.stopPropagation();
-                const n = await C.projectjav(t);
+                const n = await E.projectjav(t);
                 n ? (l(n, "projectjav"), p("projectjav")) : alert("projectjav 未找到预览图");
             }), h = d("javstore", "🔴", "javstore", async e => {
                 e.stopPropagation();
-                const n = await C.javstore(t);
+                const n = await E.javstore(t);
                 n ? (l(n, "javstore"), p("javstore")) : alert("javstore 未找到预览图");
             }), g = d("新窗口", "🌐", "action", e => {
                 e.stopPropagation(), window.open(o.src);
@@ -3043,44 +3099,44 @@
             C.step = "1", C.value = "0", C.title = "播放进度";
             const E = document.createElement("button");
             E.className = "trailer-control-btn", E.type = "button", E.textContent = "⛶", E.title = "全屏";
-            let q = null, A = t, M = r, $ = null, L = null, P = !1;
+            let A = null, q = t, M = r, L = null, $ = null, P = !1;
             const T = Array.isArray(o) ? [ ...new Set(o.filter(Boolean)) ] : [ t ].filter(Boolean);
             let I = Math.max(0, T.indexOf(t));
             const z = {
-                href: A
-            }, R = `trailer_playback_${String(e || "").trim().toUpperCase()}_${String(t || "").slice(0, 160)}`, N = (e = q?.currentTime || 0, t = R) => {
+                href: q
+            }, R = `trailer_playback_${String(e || "").trim().toUpperCase()}_${String(t || "").slice(0, 160)}`, N = (e = A?.currentTime || 0, t = R) => {
                 if (!Number.isFinite(e) || e < 3) return;
-                const n = Number(q?.duration || 0);
+                const n = Number(A?.duration || 0);
                 Number.isFinite(n) && n > 0 && n - e < 3 ? sessionStorage.removeItem(t) : sessionStorage.setItem(t, String(Math.floor(e)));
             }, U = (e = R) => {
-                if (!q || "1" === q.dataset.playbackRestored) return;
+                if (!A || "1" === A.dataset.playbackRestored) return;
                 const t = ((e = R) => {
                     const t = Number(sessionStorage.getItem(e) || 0);
                     return Number.isFinite(t) && t > 0 ? t : 0;
                 })(e);
                 if (!t) return;
-                const n = Number(q.duration || 0);
-                Number.isFinite(n) && n > 0 && t < n - 3 && (q.currentTime = t, q.dataset.playbackRestored = "1", 
+                const n = Number(A.duration || 0);
+                Number.isFinite(n) && n > 0 && t < n - 3 && (A.currentTime = t, A.dataset.playbackRestored = "1", 
                 D());
             }, B = e => {
                 if (!Number.isFinite(e) || e < 0) return "00:00";
                 const t = Math.floor(e), n = Math.floor(t / 3600), a = Math.floor(t % 3600 / 60), i = t % 60;
                 return n ? `${n}:${String(a).padStart(2, "0")}:${String(i).padStart(2, "0")}` : `${String(a).padStart(2, "0")}:${String(i).padStart(2, "0")}`;
             }, D = () => {
-                q && (v.textContent = q.paused ? "▶" : "⏸", b.textContent = q.muted || q.volume <= 0 ? "🔇" : "🔊", 
-                _.value = String(Math.round(100 * (q.muted ? 0 : q.volume))), y.style.setProperty("--volume-percent", `${_.value}%`), 
-                k.textContent = B(q.currentTime || 0), S.textContent = B(q.duration || 0), !P && Number.isFinite(q.duration) && q.duration > 0 && (C.value = String(Math.round((q.currentTime || 0) / q.duration * 1e3))));
+                A && (v.textContent = A.paused ? "▶" : "⏸", b.textContent = A.muted || A.volume <= 0 ? "🔇" : "🔊", 
+                _.value = String(Math.round(100 * (A.muted ? 0 : A.volume))), y.style.setProperty("--volume-percent", `${_.value}%`), 
+                k.textContent = B(A.currentTime || 0), S.textContent = B(A.duration || 0), !P && Number.isFinite(A.duration) && A.duration > 0 && (C.value = String(Math.round((A.currentTime || 0) / A.duration * 1e3))));
             }, G = () => {
-                q && (g.textContent = `${Math.round(100 * q.volume)}%`, g.classList.add("is-visible"), 
-                clearTimeout($), $ = setTimeout(() => {
+                A && (g.textContent = `${Math.round(100 * A.volume)}%`, g.classList.add("is-visible"), 
+                clearTimeout(L), L = setTimeout(() => {
                     g.classList.remove("is-visible");
                 }, 820));
-            }, J = () => {
-                h.classList.remove("is-controls-hidden"), clearTimeout(L), q && !q.paused && (L = setTimeout(() => {
+            }, H = () => {
+                h.classList.remove("is-controls-hidden"), clearTimeout($), A && !A.paused && ($ = setTimeout(() => {
                     X.matches(":hover") || document.activeElement === _ || h.classList.add("is-controls-hidden");
                 }, 2e3));
-            }, H = () => {
-                clearTimeout(L), q && !q.paused ? L = setTimeout(() => {
+            }, J = () => {
+                clearTimeout($), A && !A.paused ? $ = setTimeout(() => {
                     h.classList.add("is-controls-hidden");
                 }, 2e3) : h.classList.remove("is-controls-hidden");
             }, O = () => {
@@ -3122,11 +3178,11 @@
                     });
                 }
             }, K = e => {
-                e && (q.src = e);
+                e && (A.src = e);
             }, W = e => {
                 e && (/\.m3u8(?:[?#].*)?$/i.test(e) ? (e => {
                     if (!e) return;
-                    if (!(window.Hls && window.Hls.isSupported && window.Hls.isSupported())) return void (q.src = e);
+                    if (!(window.Hls && window.Hls.isSupported && window.Hls.isSupported())) return void (A.src = e);
                     const t = new window.Hls({
                         enableWorker: !1,
                         lowLatencyMode: !0,
@@ -3151,22 +3207,22 @@
                         abrEwmaSlowLive: 9
                     });
                     t.on(window.Hls.Events.MANIFEST_PARSED, () => {
-                        t.startLoad(0), q.play().catch(() => {});
+                        t.startLoad(0), A.play().catch(() => {});
                     }), t.on(window.Hls.Events.ERROR, (n, a) => {
                         if (a?.fatal) {
                             if (a.type === window.Hls.ErrorTypes.NETWORK_ERROR && I < T.length - 1) {
                                 I += 1;
                                 const e = T[I];
-                                return A = e, z.href = e, t.loadSource(e), void t.startLoad(0);
+                                return q = e, z.href = e, t.loadSource(e), void t.startLoad(0);
                             }
                             if (I >= T.length - 1) {
                                 try {
                                     t.destroy();
                                 } catch {}
-                                q._hls = null, q.src = e, q.load?.(), q.play().catch(() => {});
+                                A._hls = null, A.src = e, A.load?.(), A.play().catch(() => {});
                             }
                         }
-                    }), t.loadSource(e), t.attachMedia(q), q._hls = t;
+                    }), t.loadSource(e), t.attachMedia(A), A._hls = t;
                 })(e) : K(e));
             };
             if ("iframe" === n) {
@@ -3174,10 +3230,10 @@
                 e.src = t, e.allow = "autoplay; fullscreen; picture-in-picture; encrypted-media", 
                 h.appendChild(e);
             } else {
-                q = document.createElement("video"), q.controls = !1, q.autoplay = !0, q.loop = !0, 
-                q.playsInline = !0;
+                A = document.createElement("video"), A.controls = !1, A.autoplay = !0, A.loop = !0, 
+                A.playsInline = !0;
                 const e = Number(GM_getValue("trailer_volume", .35)), n = GM_getValue("trailer_muted", !1);
-                q.volume = Number.isFinite(e) ? Math.min(1, Math.max(0, e)) : .35, q.muted = Boolean(n), 
+                A.volume = Number.isFinite(e) ? Math.min(1, Math.max(0, e)) : .35, A.muted = Boolean(n), 
                 (e => {
                     if (F && !window.Hls) {
                         const t = document.createElement("script");
@@ -3187,55 +3243,55 @@
                     if (F) {
                         const t = e;
                         setTimeout(() => {
-                            if (q && q.isConnected && q.readyState < 2 && !q.error) {
+                            if (A && A.isConnected && A.readyState < 2 && !A.error) {
                                 try {
-                                    q._hls && (q._hls.destroy(), q._hls = null);
+                                    A._hls && (A._hls.destroy(), A._hls = null);
                                 } catch {}
-                                q.src = t, q.play().catch(() => {});
+                                A.src = t, A.play().catch(() => {});
                             }
                         }, 2500);
                     }
-                })(T[I] || t), q.preload = "auto", q.addEventListener("volumechange", () => {
-                    GM_setValue("trailer_volume", q.volume), GM_setValue("trailer_muted", q.muted), 
+                })(T[I] || t), A.preload = "auto", A.addEventListener("volumechange", () => {
+                    GM_setValue("trailer_volume", A.volume), GM_setValue("trailer_muted", A.muted), 
                     D();
-                }), q.addEventListener("play", () => {
-                    D(), H();
-                }), q.addEventListener("pause", () => {
-                    D(), h.classList.remove("is-controls-hidden"), clearTimeout(L);
-                }), q.addEventListener("timeupdate", () => {
+                }), A.addEventListener("play", () => {
+                    D(), J();
+                }), A.addEventListener("pause", () => {
+                    D(), h.classList.remove("is-controls-hidden"), clearTimeout($);
+                }), A.addEventListener("timeupdate", () => {
                     D(), N();
-                }), q.addEventListener("durationchange", () => {
+                }), A.addEventListener("durationchange", () => {
                     D(), U();
-                }), q.addEventListener("loadedmetadata", () => {
+                }), A.addEventListener("loadedmetadata", () => {
                     D(), U();
-                }), q.addEventListener("ended", () => ((e = R) => sessionStorage.removeItem(e))()), 
-                q.addEventListener("error", () => {
-                    I >= T.length - 1 || (I += 1, A = T[I], z.href = A, q._hls && (q._hls.destroy(), 
-                    q._hls = null), W(A), q.load?.(), q.play().catch(() => {}));
-                }), h.appendChild(q), h.appendChild(g), v.addEventListener("click", e => {
-                    e.preventDefault(), e.stopPropagation(), q && (q.paused ? q.play().catch(() => {}) : q.pause(), 
+                }), A.addEventListener("ended", () => ((e = R) => sessionStorage.removeItem(e))()), 
+                A.addEventListener("error", () => {
+                    I >= T.length - 1 || (I += 1, q = T[I], z.href = q, A._hls && (A._hls.destroy(), 
+                    A._hls = null), W(q), A.load?.(), A.play().catch(() => {}));
+                }), h.appendChild(A), h.appendChild(g), v.addEventListener("click", e => {
+                    e.preventDefault(), e.stopPropagation(), A && (A.paused ? A.play().catch(() => {}) : A.pause(), 
                     D());
                 }), b.addEventListener("click", e => {
-                    e.preventDefault(), e.stopPropagation(), q && (q.muted = !q.muted, !q.muted && q.volume <= 0 && (q.volume = .35), 
+                    e.preventDefault(), e.stopPropagation(), A && (A.muted = !A.muted, !A.muted && A.volume <= 0 && (A.volume = .35), 
                     G(), D());
                 }), _.addEventListener("input", e => {
-                    if (e.stopPropagation(), !q) return;
-                    h.classList.remove("is-controls-hidden"), clearTimeout(L);
+                    if (e.stopPropagation(), !A) return;
+                    h.classList.remove("is-controls-hidden"), clearTimeout($);
                     const t = Math.min(1, Math.max(0, Number(_.value) / 100));
-                    q.volume = t, q.muted = t <= 0, G(), D();
-                }), _.addEventListener("change", H), q.addEventListener("click", e => {
-                    e.preventDefault(), q.paused ? q.play().catch(() => {}) : q.pause(), D();
+                    A.volume = t, A.muted = t <= 0, G(), D();
+                }), _.addEventListener("change", J), A.addEventListener("click", e => {
+                    e.preventDefault(), A.paused ? A.play().catch(() => {}) : A.pause(), D();
                 }), C.addEventListener("input", () => {
-                    if (P = !0, !q || !Number.isFinite(q.duration) || q.duration <= 0) return;
-                    const e = Number(C.value) / 1e3 * q.duration;
+                    if (P = !0, !A || !Number.isFinite(A.duration) || A.duration <= 0) return;
+                    const e = Number(C.value) / 1e3 * A.duration;
                     k.textContent = B(e);
                 }), C.addEventListener("change", () => {
-                    q && Number.isFinite(q.duration) && q.duration > 0 && (q.currentTime = Number(C.value) / 1e3 * q.duration, 
-                    N(q.currentTime)), P = !1, D();
+                    A && Number.isFinite(A.duration) && A.duration > 0 && (A.currentTime = Number(C.value) / 1e3 * A.duration, 
+                    N(A.currentTime)), P = !1, D();
                 }), E.addEventListener("click", e => {
                     e.preventDefault(), e.stopPropagation(), E.blur(), O();
                 }), setTimeout(() => {
-                    q.play().catch(() => {}), D(), H();
+                    A.play().catch(() => {}), D(), J();
                 }, 120);
             }
             const Z = document.createElement("div"), Y = i && "object" == typeof i ? i : null;
@@ -3251,17 +3307,17 @@
                 const a = document.createElement("select");
                 a.className = "trailer-quality-select";
                 const i = e => {
-                    M = e, A = Y[e], a.value = e;
+                    M = e, q = Y[e], a.value = e;
                 };
                 n.forEach(e => {
                     const n = document.createElement("option");
                     n.value = e, n.textContent = t[e] || e, a.appendChild(n);
                 }), a.addEventListener("change", async () => {
                     const e = a.value;
-                    if (!q || !Y[e] || M === e) return;
-                    const t = q.currentTime || 0, n = !q.paused;
-                    N(t), q.src = Y[e], q.dataset.playbackRestored = "1", I = Math.max(0, T.indexOf(Y[e])), 
-                    q.load(), q.currentTime = t, i(e), z.href = A, n && await q.play().catch(() => {});
+                    if (!A || !Y[e] || M === e) return;
+                    const t = A.currentTime || 0, n = !A.paused;
+                    N(t), A.src = Y[e], A.dataset.playbackRestored = "1", I = Math.max(0, T.indexOf(Y[e])), 
+                    A.load(), A.currentTime = t, i(e), z.href = q, n && await A.play().catch(() => {});
                 }), Z.appendChild(a), i(M && Y[M] ? M : n[0]);
             }
             const X = document.createElement("div");
@@ -3272,18 +3328,18 @@
             const ee = document.createElement("div");
             ee.className = "trailer-control-right", ee.appendChild(Z), X.appendChild(Q), ee.appendChild(E), 
             X.appendChild(ee), d.appendChild(h), h.appendChild(p), h.appendChild(X), c.appendChild(d), 
-            h.addEventListener("mousemove", J), h.addEventListener("mouseenter", J), h.addEventListener("mouseleave", () => {
-                q && !q.paused && h.classList.add("is-controls-hidden");
+            h.addEventListener("mousemove", H), h.addEventListener("mouseenter", H), h.addEventListener("mouseleave", () => {
+                A && !A.paused && h.classList.add("is-controls-hidden");
             }), X.addEventListener("mouseenter", () => {
-                h.classList.remove("is-controls-hidden"), clearTimeout(L);
-            }), X.addEventListener("mouseleave", H);
+                h.classList.remove("is-controls-hidden"), clearTimeout($);
+            }), X.addEventListener("mouseleave", J);
             const te = (e = null) => {
                 e && (e.preventDefault(), e.stopPropagation(), e.stopImmediatePropagation?.());
                 const t = c.querySelector("video");
                 t && (N(t.currentTime || 0), t.pause(), t.removeAttribute("src"), t.load()), c.remove(), 
                 document.documentElement.style.overflow = s, document.body.style.overflow = l, window.removeEventListener("pointerdown", ne, !0), 
                 window.removeEventListener("mousedown", ne, !0), window.removeEventListener("click", ne, !0), 
-                document.removeEventListener("keydown", ae, !0), clearTimeout($), clearTimeout(L);
+                document.removeEventListener("keydown", ae, !0), clearTimeout(L), clearTimeout($);
             }, ne = e => {
                 c.contains(e.target) && (e.target === c || e.target.closest(".jav-player-close")) && ("click" !== e.type ? (e.stopPropagation(), 
                 e.stopImmediatePropagation?.()) : te(e));
@@ -3292,14 +3348,14 @@
                 const t = e.key;
                 if ([ " ", "Spacebar", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown" ].includes(t) && (e.preventDefault(), 
                 e.stopPropagation(), e.stopImmediatePropagation?.()), "Enter" === t) return O(), 
-                void J();
-                if (q && "iframe" !== n) if (" " === t || "Spacebar" === t) q.paused ? q.play().catch(() => {}) : q.pause(), 
-                D(), J(); else if ("ArrowLeft" === t) q.currentTime = Math.max(0, (q.currentTime || 0) - 2); else if ("ArrowRight" === t) {
-                    const e = (q.currentTime || 0) + 2;
-                    q.currentTime = Number.isFinite(q.duration) ? Math.min(q.duration, e) : e;
+                void H();
+                if (A && "iframe" !== n) if (" " === t || "Spacebar" === t) A.paused ? A.play().catch(() => {}) : A.pause(), 
+                D(), H(); else if ("ArrowLeft" === t) A.currentTime = Math.max(0, (A.currentTime || 0) - 2); else if ("ArrowRight" === t) {
+                    const e = (A.currentTime || 0) + 2;
+                    A.currentTime = Number.isFinite(A.duration) ? Math.min(A.duration, e) : e;
                 } else if ("ArrowUp" === t || "ArrowDown" === t) {
                     const e = "ArrowUp" === t ? .05 : -.05;
-                    q.volume = Math.min(1, Math.max(0, Math.round(100 * (q.volume + e)) / 100)), q.volume > 0 && (q.muted = !1), 
+                    A.volume = Math.min(1, Math.max(0, Math.round(100 * (A.volume + e)) / 100)), A.volume > 0 && (A.muted = !1), 
                     G();
                 }
             };
@@ -3313,7 +3369,7 @@
             const t = e.toLowerCase();
             return /^\d{6}[-_\s]\d{3}$/.test(e) || t.startsWith("heyzo") || t.startsWith("carib") || t.startsWith("1pondo") || t.startsWith("tokyo") || t.startsWith("cat") || t.startsWith("paco") || t.startsWith("10mu") || t.startsWith("muram") || t.startsWith("gach") || t.startsWith("real") || t.startsWith("juku") || t.startsWith("aka") || t.startsWith("s-cute") || t.startsWith("n_") || /^n\d{4}$/.test(t) || t.startsWith("k_") || /^k\d{4}$/.test(t) ? `https://www.javbus.com/uncensored/search/${encodeURIComponent(e)}&type=1` : `https://www.javbus.com/search/${encodeURIComponent(e)}&type=&parent=ce`;
         }
-    }, C = {
+    }, E = {
         sources: [ "javfree", "projectjav", "javstore" ],
         cacheKey: e => `thumb_cache_v3_${e}`,
         lookupCode(e) {
@@ -3321,7 +3377,7 @@
             return n ? n[1] : t;
         },
         sourceOrder() {
-            const e = M.getSourceOrder(), t = Array.isArray(e) ? e : [], n = new Set;
+            const e = L.getSourceOrder(), t = Array.isArray(e) ? e : [], n = new Set;
             return [ ...t, ...this.sources ].filter(e => !n.has(e) && "function" == typeof this[e] && (n.add(e), 
             !0));
         },
@@ -3352,15 +3408,15 @@
         },
         async javfree(e) {
             e = this.lookupCode(e);
-            const t = this.cacheKey(e), n = M.getPreviewCacheEnabled();
+            const t = this.cacheKey(e), n = L.getPreviewCacheEnabled();
             if (n) {
                 const e = sessionStorage.getItem(t);
                 if (e) return e;
             }
             try {
-                const a = await S.request(`https://javfree.me/search/${e}`), i = (new DOMParser).parseFromString(a, "text/html"), r = [ ...i.querySelectorAll(".entry-title>a") ].find(t => this.isCodeMatched([ t.href, t.textContent ].join(" "), e))?.href;
+                const a = await C.request(`https://javfree.me/search/${e}`), i = (new DOMParser).parseFromString(a, "text/html"), r = [ ...i.querySelectorAll(".entry-title>a") ].find(t => this.isCodeMatched([ t.href, t.textContent ].join(" "), e))?.href;
                 if (!r) return null;
-                const o = await S.request(r), s = (new DOMParser).parseFromString(o, "text/html");
+                const o = await C.request(r), s = (new DOMParser).parseFromString(o, "text/html");
                 if (!this.isDetailMatched(s, r, e)) return null;
                 const l = this.selectJavfreePreviewUrl(s, r, e);
                 return l && n ? (sessionStorage.setItem(t, l), l) : l || null;
@@ -3373,7 +3429,7 @@
             try {
                 const t = e.replace(/^fc2-?/i, "").replace(/-/g, "").toLowerCase();
                 console.log(`javstore: searching for code=${e}, normalized=${t}`);
-                const n = `https://javstore.net/search?q=${encodeURIComponent(e)}`, a = await S.request(n), i = (new DOMParser).parseFromString(a, "text/html").querySelectorAll('a[href*="/"]'), r = [];
+                const n = `https://javstore.net/search?q=${encodeURIComponent(e)}`, a = await C.request(n), i = (new DOMParser).parseFromString(a, "text/html").querySelectorAll('a[href*="/"]'), r = [];
                 for (const e of i) {
                     const a = e.getAttribute("href");
                     if (!a) continue;
@@ -3399,7 +3455,7 @@
         },
         async _extractImgFromDetail(e, t) {
             try {
-                const n = await S.request(e), a = (new DOMParser).parseFromString(n, "text/html");
+                const n = await C.request(e), a = (new DOMParser).parseFromString(n, "text/html");
                 if (!this.isDetailMatched(a, e, t)) return console.warn("javstore: 详情页番号不匹配，跳过", e), 
                 null;
                 for (const t of a.querySelectorAll("a")) if (t.textContent.includes("CLICK HERE")) {
@@ -3469,7 +3525,7 @@
             }
         },
         async get(e) {
-            const t = M.getPreviewCacheEnabled(), n = this.cacheKey(e);
+            const t = L.getPreviewCacheEnabled(), n = this.cacheKey(e);
             if (t) {
                 const e = sessionStorage.getItem(n);
                 if (e) return {
@@ -3493,9 +3549,9 @@
         },
         async show(e) {
             const t = await this.get(e);
-            t.url ? S.showOverlay(t.url, e, t.source) : alert("未找到预览图");
+            t.url ? C.showOverlay(t.url, e, t.source) : alert("未找到预览图");
         }
-    }, E = (() => {
+    }, A = (() => {
         let e = !1;
         function t() {
             return GM_getValue("list_preview_quick_enabled", !0);
@@ -3518,7 +3574,7 @@
                 if (n) {
                     r.dataset.loading = "1", r.style.pointerEvents = "none", r.style.opacity = ".72";
                     try {
-                        await C.show(n);
+                        await E.show(n);
                     } finally {
                         delete r.dataset.loading, r.style.pointerEvents = "", r.style.opacity = "";
                     }
@@ -3540,7 +3596,7 @@
             attach: n
         };
     })();
-    l.expose("__LAOSIJI_LIST_PREVIEW__", E);
+    l.expose("__LAOSIJI_LIST_PREVIEW__", A);
     const q = (() => {
         let e = !1, t = 0, n = {
             code: "",
@@ -3582,7 +3638,7 @@
                     e.className = "jav-detail-preview-loading", e.textContent = "预览图加载中...", l.appendChild(e), 
                     s.anchor?.parentElement === s.slot ? s.slot.insertBefore(l, s.anchor) : s.slot.insertBefore(l, s.slot.firstChild);
                 }
-                const c = await C.get(i);
+                const c = await E.get(i);
                 if (o !== t || !l.isConnected) return;
                 if (!c?.url) return l.remove(), s.standalone || s.slot.classList.remove("has-detail-preview-inline"), 
                 void (n = {
@@ -3596,15 +3652,15 @@
                 const d = document.createElement("img");
                 d.className = "jav-detail-preview-inline", d.dataset.code = i, d.src = c.url, d.alt = i, 
                 d.loading = "lazy", d.title = "点击查看预览图", d.addEventListener("click", e => {
-                    e.preventDefault(), e.stopPropagation(), S.showOverlay(c.url, i, c.source);
+                    e.preventDefault(), e.stopPropagation(), C.showOverlay(c.url, i, c.source);
                 }), l.appendChild(d);
             },
             remove: a
         };
     })();
     l.expose("__LAOSIJI_DETAIL_PREVIEW_INLINE__", q);
-    const A = {
-        normalize: e => S.normalizeCode(e),
+    const M = {
+        normalize: e => C.normalizeCode(e),
         normalizeForCompare: e => String(e || "").toLowerCase().replace(/[^a-z0-9]/g, ""),
         cacheKey(e) {
             return `trailer_cache_v9_${this.normalize(e)}`;
@@ -3625,7 +3681,7 @@
                 source: t.source,
                 type: t.type || "video",
                 url: t.url
-            }), S.showTrailerOverlay({
+            }), C.showTrailerOverlay({
                 code: this.normalize(e),
                 url: t.url,
                 type: t.type || "video",
@@ -3635,10 +3691,10 @@
                 urls: t.urls
             })) : (this.debug("最终未找到可用视频源", {
                 code: this.normalize(e)
-            }), S.showToast("未找到可用的视频源。", "节点不可用，请将DMM域名分流到日本ip", 3e3));
+            }), C.showToast("未找到可用的视频源。", "节点不可用，请将DMM域名分流到日本ip", 3e3));
         },
         async get(e) {
-            const t = String(e || "").trim(), n = this.normalize(e), a = M.getTrailerCacheEnabled();
+            const t = String(e || "").trim(), n = this.normalize(e), a = L.getTrailerCacheEnabled();
             if (this.debug("开始查询", {
                 rawCode: t,
                 normalized: n,
@@ -3935,7 +3991,7 @@
             }
             return d.path ? this.result(d.path, "FC2Hub 预告", "mp4") : null;
         }
-    }, M = {
+    }, L = {
         getPreviewCacheEnabled: () => !0,
         getTrailerCacheEnabled: () => !0,
         getDefaultSearchEngine() {
@@ -3965,7 +4021,7 @@
         name: "DuckGo",
         color: "#DE5833",
         url: e => `https://duckduckgo.com/?q=${e}`
-    } ], L = {
+    } ], P = {
         api: "https://webapi.115.com/files/search",
         videoExts: new Set([ "mp4", "mkv", "avi", "wmv", "mov", "m4v", "ts", "flv", "rmvb", "webm" ]),
         pending: new Map,
@@ -4056,7 +4112,7 @@
                 const e = i[1].toUpperCase(), t = "_" === i[3] ? "_" : "-";
                 return `${i[2]}${t}${i[4]}-${e}`;
             }
-            return t || S.extractCode(e);
+            return t || C.extractCode(e);
         },
         searchKeyword: e => String(e || "").trim().toLowerCase().replace(/^fc2-/, ""),
         searchVariants(e) {
@@ -4140,7 +4196,7 @@
             return this.pending.set(t, a), a;
         }
     };
-    function P(e, t, n, a = null) {
+    function T(e, t, n, a = null) {
         let i = null;
         const r = () => {
             i && (clearTimeout(i), i = null);
@@ -4164,25 +4220,25 @@
             e.contains(t.target) || o();
         });
     }
-    function T(e, t, n = !1) {
+    function I(e, t, n = !1) {
         if (!GM_getValue("btn_show_nyaa", !0)) return;
         if (/sukebei\.nyaa/i.test(location.hostname)) return;
-        const a = S.createJumpLinkBtn("🔍 Sukebei", "#17a2b8", `https://sukebei.nyaa.si/?f=0&c=0_0&q=${encodeURIComponent(e)}`);
+        const a = C.createJumpLinkBtn("🔍 Sukebei", "#17a2b8", `https://sukebei.nyaa.si/?f=0&c=0_0&q=${encodeURIComponent(e)}`);
         t.appendChild(a);
-    }
-    function I(e, t, n = !1) {
-        if (!GM_getValue("btn_show_javbus", !0)) return;
-        if (/javbus\.com/i.test(location.hostname)) return;
-        const a = S.getJavBusUrl(e), i = S.createJumpLinkBtn("🎬 JavBus", "#007bff", a);
-        t.appendChild(i);
     }
     function z(e, t, n = !1) {
-        if (!GM_getValue("btn_show_javdb", !0)) return;
-        if (/javdb\.com/i.test(location.hostname)) return;
-        const a = S.createJumpLinkBtn("📀 JavDB", "#6f42c1", `https://javdb.com/search?q=${encodeURIComponent(e)}`);
-        t.appendChild(a);
+        if (!GM_getValue("btn_show_javbus", !0)) return;
+        if (/javbus\.com/i.test(location.hostname)) return;
+        const a = C.getJavBusUrl(e), i = C.createJumpLinkBtn("🎬 JavBus", "#007bff", a);
+        t.appendChild(i);
     }
     function R(e, t, n = !1) {
+        if (!GM_getValue("btn_show_javdb", !0)) return;
+        if (/javdb\.com/i.test(location.hostname)) return;
+        const a = C.createJumpLinkBtn("📀 JavDB", "#6f42c1", `https://javdb.com/search?q=${encodeURIComponent(e)}`);
+        t.appendChild(a);
+    }
+    function N(e, t, n = !1) {
         const a = GM_getValue("btn_show_missav", !0);
         if (!a) return;
         const i = e.toLowerCase(), r = i.replace(/-/g, ""), o = {
@@ -4192,12 +4248,12 @@
             javday: `https://javday.app/videos/${r}/`,
             supjav: `https://supjav.com/zh/?s=${encodeURIComponent(e)}`,
             javrate: `https://www.javrate.com/search/${encodeURIComponent(i)}`
-        }, s = new Set([ ...a ? [ "missav", "jable", "123av", "javday", "supjav", "javrate" ] : [] ]), l = M.getVideoEngines().filter(e => s.has(e.key) && !e.host.test(location.hostname)).map(e => ({
+        }, s = new Set([ ...a ? [ "missav", "jable", "123av", "javday", "supjav", "javrate" ] : [] ]), l = L.getVideoEngines().filter(e => s.has(e.key) && !e.host.test(location.hostname)).map(e => ({
             ...e,
             url: o[e.key]
         })).filter(e => e.url);
         if (!l.length) return;
-        const c = M.getDefaultVideoEngine(), d = l.find(e => e.key === c) || l[0], p = l.filter(e => e !== d), m = e => S.createJumpLinkBtn(`🎬 ${e.label}`, e.color, e.url);
+        const c = L.getDefaultVideoEngine(), d = l.find(e => e.key === c) || l[0], p = l.filter(e => e !== d), m = e => C.createJumpLinkBtn(`🎬 ${e.label}`, e.color, e.url);
         if (!p.length) return void t.appendChild(m(d));
         const u = document.createElement("div");
         u.className = "search-menu missav-menu", u.style.setProperty("--jav-btn-accent", d.color);
@@ -4210,45 +4266,45 @@
         v.className = "search-submenu", p.forEach(e => {
             const t = m(e);
             t.style.margin = "2px 0", t.style.width = "100%", t.style.textAlign = "left", v.appendChild(t);
-        }), u.appendChild(v), P(u, g, v, h), t.appendChild(u);
+        }), u.appendChild(v), T(u, g, v, h), t.appendChild(u);
     }
-    function N(e, t, n = !1) {
+    function U(e, t, n = !1) {
         if (!GM_getValue("btn_show_fanza", !0)) return;
-        const a = S.createBtn("▶ FANZA", "#c0392b", () => {
+        const a = C.createBtn("▶ FANZA", "#c0392b", () => {
             window.open(`https://www.dmm.co.jp/mono/-/search/=/searchstr=${encodeURIComponent(e)}/`);
         }, n);
         t.appendChild(a);
     }
-    function U(e, t, n = !1) {
+    function B(e, t, n = !1) {
         if (!GM_getValue("btn_show_trailer", !0)) return;
-        const a = S.createBtn("🎞️ 预告片", "#111827", async () => {
+        const a = C.createBtn("🎞️ 预告片", "#111827", async () => {
             const t = a.textContent;
             a.textContent = "🎞️ 解析中...", a.style.pointerEvents = "none", a.style.opacity = "0.72";
             try {
-                await A.show(e);
+                await M.show(e);
             } finally {
                 a.textContent = t, a.style.pointerEvents = "", a.style.opacity = "";
             }
         }, n);
         a.classList.add("jav-trailer-btn"), t.appendChild(a);
     }
-    function B(e, t, n = !1) {
+    function D(e, t, n = !1) {
         if (!GM_getValue("btn_show_preview", !0)) return;
-        const a = S.createBtn("🖼️ 预览图", "#28a745", async () => {
-            await C.show(e);
+        const a = C.createBtn("🖼️ 预览图", "#28a745", async () => {
+            await E.show(e);
         }, n);
         a.classList.add("jav-preview-btn"), t.appendChild(a);
     }
-    function D(e, t, n = !1) {
-        if (!L.enabled() || !e || !t) return;
-        const a = L.normalizeKeepSeparator(e);
+    function G(e, t, n = !1) {
+        if (!P.enabled() || !e || !t) return;
+        const a = P.normalizeKeepSeparator(e);
         if (!a || t.dataset.pan115PlayCode === a) return;
         t.dataset.pan115PlayCode = a;
         const i = document.createComment("pan115-play"), r = t.querySelector(".jav-trailer-btn, .jav-preview-btn, .jav-settings-btn");
-        t.insertBefore(i, r || null), L.searchCached(a).then(e => {
+        t.insertBefore(i, r || null), P.searchCached(a).then(e => {
             const t = e?.pickcode;
-            if (!L.enabled() || !t || !i.parentNode) return;
-            const n = S.createJumpLinkBtn("115播放", "#00a85a", L.playUrl(t));
+            if (!P.enabled() || !t || !i.parentNode) return;
+            const n = C.createJumpLinkBtn("115播放", "#00a85a", P.playUrl(t));
             n.classList.add("jav-pan115-play-btn"), n.dataset.pickcode = t, n.title = e.name || `115播放：${a}`, 
             i.parentNode.insertBefore(n, i);
         }).catch(e => {
@@ -4257,11 +4313,11 @@
             i.remove();
         });
     }
-    function G(e, t, n = !1) {
+    function H(e, t, n = !1) {
         if (!GM_getValue("btn_show_search", !0)) return;
-        const a = M.getDefaultSearchEngine(), i = document.createElement("div");
+        const a = L.getDefaultSearchEngine(), i = document.createElement("div");
         i.className = "search-menu", i.style.setProperty("--jav-btn-accent", a.color);
-        const r = S.createBtn(`🔍 ${a.name}`, a.color, () => {
+        const r = C.createBtn(`🔍 ${a.name}`, a.color, () => {
             window.open(a.url(e));
         }, n);
         r.classList.add("search-main-btn"), i.appendChild(r);
@@ -4271,29 +4327,29 @@
         const s = document.createElement("div");
         s.className = "search-submenu", $.forEach(t => {
             if (t.name === a.name) return;
-            const i = S.createBtn(`🔍 ${t.name}`, t.color, () => {
+            const i = C.createBtn(`🔍 ${t.name}`, t.color, () => {
                 window.open(t.url(e)), s.classList.remove("is-open");
             }, n);
             i.style.margin = "2px 0", i.style.width = "100%", i.style.textAlign = "left", s.appendChild(i);
-        }), i.appendChild(s), P(i, o, s, r), t.appendChild(i);
+        }), i.appendChild(s), T(i, o, s, r), t.appendChild(i);
     }
     function J(e, t = !1) {
         if (!e || e.querySelector(".jav-settings-btn")) return;
-        const n = S.createBtn("⚙️ 设置", "#475569", () => {
+        const n = C.createBtn("⚙️ 设置", "#475569", () => {
             v.open();
         }, t);
         n.classList.add("jav-settings-btn"), n.title = "打开老司机设置", e.appendChild(n);
     }
-    function H(e, t, n = !0) {
-        const a = L.playUrl(e.pickcode), i = document.createElement(n ? "a" : "span");
-        if (i.className = "jav-pan115-badge", i.textContent = "115匹配", i.title = e.name || `115播放：${L.normalizeKeepSeparator(t)}`, 
+    function O(e, t, n = !0) {
+        const a = P.playUrl(e.pickcode), i = document.createElement(n ? "a" : "span");
+        if (i.className = "jav-pan115-badge", i.textContent = "115匹配", i.title = e.name || `115播放：${P.normalizeKeepSeparator(t)}`, 
         i.dataset.pickcode = e.pickcode, n) i.href = a, i.target = "_blank", i.rel = "noopener noreferrer", 
         i.addEventListener("click", e => {
             e.stopImmediatePropagation();
         }, !0); else {
             i.setAttribute("role", "link"), i.tabIndex = 0;
             const e = e => {
-                e.preventDefault(), e.stopImmediatePropagation(), window.open(L.playUrl(i.dataset.pickcode), "_blank", "noopener,noreferrer");
+                e.preventDefault(), e.stopImmediatePropagation(), window.open(P.playUrl(i.dataset.pickcode), "_blank", "noopener,noreferrer");
             };
             i.addEventListener("click", e, !0), i.addEventListener("keydown", t => {
                 "Enter" !== t.key && " " !== t.key || e(t);
@@ -4301,17 +4357,17 @@
         }
         return i;
     }
-    let O = !1;
-    async function F() {
-        if (!L.enabled() || O || j.isDetailPage()) return;
-        O = !0;
+    let F = !1;
+    async function V() {
+        if (!P.enabled() || F || j.isDetailPage()) return;
+        F = !0;
         const e = j.collectPan115ListTargets().slice(0, 36);
         try {
             e.forEach(({anchor: e}) => {
                 e.dataset.pan115Checked = "1";
             }), await Promise.all(e.map(async ({anchor: e, code: t}) => {
                 try {
-                    const n = await L.searchCached(t);
+                    const n = await P.searchCached(t);
                     j.insertPan115ListBadge(e, n, t);
                 } catch (e) {
                     console.warn("[老司机] 115列表单项查询失败:", e);
@@ -4320,31 +4376,31 @@
         } catch (e) {
             console.warn("[老司机] 115列表自动查询失败:", e);
         } finally {
-            O = !1, L.enabled() && j.collectPan115ListTargets().length && re();
+            F = !1, P.enabled() && j.collectPan115ListTargets().length && oe();
         }
     }
-    function V() {
+    function K() {
         document.querySelectorAll(".jav-pan115-badge[data-pickcode], .jav-pan115-play-btn[data-pickcode]").forEach(e => {
-            const t = L.playUrl(e.dataset.pickcode);
+            const t = P.playUrl(e.dataset.pickcode);
             "A" === e.tagName && (e.href = t);
-        }), j.isDetailPage() ? ne.render() : re();
+        }), j.isDetailPage() ? ae.render() : oe();
     }
-    function K(e = L.enabled()) {
-        if (!e) return clearTimeout(ie), document.querySelectorAll(".jav-pan115-badge, .jav-pan115-play-btn").forEach(e => e.remove()), 
+    function W(e = P.enabled()) {
+        if (!e) return clearTimeout(re), document.querySelectorAll(".jav-pan115-badge, .jav-pan115-play-btn").forEach(e => e.remove()), 
         document.querySelectorAll("[data-pan115-checked], [data-pan115-has-badge]").forEach(e => {
             delete e.dataset.pan115Checked, delete e.dataset.pan115HasBadge;
         }), void document.querySelectorAll("[data-pan115-play-code]").forEach(e => {
             delete e.dataset.pan115PlayCode;
         });
-        setTimeout(V, 0);
+        setTimeout(K, 0);
     }
-    function W(e) {
+    function Z(e) {
         const t = document.createElement("span");
         t.className = "jav-jump-line-break", t.style.cssText = "flex-basis:100%;height:0;padding:0;margin:0;", 
         e.appendChild(t);
     }
-    l.expose("__LAOSIJI_SYNC_PAN115__", K);
-    const Z = [ {
+    l.expose("__LAOSIJI_SYNC_PAN115__", W);
+    const Y = [ {
         id: "sukebei",
         name: "Sukebei",
         match: e => /nyaa\.si/.test(e) && e.includes("/view/"),
@@ -4416,11 +4472,11 @@
         match: e => /jable\.tv/.test(e) && /\/videos\/[a-z0-9-]+\/?/i.test(new URL(e).pathname),
         titleSelector: ".header-left > h4"
     } ];
-    l.expose("__LAOSIJI_JUMP_SITES__", Z);
-    const Y = (() => {
+    l.expose("__LAOSIJI_JUMP_SITES__", Y);
+    const X = (() => {
         let e = !1;
         function t(e) {
-            const t = String(e || "").replace(/\s+/g, " ").trim(), n = S.extractCode(t);
+            const t = String(e || "").replace(/\s+/g, " ").trim(), n = C.extractCode(t);
             return n && t.replace(new RegExp(`^\\s*${a = n, String(a || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*`, "i"), "").trim() || t;
             var a;
         }
@@ -4500,7 +4556,7 @@
             clear: n
         };
     })();
-    function X(e) {
+    function Q(e) {
         if (!e) return !1;
         if (e.closest('.hide, [hidden], [aria-hidden="true"]')) return !1;
         const t = e.getClientRects();
@@ -4508,21 +4564,21 @@
         const n = window.getComputedStyle(e);
         return "none" !== n.display && "hidden" !== n.visibility;
     }
-    function Q() {
+    function ee() {
         const e = Array.from(document.querySelectorAll('h1, h2, h3.itemName, .itemName-primary, .pageTitle, .nameContainer h3, [class*="itemName"]'));
         let t = null;
         for (const n of e) {
             const e = (n.textContent || "").trim();
-            if (e && X(n) && (t || (t = n), S.extractCode(e))) return n;
+            if (e && Q(n) && (t || (t = n), C.extractCode(e))) return n;
         }
         return t;
     }
-    function ee() {
+    function te() {
         const e = j.getJumpSite();
         if (!e) return;
         let t = j.getJumpTitleElement(e);
         if (!t) return;
-        if ("emby" === e.id && !S.extractCode(t.textContent || "")) return;
+        if ("emby" === e.id && !C.extractCode(t.textContent || "")) return;
         const n = document.querySelector('.jav-jump-btn-group[data-laosiji-jump="1"]');
         if ("emby" === e.id) {
             const e = j.getEmbyRenderKey(t), a = n?.dataset.embyRenderKey || "";
@@ -4536,27 +4592,27 @@
             delete t.dataset.enhanced;
         }
         if (n && "emby" !== e.id) {
-            const a = S.extractCode(t.textContent), i = L.extractCode(t.textContent, a);
-            return i && D(i, n), J(n), void te(e, t, n);
+            const a = C.extractCode(t.textContent), i = P.extractCode(t.textContent, a);
+            return i && G(i, n), J(n), void ne(e, t, n);
         }
         if ("1" === t.dataset.enhanced) return;
         t.dataset.enhanced = "1";
-        const a = t.textContent, i = S.extractCode(a);
+        const a = t.textContent, i = C.extractCode(a);
         if (!i) return;
-        const r = S.extractCode(a, {
+        const r = C.extractCode(a, {
             keepUncensoredSource: !0
         }) || i, o = document.createElement("div");
-        if (o.className = "jav-jump-btn-group", o.dataset.laosijiJump = "1", "javlibrary" === e.id) T(i, o), 
-        I(i, o), z(i, o), R(i, o), N(i, o), G(i, o), W(o), D(L.extractCode(a, i), o), U(r, o), 
-        B(i, o), J(o), o.querySelectorAll("a").forEach(e => {
+        if (o.className = "jav-jump-btn-group", o.dataset.laosijiJump = "1", "javlibrary" === e.id) I(i, o), 
+        z(i, o), R(i, o), N(i, o), U(i, o), H(i, o), Z(o), G(P.extractCode(a, i), o), B(r, o), 
+        D(i, o), J(o), o.querySelectorAll("a").forEach(e => {
             let t = e.getAttribute("style") || "";
             t = t.replace(/background:\s*([^;]+);/g, "background: $1 !important;"), t = t.replace(/color:\s*([^;]+);/g, "color: $1 !important;"), 
             e.setAttribute("style", t);
-        }), te(e, t, o); else if ("missav" === e.id) {
-            T(i, o), I(i, o), z(i, o), R(i, o);
-            const n = M.getDefaultSearchEngine(), s = document.createElement("div");
+        }), ne(e, t, o); else if ("missav" === e.id) {
+            I(i, o), z(i, o), R(i, o), N(i, o);
+            const n = L.getDefaultSearchEngine(), s = document.createElement("div");
             s.className = "search-menu", s.style.setProperty("--jav-btn-accent", n.color);
-            const l = S.createLinkBtn(`🔍 ${n.name}`, n.color, n.url(i));
+            const l = C.createLinkBtn(`🔍 ${n.name}`, n.color, n.url(i));
             l.classList.add("search-main-btn"), s.appendChild(l);
             const c = document.createElement("button");
             c.type = "button", c.className = "search-toggle-btn", c.title = "展开搜索引擎", c.innerHTML = '<span class="search-arrow">▼</span>', 
@@ -4564,16 +4620,16 @@
             const d = document.createElement("div");
             d.className = "search-submenu", $.forEach(e => {
                 if (e.name === n.name) return;
-                const t = S.createLinkBtn(`🔍 ${e.name}`, e.color, e.url(i));
+                const t = C.createLinkBtn(`🔍 ${e.name}`, e.color, e.url(i));
                 t.style.margin = "2px 0", d.appendChild(t);
-            }), s.appendChild(d), P(s, c, d, l), o.appendChild(s), D(L.extractCode(a, i), o), 
-            U(r, o), B(i, o), J(o), o.style.cssText = "\n                margin: 10px 0 6px 0;\n                display: flex;\n                flex-wrap: wrap;\n                gap: 8px;\n                align-items: center;\n                position: relative;\n                z-index: 9999;\n            ", 
-            te(e, t, o);
-        } else T(i, o), I(i, o), z(i, o), R(i, o), N(i, o), G(i, o), [ "javbus", "javdb", "supjav", "jable" ].includes(e.id) && W(o), 
-        D(L.extractCode(a, i), o), U(r, o), B(i, o), J(o), "emby" === e.id ? (o.classList.add("emby-fix"), 
-        o.dataset.embyRenderKey = j.getEmbyRenderKey(t), j.getEmbyInsertAnchor(t).insertAdjacentElement("afterend", o)) : te(e, t, o);
+            }), s.appendChild(d), T(s, c, d, l), o.appendChild(s), G(P.extractCode(a, i), o), 
+            B(r, o), D(i, o), J(o), o.style.cssText = "\n                margin: 10px 0 6px 0;\n                display: flex;\n                flex-wrap: wrap;\n                gap: 8px;\n                align-items: center;\n                position: relative;\n                z-index: 9999;\n            ", 
+            ne(e, t, o);
+        } else I(i, o), z(i, o), R(i, o), N(i, o), U(i, o), H(i, o), [ "javbus", "javdb", "supjav", "jable" ].includes(e.id) && Z(o), 
+        G(P.extractCode(a, i), o), B(r, o), D(i, o), J(o), "emby" === e.id ? (o.classList.add("emby-fix"), 
+        o.dataset.embyRenderKey = j.getEmbyRenderKey(t), j.getEmbyInsertAnchor(t).insertAdjacentElement("afterend", o)) : ne(e, t, o);
     }
-    function te(e, t, n) {
+    function ne(e, t, n) {
         if ("supjav" === e.id) return n.style.marginTop = "8px", void (n.parentElement === t.parentElement && n.previousElementSibling === t || t.insertAdjacentElement("afterend", n));
         if ("jable" === e.id) return n.style.marginTop = "8px", n.style.display = "flex", 
         n.style.flexWrap = "wrap", void (n.parentElement !== t && t.appendChild(n));
@@ -4588,13 +4644,13 @@
             });
         }(a), "javlibrary" === e.id ? (n.parentElement !== a || n.nextElementSibling) && a.appendChild(n) : n.parentElement !== a && a.appendChild(n)) : n.parentElement === t.parentElement && n.previousElementSibling === t || t.insertAdjacentElement("afterend", n);
     }
-    l.expose("__LAOSIJI_TITLE_TRANSLATE__", Y);
-    const ne = {
-        render: ee,
-        refresh: ee
-    };
-    l.expose("__LAOSIJI_JUMP_BUTTONS__", ne);
+    l.expose("__LAOSIJI_TITLE_TRANSLATE__", X);
     const ae = {
+        render: te,
+        refresh: te
+    };
+    l.expose("__LAOSIJI_JUMP_BUTTONS__", ae);
+    const ie = {
         cachePrefix: "laosiji_infinite_v1_",
         maxSnapshotItems: 240,
         snapshotTimer: null,
@@ -4752,9 +4808,9 @@
                     if (!this.state) return;
                     const n = this.appendItems(t), a = this.getConfig(t, e);
                     if (!this.state) return;
-                    this.state.nextUrl = a?.nextUrl || "", this.hidePagination(), this.reflow(), oe.refreshListDecorations(), 
+                    this.state.nextUrl = a?.nextUrl || "", this.hidePagination(), this.reflow(), se.refreshListDecorations(), 
                     this.saveSnapshot(), setTimeout(() => {
-                        oe.refreshListPage();
+                        se.refreshListPage();
                     }, 80), n && this.state.nextUrl ? this.setStatus("继续滚动加载下一页") : (this.state.done = !0, 
                     this.state.observer?.disconnect(), this.setStatus("已经到底了", "is-done"), this.saveSnapshot());
                 } catch (e) {
@@ -4773,17 +4829,17 @@
             window.dispatchEvent(new Event("resize"));
         }
     };
-    l.expose("__LAOSIJI_INFINITE_SCROLL__", ae);
-    let ie = null;
-    function re() {
-        L.enabled() && !j.isDetailPage() && (clearTimeout(ie), ie = setTimeout(F, 300));
+    l.expose("__LAOSIJI_INFINITE_SCROLL__", ie);
+    let re = null;
+    function oe() {
+        P.enabled() && !j.isDetailPage() && (clearTimeout(re), re = setTimeout(V, 300));
     }
-    l.expose("__LAOSIJI_SCHEDULE_PAN115__", re), l.expose("__LAOSIJI_RENDER_BUTTONS__", () => ne.render());
-    const oe = {
+    l.expose("__LAOSIJI_SCHEDULE_PAN115__", oe), l.expose("__LAOSIJI_RENDER_BUTTONS__", () => ae.render());
+    const se = {
         refresh(e = {}) {
-            const {jump: t = !0, listPreview: n = !0, detailPreview: a = !0, pan115: i = !0, infiniteScroll: r = !0, titleTranslate: o = !0, stillsGallery: s = !0} = e;
-            t && ne.render(), n && E.sync(), a && q.sync(), s && _.sync(), i && re(), r && ae.init(), 
-            o && Y.sync();
+            const {jump: t = !0, listPreview: n = !0, detailPreview: a = !0, pan115: i = !0, infiniteScroll: r = !0, titleTranslate: o = !0, listOpenNewTab: s = !0, stillsGallery: l = !0} = e;
+            t && ae.render(), n && A.sync(), s && _.sync(), a && q.sync(), l && k.sync(), i && oe(), 
+            r && ie.init(), o && X.sync();
         },
         refreshListPage() {
             this.refresh({
@@ -4792,73 +4848,76 @@
             });
         },
         refreshListDecorations() {
-            E.sync(), re();
+            A.sync(), _.sync(), oe();
         },
-        syncPan115(e = L.enabled()) {
-            K(e);
+        syncPan115(e = P.enabled()) {
+            W(e);
         },
         syncInfiniteScroll(e = a.infiniteScroll) {
-            e ? ae.init() : ae.destroy();
+            e ? ie.init() : ie.destroy();
         },
         syncListPreview() {
-            E.sync();
+            A.sync();
         },
         syncDetailPreview() {
             q.sync();
         },
         syncTitleTranslate() {
-            Y.sync();
+            X.sync();
+        },
+        syncListOpenNewTab() {
+            _.sync();
         }
     };
-    l.expose("__LAOSIJI_RUNTIME__", oe);
-    let se = null;
-    const le = new MutationObserver(() => {
-        clearTimeout(se), se = setTimeout(() => {
-            oe.refresh();
+    l.expose("__LAOSIJI_RUNTIME__", se);
+    let le = null;
+    const ce = new MutationObserver(() => {
+        clearTimeout(le), le = setTimeout(() => {
+            se.refresh();
         }, 120);
     });
-    let ce = location.href, de = [];
-    function pe() {
-        de.forEach(e => clearTimeout(e)), de = [];
-    }
+    let de = location.href, pe = [];
     function me() {
-        pe(), [ 0, 80, 200, 400, 700, 1100, 1700, 2500, 3500, 5e3, 6500 ].forEach(e => {
-            de.push(setTimeout(() => {
-                ne.render(), function() {
+        pe.forEach(e => clearTimeout(e)), pe = [];
+    }
+    function ue() {
+        me(), [ 0, 80, 200, 400, 700, 1100, 1700, 2500, 3500, 5e3, 6500 ].forEach(e => {
+            pe.push(setTimeout(() => {
+                ae.render(), function() {
                     const e = document.querySelector('.jav-jump-btn-group[data-laosiji-jump="1"]');
                     return !(!e || !e.isConnected);
-                }() && pe();
+                }() && me();
             }, e));
         });
     }
-    function ue() {
-        location.href !== ce && (ce = location.href, j.isEmbyPage() ? (j.isEmbyPage() && (document.querySelectorAll('.jav-jump-btn-group[data-laosiji-jump="1"]').forEach(e => e.remove()), 
+    function he() {
+        location.href !== de && (de = location.href, j.isEmbyPage() ? (j.isEmbyPage() && (document.querySelectorAll('.jav-jump-btn-group[data-laosiji-jump="1"]').forEach(e => e.remove()), 
         document.querySelectorAll('h1[data-enhanced="1"]').forEach(e => delete e.dataset.enhanced)), 
-        me()) : ne.render());
+        ue()) : ae.render());
     }
-    const he = {
+    const ge = {
         started: !1,
         observerReady: !1,
         navigationReady: !1,
         initRuntimeObserver() {
-            this.observerReady || (this.observerReady = !0, document.body && le.observe(document.body, {
+            this.observerReady || (this.observerReady = !0, document.body && ce.observe(document.body, {
                 childList: !0,
                 subtree: !0
             }));
         },
         initNavigationHooks() {
-            this.navigationReady || (this.navigationReady = !0, window.addEventListener("scroll", () => ae.scheduleSnapshotSave(), {
+            this.navigationReady || (this.navigationReady = !0, window.addEventListener("scroll", () => ie.scheduleSnapshotSave(), {
                 passive: !0
-            }), window.addEventListener("pagehide", () => ae.saveSnapshot()), window.addEventListener("beforeunload", () => ae.saveSnapshot()), 
+            }), window.addEventListener("pagehide", () => ie.saveSnapshot()), window.addEventListener("beforeunload", () => ie.saveSnapshot()), 
             window.addEventListener("pageshow", e => {
-                e.persisted && setTimeout(() => ae.init(), 0);
-            }), window.addEventListener("hashchange", ue), window.addEventListener("popstate", ue), 
+                e.persisted && setTimeout(() => ie.init(), 0);
+            }), window.addEventListener("hashchange", he), window.addEventListener("popstate", he), 
             function() {
                 const e = e => {
                     const t = history[e];
                     "function" == typeof t && (history[e] = function() {
                         const e = t.apply(this, arguments);
-                        return setTimeout(ue, 0), e;
+                        return setTimeout(he, 0), e;
                     });
                 };
                 e("pushState"), e("replaceState");
@@ -4866,11 +4925,11 @@
         },
         init() {
             this.started || (this.started = !0, this.initRuntimeObserver(), this.initNavigationHooks(), 
-            j.setupJavDbGuards(), location.hostname.includes("javdb") && location.pathname.startsWith("/v/") ? setTimeout(k, 600) : k(), 
-            j.isEmbyPage() ? (me(), oe.refresh({
+            j.setupJavDbGuards(), location.hostname.includes("javdb") && location.pathname.startsWith("/v/") ? setTimeout(S, 600) : S(), 
+            j.isEmbyPage() ? (ue(), se.refresh({
                 jump: !1
-            })) : oe.refresh());
+            })) : se.refresh());
         }
     };
-    l.expose("__LAOSIJI_APP__", he), he.init();
+    l.expose("__LAOSIJI_APP__", ge), ge.init();
 }();
