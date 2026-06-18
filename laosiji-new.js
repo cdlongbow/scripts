@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.6.0
+// @version      2.6.1
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -44,7 +44,7 @@
 
 !function() {
     "use strict";
-    const e = "2.6.0", t = 86, n = 20, a = {
+    const e = "2.6.1", t = 86, n = 20, a = {
         get javdbSearchUrl() {
             return GM_getValue("cfg_javdb_search_url", "javdb.com");
         },
@@ -473,7 +473,7 @@
             return (i(e) / 100).toFixed(2).replace(/\.?0+$/, "");
         }
         function c(e = r()) {
-            return !(!e || !a.magnetTable || !document.querySelector(".jav-nong-slot"));
+            return !(!e || !a.magnetTable) && !!document.querySelector(".jav-nong-slot");
         }
         return {
             LIMITS: e,
@@ -843,7 +843,7 @@
                     j?.classList.add("is-visible"), Object.entries(_).forEach(([t, n]) => {
                         const a = k[t];
                         n && a && d.bindRange(n, a, e[t], S, e => {
-                            if ("magnet" === t && !C()) return;
+                            if (!("magnet" !== t || C())) return;
                             const n = o.clamp(e);
                             a.textContent = S(n), o.set(w, t, n), o.apply(w);
                         });
@@ -884,9 +884,9 @@
                 [a.javdbSearchUrl]: g,
                 [a.ciligouUrl]: x,
                 [a.btdigUrl]: y,
-                [a.btsearchUrl]: j,
-                [a.sukebeiUrl]: _,
-                [a.sokittyUrl]: k
+                [a.btsearchUrl]: _,
+                [a.sukebeiUrl]: k,
+                [a.sokittyUrl]: S
             }),
             getCurrent() {
                 const e = this.getAll(), t = a.defaultEngine;
@@ -986,14 +986,15 @@
             };
             const p = l(d.responseText), m = (Array.isArray(p?.data?.magnets) ? p.data.magnets : []).map(t => {
                 const n = String(t?.hash || "").trim();
-                return n ? {
+                if (!n) return null;
+                return {
                     title: [ String(t?.name || i.number || e).trim(), t?.cnsub ? "-CH" : "", t?.hd ? "HD" : "", t?.files_count ? `${t.files_count} files` : "", t?.created_at || "" ].filter(Boolean).join(" "),
                     maglink: `magnet:?xt=urn:btih:${n}`,
                     size: c(t?.size),
                     src: r,
                     cnsub: Boolean(t?.cnsub),
                     hd: Boolean(t?.hd)
-                } : null;
+                };
             }).filter(Boolean);
             return {
                 url: r,
@@ -1126,13 +1127,32 @@
                 data: i
             };
         }
-        function w(e, t) {
+        function w(e, t, n, a) {
+            const i = function(e) {
+                const t = String(e || "").trim();
+                if (!t) return "";
+                if (!/[<&]/.test(t)) return t.replace(/\s+/g, " ");
+                const n = m(`<body>${t}</body>`);
+                return (n.body?.textContent || t.replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim();
+            }(e?.name), r = String(e?.hash || "").replace(/^magnet:\?xt=urn:btih:/i, "").replace(/[^a-z0-9]/gi, "");
+            if (!/^[a-f0-9]{32,40}$/i.test(r)) return null;
+            const o = `magnet:?xt=urn:btih:${r}`;
+            return {
+                title: i || o,
+                maglink: o,
+                size: C(e?.size),
+                src: e?.id ? `${t}/torrent/${encodeURIComponent(e.id)}?keyword=${encodeURIComponent(a)}` : n
+            };
+        }
+        function j(e, t) {
             const n = Math.floor(Date.now() / 1e3).toString(), a = function(e = 8) {
-                let t = "";
-                for (let n = 0; n < e; n++) t += "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".charAt(Math.floor(62 * Math.random()));
-                return t;
+                const t = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+                let n = "";
+                for (let a = 0; a < e; a++) n += t.charAt(Math.floor(62 * Math.random()));
+                return n;
             }(), i = [ `timestamp=${n}`, `nonce=${a}` ];
-            return Object.keys(e).forEach(t => i.push(`${t}=${e[t]}`)), {
+            Object.keys(e).forEach(t => i.push(`${t}=${e[t]}`));
+            return {
                 Accept: "application/json, text/plain, */*",
                 Referer: t,
                 "x-timestamp": n,
@@ -1140,7 +1160,7 @@
                 "x-sign": r(`${i.sort().join("&")}&key=long2ice`).toUpperCase()
             };
         }
-        async function j(e) {
+        async function _(e) {
             const t = "https://" + a.btsearchUrl, n = `${t}/search?keyword=${encodeURIComponent(e)}`, i = {
                 keyword: e,
                 limit: "10",
@@ -1151,36 +1171,21 @@
                 sort_type: "desc",
                 size: ""
             }, r = `${t}/api/search?${new URLSearchParams(i).toString()}`, o = await u(r, {
-                headers: w(i, n)
+                headers: j(i, n)
             });
             if (!o.loadstuts || o.status < 200 || o.status >= 400) return {
                 url: n,
                 data: []
             };
-            const s = (c = l(o.responseText), Array.isArray(c?.data) ? c.data : Array.isArray(c?.data?.data) ? c.data.data : []).map(a => function(e, t, n, a) {
-                const i = function(e) {
-                    const t = String(e || "").trim();
-                    if (!t) return "";
-                    if (!/[<&]/.test(t)) return t.replace(/\s+/g, " ");
-                    const n = m(`<body>${t}</body>`);
-                    return (n.body?.textContent || t.replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim();
-                }(e?.name), r = String(e?.hash || "").replace(/^magnet:\?xt=urn:btih:/i, "").replace(/[^a-z0-9]/gi, "");
-                if (!/^[a-f0-9]{32,40}$/i.test(r)) return null;
-                const o = `magnet:?xt=urn:btih:${r}`;
-                return {
-                    title: i || o,
-                    maglink: o,
-                    size: S(e?.size),
-                    src: e?.id ? `${t}/torrent/${encodeURIComponent(e.id)}?keyword=${encodeURIComponent(a)}` : n
-                };
-            }(a, t, n, e)).filter(Boolean);
-            var c;
+            const s = function(e) {
+                return Array.isArray(e?.data) ? e.data : Array.isArray(e?.data?.data) ? e.data.data : [];
+            }(l(o.responseText)).map(a => w(a, t, n, e)).filter(Boolean);
             return {
                 url: n,
                 data: s
             };
         }
-        async function _(e) {
+        async function k(e) {
             const t = "https://" + a.sukebeiUrl, n = await u(`${t}/?f=0&c=0_0&q=${e}`);
             if (!n.loadstuts) return {
                 url: t,
@@ -1197,7 +1202,7 @@
                 data: i
             };
         }
-        async function k(e) {
+        async function S(e) {
             const t = "https://" + a.sokittyUrl, n = `${t}/search?key=${encodeURIComponent(e)}`, i = await u(n, {
                 headers: {
                     Referer: t + "/"
@@ -1229,7 +1234,7 @@
                 data: l
             };
         }
-        function S(e) {
+        function C(e) {
             const t = Number(e) || 0;
             if (!t) return "-";
             const n = [ "B", "KB", "MB", "GB", "TB" ];
@@ -1237,7 +1242,7 @@
             for (;a >= 1024 && i < n.length - 1; ) a /= 1024, i += 1;
             return `${a.toFixed(i >= 3 ? 2 : 1)} ${n[i]}`;
         }
-        function C(e, t) {
+        function E(e, t) {
             document.querySelector(".whatslink-overlay")?.remove();
             const n = Array.isArray(e?.screenshots) ? e.screenshots.map(e => e?.screenshot).filter(Boolean) : [];
             let a = 0;
@@ -1247,7 +1252,7 @@
             }(e), r = document.createElement("div");
             r.className = "whatslink-overlay";
             const o = document.createElement("section");
-            o.className = "whatslink-modal" + (n.length ? "" : " no-shots"), o.innerHTML = `\n                <div class="whatslink-viewer">\n                    <div class="whatslink-stage">\n                        <button class="whatslink-nav whatslink-prev" type="button">‹</button>\n                        <img class="whatslink-hero" alt="截图预览">\n                        <button class="whatslink-nav whatslink-next" type="button">›</button>\n                        <div class="whatslink-counter"></div>\n                        <div class="whatslink-empty">\n                            <div class="whatslink-empty-icon">?</div>\n                            <div class="whatslink-empty-title">暂无截图</div>\n                            <p class="whatslink-empty-text">WhatsLink 已返回资源基础信息，但没有可展示的截图。可以通过名称、大小和文件数量先做基础判断。</p>\n                        </div>\n                    </div>\n                    <div class="whatslink-thumbs"></div>\n                </div>\n                <aside class="whatslink-info">\n                    <div class="whatslink-head">\n                        <div>\n                            <div class="whatslink-kicker">磁力验车</div>\n                            <h2 class="whatslink-title"></h2>\n                            <span class="whatslink-tag"></span>\n                        </div>\n                        <button class="whatslink-close" type="button">×</button>\n                    </div>\n                    <div class="whatslink-meta">\n                        <div class="whatslink-metric"><b>${S(e?.size)}</b><span>资源大小</span></div>\n                        <div class="whatslink-metric"><b>${e?.count ?? "-"}</b><span>文件数量</span></div>\n                        <div class="whatslink-metric"><b>${i}</b><span>资源结构</span></div>\n                        <div class="whatslink-metric"><b>${n.length}</b><span>截图数量</span></div>\n                        <div class="whatslink-metric"><b>${e?.error ? "异常" : "无错误"}</b><span>接口状态</span></div>\n                    </div>\n                    <div class="whatslink-section">\n                        <h3>磁力链接</h3>\n                        <div class="whatslink-magnet"></div>\n                    </div>\n                    <div class="whatslink-summary">\n                        <div class="whatslink-summary-card"><strong>验车结论</strong><p>${n.length ? "WhatsLink 已返回截图，优先用左侧大图确认内容是否匹配番号。" : "当前没有截图，建议结合资源名称、大小和文件数量判断。"}</p></div>\n                    </div>\n                </aside>`, 
+            o.className = "whatslink-modal" + (n.length ? "" : " no-shots"), o.innerHTML = `\n                <div class="whatslink-viewer">\n                    <div class="whatslink-stage">\n                        <button class="whatslink-nav whatslink-prev" type="button">‹</button>\n                        <img class="whatslink-hero" alt="截图预览">\n                        <button class="whatslink-nav whatslink-next" type="button">›</button>\n                        <div class="whatslink-counter"></div>\n                        <div class="whatslink-empty">\n                            <div class="whatslink-empty-icon">?</div>\n                            <div class="whatslink-empty-title">暂无截图</div>\n                            <p class="whatslink-empty-text">WhatsLink 已返回资源基础信息，但没有可展示的截图。可以通过名称、大小和文件数量先做基础判断。</p>\n                        </div>\n                    </div>\n                    <div class="whatslink-thumbs"></div>\n                </div>\n                <aside class="whatslink-info">\n                    <div class="whatslink-head">\n                        <div>\n                            <div class="whatslink-kicker">磁力验车</div>\n                            <h2 class="whatslink-title"></h2>\n                            <span class="whatslink-tag"></span>\n                        </div>\n                        <button class="whatslink-close" type="button">×</button>\n                    </div>\n                    <div class="whatslink-meta">\n                        <div class="whatslink-metric"><b>${C(e?.size)}</b><span>资源大小</span></div>\n                        <div class="whatslink-metric"><b>${e?.count ?? "-"}</b><span>文件数量</span></div>\n                        <div class="whatslink-metric"><b>${i}</b><span>资源结构</span></div>\n                        <div class="whatslink-metric"><b>${n.length}</b><span>截图数量</span></div>\n                        <div class="whatslink-metric"><b>${e?.error ? "异常" : "无错误"}</b><span>接口状态</span></div>\n                    </div>\n                    <div class="whatslink-section">\n                        <h3>磁力链接</h3>\n                        <div class="whatslink-magnet"></div>\n                    </div>\n                    <div class="whatslink-summary">\n                        <div class="whatslink-summary-card"><strong>验车结论</strong><p>${n.length ? "WhatsLink 已返回截图，优先用左侧大图确认内容是否匹配番号。" : "当前没有截图，建议结合资源名称、大小和文件数量判断。"}</p></div>\n                    </div>\n                </aside>`, 
             r.appendChild(o), document.body.appendChild(r), o.querySelector(".whatslink-title").textContent = e?.name || "未知资源", 
             o.querySelector(".whatslink-tag").textContent = i, o.querySelector(".whatslink-magnet").textContent = t;
             const s = o.querySelector(".whatslink-hero"), l = o.querySelector(".whatslink-thumbs"), c = o.querySelector(".whatslink-counter"), d = () => {
@@ -1269,199 +1274,202 @@
                 e.target === r && p();
             }), d();
         }
-        async function E(t, n, i) {
+        function A(t) {
+            const n = document.createElement("table");
+            n.id = "jav-nong-table", n.dataset.avid = t;
+            const i = document.createElement("tr");
+            i.className = "nong-head-row";
+            const r = document.createElement("th");
+            r.style.textAlign = "left";
+            const o = e.getAll(), s = a.defaultEngine, l = document.createElement("select");
+            l.style.cssText = "height:22px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;padding:1px 22px 1px 6px;min-width:84px;background:#fff;color:#172033;font-weight:650;";
+            const c = {
+                [a.javdbSearchUrl]: "JavDB",
+                [a.ciligouUrl]: "CiliGou",
+                [a.btdigUrl]: "BtDig",
+                [a.btsearchUrl]: "BTSearch",
+                [a.sukebeiUrl]: "Sukebei",
+                [a.sokittyUrl]: "SoKitty"
+            };
+            Object.keys(o).forEach(e => {
+                const t = document.createElement("option");
+                t.value = e, t.textContent = c[e] || e, e === s && (t.selected = !0), l.appendChild(t);
+            });
+            const d = () => {
+                l.style.width = "";
+                const e = l.offsetWidth;
+                l.style.width = Math.max(e, 80) + "px";
+            };
+            requestAnimationFrame(d), l.addEventListener("change", () => {
+                M(n, t, l.value), requestAnimationFrame(d);
+            }), r.appendChild(l), i.appendChild(r), [ "大小", "操作", "115" ].forEach(e => {
+                const t = document.createElement("th");
+                t.textContent = e, "115" === e && (t.className = "nong-115-head"), i.appendChild(t);
+            }), n.appendChild(i);
+            const p = document.createElement("tr"), m = document.createElement("td");
+            m.colSpan = 4, m.id = "jav-nong-notice";
+            const u = document.createTextNode("Loading…"), h = document.createElement("a");
+            return h.id = "jav-nong-refresh", h.href = "#", h.textContent = "🔄 刷新", h.title = "网络加载失败，点击重试", 
+            h.addEventListener("click", e => {
+                e.preventDefault(), M(n, t, l.value);
+            }), m.appendChild(u), m.appendChild(h), p.appendChild(m), n.appendChild(p), n;
+        }
+        function q(e, t, n) {
+            const i = e => {
+                if (!e) return 0;
+                const t = e.replace(/,/g, "").match(/([\d.]+)\s*(GiB|MiB|KiB|GB|MB|KB|B)?/i);
+                if (!t) return 0;
+                return parseFloat(t[1]) * ({
+                    GIB: 1073741824,
+                    MIB: 1048576,
+                    KIB: 1024,
+                    GB: 1073741824,
+                    MB: 1048576,
+                    KB: 1024,
+                    B: 1
+                }[(t[2] || "B").toUpperCase()] || 1);
+            };
+            t = [ ...t ].sort((e, t) => i(t.size) - i(e.size));
+            const r = e.querySelector("#jav-nong-notice");
+            if (r && r.parentElement.remove(), !t.length) {
+                const t = document.createElement("tr"), i = document.createElement("td");
+                i.colSpan = 4, i.innerHTML = `无搜索结果 <a href="${n}" target="_blank" style="color:red">前往查看</a>`;
+                const r = document.createElement("a");
+                return r.href = "#", r.textContent = " 🔄 刷新", r.style.cssText = "margin-left:8px;color:#e74c3c;font-weight:bold;cursor:pointer;", 
+                r.addEventListener("click", t => {
+                    t.preventDefault();
+                    const n = e.querySelector("select")?.value || a.defaultEngine;
+                    M(e, e.dataset.avid || "", n);
+                }), i.appendChild(r), t.appendChild(i), void e.appendChild(t);
+            }
+            t.forEach(t => {
+                const n = document.createElement("tr");
+                n.setAttribute("data-maglink", t.maglink);
+                const a = document.createElement("td"), i = document.createElement("span");
+                i.className = "nong-magnet-name", i.title = t.title;
+                const r = /[\u4e00-\u9fff]/.test(t.title), o = /[\u3040-\u309f\u30a0-\u30ff]/.test(t.title), s = /(?:[^A-Za-z]|^)FHDC(?:[^A-Za-z]|$)/i.test(t.title) || /[-_]CH?(?:[^A-Za-z]|$)/.test(t.title) || /中字/.test(t.title) || /中文/.test(t.title) || /自提/.test(t.title) || /征用/.test(t.title) || r && !o, l = /(?:[^A-Za-z0-9]|^)4K(?:UHD)?(?:[^A-Za-z0-9]|$)/i.test(t.title);
+                if (s) {
+                    const e = document.createElement("span");
+                    e.textContent = "[中字]", e.style.cssText = "display:inline-block;margin-right:5px;padding:1px 5px;font-size:11px;font-weight:800;color:#fff;background:#16a34a;border-radius:4px;vertical-align:middle;flex-shrink:0;box-shadow:0 0 0 1px rgba(22,163,74,.18);", 
+                    i.appendChild(e), i.style.background = "linear-gradient(90deg,#dcfce7 0%,#f0fdf4 55%,#fff 100%)", 
+                    i.style.borderLeft = "4px solid #16a34a", i.style.paddingLeft = "5px";
+                }
+                if (l) {
+                    const e = document.createElement("span");
+                    e.textContent = "[4K]", e.style.cssText = "display:inline-block;margin-right:5px;padding:1px 5px;font-size:11px;font-weight:800;color:#fff;background:#2563eb;border-radius:4px;vertical-align:middle;flex-shrink:0;box-shadow:0 0 0 1px rgba(37,99,235,.18);", 
+                    i.insertBefore(e, i.firstChild), s || (i.style.background = "linear-gradient(90deg,#dbeafe 0%,#eff6ff 55%,#fff 100%)", 
+                    i.style.borderLeft = "4px solid #2563eb", i.style.paddingLeft = "5px");
+                }
+                const c = document.createElement("a");
+                c.href = t.src || t.maglink, c.target = "_blank", c.textContent = t.title, i.appendChild(c), 
+                a.appendChild(i), n.appendChild(a);
+                const d = document.createElement("td");
+                d.style.whiteSpace = "nowrap", d.textContent = t.size, n.appendChild(d);
+                const m = document.createElement("td");
+                m.style.whiteSpace = "nowrap";
+                const h = document.createElement("a"), g = t.maglink.substring(0, 60), v = e => {
+                    if (!e) return null;
+                    const t = [ /FC2[-\s_]?(?:PPV)?[-\s_]?(\d{6,9})/i, /([A-Z]{2,15})-(\d{2,10})(?:-(\d+))?/i, /([A-Z]{2,15})-([A-Z]{0,2}\d{2,10})/i, /^[A-Z0-9]+[-_](\d{6}[-_]\d{2,3})/i, /(\d{6}[-_]\d{2,3})[-_][A-Z0-9]+$/i, /(?<!\w)(\d{6}[-_]\d{2,3})(?!\w)/, /([A-Z]{1,2})(\d{3,4})/i ];
+                    for (const n of t) {
+                        const t = e.match(n);
+                        if (t) return t[0].toUpperCase();
+                    }
+                    return null;
+                }, b = v(t.title) || v(t.maglink), f = g + (b ? `&dn=${encodeURIComponent(b)}` : "");
+                h.href = g, h.title = g, h.className = "nong-copy", h.textContent = "复制", h.addEventListener("click", e => {
+                    e.preventDefault(), GM_setClipboard(f), h.textContent = "✓", setTimeout(() => {
+                        h.textContent = "复制";
+                    }, 1e3);
+                }), m.appendChild(h);
+                const x = document.createElement("a");
+                x.href = "#", x.className = "nong-check", x.textContent = "验车", x.addEventListener("click", e => {
+                    e.preventDefault(), async function(e) {
+                        document.querySelector(".whatslink-overlay")?.remove();
+                        const t = document.createElement("div");
+                        t.className = "whatslink-overlay", t.innerHTML = '<div class="whatslink-modal no-shots"><div class="whatslink-loading">正在验车...</div></div>', 
+                        document.body.appendChild(t);
+                        try {
+                            const n = `https://whatslink.info/api/v1/link?url=${encodeURIComponent(e)}`, a = await u(n, {
+                                timeout: 2e4
+                            });
+                            if (!a.loadstuts) throw new Error("WhatsLink 请求失败");
+                            const i = JSON.parse(a.responseText || "{}");
+                            t.remove(), E(i, e);
+                        } catch (n) {
+                            t.remove(), E({
+                                error: n.message || "查询失败",
+                                name: "查询失败",
+                                type: "-",
+                                file_type: "-",
+                                size: 0,
+                                count: "-",
+                                screenshots: []
+                            }, e);
+                        }
+                    }(t.maglink);
+                }), m.appendChild(x), n.appendChild(m);
+                const y = document.createElement("td");
+                y.className = "nong-115-cell";
+                const w = document.createElement("a");
+                w.href = "#", w.className = "nong-offline-115", w.textContent = "115", w.addEventListener("click", e => {
+                    e.preventDefault(), async function(e) {
+                        e = e.substring(0, 60);
+                        const t = await u(`http://115.com/?ct=offline&ac=space&_=${Date.now()}`);
+                        if (!t.loadstuts) return void p("115 错误", "无法获取token，请检查115是否已登录", "http://115.com/?mode=login");
+                        if (t.responseText.includes("html")) return void p("115 未登录", "请先登录115账户后再离线下载", "http://115.com/?mode=login");
+                        const n = JSON.parse(t.responseText), a = GM_getValue("jav_115_uid", "");
+                        new Promise(t => {
+                            GM_xmlhttpRequest({
+                                method: "POST",
+                                url: "http://115.com/web/lixian/?ct=lixian&ac=add_task_url",
+                                headers: {
+                                    "Content-Type": "application/x-www-form-urlencoded"
+                                },
+                                data: `url=${encodeURIComponent(e)}&uid=${a}&sign=${n.sign}&time=${n.time}`,
+                                onload(e) {
+                                    const n = JSON.parse(e.responseText);
+                                    n.state ? p("115 离线成功", "任务已添加", "http://115.com/?tab=offline&mode=wangpan") : p("115 离线失败", "911" === n.errcode ? "账号使用异常，请手工验证" : n.error_msg || "未知错误", "http://115.com/?tab=offline&mode=wangpan"), 
+                                    t();
+                                }
+                            });
+                        });
+                    }(t.maglink);
+                }), y.appendChild(w), n.appendChild(y), e.appendChild(n);
+            });
+        }
+        async function M(t, n, a) {
             [ ...t.querySelectorAll("tr:not(.nong-head-row)") ].forEach(e => e.remove());
-            const r = document.createElement("tr"), o = document.createElement("td");
-            o.colSpan = 4, o.id = "jav-nong-notice";
-            const l = document.createTextNode("Loading…"), c = t.querySelector("#jav-nong-refresh") || document.createElement("a");
-            c.id = "jav-nong-refresh", c.href = "#", c.textContent = "🔄 刷新", c.style.cssText = "display:none;margin-left:8px;color:#e74c3c;font-weight:bold;cursor:pointer;", 
-            c.onclick = e => {
-                e.preventDefault(), E(t, n, i);
-            }, o.appendChild(l), o.appendChild(c), r.appendChild(o), t.appendChild(r);
-            let d = !1;
-            const m = setTimeout(() => {
-                d = !0, l.textContent = "加载超时 ", c.style.display = "inline";
+            const i = document.createElement("tr"), r = document.createElement("td");
+            r.colSpan = 4, r.id = "jav-nong-notice";
+            const o = document.createTextNode("Loading…"), l = t.querySelector("#jav-nong-refresh") || document.createElement("a");
+            l.id = "jav-nong-refresh", l.href = "#", l.textContent = "🔄 刷新", l.style.cssText = "display:none;margin-left:8px;color:#e74c3c;font-weight:bold;cursor:pointer;", 
+            l.onclick = e => {
+                e.preventDefault(), M(t, n, a);
+            }, r.appendChild(o), r.appendChild(l), i.appendChild(r), t.appendChild(i);
+            let c = !1;
+            const d = setTimeout(() => {
+                c = !0, o.textContent = "加载超时 ", l.style.display = "inline";
             }, 8e3);
             try {
-                const r = e.getAll(), o = r[i] || Object.values(r)[0], {url: s, data: l} = await o(n);
-                if (clearTimeout(m), d) return;
-                !function(e, t, n) {
-                    const i = e => {
-                        if (!e) return 0;
-                        const t = e.replace(/,/g, "").match(/([\d.]+)\s*(GiB|MiB|KiB|GB|MB|KB|B)?/i);
-                        return t ? parseFloat(t[1]) * ({
-                            GIB: 1073741824,
-                            MIB: 1048576,
-                            KIB: 1024,
-                            GB: 1073741824,
-                            MB: 1048576,
-                            KB: 1024,
-                            B: 1
-                        }[(t[2] || "B").toUpperCase()] || 1) : 0;
-                    };
-                    t = [ ...t ].sort((e, t) => i(t.size) - i(e.size));
-                    const r = e.querySelector("#jav-nong-notice");
-                    if (r && r.parentElement.remove(), !t.length) {
-                        const t = document.createElement("tr"), i = document.createElement("td");
-                        i.colSpan = 4, i.innerHTML = `无搜索结果 <a href="${n}" target="_blank" style="color:red">前往查看</a>`;
-                        const r = document.createElement("a");
-                        return r.href = "#", r.textContent = " 🔄 刷新", r.style.cssText = "margin-left:8px;color:#e74c3c;font-weight:bold;cursor:pointer;", 
-                        r.addEventListener("click", t => {
-                            t.preventDefault();
-                            const n = e.querySelector("select")?.value || a.defaultEngine;
-                            E(e, e.dataset.avid || "", n);
-                        }), i.appendChild(r), t.appendChild(i), void e.appendChild(t);
-                    }
-                    t.forEach(t => {
-                        const n = document.createElement("tr");
-                        n.setAttribute("data-maglink", t.maglink);
-                        const a = document.createElement("td"), i = document.createElement("span");
-                        i.className = "nong-magnet-name", i.title = t.title;
-                        const r = /[\u4e00-\u9fff]/.test(t.title), o = /[\u3040-\u309f\u30a0-\u30ff]/.test(t.title), s = /(?:[^A-Za-z]|^)FHDC(?:[^A-Za-z]|$)/i.test(t.title) || /[-_]CH?(?:[^A-Za-z]|$)/.test(t.title) || /中字/.test(t.title) || /中文/.test(t.title) || /自提/.test(t.title) || /征用/.test(t.title) || r && !o, l = /(?:[^A-Za-z0-9]|^)4K(?:UHD)?(?:[^A-Za-z0-9]|$)/i.test(t.title);
-                        if (s) {
-                            const e = document.createElement("span");
-                            e.textContent = "[中字]", e.style.cssText = "display:inline-block;margin-right:5px;padding:1px 5px;font-size:11px;font-weight:800;color:#fff;background:#16a34a;border-radius:4px;vertical-align:middle;flex-shrink:0;box-shadow:0 0 0 1px rgba(22,163,74,.18);", 
-                            i.appendChild(e), i.style.background = "linear-gradient(90deg,#dcfce7 0%,#f0fdf4 55%,#fff 100%)", 
-                            i.style.borderLeft = "4px solid #16a34a", i.style.paddingLeft = "5px";
-                        }
-                        if (l) {
-                            const e = document.createElement("span");
-                            e.textContent = "[4K]", e.style.cssText = "display:inline-block;margin-right:5px;padding:1px 5px;font-size:11px;font-weight:800;color:#fff;background:#2563eb;border-radius:4px;vertical-align:middle;flex-shrink:0;box-shadow:0 0 0 1px rgba(37,99,235,.18);", 
-                            i.insertBefore(e, i.firstChild), s || (i.style.background = "linear-gradient(90deg,#dbeafe 0%,#eff6ff 55%,#fff 100%)", 
-                            i.style.borderLeft = "4px solid #2563eb", i.style.paddingLeft = "5px");
-                        }
-                        const c = document.createElement("a");
-                        c.href = t.src || t.maglink, c.target = "_blank", c.textContent = t.title, i.appendChild(c), 
-                        a.appendChild(i), n.appendChild(a);
-                        const d = document.createElement("td");
-                        d.style.whiteSpace = "nowrap", d.textContent = t.size, n.appendChild(d);
-                        const m = document.createElement("td");
-                        m.style.whiteSpace = "nowrap";
-                        const h = document.createElement("a"), g = t.maglink.substring(0, 60), v = e => {
-                            if (!e) return null;
-                            const t = [ /FC2[-\s_]?(?:PPV)?[-\s_]?(\d{6,9})/i, /([A-Z]{2,15})-(\d{2,10})(?:-(\d+))?/i, /([A-Z]{2,15})-([A-Z]{0,2}\d{2,10})/i, /^[A-Z0-9]+[-_](\d{6}[-_]\d{2,3})/i, /(\d{6}[-_]\d{2,3})[-_][A-Z0-9]+$/i, /(?<!\w)(\d{6}[-_]\d{2,3})(?!\w)/, /([A-Z]{1,2})(\d{3,4})/i ];
-                            for (const n of t) {
-                                const t = e.match(n);
-                                if (t) return t[0].toUpperCase();
-                            }
-                            return null;
-                        }, b = v(t.title) || v(t.maglink), f = g + (b ? `&dn=${encodeURIComponent(b)}` : "");
-                        h.href = g, h.title = g, h.className = "nong-copy", h.textContent = "复制", h.addEventListener("click", e => {
-                            e.preventDefault(), GM_setClipboard(f), h.textContent = "✓", setTimeout(() => {
-                                h.textContent = "复制";
-                            }, 1e3);
-                        }), m.appendChild(h);
-                        const x = document.createElement("a");
-                        x.href = "#", x.className = "nong-check", x.textContent = "验车", x.addEventListener("click", e => {
-                            e.preventDefault(), async function(e) {
-                                document.querySelector(".whatslink-overlay")?.remove();
-                                const t = document.createElement("div");
-                                t.className = "whatslink-overlay", t.innerHTML = '<div class="whatslink-modal no-shots"><div class="whatslink-loading">正在验车...</div></div>', 
-                                document.body.appendChild(t);
-                                try {
-                                    const n = `https://whatslink.info/api/v1/link?url=${encodeURIComponent(e)}`, a = await u(n, {
-                                        timeout: 2e4
-                                    });
-                                    if (!a.loadstuts) throw new Error("WhatsLink 请求失败");
-                                    const i = JSON.parse(a.responseText || "{}");
-                                    t.remove(), C(i, e);
-                                } catch (n) {
-                                    t.remove(), C({
-                                        error: n.message || "查询失败",
-                                        name: "查询失败",
-                                        type: "-",
-                                        file_type: "-",
-                                        size: 0,
-                                        count: "-",
-                                        screenshots: []
-                                    }, e);
-                                }
-                            }(t.maglink);
-                        }), m.appendChild(x), n.appendChild(m);
-                        const y = document.createElement("td");
-                        y.className = "nong-115-cell";
-                        const w = document.createElement("a");
-                        w.href = "#", w.className = "nong-offline-115", w.textContent = "115", w.addEventListener("click", e => {
-                            e.preventDefault(), async function(e) {
-                                e = e.substring(0, 60);
-                                const t = await u(`http://115.com/?ct=offline&ac=space&_=${Date.now()}`);
-                                if (!t.loadstuts) return void p("115 错误", "无法获取token，请检查115是否已登录", "http://115.com/?mode=login");
-                                if (t.responseText.includes("html")) return void p("115 未登录", "请先登录115账户后再离线下载", "http://115.com/?mode=login");
-                                const n = JSON.parse(t.responseText), a = GM_getValue("jav_115_uid", "");
-                                new Promise(t => {
-                                    GM_xmlhttpRequest({
-                                        method: "POST",
-                                        url: "http://115.com/web/lixian/?ct=lixian&ac=add_task_url",
-                                        headers: {
-                                            "Content-Type": "application/x-www-form-urlencoded"
-                                        },
-                                        data: `url=${encodeURIComponent(e)}&uid=${a}&sign=${n.sign}&time=${n.time}`,
-                                        onload(e) {
-                                            const n = JSON.parse(e.responseText);
-                                            n.state ? p("115 离线成功", "任务已添加", "http://115.com/?tab=offline&mode=wangpan") : p("115 离线失败", "911" === n.errcode ? "账号使用异常，请手工验证" : n.error_msg || "未知错误", "http://115.com/?tab=offline&mode=wangpan"), 
-                                            t();
-                                        }
-                                    });
-                                });
-                            }(t.maglink);
-                        }), y.appendChild(w), n.appendChild(y), e.appendChild(n);
-                    });
-                }(t, l, s);
+                const i = e.getAll(), r = i[a] || Object.values(i)[0], {url: o, data: s} = await r(n);
+                if (clearTimeout(d), c) return;
+                q(t, s, o);
             } catch (e) {
-                clearTimeout(m), s("磁力搜索出错:", e), l.textContent = "搜索出错 ", c.style.display = "inline";
+                clearTimeout(d), s("磁力搜索出错:", e), o.textContent = "搜索出错 ", l.style.display = "inline";
             }
         }
         return GM_addStyle('\n            .jav-nong-wrapper {\n                overflow-x: auto !important;\n                overflow-y: hidden !important;\n                scrollbar-width: thin;\n            }\n            #jav-nong-table {\n                width: 100%;\n                min-width: 320px;\n                table-layout: fixed;\n                margin: 8px 0; color: #666;\n                font-size: 13px; text-align: center;\n                background: #f2f2f2; border-collapse: collapse;\n                max-width: 100%;\n            }\n            #jav-nong-table th, #jav-nong-table td {\n                text-align: center; height: 30px;\n                background: #fff; padding: 0 6px;\n                border: 1px solid #efefef;\n                overflow: hidden;\n                text-overflow: ellipsis;\n                white-space: nowrap;\n            }\n            #jav-nong-table th:nth-child(2), #jav-nong-table td:nth-child(2) { width: 74px; }\n            #jav-nong-table th:nth-child(3), #jav-nong-table td:nth-child(3) { width: 74px; }\n            #jav-nong-table th:nth-child(4), #jav-nong-table td:nth-child(4) { width: 48px; }\n            #jav-nong-table:has(td.mag-laosiji-ready-cell) th:nth-child(3),\n            #jav-nong-table:has(td.mag-laosiji-ready-cell) td:nth-child(3) {\n                width: 104px;\n            }\n            #jav-nong-table td.mag-laosiji-ready-cell {\n                overflow: visible;\n            }\n            #jav-nong-table td:first-child {\n                text-align: left;\n            }\n            #jav-nong-table .nong-head-row th { background: #f8f8f8; font-weight: 600; }\n            #jav-nong-table .nong-magnet-name {\n                display: flex;\n                align-items: center;\n                gap: 4px;\n                min-width: 0;\n                width: 100%;\n                max-width: 100%;\n                white-space: nowrap;\n                overflow: hidden;\n                text-overflow: ellipsis;\n            }\n            #jav-nong-table .nong-magnet-name > a {\n                flex: 1 1 auto;\n                min-width: 0;\n                display: block;\n                overflow: hidden;\n                text-overflow: ellipsis;\n                white-space: nowrap;\n            }\n            .nong-copy { color: #08c !important; cursor: pointer; }\n            .nong-check { color: #be185d !important; cursor: pointer; margin-left: 8px; }\n            .nong-offline-115 { color: rgb(0,180,30) !important; cursor: pointer; }\n            .nong-offline-115:hover { color: red !important; }\n            .whatslink-overlay { position: fixed; inset: 0; z-index: 10000040; display: flex; align-items: center; justify-content: center; padding: 22px; background: rgba(15,23,42,.66); backdrop-filter: blur(8px); }\n            .whatslink-modal { width: min(1100px,96vw); max-height: 90vh; display: grid; grid-template-columns: 1.55fr .75fr; background: #f5f7fb; border: 1px solid rgba(203,213,225,.9); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 80px rgba(2,8,23,.38); font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }\n            .whatslink-modal.no-shots { grid-template-columns: 1.1fr .9fr; }\n            .whatslink-viewer { min-width: 0; display: grid; grid-template-rows: minmax(430px,1fr) auto; gap: 10px; padding: 14px; background: radial-gradient(circle at 20% 0%,#fff1f8 0,transparent 34%),#eef3f8; }\n            .whatslink-stage { position: relative; min-height: 470px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #dde7f2; border-radius: 12px; background: #111827; box-shadow: 0 18px 36px rgba(15,23,42,.16); }\n            .whatslink-stage img { width: 100%; height: 100%; max-height: 68vh; object-fit: contain; border-radius: 10px; }\n            .whatslink-modal.no-shots .whatslink-viewer { grid-template-rows: minmax(430px,1fr); background: linear-gradient(135deg,#f8fafc,#eef2ff); }\n            .whatslink-modal.no-shots .whatslink-stage { background: linear-gradient(145deg,#fff,#f1f5f9); border-style: dashed; box-shadow: inset 0 0 0 1px rgba(255,255,255,.8),0 18px 36px rgba(15,23,42,.08); }\n            .whatslink-modal.no-shots .whatslink-stage img, .whatslink-modal.no-shots .whatslink-nav, .whatslink-modal.no-shots .whatslink-counter, .whatslink-modal.no-shots .whatslink-thumbs { display: none; }\n            .whatslink-empty { display: none; width: min(420px,72%); text-align: center; color: #475569; }\n            .whatslink-modal.no-shots .whatslink-empty { display: block; }\n            .whatslink-empty-icon { width: 62px; height: 62px; margin: 0 auto 15px; display: grid; place-items: center; border-radius: 18px; background: linear-gradient(135deg,#fce7f3,#e0e7ff); color: #be185d; font-size: 27px; box-shadow: 0 12px 26px rgba(190,24,93,.16); }\n            .whatslink-empty-title { font-size: 18px; font-weight: 800; color: #1e293b; margin-bottom: 7px; }\n            .whatslink-empty-text { margin: 0; font-size: 13px; line-height: 1.6; }\n            .whatslink-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 52px; border: 0; border-radius: 8px; background: rgba(255,255,255,.14); color: #fff; font-size: 28px; cursor: pointer; }\n            .whatslink-nav:hover { background: rgba(255,255,255,.24); }\n            .whatslink-prev { left: 12px; } .whatslink-next { right: 12px; }\n            .whatslink-counter { position: absolute; right: 14px; bottom: 12px; color: #e2e8f0; font-size: 12px; text-shadow: 0 1px 6px rgba(0,0,0,.6); }\n            .whatslink-thumbs { display: grid; grid-template-columns: repeat(5,1fr); gap: 7px; padding: 0; background: transparent; }\n            .whatslink-thumb { border: 2px solid #e2e8f0; border-radius: 9px; padding: 0; overflow: hidden; background: #fff; cursor: pointer; aspect-ratio: 16 / 9; box-shadow: 0 6px 14px rgba(15,23,42,.08); }\n            .whatslink-thumb.active { border-color: #db2777; box-shadow: 0 8px 18px rgba(219,39,119,.22); }\n            .whatslink-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }\n            .whatslink-info { min-width: 0; padding: 14px; background: #f8fafc; overflow: auto; color: #172033; }\n            .whatslink-head { position: sticky; top: 0; z-index: 2; margin: -14px -14px 12px; padding: 13px 14px; background: rgba(248,250,252,.94); border-bottom: 1px solid #e2e8f0; backdrop-filter: blur(10px); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }\n            .whatslink-kicker { color: #db2777; font-size: 12px; font-weight: 800; margin-bottom: 5px; }\n            .whatslink-title { margin: 0; font-size: 21px; line-height: 1.18; color: #111827; word-break: break-word; }\n            .whatslink-close { width: 32px; height: 32px; border: 0; border-radius: 8px; color: #64748b; background: transparent; cursor: pointer; font-size: 25px; line-height: 1; }\n            .whatslink-tag { display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; margin-top: 8px; border-radius: 999px; background: #ecfdf5; color: #047857; font-size: 12px; font-weight: 700; }\n            .whatslink-meta { display: grid; grid-template-columns: 1fr; gap: 7px; margin: 10px 0 12px; }\n            .whatslink-metric { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 11px; background: #fff; box-shadow: 0 8px 20px rgba(15,23,42,.06); }\n            .whatslink-metric b { color: #172033; font-size: 13px; order: 2; }\n            .whatslink-metric span { color: #64748b; font-size: 12px; order: 1; }\n            .whatslink-section, .whatslink-summary-card { border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; padding: 10px; box-shadow: 0 8px 20px rgba(15,23,42,.06); }\n            .whatslink-section h3 { margin: 0 0 8px; color: #be185d; font-size: 12px; }\n            .whatslink-magnet { word-break: break-all; max-height: 86px; overflow: auto; padding: 9px; border-radius: 8px; background: #f6f8fb; color: #334155; font-family: ui-monospace,SFMono-Regular,Consolas,monospace; font-size: 12px; }\n            .whatslink-summary { display: grid; gap: 8px; margin-top: 10px; }\n            .whatslink-summary-card strong { display: block; margin-bottom: 4px; color: #111827; font-size: 12px; }\n            .whatslink-summary-card p { margin: 0; color: #64748b; font-size: 11px; line-height: 1.45; }\n            .whatslink-loading { padding: 28px; text-align: center; color: #475569; font-size: 14px; }\n            #jav-nong-notice {\n                padding: 8px 0;\n            }\n            .nong-magnet-name {\n                max-width: 320px; white-space: nowrap;\n                overflow: hidden; text-overflow: ellipsis;\n                display: flex; align-items: center; text-align: left;\n            }\n            #jav-nong-refresh {\n                display: none; margin-left: 8px;\n                color: #e74c3c; font-weight: bold; cursor: pointer;\n            }\n        '), 
         {
-            createMagnetWidget: function(t) {
+            createMagnetWidget: function(e) {
+                const t = document.createElement("div");
+                t.className = "jav-nong-wrapper", t.style.cssText = "\n                display: inline-block;\n                width: min(560px, 100%);\n                max-width: 100%;\n                box-sizing: border-box;\n                padding: 12px 12px 10px;\n                background: #fafafa;\n                border: 1px solid #ebebeb;\n                border-radius: 6px;\n                overflow: hidden;\n            ";
                 const n = document.createElement("div");
-                n.className = "jav-nong-wrapper", n.style.cssText = "\n                display: inline-block;\n                width: min(560px, 100%);\n                max-width: 100%;\n                box-sizing: border-box;\n                padding: 12px 12px 10px;\n                background: #fafafa;\n                border: 1px solid #ebebeb;\n                border-radius: 6px;\n                overflow: hidden;\n            ";
-                const i = document.createElement("div");
-                i.style.cssText = "margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;";
-                const r = document.createElement("span");
-                r.style.cssText = "color:#0066cc;font-size:14px;font-weight:600;", r.textContent = "🔥 磁力搜索", 
-                i.appendChild(r), n.appendChild(i);
-                const o = function(t) {
-                    const n = document.createElement("table");
-                    n.id = "jav-nong-table", n.dataset.avid = t;
-                    const i = document.createElement("tr");
-                    i.className = "nong-head-row";
-                    const r = document.createElement("th");
-                    r.style.textAlign = "left";
-                    const o = e.getAll(), s = a.defaultEngine, l = document.createElement("select");
-                    l.style.cssText = "height:22px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;padding:1px 22px 1px 6px;min-width:84px;background:#fff;color:#172033;font-weight:650;";
-                    const c = {
-                        [a.javdbSearchUrl]: "JavDB",
-                        [a.ciligouUrl]: "CiliGou",
-                        [a.btdigUrl]: "BtDig",
-                        [a.btsearchUrl]: "BTSearch",
-                        [a.sukebeiUrl]: "Sukebei",
-                        [a.sokittyUrl]: "SoKitty"
-                    };
-                    Object.keys(o).forEach(e => {
-                        const t = document.createElement("option");
-                        t.value = e, t.textContent = c[e] || e, e === s && (t.selected = !0), l.appendChild(t);
-                    });
-                    const d = () => {
-                        l.style.width = "";
-                        const e = l.offsetWidth;
-                        l.style.width = Math.max(e, 80) + "px";
-                    };
-                    requestAnimationFrame(d), l.addEventListener("change", () => {
-                        E(n, t, l.value), requestAnimationFrame(d);
-                    }), r.appendChild(l), i.appendChild(r), [ "大小", "操作", "115" ].forEach(e => {
-                        const t = document.createElement("th");
-                        t.textContent = e, "115" === e && (t.className = "nong-115-head"), i.appendChild(t);
-                    }), n.appendChild(i);
-                    const p = document.createElement("tr"), m = document.createElement("td");
-                    m.colSpan = 4, m.id = "jav-nong-notice";
-                    const u = document.createTextNode("Loading…"), h = document.createElement("a");
-                    return h.id = "jav-nong-refresh", h.href = "#", h.textContent = "🔄 刷新", h.title = "网络加载失败，点击重试", 
-                    h.addEventListener("click", e => {
-                        e.preventDefault(), E(n, t, l.value);
-                    }), m.appendChild(u), m.appendChild(h), p.appendChild(m), n.appendChild(p), n;
-                }(t);
-                return n.appendChild(o), E(o, t, a.defaultEngine), n;
+                n.style.cssText = "margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;";
+                const i = document.createElement("span");
+                i.style.cssText = "color:#0066cc;font-size:14px;font-weight:600;", i.textContent = "🔥 磁力搜索", 
+                n.appendChild(i), t.appendChild(n);
+                const r = A(e);
+                return t.appendChild(r), M(r, e, a.defaultEngine), t;
             },
             javdbApi: f
         };
@@ -1507,7 +1515,8 @@
         },
         _insertCopyButton(e) {
             const t = document.querySelector("div[class='col-md-3 info']");
-            t && e && g([ ...t.querySelectorAll("p, h3, span") ].find(t => t.textContent.trim().toUpperCase().includes(h(e))) || t.querySelector("h3"), e, null, !0);
+            if (!t || !e) return;
+            g([ ...t.querySelectorAll("p, h3, span") ].find(t => t.textContent.trim().toUpperCase().includes(h(e))) || t.querySelector("h3"), e, null, !0);
         },
         _insertMagnet(e) {
             if (!a.magnetTable) return;
@@ -1632,9 +1641,13 @@
             const r = i?.querySelector(":scope > span") || i;
             if (r && !r.querySelector(":scope > .video-title")) {
                 const e = Array.from(r.childNodes), t = [];
-                for (const n of e) if (n.nodeType !== Node.ELEMENT_NODE) n.nodeType === Node.TEXT_NODE && (n.textContent.trim() || t.length) && t.push(n); else {
-                    if (n.matches("br, .item-tag, date, .jav-pan115-badge")) break;
-                    t.push(n);
+                for (const n of e) {
+                    if (n.nodeType === Node.ELEMENT_NODE) {
+                        if (n.matches("br, .item-tag, date, .jav-pan115-badge")) break;
+                        t.push(n);
+                        continue;
+                    }
+                    n.nodeType === Node.TEXT_NODE && (n.textContent.trim() || t.length) && t.push(n);
                 }
                 if (t.some(e => (e.textContent || "").trim())) {
                     const e = document.createElement("span");
@@ -1670,7 +1683,7 @@
             const t = "1" !== e.dataset.laosijiGrid;
             t && (e.dataset.laosijiGrid = "1", e.classList.add("jav-card-grid", "javbus-card-grid")), 
             i.apply("javbus"), e.querySelectorAll(":scope > .item").forEach(e => this._decorateCard(e)), 
-            t && GM_addStyle("\n                    .jav-card-grid {\n                        --jav-card-title-size: 15px;\n                        --jav-card-title-line-height: 1.5;\n                        --jav-card-title-lines: 3;\n                        display: grid !important;\n                        grid-template-columns: repeat(var(--jav-card-columns, 5), minmax(0, 1fr)) !important;\n                        gap: 14px !important;\n                        align-items: stretch !important;\n                        width: 100% !important;\n                        height: auto !important;\n                        box-sizing: border-box !important;\n                    }\n                    .jav-card {\n                        position: static !important;\n                        float: none !important;\n                        display: block !important;\n                        width: auto !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        min-width: 0 !important;\n                        margin: 0 !important;\n                        padding: 0 !important;\n                        box-sizing: border-box !important;\n                        text-align: left !important;\n                        background: #fff !important;\n                        border: 1px solid #e5e7eb !important;\n                        border-radius: 6px !important;\n                        overflow: hidden !important;\n                        box-shadow: 0 1px 4px rgba(15, 23, 42, .08) !important;\n                        transform: translateZ(0) !important;\n                        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;\n                        will-change: transform !important;\n                    }\n                    .jav-card:hover {\n                        border-color: rgba(37, 99, 235, .35) !important;\n                        box-shadow: 0 10px 24px rgba(15, 23, 42, .16) !important;\n                        transform: translateY(-4px) scale(1.018) !important;\n                        z-index: 2 !important;\n                    }\n                    .jav-card-link {\n                        display: flex !important;\n                        flex-direction: column !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        overflow: hidden !important;\n                        color: #2563eb !important;\n                        text-decoration: none !important;\n                    }\n                    .jav-card-link:visited { color: #7c3aed !important; }\n                    .jav-card-cover {\n                        display: block !important;\n                        width: 100% !important;\n                        height: auto !important;\n                        aspect-ratio: 800 / 538 !important;\n                        overflow: hidden !important;\n                        background: #f8fafc !important;\n                        border-bottom: 1px solid #f1f5f9 !important;\n                        margin: 0 !important;\n                    }\n                    .jav-card-image {\n                        display: block !important;\n                        width: 100% !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        object-fit: cover !important;\n                        object-position: center center !important;\n                        background: #f8fafc !important;\n                        border: 0 !important;\n                    }\n                    .jav-card-title {\n                        display: block !important;\n                        width: 100% !important;\n                        max-width: none !important;\n                        height: auto !important;\n                        max-height: none !important;\n                        box-sizing: border-box !important;\n                        flex: 1 1 auto !important;\n                        min-height: 0 !important;\n                        margin: 0 !important;\n                        padding: 7px 8px 9px !important;\n                        overflow: visible !important;\n                        color: inherit !important;\n                        font-size: var(--jav-card-title-size, 15px) !important;\n                        line-height: var(--jav-card-title-line-height, 1.5) !important;\n                        text-align: left !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                    }\n                    .javbus-card-grid {\n                        position: static !important;\n                        --jav-card-columns: 5;\n                        box-sizing: border-box !important;\n                    }\n                    #waterfall.javbus-card-grid {\n                        display: grid !important;\n                        grid-template-columns: repeat(var(--jav-card-columns, 5), minmax(0, 1fr)) !important;\n                        gap: 14px !important;\n                        align-items: stretch !important;\n                        min-height: 0 !important;\n                    }\n                    body .container-fluid {\n                        padding-left: 28px !important;\n                        padding-right: 28px !important;\n                        box-sizing: border-box !important;\n                    }\n                    #waterfall.javbus-card-grid > .item,\n                    .javbus-card-grid .item.javbus-grid-card {\n                        position: static !important;\n                        width: auto !important;\n                        float: none !important;\n                        margin: 0 !important;\n                        top: auto !important;\n                        left: auto !important;\n                    }\n                    .javbus-card-grid .item .jav-card-link.javbus-card-link {\n                        width: 100% !important;\n                        min-width: 0 !important;\n                        margin: 0 !important;\n                        padding: 0 !important;\n                        background: #fff !important;\n                        box-shadow: none !important;\n                        border-radius: 0 !important;\n                        overflow: hidden !important;\n                    }\n                    .javbus-card-grid .item .javbus-cover-frame.photo-frame {\n                        margin: 0 !important;\n                        height: auto !important;\n                    }\n                    .javbus-card-grid .item .javbus-card-image {\n                        height: 100% !important;\n                        margin: 0 !important;\n                    }\n                    .javbus-card-title > span {\n                        display: block !important;\n                    }\n                    .javbus-card-title .video-title {\n                        display: -webkit-box !important;\n                        -webkit-box-orient: vertical !important;\n                        -webkit-line-clamp: var(--jav-card-title-lines, 3) !important;\n                        line-clamp: var(--jav-card-title-lines, 3) !important;\n                        height: calc(var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) !important;\n                        max-height: calc(var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) !important;\n                        min-height: calc(var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) !important;\n                        overflow: hidden !important;\n                        text-overflow: ellipsis !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                        color: inherit !important;\n                        font-size: var(--jav-card-title-size, 15px) !important;\n                        line-height: var(--jav-card-title-line-height, 1.5) !important;\n                        margin-bottom: 6px !important;\n                    }\n                    .javbus-card-grid .item .javbus-card-title .jav-pan115-badge {\n                        display: inline-flex !important;\n                        width: auto !important;\n                        max-width: max-content !important;\n                        float: none !important;\n                        vertical-align: middle !important;\n                        margin: 0 6px 4px 0 !important;\n                    }\n                    .javbus-card-title .item-tag {\n                        margin: 6px 0 4px !important;\n                    }\n                    .javbus-card-title date {\n                        color: #94a3b8 !important;\n                        font-size: 12px !important;\n                    }\n                    .javbus-card-title date.javbus-card-code {\n                        display: inline-block !important;\n                        color: inherit !important;\n                        font-size: 15px !important;\n                        font-weight: 800 !important;\n                        margin-top: 2px !important;\n                    }\n                    @media (max-width: 1100px) {\n                        .javbus-card-grid { --jav-card-columns: 4; }\n                    }\n                    @media (max-width: 820px) {\n                        .javbus-card-grid { --jav-card-columns: 3; }\n                    }\n                    @media (max-width: 560px) {\n                        .javbus-card-grid { --jav-card-columns: 2; gap: 10px !important; }\n                    }\n                "), 
+            t && GM_addStyle("\n                    .jav-card-grid {\n                        --jav-card-title-size: 15px;\n                        --jav-card-title-line-height: 1.5;\n                        --jav-card-title-lines: 2;\n                        display: grid !important;\n                        grid-template-columns: repeat(var(--jav-card-columns, 5), minmax(0, 1fr)) !important;\n                        gap: 14px !important;\n                        align-items: stretch !important;\n                        width: 100% !important;\n                        height: auto !important;\n                        box-sizing: border-box !important;\n                    }\n                    .jav-card {\n                        position: static !important;\n                        float: none !important;\n                        display: block !important;\n                        width: auto !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        min-width: 0 !important;\n                        margin: 0 !important;\n                        padding: 0 !important;\n                        box-sizing: border-box !important;\n                        text-align: left !important;\n                        background: #fff !important;\n                        border: 1px solid #e5e7eb !important;\n                        border-radius: 6px !important;\n                        overflow: hidden !important;\n                        box-shadow: 0 1px 4px rgba(15, 23, 42, .08) !important;\n                        transform: translateZ(0) !important;\n                        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;\n                        will-change: transform !important;\n                    }\n                    .jav-card:hover {\n                        border-color: rgba(37, 99, 235, .35) !important;\n                        box-shadow: 0 10px 24px rgba(15, 23, 42, .16) !important;\n                        transform: translateY(-4px) scale(1.018) !important;\n                        z-index: 2 !important;\n                    }\n                    .jav-card-link {\n                        display: flex !important;\n                        flex-direction: column !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        overflow: hidden !important;\n                        color: #2563eb !important;\n                        text-decoration: none !important;\n                    }\n                    .jav-card-link:visited { color: #7c3aed !important; }\n                    .jav-card-cover {\n                        display: block !important;\n                        width: 100% !important;\n                        height: auto !important;\n                        aspect-ratio: 800 / 538 !important;\n                        overflow: hidden !important;\n                        background: #f8fafc !important;\n                        border-bottom: 1px solid #f1f5f9 !important;\n                        margin: 0 !important;\n                    }\n                    .jav-card-image {\n                        display: block !important;\n                        width: 100% !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        object-fit: cover !important;\n                        object-position: center center !important;\n                        background: #f8fafc !important;\n                        border: 0 !important;\n                        transition: opacity .18s ease !important;\n                    }\n                    .jav-card-title {\n                        display: block !important;\n                        width: 100% !important;\n                        max-width: none !important;\n                        height: auto !important;\n                        max-height: none !important;\n                        box-sizing: border-box !important;\n                        flex: 1 1 auto !important;\n                        min-height: 0 !important;\n                        margin: 0 !important;\n                        padding: 7px 8px 9px !important;\n                        overflow: visible !important;\n                        color: inherit !important;\n                        font-size: var(--jav-card-title-size, 15px) !important;\n                        line-height: var(--jav-card-title-line-height, 1.5) !important;\n                        text-align: left !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                    }\n                    .javbus-card-grid {\n                        position: static !important;\n                        --jav-card-columns: 5;\n                        box-sizing: border-box !important;\n                    }\n                    #waterfall.javbus-card-grid {\n                        display: grid !important;\n                        grid-template-columns: repeat(var(--jav-card-columns, 5), minmax(0, 1fr)) !important;\n                        gap: 14px !important;\n                        align-items: stretch !important;\n                        min-height: 0 !important;\n                    }\n                    body .container-fluid {\n                        padding-left: 28px !important;\n                        padding-right: 28px !important;\n                        box-sizing: border-box !important;\n                    }\n                    #waterfall.javbus-card-grid > .item,\n                    .javbus-card-grid .item.javbus-grid-card {\n                        position: static !important;\n                        width: auto !important;\n                        float: none !important;\n                        margin: 0 !important;\n                        top: auto !important;\n                        left: auto !important;\n                    }\n                    .javbus-card-grid .item .jav-card-link.javbus-card-link {\n                        width: 100% !important;\n                        min-width: 0 !important;\n                        margin: 0 !important;\n                        padding: 0 !important;\n                        background: #fff !important;\n                        box-shadow: none !important;\n                        border-radius: 0 !important;\n                        overflow: hidden !important;\n                    }\n                    .javbus-card-grid .item .javbus-cover-frame.photo-frame {\n                        margin: 0 !important;\n                        height: auto !important;\n                    }\n                    .javbus-card-grid .item .javbus-card-image {\n                        height: 100% !important;\n                        margin: 0 !important;\n                    }\n                    .javbus-card-title > span {\n                        display: block !important;\n                    }\n                    .javbus-card-title .video-title {\n                        display: -webkit-box !important;\n                        -webkit-box-orient: vertical !important;\n                        -webkit-line-clamp: var(--jav-card-title-lines, 2) !important;\n                        line-clamp: var(--jav-card-title-lines, 2) !important;\n                        height: calc(var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 2) * 1em) !important;\n                        max-height: calc(var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 2) * 1em) !important;\n                        min-height: calc(var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 2) * 1em) !important;\n                        overflow: hidden !important;\n                        text-overflow: ellipsis !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                        color: inherit !important;\n                        font-size: var(--jav-card-title-size, 15px) !important;\n                        line-height: var(--jav-card-title-line-height, 1.5) !important;\n                        margin-bottom: 6px !important;\n                    }\n                    .javbus-card-grid .item .javbus-card-title .jav-pan115-badge {\n                        display: inline-flex !important;\n                        width: auto !important;\n                        max-width: max-content !important;\n                        float: none !important;\n                        vertical-align: middle !important;\n                        margin: 0 6px 4px 0 !important;\n                    }\n                    .javbus-card-title .item-tag {\n                        margin: 6px 0 4px !important;\n                    }\n                    .javbus-card-title date {\n                        color: #94a3b8 !important;\n                        font-size: 12px !important;\n                    }\n                    .javbus-card-title date.javbus-card-code {\n                        display: inline-block !important;\n                        color: inherit !important;\n                        font-size: 15px !important;\n                        font-weight: 800 !important;\n                        margin-top: 2px !important;\n                    }\n                    @media (max-width: 1100px) {\n                        .javbus-card-grid { --jav-card-columns: 4; }\n                    }\n                    @media (max-width: 820px) {\n                        .javbus-card-grid { --jav-card-columns: 3; }\n                    }\n                    @media (max-width: 560px) {\n                        .javbus-card-grid { --jav-card-columns: 2; gap: 10px !important; }\n                    }\n                "), 
             setTimeout(() => {
                 se.refreshListPage();
             }, 0), setTimeout(() => {
@@ -2024,8 +2037,9 @@
         },
         _redirectCurrentApiRankingEntry() {
             const e = this._apiRankingShellUrlFromHref(location.href);
-            return !!e && ("/advanced_search" !== location.pathname.replace(/\/+$/, "") && (location.replace(e), 
-            !0));
+            if (!e) return !1;
+            return "/advanced_search" !== location.pathname.replace(/\/+$/, "") && (location.replace(e), 
+            !0);
         },
         _rewriteApiRankingLinks(e = document) {
             e.querySelectorAll?.("a[href]").forEach(e => {
@@ -2080,11 +2094,11 @@
                     year: e.year,
                     page: 1
                 })}">${n}</a>`).join(""), n = (new Date).getFullYear();
-                return `\n                    <div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">分类</span>${t}</div>\n                    <div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">年份</span><a class="${e.year ? "" : "is-active"}" href="${this._apiRankingShellUrl("top", {
+                return `\n                    <div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">分类</span>${t}</div>\n                    <div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">年份</span>${`<a class="${!e.year ? "is-active" : ""}" href="${this._apiRankingShellUrl("top", {
                     category: e.category,
                     year: "",
                     page: 1
-                })}">全部年份</a>${Array.from({
+                })}">全部年份</a>`}${Array.from({
                     length: Math.max(0, n - 2008 + 1)
                 }, (e, t) => n - t).map(t => {
                     const n = String(t);
@@ -2100,7 +2114,8 @@
                 filterBy: e.filterBy,
                 page: 1
             })}">${n}</a>`).join("");
-            return "playback" !== e.mode ? t : `\n                <div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">周期</span>${t}</div>\n                <div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">排序</span>${[ [ "high_score", "高评分" ] ].map(([t, n]) => `<a class="${e.filterBy === t ? "is-active" : ""}" href="${this._apiRankingShellUrl("playback", {
+            if ("playback" !== e.mode) return t;
+            return `\n                <div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">周期</span>${t}</div>\n                <div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">排序</span>${[ [ "high_score", "高评分" ] ].map(([t, n]) => `<a class="${e.filterBy === t ? "is-active" : ""}" href="${this._apiRankingShellUrl("playback", {
                 period: e.period,
                 filterBy: t,
                 page: 1
@@ -2154,7 +2169,7 @@
             return a ? `\n                <div class="columns javdb-api-detail-preview-columns">\n                    <div class="column">\n                        <article class="message video-panel">\n                            <div class="message-body">\n                                <div class="tile-images preview-images">${a}</div>\n                            </div>\n                        </article>\n                    </div>\n                </div>` : "";
         },
         _renderApiDetailPage(e) {
-            const t = String(e?.number || ""), n = e?.origin_title || e?.title || "", a = (Array.isArray(e?.actors) ? e.actors : []).map(e => e?.name || e).filter(Boolean), i = String(e?.cover_url || e?.thumb_url || "").replace(/https:\/\/.*?\/rhe951l4q/g, "https://c0.jdbstatic.com");
+            const t = String(e?.number || ""), n = e?.origin_title || e?.title || "", a = (Array.isArray(e?.actors) ? e.actors : []).map(e => e?.name || e).filter(Boolean), i = String(e?.cover_url || e?.thumb_url || "" || "").replace(/https:\/\/.*?\/rhe951l4q/g, "https://c0.jdbstatic.com");
             return `\n                <div class="video-detail javdb-api-detail" data-javdb-api-detail="1">\n                    <h2 class="title is-4 javdb-api-detail-title">\n                        <strong>${this._escapeHtml(t)} </strong>\n                        <strong class="current-title">${this._escapeHtml(n)}</strong>\n                    </h2>\n                    <div class="video-meta-panel">\n                        <div class="columns is-desktop">\n                            <div class="column column-video-cover">\n                                <a data-fancybox="gallery" href="${this._escapeHtml(i)}">\n                                    <img src="${this._escapeHtml(i)}" class="video-cover" alt="${this._escapeHtml(n)}">\n                                </a>\n                            </div>\n                            <div class="column">\n                                <nav class="panel movie-panel-info">\n                                    <div class="panel-block first-block"><strong>番號:</strong>&nbsp;<span class="value">${this._escapeHtml(t)}</span>&nbsp;<a class="button is-white copy-to-clipboard" title="複製番號" data-clipboard-text="${this._escapeHtml(t)}"><span class="icon is-small"><i class="icon-copy"></i></span></a></div>\n                                    ${this._renderApiDetailField("標題", n)}\n                                    ${this._renderApiDetailField("日期", e?.release_date)}\n                                    ${this._renderApiDetailField("時長", e?.duration ? `${e.duration} 分鐘` : "")}\n                                    ${this._renderApiDetailField("評分", e?.score ? `${e.score} / ${e?.watched_count || 0} 人` : "")}\n                                    ${this._renderApiDetailField("片商", e?.maker_name || e?.publisher_name)}\n                                    ${this._renderApiDetailField("系列", e?.series_name)}\n                                    ${this._renderApiDetailField("導演", e?.director_name)}\n                                    ${this._renderApiDetailField("演員", a)}\n                                    ${this._renderApiDetailTags(e?.tags)}\n                                </nav>\n                            </div>\n                        </div>\n                    </div>\n                    ${this._renderApiDetailImages(e?.preview_images)}\n                </div>\n            `;
         },
         async _initApiDetailShellPage() {
@@ -2230,7 +2245,7 @@
             const t = "1" !== e.dataset.laosijiGrid, n = [ ...e.querySelectorAll(':scope > .item:not([data-laosiji-grid-card="1"])') ];
             (n.length || t) && (e.dataset.laosijiGrid = "1", e.classList.add("jav-card-grid", "javdb-card-grid"), 
             i.apply("javdb"), n.forEach(e => this._decorateCard(e)), this._rewriteFc2DetailLinks(e), 
-            t && GM_addStyle("\n                    .jav-card-grid {\n                        --jav-card-title-size: 15px;\n                        --jav-card-title-line-height: 1.5;\n                        --jav-card-title-lines: 3;\n                        display: grid !important;\n                        grid-template-columns: repeat(var(--jav-card-columns, 5), minmax(0, 1fr)) !important;\n                        gap: 14px !important;\n                        align-items: stretch !important;\n                        width: 100% !important;\n                        box-sizing: border-box !important;\n                    }\n                    .jav-card {\n                        float: none !important;\n                        display: block !important;\n                        width: auto !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        min-width: 0 !important;\n                        margin: 0 !important;\n                        padding: 0 !important;\n                        box-sizing: border-box !important;\n                        text-align: left !important;\n                        background: #fff !important;\n                        border: 1px solid #e5e7eb !important;\n                        border-radius: 6px !important;\n                        overflow: hidden !important;\n                        box-shadow: 0 1px 4px rgba(15, 23, 42, .08) !important;\n                        transform: translateZ(0) !important;\n                        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;\n                        will-change: transform !important;\n                    }\n                    .jav-card:hover {\n                        border-color: rgba(37, 99, 235, .35) !important;\n                        box-shadow: 0 10px 24px rgba(15, 23, 42, .16) !important;\n                        transform: translateY(-4px) scale(1.018) !important;\n                        z-index: 2 !important;\n                    }\n                    .jav-card-link {\n                        display: flex !important;\n                        flex-direction: column !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        overflow: hidden !important;\n                        color: #2563eb !important;\n                        text-decoration: none !important;\n                    }\n                    .jav-card-link:visited {\n                        color: #7c3aed !important;\n                    }\n                    .jav-card-cover {\n                        display: block !important;\n                        width: 100% !important;\n                        height: auto !important;\n                        aspect-ratio: 800 / 538 !important;\n                        overflow: hidden !important;\n                        background: #f8fafc !important;\n                        border-bottom: 1px solid #f1f5f9 !important;\n                    }\n                    .jav-card-image {\n                        display: block !important;\n                        width: 100% !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        object-fit: cover !important;\n                        object-position: center center !important;\n                        background: #f8fafc !important;\n                        border: 0 !important;\n                    }\n                    .jav-card-title {\n                        display: block !important;\n                        width: 100% !important;\n                        max-width: none !important;\n                        height: calc((var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) + 16px) !important;\n                        max-height: calc((var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) + 16px) !important;\n                        box-sizing: border-box !important;\n                        flex: 0 0 auto !important;\n                        min-height: calc((var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) + 16px) !important;\n                        margin: 0 !important;\n                        padding: 7px 8px 9px !important;\n                        overflow: hidden !important;\n                        color: inherit !important;\n                        font-size: var(--jav-card-title-size, 15px) !important;\n                        line-height: var(--jav-card-title-line-height, 1.5) !important;\n                        text-align: left !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                    }\n                    .javdb-card-headline {\n                        display: -webkit-box !important;\n                        -webkit-box-orient: vertical !important;\n                        -webkit-line-clamp: var(--jav-card-title-lines, 3) !important;\n                        line-clamp: var(--jav-card-title-lines, 3) !important;\n                        max-height: calc(var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) !important;\n                        overflow: hidden !important;\n                        text-overflow: ellipsis !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                    }\n                    .jav-card-title strong {\n                        color: inherit !important;\n                        font-size: 16px !important;\n                        font-weight: 800 !important;\n                    }\n                    .javdb-card-grid {\n                        --jav-card-columns: 5;\n                    }\n                    .javdb-card-grid .item.javdb-grid-card {\n                        position: static !important;\n                        width: auto !important;\n                        float: none !important;\n                        margin: 0 !important;\n                    }\n                    .javdb-card-grid .item .javdb-card-link.box {\n                        width: 100% !important;\n                        min-width: 0 !important;\n                        margin: 0 !important;\n                        padding: 0 !important;\n                        background: #fff !important;\n                        box-shadow: none !important;\n                        border-radius: 0 !important;\n                        overflow: hidden !important;\n                    }\n                    .javdb-card-grid .item .javdb-cover-frame.cover {\n                        margin: 0 !important;\n                        height: auto !important;\n                    }\n                    .javdb-card-grid .item .javdb-card-image {\n                        height: 100% !important;\n                        margin: 0 !important;\n                    }\n                    .javdb-card-grid .item .javdb-card-title .jav-pan115-badge {\n                        display: inline-flex !important;\n                        width: auto !important;\n                        max-width: max-content !important;\n                        float: none !important;\n                        vertical-align: middle !important;\n                        margin: 0 6px 4px 0 !important;\n                    }\n                    .javdb-card-score,\n                    .javdb-card-meta,\n                    .javdb-card-tags {\n                        padding-left: 8px !important;\n                        padding-right: 8px !important;\n                    }\n                    .javdb-card-score {\n                        margin-top: 2px !important;\n                        color: #64748b !important;\n                        font-size: 12px !important;\n                        line-height: 1.45 !important;\n                    }\n                    .javdb-card-score .value {\n                        color: inherit !important;\n                        font-size: inherit !important;\n                    }\n                    .javdb-card-meta {\n                        margin-top: 4px !important;\n                        color: #94a3b8 !important;\n                        font-size: 12px !important;\n                        line-height: 1.45 !important;\n                    }\n                    .javdb-card-tags {\n                        display: flex !important;\n                        flex-wrap: wrap !important;\n                        gap: 6px !important;\n                        margin-top: auto !important;\n                        padding-top: 8px !important;\n                        padding-bottom: 10px !important;\n                    }\n                    .javdb-card-tags .tag {\n                        margin: 0 !important;\n                    }\n                    @media (max-width: 1100px) {\n                        .javdb-card-grid { --jav-card-columns: 4; }\n                    }\n                    @media (max-width: 820px) {\n                        .javdb-card-grid { --jav-card-columns: 3; }\n                    }\n                    @media (max-width: 560px) {\n                        .javdb-card-grid { --jav-card-columns: 2; gap: 10px !important; }\n                    }\n                "), 
+            t && GM_addStyle("\n                    .jav-card-grid {\n                        --jav-card-title-size: 15px;\n                        --jav-card-title-line-height: 1.5;\n                        --jav-card-title-lines: 2;\n                        display: grid !important;\n                        grid-template-columns: repeat(var(--jav-card-columns, 5), minmax(0, 1fr)) !important;\n                        gap: 14px !important;\n                        align-items: stretch !important;\n                        width: 100% !important;\n                        box-sizing: border-box !important;\n                    }\n                    .jav-card {\n                        float: none !important;\n                        display: block !important;\n                        width: auto !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        min-width: 0 !important;\n                        margin: 0 !important;\n                        padding: 0 !important;\n                        box-sizing: border-box !important;\n                        text-align: left !important;\n                        background: #fff !important;\n                        border: 1px solid #e5e7eb !important;\n                        border-radius: 6px !important;\n                        overflow: hidden !important;\n                        box-shadow: 0 1px 4px rgba(15, 23, 42, .08) !important;\n                        transform: translateZ(0) !important;\n                        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;\n                        will-change: transform !important;\n                    }\n                    .jav-card:hover {\n                        border-color: rgba(37, 99, 235, .35) !important;\n                        box-shadow: 0 10px 24px rgba(15, 23, 42, .16) !important;\n                        transform: translateY(-4px) scale(1.018) !important;\n                        z-index: 2 !important;\n                    }\n                    .jav-card-link {\n                        display: flex !important;\n                        flex-direction: column !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        overflow: hidden !important;\n                        color: #2563eb !important;\n                        text-decoration: none !important;\n                    }\n                    .jav-card-link:visited {\n                        color: #7c3aed !important;\n                    }\n                    .jav-card-cover {\n                        display: block !important;\n                        width: 100% !important;\n                        height: auto !important;\n                        aspect-ratio: 800 / 538 !important;\n                        overflow: hidden !important;\n                        background: #f8fafc !important;\n                        border-bottom: 1px solid #f1f5f9 !important;\n                    }\n                    .jav-card-image {\n                        display: block !important;\n                        width: 100% !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        object-fit: cover !important;\n                        object-position: center center !important;\n                        background: #f8fafc !important;\n                        border: 0 !important;\n                    }\n                    .jav-card-title {\n                        display: block !important;\n                        width: 100% !important;\n                        max-width: none !important;\n                        height: calc((var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 2) * 1em) + 16px) !important;\n                        max-height: calc((var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 2) * 1em) + 16px) !important;\n                        box-sizing: border-box !important;\n                        flex: 0 0 auto !important;\n                        min-height: calc((var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 2) * 1em) + 16px) !important;\n                        margin: 0 !important;\n                        padding: 7px 8px 9px !important;\n                        overflow: hidden !important;\n                        color: inherit !important;\n                        font-size: var(--jav-card-title-size, 15px) !important;\n                        line-height: var(--jav-card-title-line-height, 1.5) !important;\n                        text-align: left !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                    }\n                    .javdb-card-headline {\n                        display: -webkit-box !important;\n                        -webkit-box-orient: vertical !important;\n                        -webkit-line-clamp: var(--jav-card-title-lines, 2) !important;\n                        line-clamp: var(--jav-card-title-lines, 2) !important;\n                        max-height: calc(var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 2) * 1em) !important;\n                        overflow: hidden !important;\n                        text-overflow: ellipsis !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                    }\n                    .jav-card-title strong {\n                        color: inherit !important;\n                        font-size: 16px !important;\n                        font-weight: 800 !important;\n                    }\n                    .javdb-card-grid {\n                        --jav-card-columns: 5;\n                    }\n                    .javdb-card-grid .item.javdb-grid-card {\n                        position: static !important;\n                        width: auto !important;\n                        float: none !important;\n                        margin: 0 !important;\n                    }\n                    .javdb-card-grid .item .javdb-card-link.box {\n                        width: 100% !important;\n                        min-width: 0 !important;\n                        margin: 0 !important;\n                        padding: 0 !important;\n                        background: #fff !important;\n                        box-shadow: none !important;\n                        border-radius: 0 !important;\n                        overflow: hidden !important;\n                    }\n                    .javdb-card-grid .item .javdb-cover-frame.cover {\n                        margin: 0 !important;\n                        height: auto !important;\n                    }\n                    .javdb-card-grid .item .javdb-card-image {\n                        height: 100% !important;\n                        margin: 0 !important;\n                    }\n                    .javdb-card-grid .item .javdb-card-title .jav-pan115-badge {\n                        display: inline-flex !important;\n                        width: auto !important;\n                        max-width: max-content !important;\n                        float: none !important;\n                        vertical-align: middle !important;\n                        margin: 0 6px 4px 0 !important;\n                    }\n                    .javdb-card-score,\n                    .javdb-card-meta,\n                    .javdb-card-tags {\n                        padding-left: 8px !important;\n                        padding-right: 8px !important;\n                    }\n                    .javdb-card-score {\n                        margin-top: 2px !important;\n                        color: #64748b !important;\n                        font-size: 12px !important;\n                        line-height: 1.45 !important;\n                    }\n                    .javdb-card-score .value {\n                        color: inherit !important;\n                        font-size: inherit !important;\n                    }\n                    .javdb-card-meta {\n                        margin-top: 4px !important;\n                        color: #94a3b8 !important;\n                        font-size: 12px !important;\n                        line-height: 1.45 !important;\n                    }\n                    .javdb-card-tags {\n                        display: flex !important;\n                        flex-wrap: wrap !important;\n                        gap: 6px !important;\n                        margin-top: auto !important;\n                        padding-top: 8px !important;\n                        padding-bottom: 10px !important;\n                    }\n                    .javdb-card-tags .tag {\n                        margin: 0 !important;\n                    }\n                    @media (max-width: 1100px) {\n                        .javdb-card-grid { --jav-card-columns: 4; }\n                    }\n                    @media (max-width: 820px) {\n                        .javdb-card-grid { --jav-card-columns: 3; }\n                    }\n                    @media (max-width: 560px) {\n                        .javdb-card-grid { --jav-card-columns: 2; gap: 10px !important; }\n                    }\n                "), 
             setTimeout(() => {
                 se.refreshListPage();
             }, 0));
@@ -2356,22 +2371,39 @@
                     const e = n.textContent.trim(), t = a.textContent.trim();
                     a.textContent = "";
                     const i = document.createElement("span");
-                    i.className = "javlib-card-headline";
+                    i.className = "javlib-card-code-row";
                     const r = document.createElement("strong");
-                    r.className = "javlib-card-code", r.textContent = e, i.appendChild(r), i.appendChild(document.createTextNode(` ${t}`)), 
-                    a.appendChild(i), a.dataset.laosijiCodeMerged = "1";
+                    r.className = "javlib-card-code", r.textContent = e, i.appendChild(r);
+                    const o = document.createElement("span");
+                    o.className = "javlib-card-headline", o.textContent = t;
+                    const s = document.createElement("span");
+                    s.className = "javlib-card-footer", a.appendChild(i), a.appendChild(o), a.appendChild(s), 
+                    a.dataset.laosijiCodeMerged = "1";
                 }
                 const i = e.querySelector("img[src]");
                 if (!i) return;
                 const r = i.getAttribute("src") || "", o = r.replace(/ps\.jpg(?:([?#].*)?)$/i, "pl.jpg$1");
-                if (o !== r && (i.src = o, i.setAttribute("src", o)), i.removeAttribute("width"), 
-                i.removeAttribute("height"), i.classList.add("jav-card-image", "javlib-card-image"), 
+                if (o !== r && "1" !== i.dataset.laosijiCoverPreloaded && "1" !== i.dataset.laosijiCoverLoading) {
+                    i.dataset.laosijiCoverLoading = "1";
+                    const e = new Image;
+                    e.onload = () => {
+                        i.dataset.laosijiCoverPreloaded = "1", delete i.dataset.laosijiCoverLoading, i.classList.add("javlib-cover-swapping"), 
+                        setTimeout(() => {
+                            i.src = o, i.setAttribute("src", o), requestAnimationFrame(() => {
+                                i.classList.remove("javlib-cover-swapping");
+                            });
+                        }, 90);
+                    }, e.onerror = () => {
+                        i.dataset.laosijiCoverPreloaded = "1", delete i.dataset.laosijiCoverLoading;
+                    }, e.src = o;
+                }
+                if (i.removeAttribute("width"), i.removeAttribute("height"), i.classList.add("jav-card-image", "javlib-card-image"), 
                 i.closest(".javlib-cover-frame")) i.closest(".javlib-cover-frame")?.classList.add("jav-card-cover"); else {
                     const e = document.createElement("div");
                     e.className = "jav-card-cover javlib-cover-frame", i.parentNode.insertBefore(e, i), 
                     e.appendChild(i);
                 }
-            }), t && GM_addStyle("\n                    .jav-card-grid {\n                        --jav-card-title-size: 15px;\n                        --jav-card-title-line-height: 1.5;\n                        --jav-card-title-lines: 3;\n                        display: grid !important;\n                        grid-template-columns: repeat(var(--jav-card-columns, 5), minmax(0, 1fr)) !important;\n                        gap: 14px !important;\n                        align-items: stretch !important;\n                        width: 100% !important;\n                        box-sizing: border-box !important;\n                    }\n                    .jav-card {\n                        float: none !important;\n                        display: block !important;\n                        width: auto !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        min-width: 0 !important;\n                        margin: 0 !important;\n                        padding: 0 !important;\n                        box-sizing: border-box !important;\n                        text-align: left !important;\n                        background: #fff !important;\n                        border: 1px solid #e5e7eb !important;\n                        border-radius: 6px !important;\n                        overflow: hidden !important;\n                        box-shadow: 0 1px 4px rgba(15, 23, 42, .08) !important;\n                        transform: translateZ(0) !important;\n                        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;\n                        will-change: transform !important;\n                    }\n                    .jav-card:hover {\n                        border-color: rgba(37, 99, 235, .35) !important;\n                        box-shadow: 0 10px 24px rgba(15, 23, 42, .16) !important;\n                        transform: translateY(-4px) scale(1.018) !important;\n                        z-index: 2 !important;\n                    }\n                    .jav-card-link {\n                        display: flex !important;\n                        flex-direction: column !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        overflow: hidden !important;\n                        color: #2563eb !important;\n                        text-decoration: none !important;\n                    }\n                    .jav-card-link:visited {\n                        color: #7c3aed !important;\n                    }\n                    .jav-card-cover {\n                        display: block !important;\n                        width: 100% !important;\n                        height: auto !important;\n                        aspect-ratio: 800 / 538 !important;\n                        overflow: hidden !important;\n                        background: #f8fafc !important;\n                        border-bottom: 1px solid #f1f5f9 !important;\n                    }\n                    .jav-card-image {\n                        display: block !important;\n                        width: 100% !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        object-fit: cover !important;\n                        object-position: center center !important;\n                        background: #f8fafc !important;\n                        border: 0 !important;\n                    }\n                    .jav-card-title {\n                        display: block !important;\n                        width: 100% !important;\n                        max-width: none !important;\n                        height: calc((var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) + 16px) !important;\n                        max-height: calc((var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) + 16px) !important;\n                        box-sizing: border-box !important;\n                        flex: 1 1 auto !important;\n                        min-height: calc((var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) + 16px) !important;\n                        margin: 0 !important;\n                        padding: 7px 8px 9px !important;\n                        overflow: hidden !important;\n                        text-overflow: ellipsis !important;\n                        color: inherit !important;\n                        font-size: var(--jav-card-title-size, 15px) !important;\n                        line-height: var(--jav-card-title-line-height, 1.5) !important;\n                        text-align: left !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                    }\n                    .javlib-card-headline {\n                        display: -webkit-box !important;\n                        -webkit-box-orient: vertical !important;\n                        -webkit-line-clamp: var(--jav-card-title-lines, 3) !important;\n                        line-clamp: var(--jav-card-title-lines, 3) !important;\n                        max-height: calc(var(--jav-card-title-line-height, 1.5) * var(--jav-card-title-lines, 3) * 1em) !important;\n                        overflow: hidden !important;\n                        text-overflow: ellipsis !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                    }\n                    .jav-card-title strong {\n                        color: inherit !important;\n                        font-size: 16px !important;\n                        font-weight: 800 !important;\n                    }\n                    .videothumblist { width: 100% !important; }\n                    .videothumblist .videos.javlib-card-grid {\n                        --jav-card-columns: 5;\n                    }\n                    .videothumblist .video.javlib-grid-card .id {\n                        display: none !important;\n                    }\n                    .videothumblist .video.javlib-grid-card .toolbar {\n                        display: none !important;\n                    }\n                    @media (max-width: 1100px) {\n                        .videothumblist .videos.javlib-card-grid { --jav-card-columns: 4; }\n                    }\n                    @media (max-width: 820px) {\n                        .videothumblist .videos.javlib-card-grid { --jav-card-columns: 3; }\n                    }\n                    @media (max-width: 560px) {\n                        .videothumblist .videos.javlib-card-grid { --jav-card-columns: 2; gap: 10px !important; }\n                    }\n                "), 
+            }), t && GM_addStyle("\n                    .jav-card-grid {\n                        --jav-card-title-size: 15px;\n                        --jav-card-title-line-height: 1.5;\n                        --jav-card-title-lines: 2;\n                        display: grid !important;\n                        grid-template-columns: repeat(var(--jav-card-columns, 5), minmax(0, 1fr)) !important;\n                        gap: 14px !important;\n                        align-items: stretch !important;\n                        width: 100% !important;\n                        box-sizing: border-box !important;\n                    }\n                    .jav-card {\n                        float: none !important;\n                        display: block !important;\n                        width: auto !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        min-width: 0 !important;\n                        margin: 0 !important;\n                        padding: 0 !important;\n                        box-sizing: border-box !important;\n                        text-align: left !important;\n                        background: #fff !important;\n                        border: 1px solid #e5e7eb !important;\n                        border-radius: 6px !important;\n                        overflow: hidden !important;\n                        box-shadow: 0 1px 4px rgba(15, 23, 42, .08) !important;\n                        transform: translateZ(0) !important;\n                        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;\n                        will-change: transform !important;\n                    }\n                    .jav-card:hover {\n                        border-color: rgba(37, 99, 235, .35) !important;\n                        box-shadow: 0 10px 24px rgba(15, 23, 42, .16) !important;\n                        transform: translateY(-4px) scale(1.018) !important;\n                        z-index: 2 !important;\n                    }\n                    .jav-card-link {\n                        display: flex !important;\n                        flex-direction: column !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        overflow: hidden !important;\n                        color: #2563eb !important;\n                        text-decoration: none !important;\n                    }\n                    .jav-card-link:visited {\n                        color: #7c3aed !important;\n                    }\n                    .javlib-card-link:visited .jav-card-title {\n                        background: #fbf7ff !important;\n                    }\n                    .javlib-card-link:visited .javlib-card-code {\n                        background: #f3e8ff !important;\n                    }\n                    .jav-card-cover {\n                        display: block !important;\n                        width: 100% !important;\n                        height: auto !important;\n                        aspect-ratio: 800 / 538 !important;\n                        overflow: hidden !important;\n                        background: #f8fafc !important;\n                        border-bottom: 1px solid #f1f5f9 !important;\n                    }\n                    .jav-card-image {\n                        display: block !important;\n                        width: 100% !important;\n                        height: 100% !important;\n                        max-height: none !important;\n                        object-fit: cover !important;\n                        object-position: center center !important;\n                        background: #f8fafc !important;\n                        border: 0 !important;\n                        transition: opacity .18s ease !important;\n                    }\n                    .javlib-cover-swapping {\n                        opacity: .42 !important;\n                    }\n                    .jav-card-title {\n                        --javlib-title-line-height: 22px;\n                        display: flex !important;\n                        flex-direction: column !important;\n                        gap: 6px !important;\n                        width: 100% !important;\n                        max-width: none !important;\n                        height: calc((var(--javlib-title-line-height) * var(--jav-card-title-lines, 2)) + 54px) !important;\n                        max-height: calc((var(--javlib-title-line-height) * var(--jav-card-title-lines, 2)) + 54px) !important;\n                        box-sizing: border-box !important;\n                        flex: 0 0 auto !important;\n                        min-height: calc((var(--javlib-title-line-height) * var(--jav-card-title-lines, 2)) + 54px) !important;\n                        margin: 0 !important;\n                        padding: 9px 10px 10px !important;\n                        overflow: hidden !important;\n                        text-overflow: ellipsis !important;\n                        color: inherit !important;\n                        font-size: var(--jav-card-title-size, 15px) !important;\n                        line-height: var(--javlib-title-line-height) !important;\n                        text-align: left !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                    }\n                    .jav-card-title:has(.javlib-card-footer > *) {\n                        height: calc((var(--javlib-title-line-height) * var(--jav-card-title-lines, 2)) + 82px) !important;\n                        max-height: calc((var(--javlib-title-line-height) * var(--jav-card-title-lines, 2)) + 82px) !important;\n                        min-height: calc((var(--javlib-title-line-height) * var(--jav-card-title-lines, 2)) + 82px) !important;\n                    }\n                    .javlib-card-code-row {\n                        display: flex !important;\n                        align-items: center !important;\n                        flex: 0 0 22px !important;\n                        height: 22px !important;\n                        max-height: 22px !important;\n                        min-height: 22px !important;\n                        overflow: hidden !important;\n                    }\n                    .javlib-card-headline {\n                        display: -webkit-box !important;\n                        -webkit-box-orient: vertical !important;\n                        -webkit-line-clamp: var(--jav-card-title-lines, 2) !important;\n                        line-clamp: var(--jav-card-title-lines, 2) !important;\n                        height: calc(var(--javlib-title-line-height) * var(--jav-card-title-lines, 2)) !important;\n                        max-height: calc(var(--javlib-title-line-height) * var(--jav-card-title-lines, 2)) !important;\n                        min-height: calc(var(--javlib-title-line-height) * var(--jav-card-title-lines, 2)) !important;\n                        overflow: hidden !important;\n                        text-overflow: ellipsis !important;\n                        white-space: normal !important;\n                        word-break: break-word !important;\n                        color: inherit !important;\n                        flex: 0 0 calc(var(--javlib-title-line-height) * var(--jav-card-title-lines, 2)) !important;\n                        line-height: var(--javlib-title-line-height) !important;\n                    }\n                    .javlib-card-code {\n                        display: inline-flex !important;\n                        align-items: center !important;\n                        max-width: 100% !important;\n                        padding: 2px 7px !important;\n                        border-radius: 999px !important;\n                        background: #eef2ff !important;\n                        color: inherit !important;\n                        font-size: 14px !important;\n                        line-height: 1.35 !important;\n                        font-weight: 800 !important;\n                        letter-spacing: 0 !important;\n                        overflow: hidden !important;\n                        text-overflow: ellipsis !important;\n                        white-space: nowrap !important;\n                    }\n                    .javlib-card-footer {\n                        display: none !important;\n                        align-items: center !important;\n                        gap: 6px !important;\n                        min-height: 0 !important;\n                        margin-top: auto !important;\n                        overflow: hidden !important;\n                    }\n                    .javlib-card-footer:not(:empty) {\n                        display: flex !important;\n                        flex: 0 0 22px !important;\n                        height: 22px !important;\n                        max-height: 22px !important;\n                        min-height: 22px !important;\n                    }\n                    .videothumblist { width: 100% !important; }\n                    .videothumblist .videos.javlib-card-grid {\n                        --jav-card-columns: 5;\n                    }\n                    .videothumblist .video.javlib-grid-card .id {\n                        display: none !important;\n                    }\n                    .videothumblist .video.javlib-grid-card .toolbar {\n                        display: none !important;\n                    }\n                    @media (max-width: 1100px) {\n                        .videothumblist .videos.javlib-card-grid { --jav-card-columns: 4; }\n                    }\n                    @media (max-width: 820px) {\n                        .videothumblist .videos.javlib-card-grid { --jav-card-columns: 3; }\n                    }\n                    @media (max-width: 560px) {\n                        .videothumblist .videos.javlib-card-grid { --jav-card-columns: 2; gap: 10px !important; }\n                    }\n                "), 
             setTimeout(() => {
                 se.refreshListDecorations();
             }, 0));
@@ -2440,7 +2472,10 @@
         current() {
             return this.list.find(e => e.match()) || null;
         },
-        isDetailPage: () => /javbus\.com/i.test(location.hostname) ? /^\/(?:[a-z]{2}\/)?(?:[A-Z]{2,15}-?\d{2,10}(?:-\d{1,3})?|[A-Z]{2,10}\d{3,6}|FC2(?:-PPV)?-\d{6,9})\/?$/i.test(location.pathname) : Y.some(e => e.match(window.location.href)),
+        isDetailPage: () => function() {
+            if (/javbus\.com/i.test(location.hostname)) return /^\/(?:[a-z]{2}\/)?(?:[A-Z]{2,15}-?\d{2,10}(?:-\d{1,3})?|[A-Z]{2,10}\d{3,6}|FC2(?:-PPV)?-\d{6,9})\/?$/i.test(location.pathname);
+            return Y.some(e => e.match(window.location.href));
+        }(),
         getListCards: (e = document) => [ ...e.querySelectorAll(".javbus-card-grid > .item, .javdb-card-grid > .item, .videothumblist .videos.javlib-card-grid > .video") ],
         getCardCover: e => e?.querySelector(".jav-card-cover") || null,
         getCardCode(e) {
@@ -2507,10 +2542,10 @@
             const r = (e.textContent || e.getAttribute("title") || "").trim(), o = r.length > 0;
             if (!o) return null;
             const s = /\/v\/\w+/i.test(t) || /(?:^|\/|\.)jav\w+\.html(?:[?#].*)?$/i.test(t) || /\/videos\/[a-z0-9-]+\/?/i.test(t) || /\/(?:[a-z]{2,15}-\d{2,10}|fc2[-_]?ppv[-_]?\d{6,9})\/?$/i.test(t) || /\/(?:[a-z]{2,15}\d{3,6})\/?$/i.test(t) || /(?:movie|video|detail|view|jav)/i.test(t), l = !!e.closest(".movie-list, .movies, .grid, #waterfall, .movie-box, .box, .thumbnail, .video-list, .video-list-row, .section-container, .videothumblist");
-            return !s && !l || o && !C.extractCode(r) && !s ? null : {
+            return (s || l) && (!o || C.extractCode(r) || s) ? {
                 anchor: e,
                 code: i
-            };
+            } : null;
         },
         collectPan115ListTargets() {
             if (this.isDetailPage()) return [];
@@ -2539,7 +2574,11 @@
             const a = e.querySelector(".title, .video-title");
             if (a) {
                 const i = O(t, n, !1), r = a.querySelector(".javlib-card-headline");
-                if (r) return r.insertBefore(i, r.firstChild), void (e.dataset.pan115HasBadge = "1");
+                if (r) {
+                    const t = a.querySelector(".javlib-card-footer");
+                    return t ? t.insertBefore(i, t.firstChild) : r.insertAdjacentElement("afterend", i), 
+                    void (e.dataset.pan115HasBadge = "1");
+                }
                 const o = a.querySelector(".javdb-card-headline");
                 return o ? (o.insertBefore(i, o.firstChild), void (e.dataset.pan115HasBadge = "1")) : (a.insertBefore(i, a.firstChild), 
                 void (e.dataset.pan115HasBadge = "1"));
@@ -2617,8 +2656,9 @@
         },
         isEmbyPage: (e = window.location.href) => !!Y.find(e => "emby" === e.id)?.match(e),
         setupJavDbGuards() {
-            !this.javdbGuardsReady && y.match() && (this.javdbGuardsReady = !0, y._dismissOver18Modal(), 
-            y._hideDownloadCorrectionBlock(), new MutationObserver(() => {
+            if (this.javdbGuardsReady || !y.match()) return;
+            this.javdbGuardsReady = !0, y._dismissOver18Modal(), y._hideDownloadCorrectionBlock();
+            new MutationObserver(() => {
                 y._dismissOver18Modal(), y._hideDownloadCorrectionBlock();
             }).observe(document.documentElement, {
                 childList: !0,
@@ -2627,7 +2667,7 @@
                 y._dismissOver18Modal(), y._hideDownloadCorrectionBlock();
             }, 0)), window.addEventListener("hashchange", () => setTimeout(() => {
                 y._dismissOver18Modal(), y._hideDownloadCorrectionBlock();
-            }, 0)));
+            }, 0));
         },
         initCurrent() {
             const e = this.current();
@@ -2638,7 +2678,25 @@
         }
     }, _ = (() => {
         const e = "laosijiListNewTab";
-        function t(t) {
+        function t() {
+            if (j.isDetailPage()) return [];
+            if (x.match() && x.isActorIndexPage()) return [];
+            let e = [];
+            if (x.match() ? e = [ "#waterfall.javbus-card-grid > .item > a.movie-box[href]", ".javbus-card-grid .javbus-card-link[href]" ] : y.match() ? e = [ ".javdb-card-grid > .item > a.box[href]", ".movie-list.javdb-card-grid > .item > a.box[href]", ".movies.javdb-card-grid > .item > a.box[href]", ".grid.javdb-card-grid > .item > a.box[href]" ] : w.match() && (e = [ ".videothumblist .videos.javlib-card-grid > .video > a[href]:not(.emby-javlibrary-list-badge)" ]), 
+            !e.length) return [];
+            const t = new Set;
+            return e.flatMap(e => [ ...document.querySelectorAll(e) ]).filter(e => !(t.has(e) || !function(e) {
+                const t = e?.getAttribute?.("href") || "";
+                if (!t || /^(?:javascript:|#|magnet:|mailto:|tel:)/i.test(t)) return !1;
+                try {
+                    const e = new URL(t, location.href);
+                    return /^https?:$/i.test(e.protocol);
+                } catch (e) {
+                    return !1;
+                }
+            }(e)) && (t.add(e), !0));
+        }
+        function n(t) {
             !function(t) {
                 "1" !== t.dataset[e] && (t.dataset[e] = "1", t.dataset.laosijiHadTarget = t.hasAttribute("target") ? "1" : "0", 
                 t.dataset.laosijiHadRel = t.hasAttribute("rel") ? "1" : "0", t.dataset.laosijiOriginalTarget = t.getAttribute("target") || "", 
@@ -2647,7 +2705,7 @@
             const n = new Set((t.getAttribute("rel") || "").split(/\s+/).filter(Boolean));
             n.add("noopener"), n.add("noreferrer"), t.setAttribute("target", "_blank"), t.setAttribute("rel", [ ...n ].join(" "));
         }
-        function n(t = new Set) {
+        function i(t = new Set) {
             document.querySelectorAll('a[data-laosiji-list-new-tab="1"]').forEach(n => {
                 t.has(n) || function(t) {
                     "1" === t.dataset[e] && ("1" === t.dataset.laosijiHadTarget ? t.setAttribute("target", t.dataset.laosijiOriginalTarget || "") : t.removeAttribute("target"), 
@@ -2659,28 +2717,11 @@
         }
         return {
             sync: function() {
-                if (!a.listOpenNewTab) return void n();
-                const e = function() {
-                    if (j.isDetailPage()) return [];
-                    if (x.match() && x.isActorIndexPage()) return [];
-                    let e = [];
-                    if (x.match() ? e = [ "#waterfall.javbus-card-grid > .item > a.movie-box[href]", ".javbus-card-grid .javbus-card-link[href]" ] : y.match() ? e = [ ".javdb-card-grid > .item > a.box[href]", ".movie-list.javdb-card-grid > .item > a.box[href]", ".movies.javdb-card-grid > .item > a.box[href]", ".grid.javdb-card-grid > .item > a.box[href]" ] : w.match() && (e = [ ".videothumblist .videos.javlib-card-grid > .video > a[href]:not(.emby-javlibrary-list-badge)" ]), 
-                    !e.length) return [];
-                    const t = new Set;
-                    return e.flatMap(e => [ ...document.querySelectorAll(e) ]).filter(e => !(t.has(e) || !function(e) {
-                        const t = e?.getAttribute?.("href") || "";
-                        if (!t || /^(?:javascript:|#|magnet:|mailto:|tel:)/i.test(t)) return !1;
-                        try {
-                            const e = new URL(t, location.href);
-                            return /^https?:$/i.test(e.protocol);
-                        } catch (e) {
-                            return !1;
-                        }
-                    }(e) || (t.add(e), 0)));
-                }(), i = new Set(e);
-                e.forEach(t), n(i);
+                if (!a.listOpenNewTab) return void i();
+                const e = t(), r = new Set(e);
+                e.forEach(n), i(r);
             },
-            clear: () => n()
+            clear: () => i()
         };
     })();
     l.expose("__LAOSIJI_LIST_OPEN_NEW_TAB__", _);
@@ -2692,7 +2733,8 @@
             i.setAttribute("aria-label", a < 0 ? "向左滚动剧照" : "向右滚动剧照"), i.addEventListener("click", e => {
                 e.preventDefault(), e.stopPropagation(), function(e, t) {
                     const n = Math.max(0, e.scrollWidth - e.clientWidth);
-                    n <= 1 || (t > 0 && e.scrollLeft >= n - 8 ? e.scrollTo({
+                    if (n <= 1) return;
+                    t > 0 && e.scrollLeft >= n - 8 ? e.scrollTo({
                         left: 0,
                         behavior: "smooth"
                     }) : t < 0 && e.scrollLeft <= 8 ? e.scrollTo({
@@ -2701,7 +2743,7 @@
                     }) : e.scrollBy({
                         left: t * Math.max(220, .72 * e.clientWidth),
                         behavior: "smooth"
-                    }));
+                    });
                 }(n, a);
             }), i;
         }
@@ -2716,9 +2758,94 @@
             const t = String(e || "").split("#")[0].split("?")[0];
             return /\.(?:jpe?g|png|webp|gif|bmp)$/i.test(t);
         }
+        function i(t) {
+            "1" !== t.dataset.laosijiStillsViewerBound && (t.dataset.laosijiStillsViewerBound = "1", 
+            t.addEventListener("click", i => {
+                const r = i.target?.closest?.("a[href]");
+                if (!r || !t.contains(r)) return;
+                if (function(e) {
+                    const t = e?.getAttribute?.("href") || "", n = t.startsWith("#") ? document.getElementById(t.slice(1)) : null;
+                    if (!n || "VIDEO" !== n.tagName) return !1;
+                    const a = j.getDetailCode?.() || C.extractCode(document.title || "") || "";
+                    if (!a) return C.showToast("无法识别番号", "未能从当前页面读取预告片查询番号", 2600), !0;
+                    const i = e.querySelector("span"), r = i?.textContent || "";
+                    return i && (i.textContent = "解析中..."), M.show(a).finally(() => {
+                        i?.isConnected && (i.textContent = r || "预告片");
+                    }), !0;
+                }(r)) return i.preventDefault(), i.stopPropagation(), void i.stopImmediatePropagation?.();
+                const o = function(e) {
+                    return [ ...e.querySelectorAll(":scope > a[href]") ].map(e => {
+                        const t = e.getAttribute("href") || "";
+                        if (!t || t.startsWith("#") || /^javascript:/i.test(t)) return null;
+                        const i = e.querySelector("img[src]");
+                        if (!i) return null;
+                        const r = n(t), o = n(i.currentSrc || i.src || i.getAttribute("src") || "");
+                        if (!r || !a(r) && !a(o)) return null;
+                        const s = e.getAttribute("data-caption") || i.getAttribute("title") || i.getAttribute("alt") || "";
+                        return {
+                            anchor: e,
+                            url: r,
+                            title: s.trim()
+                        };
+                    }).filter(Boolean);
+                }(t), s = o.findIndex(e => e.anchor === r);
+                s < 0 || (i.preventDefault(), i.stopPropagation(), i.stopImmediatePropagation?.(), 
+                function(t, n = 0) {
+                    if (!t.length) return;
+                    e?.();
+                    const a = document.documentElement.style.overflow, i = document.body.style.overflow;
+                    document.documentElement.style.overflow = "hidden", document.body.style.overflow = "hidden";
+                    let r = n;
+                    const o = document.createElement("div");
+                    o.className = "jav-stills-viewer";
+                    const s = document.createElement("div");
+                    s.className = "jav-stills-viewer-top";
+                    const l = document.createElement("div");
+                    l.className = "jav-stills-viewer-count";
+                    const c = document.createElement("button");
+                    c.type = "button", c.className = "jav-stills-viewer-close", c.textContent = "×", 
+                    c.setAttribute("aria-label", "关闭剧照预览"), s.append(l, c);
+                    const d = document.createElement("div");
+                    d.className = "jav-stills-viewer-body";
+                    const p = document.createElement("img");
+                    p.className = "jav-stills-viewer-img", d.appendChild(p);
+                    const m = document.createElement("button");
+                    m.type = "button", m.className = "jav-stills-viewer-nav jav-stills-viewer-prev", 
+                    m.textContent = "‹", m.setAttribute("aria-label", "上一张剧照");
+                    const u = document.createElement("button");
+                    u.type = "button", u.className = "jav-stills-viewer-nav jav-stills-viewer-next", 
+                    u.textContent = "›", u.setAttribute("aria-label", "下一张剧照");
+                    const h = document.createElement("div");
+                    h.className = "jav-stills-viewer-caption";
+                    const g = e => {
+                        r = (e + t.length) % t.length;
+                        const n = t[r];
+                        p.classList.remove("is-zoomed"), p.src = n.url, p.alt = n.title || `剧照 ${r + 1}`, 
+                        l.textContent = `${r + 1} / ${t.length}`, h.textContent = n.title || "";
+                    }, v = (t = null) => {
+                        t && (t.preventDefault(), t.stopPropagation(), t.stopImmediatePropagation?.()), 
+                        o.remove(), document.documentElement.style.overflow = a, document.body.style.overflow = i, 
+                        document.removeEventListener("keydown", b, !0), e === v && (e = null);
+                    }, b = e => {
+                        "Escape" !== e.key ? "ArrowLeft" !== e.key && "ArrowRight" !== e.key || (e.preventDefault(), 
+                        e.stopPropagation(), e.stopImmediatePropagation?.(), g(r + ("ArrowRight" === e.key ? 1 : -1))) : v(e);
+                    };
+                    c.addEventListener("click", v, !0), m.addEventListener("click", e => {
+                        e.preventDefault(), e.stopPropagation(), e.stopImmediatePropagation?.(), g(r - 1);
+                    }, !0), u.addEventListener("click", e => {
+                        e.preventDefault(), e.stopPropagation(), e.stopImmediatePropagation?.(), g(r + 1);
+                    }, !0), p.addEventListener("click", e => {
+                        e.preventDefault(), e.stopPropagation(), e.stopImmediatePropagation?.(), p.classList.toggle("is-zoomed");
+                    }, !0), o.addEventListener("click", e => {
+                        e.target !== o && e.target !== d || v(e);
+                    }, !0), document.addEventListener("keydown", b, !0), o.append(s, d, m, u, h), document.body.appendChild(o), 
+                    e = v, g(r);
+                }(o, s));
+            }, !0));
+        }
         return {
             sync: function() {
-                const i = function() {
+                const e = function() {
                     if (x.match()) {
                         const e = document.querySelector("#sample-waterfall");
                         if (!e?.querySelector("a, img")) return null;
@@ -2747,105 +2874,22 @@
                     }
                     return null;
                 }();
-                if (!i?.container) return;
+                if (!e?.container) return;
                 if ("1" !== document.documentElement.dataset.laosijiStillsGalleryStyle && (document.documentElement.dataset.laosijiStillsGalleryStyle = "1", 
                 GM_addStyle('\n                .jav-stills-shell {\n                    position: relative !important;\n                    width: 100% !important;\n                    max-width: 100% !important;\n                    box-sizing: border-box !important;\n                    margin: 16px 0 18px !important;\n                    padding: 12px 44px !important;\n                    border: 1px solid #d9e2ec !important;\n                    border-radius: 8px !important;\n                    background: #ffffff !important;\n                    box-shadow: 0 8px 18px rgba(15, 23, 42, .06) !important;\n                    overflow: hidden !important;\n                }\n                .jav-stills-stage {\n                    position: relative !important;\n                    min-width: 0 !important;\n                    overflow: hidden !important;\n                }\n                .jav-stills-rail {\n                    display: flex !important;\n                    flex-wrap: nowrap !important;\n                    align-items: stretch !important;\n                    gap: 10px !important;\n                    width: 100% !important;\n                    max-width: 100% !important;\n                    box-sizing: border-box !important;\n                    margin: 0 !important;\n                    padding: 2px 0 10px !important;\n                    overflow-x: auto !important;\n                    overflow-y: hidden !important;\n                    scroll-behavior: smooth !important;\n                    overscroll-behavior-inline: contain !important;\n                    scrollbar-width: thin !important;\n                    scrollbar-color: rgba(100, 116, 139, .44) transparent !important;\n                }\n                .jav-stills-rail::-webkit-scrollbar { height: 8px !important; }\n                .jav-stills-rail::-webkit-scrollbar-thumb {\n                    border-radius: 999px !important;\n                    background: rgba(100, 116, 139, .36) !important;\n                }\n                .jav-stills-rail::-webkit-scrollbar-track { background: transparent !important; }\n                .jav-stills-arrow {\n                    position: absolute !important;\n                    top: 50% !important;\n                    z-index: 3 !important;\n                    display: grid !important;\n                    place-items: center !important;\n                    width: 34px !important;\n                    height: 42px !important;\n                    border: 1px solid rgba(148, 163, 184, .42) !important;\n                    border-radius: 8px !important;\n                    background: rgba(255, 255, 255, .92) !important;\n                    color: #172033 !important;\n                    font-size: 24px !important;\n                    line-height: 1 !important;\n                    font-weight: 800 !important;\n                    cursor: pointer !important;\n                    transform: translateY(-50%) !important;\n                    box-shadow: 0 8px 18px rgba(15, 23, 42, .14) !important;\n                    transition: transform .18s ease, background .18s ease, border-color .18s ease !important;\n                    touch-action: manipulation !important;\n                }\n                .jav-stills-arrow:hover {\n                    background: #ffffff !important;\n                    border-color: rgba(37, 99, 235, .45) !important;\n                    transform: translateY(-50%) scale(1.04) !important;\n                }\n                .jav-stills-arrow-prev { left: 8px !important; }\n                .jav-stills-arrow-next { right: 8px !important; }\n                .jav-stills-rail > a,\n                .jav-stills-rail > .tile-item,\n                .jav-stills-rail > .preview-video-container {\n                    flex: 0 0 auto !important;\n                    display: block !important;\n                    position: relative !important;\n                    width: 172px !important;\n                    height: 104px !important;\n                    margin: 0 !important;\n                    padding: 0 !important;\n                    border: 1px solid rgba(148, 163, 184, .28) !important;\n                    border-radius: 8px !important;\n                    background: #e2e8f0 !important;\n                    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45) !important;\n                    overflow: hidden !important;\n                    box-sizing: border-box !important;\n                    text-decoration: none !important;\n                }\n                .jav-stills-rail img {\n                    display: block !important;\n                    width: 100% !important;\n                    height: 100% !important;\n                    max-width: none !important;\n                    object-fit: cover !important;\n                    object-position: center !important;\n                    border: 0 !important;\n                }\n                .jav-stills-rail .photo-frame {\n                    width: 100% !important;\n                    height: 100% !important;\n                    margin: 0 !important;\n                    padding: 0 !important;\n                    box-sizing: border-box !important;\n                    overflow: hidden !important;\n                }\n                .jav-stills-rail > video,\n                .jav-stills-rail video[style*="display:none"],\n                .jav-stills-rail video[style*="display: none"] {\n                    display: none !important;\n                    flex: 0 0 auto !important;\n                }\n                .jav-stills-javdb .preview-video-container span {\n                    position: absolute !important;\n                    left: 8px !important;\n                    bottom: 7px !important;\n                    z-index: 2 !important;\n                    padding: 3px 7px !important;\n                    border-radius: 6px !important;\n                    background: rgba(15, 23, 42, .68) !important;\n                    color: #ffffff !important;\n                    font-size: 11px !important;\n                    line-height: 1 !important;\n                    font-weight: 800 !important;\n                }\n                .jav-stills-javlib .jav-stills-rail > a {\n                    width: 150px !important;\n                    height: 100px !important;\n                }\n                .javdb-stills-panel-clean,\n                .javdb-stills-panel-clean > .message-body,\n                .javdb-stills-body-clean {\n                    padding: 0 !important;\n                    border: 0 !important;\n                    background: transparent !important;\n                    box-shadow: none !important;\n                }\n                .javdb-stills-panel-clean {\n                    margin: 16px 0 18px !important;\n                }\n                .javdb-stills-panel-clean .jav-stills-shell {\n                    margin: 0 !important;\n                }\n                .jav-stills-viewer {\n                    position: fixed !important;\n                    inset: 0 !important;\n                    z-index: 2147483647 !important;\n                    display: grid !important;\n                    grid-template-rows: auto minmax(0, 1fr) auto !important;\n                    background: rgba(8, 13, 25, .9) !important;\n                    backdrop-filter: blur(5px) !important;\n                    color: #ffffff !important;\n                    cursor: zoom-out !important;\n                }\n                .jav-stills-viewer-top {\n                    display: flex !important;\n                    align-items: center !important;\n                    justify-content: space-between !important;\n                    gap: 12px !important;\n                    min-height: 54px !important;\n                    padding: 12px 16px !important;\n                    box-sizing: border-box !important;\n                    pointer-events: none !important;\n                }\n                .jav-stills-viewer-count {\n                    min-width: 64px !important;\n                    padding: 6px 10px !important;\n                    border-radius: 8px !important;\n                    background: rgba(15, 23, 42, .72) !important;\n                    color: #e5edf8 !important;\n                    font-size: 13px !important;\n                    font-weight: 800 !important;\n                    text-align: center !important;\n                    pointer-events: auto !important;\n                }\n                .jav-stills-viewer-close,\n                .jav-stills-viewer-nav {\n                    display: grid !important;\n                    place-items: center !important;\n                    border: 1px solid rgba(226, 232, 240, .22) !important;\n                    background: rgba(15, 23, 42, .72) !important;\n                    color: #ffffff !important;\n                    cursor: pointer !important;\n                    box-shadow: 0 12px 26px rgba(0, 0, 0, .24) !important;\n                    touch-action: manipulation !important;\n                }\n                .jav-stills-viewer-close {\n                    width: 38px !important;\n                    height: 38px !important;\n                    border-radius: 10px !important;\n                    font-size: 24px !important;\n                    line-height: 1 !important;\n                    pointer-events: auto !important;\n                }\n                .jav-stills-viewer-close:hover,\n                .jav-stills-viewer-nav:hover {\n                    background: rgba(30, 41, 59, .88) !important;\n                    border-color: rgba(255, 255, 255, .36) !important;\n                }\n                .jav-stills-viewer-body {\n                    position: relative !important;\n                    display: grid !important;\n                    place-items: center !important;\n                    min-width: 0 !important;\n                    min-height: 0 !important;\n                    padding: 0 68px !important;\n                    box-sizing: border-box !important;\n                    overflow: auto !important;\n                }\n                .jav-stills-viewer-img {\n                    display: block !important;\n                    max-width: 100% !important;\n                    max-height: calc(100vh - 118px) !important;\n                    width: auto !important;\n                    height: auto !important;\n                    object-fit: contain !important;\n                    border-radius: 6px !important;\n                    background: #111827 !important;\n                    box-shadow: 0 18px 46px rgba(0, 0, 0, .45) !important;\n                    cursor: zoom-in !important;\n                }\n                .jav-stills-viewer-img.is-zoomed {\n                    max-width: none !important;\n                    max-height: none !important;\n                    cursor: zoom-out !important;\n                }\n                .jav-stills-viewer-nav {\n                    position: fixed !important;\n                    top: 50% !important;\n                    z-index: 2147483647 !important;\n                    width: 44px !important;\n                    height: 58px !important;\n                    border-radius: 12px !important;\n                    font-size: 30px !important;\n                    line-height: 1 !important;\n                    transform: translateY(-50%) !important;\n                }\n                .jav-stills-viewer-prev { left: 18px !important; }\n                .jav-stills-viewer-next { right: 18px !important; }\n                .jav-stills-viewer-caption {\n                    min-height: 42px !important;\n                    padding: 9px 18px 16px !important;\n                    box-sizing: border-box !important;\n                    color: rgba(226, 232, 240, .86) !important;\n                    font-size: 13px !important;\n                    line-height: 1.45 !important;\n                    text-align: center !important;\n                    pointer-events: none !important;\n                }\n                @media (max-width: 720px) {\n                    .jav-stills-shell {\n                        padding: 10px 40px !important;\n                    }\n                    .jav-stills-rail > a,\n                    .jav-stills-rail > .tile-item,\n                    .jav-stills-rail > .preview-video-container {\n                        width: 150px !important;\n                        height: 92px !important;\n                    }\n                    .jav-stills-javlib .jav-stills-rail > a {\n                        width: 138px !important;\n                        height: 92px !important;\n                    }\n                    .jav-stills-viewer-body {\n                        padding: 0 52px !important;\n                    }\n                    .jav-stills-viewer-nav {\n                        width: 38px !important;\n                        height: 52px !important;\n                    }\n                    .jav-stills-viewer-prev { left: 8px !important; }\n                    .jav-stills-viewer-next { right: 8px !important; }\n                }\n            ')), 
                 function(e) {
                     "javdb" === e.site && (e.container.closest(".message.video-panel, article.message")?.classList.add("javdb-stills-panel-clean"), 
                     e.container.closest(".message-body")?.classList.add("javdb-stills-body-clean"));
-                }(i), "1" !== (r = i.container).dataset.laosijiStillsViewerBound && (r.dataset.laosijiStillsViewerBound = "1", 
-                r.addEventListener("click", t => {
-                    const i = t.target?.closest?.("a[href]");
-                    if (!i || !r.contains(i)) return;
-                    if (function(e) {
-                        const t = e?.getAttribute?.("href") || "", n = t.startsWith("#") ? document.getElementById(t.slice(1)) : null;
-                        if (!n || "VIDEO" !== n.tagName) return !1;
-                        const a = j.getDetailCode?.() || C.extractCode(document.title || "") || "";
-                        if (!a) return C.showToast("无法识别番号", "未能从当前页面读取预告片查询番号", 2600), !0;
-                        const i = e.querySelector("span"), r = i?.textContent || "";
-                        return i && (i.textContent = "解析中..."), M.show(a).finally(() => {
-                            i?.isConnected && (i.textContent = r || "预告片");
-                        }), !0;
-                    }(i)) return t.preventDefault(), t.stopPropagation(), void t.stopImmediatePropagation?.();
-                    const o = function(e) {
-                        return [ ...e.querySelectorAll(":scope > a[href]") ].map(e => {
-                            const t = e.getAttribute("href") || "";
-                            if (!t || t.startsWith("#") || /^javascript:/i.test(t)) return null;
-                            const i = e.querySelector("img[src]");
-                            if (!i) return null;
-                            const r = n(t), o = n(i.currentSrc || i.src || i.getAttribute("src") || "");
-                            if (!r || !a(r) && !a(o)) return null;
-                            const s = e.getAttribute("data-caption") || i.getAttribute("title") || i.getAttribute("alt") || "";
-                            return {
-                                anchor: e,
-                                url: r,
-                                title: s.trim()
-                            };
-                        }).filter(Boolean);
-                    }(r), s = o.findIndex(e => e.anchor === i);
-                    s < 0 || (t.preventDefault(), t.stopPropagation(), t.stopImmediatePropagation?.(), 
-                    function(t, n = 0) {
-                        if (!t.length) return;
-                        e?.();
-                        const a = document.documentElement.style.overflow, i = document.body.style.overflow;
-                        document.documentElement.style.overflow = "hidden", document.body.style.overflow = "hidden";
-                        let r = n;
-                        const o = document.createElement("div");
-                        o.className = "jav-stills-viewer";
-                        const s = document.createElement("div");
-                        s.className = "jav-stills-viewer-top";
-                        const l = document.createElement("div");
-                        l.className = "jav-stills-viewer-count";
-                        const c = document.createElement("button");
-                        c.type = "button", c.className = "jav-stills-viewer-close", c.textContent = "×", 
-                        c.setAttribute("aria-label", "关闭剧照预览"), s.append(l, c);
-                        const d = document.createElement("div");
-                        d.className = "jav-stills-viewer-body";
-                        const p = document.createElement("img");
-                        p.className = "jav-stills-viewer-img", d.appendChild(p);
-                        const m = document.createElement("button");
-                        m.type = "button", m.className = "jav-stills-viewer-nav jav-stills-viewer-prev", 
-                        m.textContent = "‹", m.setAttribute("aria-label", "上一张剧照");
-                        const u = document.createElement("button");
-                        u.type = "button", u.className = "jav-stills-viewer-nav jav-stills-viewer-next", 
-                        u.textContent = "›", u.setAttribute("aria-label", "下一张剧照");
-                        const h = document.createElement("div");
-                        h.className = "jav-stills-viewer-caption";
-                        const g = e => {
-                            r = (e + t.length) % t.length;
-                            const n = t[r];
-                            p.classList.remove("is-zoomed"), p.src = n.url, p.alt = n.title || `剧照 ${r + 1}`, 
-                            l.textContent = `${r + 1} / ${t.length}`, h.textContent = n.title || "";
-                        }, v = (t = null) => {
-                            t && (t.preventDefault(), t.stopPropagation(), t.stopImmediatePropagation?.()), 
-                            o.remove(), document.documentElement.style.overflow = a, document.body.style.overflow = i, 
-                            document.removeEventListener("keydown", b, !0), e === v && (e = null);
-                        }, b = e => {
-                            "Escape" !== e.key ? "ArrowLeft" !== e.key && "ArrowRight" !== e.key || (e.preventDefault(), 
-                            e.stopPropagation(), e.stopImmediatePropagation?.(), g(r + ("ArrowRight" === e.key ? 1 : -1))) : v(e);
-                        };
-                        c.addEventListener("click", v, !0), m.addEventListener("click", e => {
-                            e.preventDefault(), e.stopPropagation(), e.stopImmediatePropagation?.(), g(r - 1);
-                        }, !0), u.addEventListener("click", e => {
-                            e.preventDefault(), e.stopPropagation(), e.stopImmediatePropagation?.(), g(r + 1);
-                        }, !0), p.addEventListener("click", e => {
-                            e.preventDefault(), e.stopPropagation(), e.stopImmediatePropagation?.(), p.classList.toggle("is-zoomed");
-                        }, !0), o.addEventListener("click", e => {
-                            e.target !== o && e.target !== d || v(e);
-                        }, !0), document.addEventListener("keydown", b, !0), o.append(s, d, m, u, h), document.body.appendChild(o), 
-                        e = v, g(r);
-                    }(o, s));
-                }, !0)), i.container.closest(".jav-stills-shell")) return;
-                var r;
-                const o = document.createElement("div");
-                o.className = `jav-stills-shell jav-stills-${i.site}`, o.dataset.laosijiStills = "1";
-                const s = document.createElement("div");
-                s.className = "jav-stills-stage", i.container.classList.add("jav-stills-rail", `jav-stills-rail-${i.site}`), 
-                i.container.dataset.laosijiStillsRail = "1";
-                const l = i.heading || i.container;
-                l.parentNode?.insertBefore(o, l), i.heading && (i.heading.dataset.laosijiStillsHidden = "1", 
-                i.heading.style.display = "none"), s.append(t("‹", "jav-stills-arrow-prev", i.container, -1), i.container, t("›", "jav-stills-arrow-next", i.container, 1)), 
-                o.append(s);
+                }(e), i(e.container), e.container.closest(".jav-stills-shell")) return;
+                const n = document.createElement("div");
+                n.className = `jav-stills-shell jav-stills-${e.site}`, n.dataset.laosijiStills = "1";
+                const a = document.createElement("div");
+                a.className = "jav-stills-stage", e.container.classList.add("jav-stills-rail", `jav-stills-rail-${e.site}`), 
+                e.container.dataset.laosijiStillsRail = "1";
+                const r = e.heading || e.container;
+                r.parentNode?.insertBefore(n, r), e.heading && (e.heading.dataset.laosijiStillsHidden = "1", 
+                e.heading.style.display = "none"), a.append(t("‹", "jav-stills-arrow-prev", e.container, -1), e.container, t("›", "jav-stills-arrow-next", e.container, 1)), 
+                n.append(a);
             }
         };
     })();
@@ -3341,7 +3385,8 @@
                 window.removeEventListener("mousedown", ne, !0), window.removeEventListener("click", ne, !0), 
                 document.removeEventListener("keydown", ae, !0), clearTimeout(L), clearTimeout($);
             }, ne = e => {
-                c.contains(e.target) && (e.target === c || e.target.closest(".jav-player-close")) && ("click" !== e.type ? (e.stopPropagation(), 
+                if (!c.contains(e.target)) return;
+                (e.target === c || e.target.closest(".jav-player-close")) && ("click" !== e.type ? (e.stopPropagation(), 
                 e.stopImmediatePropagation?.()) : te(e));
             }, ae = e => {
                 if ("Escape" === e.key) return void te();
@@ -3397,7 +3442,10 @@
             const a = e?.querySelector("title")?.textContent || "", i = [ ...e?.querySelectorAll("h1,h2,h3,.entry-title,.movie-title,.post-title") || [] ].map(e => e.textContent || "").join(" "), r = (e?.body?.textContent || "").slice(0, 5e3);
             return this.isCodeMatched([ t, a, i, r ].join(" "), n);
         },
-        normalizePreviewUrl: (e, t = "") => e ? (/^https?:\/\//i.test(e) ? e : t ? new URL(e, t).href : e).replace(/^http:/, "https:") : "",
+        normalizePreviewUrl(e, t = "") {
+            if (!e) return "";
+            return (/^https?:\/\//i.test(e) ? e : t ? new URL(e, t).href : e).replace(/^http:/, "https:");
+        },
         isJavfreePreviewImage(e, t) {
             const n = String(e || "").split("?")[0], a = this.lookupCode(t), i = /^\d{6,9}$/.test(a), r = i ? new RegExp(`${a}_\\d+\\.(?:jpe?g|png|webp)$`, "i") : null;
             return this.isCodeMatched(n, t) && (/-(?:1080p|demosaic)\.(?:jpe?g|png|webp)$/i.test(n) || i && r.test(n));
@@ -4178,7 +4226,9 @@
             const t = this.codeRegex(e), n = new Set;
             for (const a of this.searchVariants(e).map(e => this.searchKeyword(e))) {
                 const e = await this.requestSearch(a);
-                if (!1 === (e?.state ?? e?.success)) throw new Error(String(e?.error || e?.message || e?.errno || "115查询失败"));
+                if (!1 === (e?.state ?? e?.success)) {
+                    throw new Error(String(e?.error || e?.message || e?.errno || "115查询失败"));
+                }
                 for (const a of this.flattenFiles(e)) {
                     const e = a.pickcode || a.name;
                     if (!n.has(e) && (n.add(e), t.test(a.name) && this.isVideoName(a.name))) return a;
@@ -4480,13 +4530,33 @@
             return n && t.replace(new RegExp(`^\\s*${a = n, String(a || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*`, "i"), "").trim() || t;
             var a;
         }
-        function n() {
+        async function n(e) {
+            const t = function(e) {
+                return `title_translate_pa_v1_${encodeURIComponent(String(e || "").slice(0, 180))}`;
+            }(e), n = sessionStorage.getItem(t);
+            if (n) return n;
+            const a = "https://translate-pa.googleapis.com/v1/translate?" + new URLSearchParams({
+                "params.client": "gtx",
+                dataTypes: "TRANSLATION",
+                key: "AIzaSyDLEeFI5OtFBwYBIoK_jj5m32rZK5CkCXA",
+                "query.sourceLanguage": "ja",
+                "query.targetLanguage": "zh-CN",
+                "query.text": e
+            }).toString(), i = await u(a, {
+                timeout: 15e3
+            });
+            if (!i.loadstuts || i.status < 200 || i.status >= 400) throw new Error(`HTTP ${i.status || 0}`);
+            const r = JSON.parse(i.responseText || "{}"), o = String(r.translation || "").trim();
+            if (!o) throw new Error("empty translation");
+            return sessionStorage.setItem(t, o), o;
+        }
+        function i() {
             document.querySelectorAll(".jav-title-translation").forEach(e => e.remove());
         }
         return {
             sync: async function() {
-                if (!a.titleTranslate) return void n();
-                const i = function() {
+                if (!a.titleTranslate) return void i();
+                const r = function() {
                     const e = j.getJumpSite();
                     if (!e || ![ "javdb", "javbus", "javlibrary" ].includes(e.id)) return null;
                     if ("javdb" === e.id) {
@@ -4514,46 +4584,27 @@
                         anchor: n.closest("h3") || n
                     } : null;
                 }();
-                if (!i?.text || !i.anchor) return void n();
+                if (!r?.text || !r.anchor) return void i();
                 e || (e = !0, GM_addStyle("\n                .jav-title-translation {\n                    margin: 6px 0 8px !important;\n                    padding: 7px 10px !important;\n                    border-left: 3px solid #60a5fa !important;\n                    background: #eff6ff !important;\n                    color: #1e3a8a !important;\n                    font-size: 20px !important;\n                    font-weight: 700 !important;\n                    line-height: 1.5 !important;\n                    word-break: break-word !important;\n                    border-radius: 0 6px 6px 0 !important;\n                }\n                .jav-title-translation.is-loading {\n                    color: #64748b !important;\n                    background: #f8fafc !important;\n                    border-left-color: #cbd5e1 !important;\n                }\n                .jav-title-translation.is-error {\n                    color: #be123c !important;\n                    background: #fff1f2 !important;\n                    border-left-color: #fb7185 !important;\n                }\n                #video_title .jav-title-translation {\n                    margin-right: 72px !important;\n                }\n            "));
-                let r = Array.from(i.anchor.parentNode?.children || []).find(e => e.classList?.contains("jav-title-translation"));
-                r || (r = document.createElement("div"), r.className = "jav-title-translation is-loading", 
-                i.anchor.insertAdjacentElement("afterend", r));
-                const o = `${i.site}:${i.text}`;
-                if (r.dataset.translateId !== o || "loaded" !== r.dataset.state) {
-                    r.dataset.translateId = o, r.dataset.state = "loading", r.className = "jav-title-translation is-loading", 
-                    r.textContent = "翻译标题中...";
+                let o = Array.from(r.anchor.parentNode?.children || []).find(e => e.classList?.contains("jav-title-translation"));
+                o || (o = document.createElement("div"), o.className = "jav-title-translation is-loading", 
+                r.anchor.insertAdjacentElement("afterend", o));
+                const s = `${r.site}:${r.text}`;
+                if (o.dataset.translateId !== s || "loaded" !== o.dataset.state) {
+                    o.dataset.translateId = s, o.dataset.state = "loading", o.className = "jav-title-translation is-loading", 
+                    o.textContent = "翻译标题中...";
                     try {
-                        const e = await async function(e) {
-                            const t = function(e) {
-                                return `title_translate_pa_v1_${encodeURIComponent(String(e || "").slice(0, 180))}`;
-                            }(e), n = sessionStorage.getItem(t);
-                            if (n) return n;
-                            const a = "https://translate-pa.googleapis.com/v1/translate?" + new URLSearchParams({
-                                "params.client": "gtx",
-                                dataTypes: "TRANSLATION",
-                                key: "AIzaSyDLEeFI5OtFBwYBIoK_jj5m32rZK5CkCXA",
-                                "query.sourceLanguage": "ja",
-                                "query.targetLanguage": "zh-CN",
-                                "query.text": e
-                            }).toString(), i = await u(a, {
-                                timeout: 15e3
-                            });
-                            if (!i.loadstuts || i.status < 200 || i.status >= 400) throw new Error(`HTTP ${i.status || 0}`);
-                            const r = JSON.parse(i.responseText || "{}"), o = String(r.translation || "").trim();
-                            if (!o) throw new Error("empty translation");
-                            return sessionStorage.setItem(t, o), o;
-                        }(i.text);
-                        if (!a.titleTranslate || r.dataset.translateId !== o) return;
-                        r.dataset.state = "loaded", r.className = "jav-title-translation", r.textContent = e;
+                        const e = await n(r.text);
+                        if (!a.titleTranslate || o.dataset.translateId !== s) return;
+                        o.dataset.state = "loaded", o.className = "jav-title-translation", o.textContent = e;
                     } catch (e) {
-                        if (r.dataset.translateId !== o) return;
-                        r.dataset.state = "error", r.className = "jav-title-translation is-error", r.textContent = "翻译标题失败", 
+                        if (o.dataset.translateId !== s) return;
+                        o.dataset.state = "error", o.className = "jav-title-translation is-error", o.textContent = "翻译标题失败", 
                         console.warn("[老司机] 翻译标题失败:", e);
                     }
                 }
             },
-            clear: n
+            clear: i
         };
     })();
     function Q(e) {
@@ -4569,7 +4620,7 @@
         let t = null;
         for (const n of e) {
             const e = (n.textContent || "").trim();
-            if (e && Q(n) && (t || (t = n), C.extractCode(e))) return n;
+            if (e && (Q(n) && (t || (t = n), C.extractCode(e)))) return n;
         }
         return t;
     }
@@ -4636,7 +4687,7 @@
         const a = function(e) {
             return "javdb" === e.id ? document.querySelector(".movie-panel-info") : "javbus" === e.id ? document.querySelector(".container .info") : "javlibrary" === e.id ? document.querySelector("#video_info") : null;
         }(e);
-        a ? (function(e) {
+        a ? (!function(e) {
             const t = [ e, e.closest("td"), e.closest("tr"), e.closest("#video_jacket_info"), e.closest(".movie-panel-info"), e.closest(".container .info"), e.closest(".col-md-3.info"), e.closest(".jav-flex-container"), e.closest(".row.movie"), e.closest(".video-info"), e.closest(".info-header") ];
             [ ...new Set(t.filter(Boolean)) ].forEach(e => {
                 e.style.setProperty("overflow", "visible", "important"), e.style.setProperty("overflow-x", "visible", "important"), 
@@ -4876,12 +4927,14 @@
             se.refresh();
         }, 120);
     });
-    let de = location.href, pe = [];
+    let de = location.href;
+    let pe = [];
     function me() {
         pe.forEach(e => clearTimeout(e)), pe = [];
     }
     function ue() {
-        me(), [ 0, 80, 200, 400, 700, 1100, 1700, 2500, 3500, 5e3, 6500 ].forEach(e => {
+        me();
+        [ 0, 80, 200, 400, 700, 1100, 1700, 2500, 3500, 5e3, 6500 ].forEach(e => {
             pe.push(setTimeout(() => {
                 ae.render(), function() {
                     const e = document.querySelector('.jav-jump-btn-group[data-laosiji-jump="1"]');
@@ -4891,9 +4944,11 @@
         });
     }
     function he() {
-        location.href !== de && (de = location.href, j.isEmbyPage() ? (j.isEmbyPage() && (document.querySelectorAll('.jav-jump-btn-group[data-laosiji-jump="1"]').forEach(e => e.remove()), 
+        if (location.href === de) return;
+        de = location.href;
+        j.isEmbyPage() ? (j.isEmbyPage() && (document.querySelectorAll('.jav-jump-btn-group[data-laosiji-jump="1"]').forEach(e => e.remove()), 
         document.querySelectorAll('h1[data-enhanced="1"]').forEach(e => delete e.dataset.enhanced)), 
-        ue()) : ae.render());
+        ue()) : ae.render();
     }
     const ge = {
         started: !1,
