@@ -2763,16 +2763,6 @@
             t.addEventListener("click", i => {
                 const r = i.target?.closest?.("a[href]");
                 if (!r || !t.contains(r)) return;
-                if (function(e) {
-                    const t = e?.getAttribute?.("href") || "", n = t.startsWith("#") ? document.getElementById(t.slice(1)) : null;
-                    if (!n || "VIDEO" !== n.tagName) return !1;
-                    const a = j.getDetailCode?.() || C.extractCode(document.title || "") || "";
-                    if (!a) return C.showToast("无法识别番号", "未能从当前页面读取预告片查询番号", 2600), !0;
-                    const i = e.querySelector("span"), r = i?.textContent || "";
-                    return i && (i.textContent = "解析中..."), L.show(a).finally(() => {
-                        i?.isConnected && (i.textContent = r || "预告片");
-                    }), !0;
-                }(r)) return i.preventDefault(), i.stopPropagation(), void i.stopImmediatePropagation?.();
                 const o = function(e) {
                     return [ ...e.querySelectorAll(":scope > a[href]") ].map(e => {
                         const t = e.getAttribute("href") || "";
