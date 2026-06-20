@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.6.2.1
+// @version      2.6.2.2
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -44,7 +44,7 @@
 
 !function() {
     "use strict";
-    const e = "2.6.2.1", t = 86, n = 20, a = {
+    const e = "2.6.2.2", t = 86, n = 20, a = {
         get javdbSearchUrl() {
             return GM_getValue("cfg_javdb_search_url", "javdb.com");
         },
@@ -3779,6 +3779,7 @@
                 ontimeout: () => n(null)
             });
         }),
+        javxyToken: () => [ 118, 119, 112, 71, 97, 110, 28, 84, 124, 65, 76, 102, 65, 16, 77, 109, 64, 82, 85, 83, 67, 92, 125, 108, 83, 65, 124, 107, 84, 104, 71, 84, 17, 124, 118, 125, 104, 8, 125, 96, 112, 103, 29, 18, 82, 83, 87, 84 ].map(e => String.fromCharCode(37 ^ e)).join(""),
         result: (e, t, n = "video", a = {}) => ({
             url: e,
             source: t,
@@ -3857,7 +3858,8 @@
                 const a = await this.request(t, {
                     timeout: 15e3,
                     headers: {
-                        Accept: "application/json,text/plain,*/*"
+                        Accept: "application/json,text/plain,*/*",
+                        "X-Javxy-Token": this.javxyToken()
                     }
                 });
                 if (!a) {
