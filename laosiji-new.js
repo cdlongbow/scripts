@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.6.2.2
+// @version      2.6.3
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -34,6 +34,7 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_download
 // @grant        GM_info
+// @require      https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js
 // @connect      *
 // @license      GPL-3.0
 // @homepageURL  https://github.com/ZiPenOk/scripts
@@ -44,7 +45,7 @@
 
 !function() {
     "use strict";
-    const e = "2.6.2.2", t = 86, n = 20, a = {
+    const e = "2.6.3", t = 86, n = 20, a = {
         get javdbSearchUrl() {
             return GM_getValue("cfg_javdb_search_url", "javdb.com");
         },
@@ -472,7 +473,7 @@
         function l(e) {
             return (i(e) / 100).toFixed(2).replace(/\.?0+$/, "");
         }
-        function c(e = r()) {
+        function d(e = r()) {
             return !(!e || !a.magnetTable) && !!document.querySelector(".jav-nong-slot");
         }
         return {
@@ -483,11 +484,11 @@
             get: s,
             set: function(e, r, l) {
                 if (!n[e] || !t[e] || !t[e].hasOwnProperty(r)) return;
-                const c = o();
-                c[e] = {
+                const d = o();
+                d[e] = {
                     ...s(e),
                     [r]: i(l)
-                }, a.detailFlex = c;
+                }, a.detailFlex = d;
             },
             apply: function(e = r()) {
                 const t = n[e];
@@ -496,9 +497,9 @@
                 if (!a) return;
                 const i = s(e);
                 a.style.setProperty(t.vars.cover, l(i.cover)), a.style.setProperty(t.vars.info, l(i.info)), 
-                c(e) && a.style.setProperty(t.vars.magnet, l(i.magnet));
+                d(e) && a.style.setProperty(t.vars.magnet, l(i.magnet));
             },
-            hasMagnet: c,
+            hasMagnet: d,
             hasLayout: function(e = r()) {
                 const t = n[e];
                 return !!t?.root?.();
@@ -522,7 +523,7 @@
         expose: (e, t) => (window[e] = t, t)
     };
     l.expose("__LAOSIJI_CORE__", l);
-    const c = [ {
+    const d = [ {
         key: "missav",
         label: "MissAV",
         host: /missav\.(com|ai|ws)/i,
@@ -553,8 +554,8 @@
         host: /javrate\.com/i,
         color: "#8b5cf6"
     } ];
-    l.expose("__LAOSIJI_VIDEO_ENGINES__", c);
-    const d = {
+    l.expose("__LAOSIJI_VIDEO_ENGINES__", d);
+    const c = {
         on: (e, t, n, a) => e && "function" == typeof n ? (e.addEventListener(t, n, a), 
         e) : null,
         click(e, t, n) {
@@ -638,7 +639,7 @@
             }, 900);
         }), a ? e.appendChild(r) : e.after(r);
     }
-    l.expose("__LAOSIJI_UI__", d);
+    l.expose("__LAOSIJI_UI__", c);
     const g = (() => {
         const t = [ {
             key: "javdbSearchUrl",
@@ -722,10 +723,10 @@
                 }), n.forEach((e, t) => {
                     const n = document.createElement("option");
                     n.value = String(t), n.textContent = e, u.appendChild(n);
-                }), c.forEach(e => {
+                }), d.forEach(e => {
                     const t = document.createElement("option");
                     t.value = e.key, t.textContent = e.label, h.appendChild(t);
-                }), u.value = String(GM_getValue("default_search_engine", 2)), d.setSelectValue(h, a.defaultVideoEngine, "missav"), 
+                }), u.value = String(GM_getValue("default_search_engine", 2)), c.setSelectValue(h, a.defaultVideoEngine, "missav"), 
                 f && (f.value = "115master" === a.pan115Player ? "115master" : "official"), v.checked = a.magnetTable, 
                 x.nyaa.checked = a.btnShowNyaa, x.javbus.checked = a.btnShowJavbus, x.javdb.checked = a.btnShowJavdb, 
                 x.missav.checked = a.btnShowMissav, x.fanza.checked = a.btnShowFanza, x.search.checked = a.btnShowSearch, 
@@ -752,13 +753,13 @@
                     }, 260));
                 };
                 g.addEventListener("click", () => {
-                    const e = d.clearSessionByPrefixes([ "thumb_cache_" ]);
+                    const e = c.clearSessionByPrefixes([ "thumb_cache_" ]);
                     q(g, "预览图已清理", e);
                 }), b.addEventListener("click", () => {
-                    const e = d.clearSessionByPrefixes([ "trailer_cache_" ]);
+                    const e = c.clearSessionByPrefixes([ "trailer_cache_" ]);
                     q(b, "预告片已清理", e);
                 }), y.addEventListener("click", () => {
-                    const e = d.clearSessionByPrefixes([ "thumb_cache_", "trailer_cache_", "pan115_cache_" ]);
+                    const e = c.clearSessionByPrefixes([ "thumb_cache_", "trailer_cache_", "pan115_cache_" ]);
                     w.textContent = e ? `已清空 ${e} 项` : "无缓存", setTimeout(() => {
                         w.textContent = "";
                     }, 1800);
@@ -797,8 +798,8 @@
                     a.btnShowNyaa = x.nyaa.checked, a.btnShowJavbus = x.javbus.checked, a.btnShowJavdb = x.javdb.checked, 
                     a.btnShowMissav = x.missav.checked, a.btnShowFanza = x.fanza.checked, a.btnShowSearch = x.search.checked, 
                     a.btnShowTrailer = x.trailer.checked, a.btnShowPreview = x.preview.checked, GM_setValue("thumb_source_order", k);
-                    const s = i !== o, c = n !== e();
-                    A(), c ? location.reload() : s && se.syncPan115(a.btnShowPan115);
+                    const s = i !== o, d = n !== e();
+                    A(), d ? location.reload() : s && se.syncPan115(a.btnShowPan115);
                 });
             }
         };
@@ -819,7 +820,7 @@
                 const s = document.createElement("div");
                 s.id = "jav-quick-settings-popover", s.innerHTML = `\n                <div class="qs-head">\n                    <div>\n                        <div class="qs-title">快捷设置</div>\n                        <div class="qs-site">${e[n] || "当前站点"}</div>\n                    </div>\n                    <button class="qs-close" type="button" title="关闭">×</button>\n                </div>\n                <div class="qs-row">\n                    <div class="qs-name">卡片列数</div>\n                    <input class="qs-range" id="qs-columns" type="range" min="2" max="10" step="1">\n                    <span class="qs-value" id="qs-columns-value">5</span>\n                </div>\n                <div class="qs-row">\n                    <div class="qs-name">页面宽度</div>\n                    <input class="qs-range" id="qs-zoom" type="range" min="60" max="100" step="1">\n                    <span class="qs-value" id="qs-zoom-value">100%</span>\n                </div>\n                <div class="qs-detail-flex" id="qs-detail-flex">\n                    <div class="qs-section-title">详情比例</div>\n                    <div class="qs-row" data-detail-flex-row="cover">\n                        <div class="qs-name">封面</div>\n                        <input class="qs-range" id="qs-detail-cover" type="range" min="50" max="200" step="5">\n                        <span class="qs-value" id="qs-detail-cover-value">1.0</span>\n                    </div>\n                    <div class="qs-row" data-detail-flex-row="info">\n                        <div class="qs-name">信息</div>\n                        <input class="qs-range" id="qs-detail-info" type="range" min="50" max="200" step="5">\n                        <span class="qs-value" id="qs-detail-info-value">1.0</span>\n                    </div>\n                    <div class="qs-row" data-detail-flex-row="magnet">\n                        <div class="qs-name">磁力</div>\n                        <input class="qs-range" id="qs-detail-magnet" type="range" min="50" max="200" step="5">\n                        <span class="qs-value" id="qs-detail-magnet-value">关闭</span>\n                    </div>\n                </div>\n                <div class="qs-switch-grid">\n                    <div class="qs-switch-row">\n                        <div class="qs-name">115匹配</div>\n                        <label class="qs-toggle">\n                            <input id="qs-pan115" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">瀑布流</div>\n                        <label class="qs-toggle">\n                            <input id="qs-infinite-scroll" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">翻译标题</div>\n                        <label class="qs-toggle">\n                            <input id="qs-title-translate" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">新标签打开页面</div>\n                        <label class="qs-toggle">\n                            <input id="qs-list-open-new-tab" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">快捷预览图</div>\n                        <label class="qs-toggle">\n                            <input id="qs-list-preview" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">预览图直显</div>\n                        <label class="qs-toggle">\n                            <input id="qs-detail-preview-inline" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                </div>\n                <div class="qs-footer">\n                    <button class="qs-more" type="button">更多设置</button>\n                </div>\n            `, 
                 document.body.appendChild(s);
-                const l = () => s.remove(), c = s.querySelector("#qs-columns"), p = s.querySelector("#qs-columns-value"), m = s.querySelector("#qs-zoom"), u = s.querySelector("#qs-zoom-value"), h = s.querySelector("#qs-pan115"), v = s.querySelector("#qs-infinite-scroll"), b = s.querySelector("#qs-list-preview"), f = s.querySelector("#qs-detail-preview-inline"), x = s.querySelector("#qs-title-translate"), y = s.querySelector("#qs-list-open-new-tab"), w = o.detectCurrentSite(), j = s.querySelector("#qs-detail-flex"), _ = {
+                const l = () => s.remove(), d = s.querySelector("#qs-columns"), p = s.querySelector("#qs-columns-value"), m = s.querySelector("#qs-zoom"), u = s.querySelector("#qs-zoom-value"), h = s.querySelector("#qs-pan115"), v = s.querySelector("#qs-infinite-scroll"), b = s.querySelector("#qs-list-preview"), f = s.querySelector("#qs-detail-preview-inline"), x = s.querySelector("#qs-title-translate"), y = s.querySelector("#qs-list-open-new-tab"), w = o.detectCurrentSite(), j = s.querySelector("#qs-detail-flex"), _ = {
                     cover: s.querySelector("#qs-detail-cover"),
                     info: s.querySelector("#qs-detail-info"),
                     magnet: s.querySelector("#qs-detail-magnet")
@@ -832,36 +833,36 @@
                     return t && t.classList.toggle("is-disabled", !e), _.magnet && (_.magnet.disabled = !e), 
                     k.magnet && !e && (k.magnet.textContent = a.magnetTable ? "未渲染" : "关闭"), e;
                 };
-                if (d.bindRange(c, p, i.get(n), e => String(i.clamp(e)), e => {
+                if (c.bindRange(d, p, i.get(n), e => String(i.clamp(e)), e => {
                     const t = i.clamp(e);
                     i.set(n, t), i.apply(n, t);
-                }), d.bindRange(m, u, r.get(n), e => `${r.clamp(e)}%`, e => {
+                }), c.bindRange(m, u, r.get(n), e => `${r.clamp(e)}%`, e => {
                     const t = r.clamp(e);
                     r.set(n, t), r.apply(n, t);
                 }), w && o.hasLayout(w)) {
                     const e = o.get(w);
                     j?.classList.add("is-visible"), Object.entries(_).forEach(([t, n]) => {
                         const a = k[t];
-                        n && a && d.bindRange(n, a, e[t], S, e => {
+                        n && a && c.bindRange(n, a, e[t], S, e => {
                             if (!("magnet" !== t || C())) return;
                             const n = o.clamp(e);
                             a.textContent = S(n), o.set(w, t, n), o.apply(w);
                         });
                     }), C();
                 }
-                d.bindCheckbox(h, a.btnShowPan115, e => {
+                c.bindCheckbox(h, a.btnShowPan115, e => {
                     a.btnShowPan115 = e, se.syncPan115(e);
-                }), d.bindCheckbox(v, a.infiniteScroll, e => {
+                }), c.bindCheckbox(v, a.infiniteScroll, e => {
                     a.infiniteScroll = e, se.syncInfiniteScroll(e);
-                }), d.bindCheckbox(b, a.listPreviewQuick, e => {
+                }), c.bindCheckbox(b, a.listPreviewQuick, e => {
                     a.listPreviewQuick = e, se.syncListPreview();
-                }), d.bindCheckbox(f, a.detailPreviewInline, e => {
+                }), c.bindCheckbox(f, a.detailPreviewInline, e => {
                     a.detailPreviewInline = e, se.syncDetailPreview();
-                }), d.bindCheckbox(x, a.titleTranslate, e => {
+                }), c.bindCheckbox(x, a.titleTranslate, e => {
                     a.titleTranslate = e, se.syncTitleTranslate();
-                }), d.bindCheckbox(y, a.listOpenNewTab, e => {
+                }), c.bindCheckbox(y, a.listOpenNewTab, e => {
                     a.listOpenNewTab = e, se.syncListOpenNewTab();
-                }), d.click(s.querySelector(".qs-close"), l), d.click(s.querySelector(".qs-more"), () => {
+                }), c.click(s.querySelector(".qs-close"), l), c.click(s.querySelector(".qs-more"), () => {
                     l(), g.open();
                 }), s.addEventListener("click", e => e.stopPropagation()), setTimeout(() => {
                     const e = t => {
@@ -908,17 +909,17 @@
             for (let e = 0; e < 64; e++) r[e] = Math.floor(2 ** 32 * Math.abs(Math.sin(e + 1)));
             for (let e = 0; e < n; e++) i[e >> 2] |= t[e] << (e % 4 << 3);
             i[n >> 2] |= 128 << (n % 4 << 3), i[16 * a - 2] = 8 * n;
-            let [s, l, c, d] = [ 1732584193, 4023233417, 2562383102, 271733878 ];
+            let [s, l, d, c] = [ 1732584193, 4023233417, 2562383102, 271733878 ];
             for (let e = 0; e < a; e++) {
                 const t = i.slice(16 * e, 16 * (e + 1));
-                let [n, a, p, m] = [ s, l, c, d ];
+                let [n, a, p, m] = [ s, l, d, c ];
                 for (let e = 0; e < 64; e++) {
-                    const i = Math.floor(e / 16), s = [ e, (5 * e + 1) % 16, (3 * e + 5) % 16, 7 * e % 16 ][i], l = n + [ a & p | ~a & m, m & a | ~m & p, a ^ p ^ m, p ^ (a | ~m) ][i] + r[e] + t[s] | 0, c = o[i << 2 | e % 4], d = m;
-                    m = p, p = a, a = a + (l << c | l >>> 32 - c) | 0, n = d;
+                    const i = Math.floor(e / 16), s = [ e, (5 * e + 1) % 16, (3 * e + 5) % 16, 7 * e % 16 ][i], l = n + [ a & p | ~a & m, m & a | ~m & p, a ^ p ^ m, p ^ (a | ~m) ][i] + r[e] + t[s] | 0, d = o[i << 2 | e % 4], c = m;
+                    m = p, p = a, a = a + (l << d | l >>> 32 - d) | 0, n = c;
                 }
-                s = s + n | 0, l = l + a | 0, c = c + p | 0, d = d + m | 0;
+                s = s + n | 0, l = l + a | 0, d = d + p | 0, c = c + m | 0;
             }
-            return [ s, l, c, d ].map(e => new Uint32Array([ e ])).map(e => new Uint8Array(e.buffer)).map(e => Array.from(e, e => e.toString(16).padStart(2, "0")).join("")).join("");
+            return [ s, l, d, c ].map(e => new Uint32Array([ e ])).map(e => new Uint8Array(e.buffer)).map(e => Array.from(e, e => e.toString(16).padStart(2, "0")).join("")).join("");
         }
         function o() {
             const e = Math.floor(Date.now() / 1e3);
@@ -934,11 +935,11 @@
                 return null;
             }
         }
-        function c(e) {
+        function d(e) {
             const t = Number(e);
             return !Number.isFinite(t) || t <= 0 ? "" : t >= 1024 ? `${(t / 1024).toFixed(t >= 10240 ? 1 : 2)} GB` : `${Math.round(t)} MB`;
         }
-        function d(e) {
+        function c(e) {
             return String(e || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
         }
         async function h(e, {limit: n = 5, fallbackFirst: a = !1} = {}) {
@@ -959,9 +960,9 @@
                 timeout: 2e4
             });
             if (!s.loadstuts || s.status < 200 || s.status >= 400) return null;
-            const c = l(s.responseText), p = Array.isArray(c?.data?.movies) ? c.data.movies : [], m = d(e);
+            const d = l(s.responseText), p = Array.isArray(d?.data?.movies) ? d.data.movies : [], m = c(e);
             return p.find(e => {
-                const t = d(e?.number);
+                const t = c(e?.number);
                 return t && t === m;
             }) || (a ? p[0] : null) || null;
         }
@@ -974,23 +975,23 @@
                 url: n,
                 data: []
             };
-            const r = `${n}/v/${i.id}`, s = `${t}/v1/movies/${encodeURIComponent(i.id)}/magnets`, d = await u(s, {
+            const r = `${n}/v/${i.id}`, s = `${t}/v1/movies/${encodeURIComponent(i.id)}/magnets`, c = await u(s, {
                 headers: {
                     accept: "application/json",
                     jdSignature: o()
                 }
             });
-            if (!d.loadstuts || d.status < 200 || d.status >= 400) return {
+            if (!c.loadstuts || c.status < 200 || c.status >= 400) return {
                 url: r,
                 data: []
             };
-            const p = l(d.responseText), m = (Array.isArray(p?.data?.magnets) ? p.data.magnets : []).map(t => {
+            const p = l(c.responseText), m = (Array.isArray(p?.data?.magnets) ? p.data.magnets : []).map(t => {
                 const n = String(t?.hash || "").trim();
                 if (!n) return null;
                 return {
                     title: [ String(t?.name || i.number || e).trim(), t?.cnsub ? "-CH" : "", t?.hd ? "HD" : "", t?.files_count ? `${t.files_count} files` : "", t?.created_at || "" ].filter(Boolean).join(" "),
                     maglink: `magnet:?xt=urn:btih:${n}`,
-                    size: c(t?.size),
+                    size: d(t?.size),
                     src: r,
                     cnsub: Boolean(t?.cnsub),
                     hd: Boolean(t?.hd)
@@ -1016,9 +1017,9 @@
                 timeout: 2e4
             });
             if (!s.loadstuts || s.status < 200 || s.status >= 400) throw new Error(`JavDB API 请求失败: HTTP ${s.status || 0}`);
-            const c = l(s.responseText);
-            if (!c) throw new Error("JavDB API 返回异常");
-            return c;
+            const d = l(s.responseText);
+            if (!d) throw new Error("JavDB API 返回异常");
+            return d;
         }
         const f = {
             token: g,
@@ -1098,11 +1099,11 @@
                 if (!n) return;
                 const a = n.getAttribute("href") || "", i = a.split("/").pop();
                 if (!i) return;
-                const r = `magnet:?xt=urn:btih:${i}`, o = t + a, l = n.textContent.trim(), c = (e.querySelector(".Search_list_info")?.textContent || "").match(/文件大小：([^\s]+)/), d = c ? c[1] : "";
+                const r = `magnet:?xt=urn:btih:${i}`, o = t + a, l = n.textContent.trim(), d = (e.querySelector(".Search_list_info")?.textContent || "").match(/文件大小：([^\s]+)/), c = d ? d[1] : "";
                 s.push({
                     title: l,
                     maglink: r,
-                    size: d,
+                    size: c,
                     src: o
                 });
             }), {
@@ -1222,12 +1223,12 @@
                 if (!i) return;
                 const r = n.textContent.trim();
                 if (!o(r).includes(s)) return;
-                const c = `magnet:?xt=urn:btih:${i}`, d = t + a, p = e.querySelector(".panel-footer .info-item")?.textContent?.trim() || "";
+                const d = `magnet:?xt=urn:btih:${i}`, c = t + a, p = e.querySelector(".panel-footer .info-item")?.textContent?.trim() || "";
                 l.push({
                     title: r,
-                    maglink: c,
+                    maglink: d,
                     size: p,
-                    src: d
+                    src: c
                 });
             }), {
                 url: n,
@@ -1255,24 +1256,24 @@
             o.className = "whatslink-modal" + (n.length ? "" : " no-shots"), o.innerHTML = `\n                <div class="whatslink-viewer">\n                    <div class="whatslink-stage">\n                        <button class="whatslink-nav whatslink-prev" type="button">‹</button>\n                        <img class="whatslink-hero" alt="截图预览">\n                        <button class="whatslink-nav whatslink-next" type="button">›</button>\n                        <div class="whatslink-counter"></div>\n                        <div class="whatslink-empty">\n                            <div class="whatslink-empty-icon">?</div>\n                            <div class="whatslink-empty-title">暂无截图</div>\n                            <p class="whatslink-empty-text">WhatsLink 已返回资源基础信息，但没有可展示的截图。可以通过名称、大小和文件数量先做基础判断。</p>\n                        </div>\n                    </div>\n                    <div class="whatslink-thumbs"></div>\n                </div>\n                <aside class="whatslink-info">\n                    <div class="whatslink-head">\n                        <div>\n                            <div class="whatslink-kicker">磁力验车</div>\n                            <h2 class="whatslink-title"></h2>\n                            <span class="whatslink-tag"></span>\n                        </div>\n                        <button class="whatslink-close" type="button">×</button>\n                    </div>\n                    <div class="whatslink-meta">\n                        <div class="whatslink-metric"><b>${C(e?.size)}</b><span>资源大小</span></div>\n                        <div class="whatslink-metric"><b>${e?.count ?? "-"}</b><span>文件数量</span></div>\n                        <div class="whatslink-metric"><b>${i}</b><span>资源结构</span></div>\n                        <div class="whatslink-metric"><b>${n.length}</b><span>截图数量</span></div>\n                        <div class="whatslink-metric"><b>${e?.error ? "异常" : "无错误"}</b><span>接口状态</span></div>\n                    </div>\n                    <div class="whatslink-section">\n                        <h3>磁力链接</h3>\n                        <div class="whatslink-magnet"></div>\n                    </div>\n                    <div class="whatslink-summary">\n                        <div class="whatslink-summary-card"><strong>验车结论</strong><p>${n.length ? "WhatsLink 已返回截图，优先用左侧大图确认内容是否匹配番号。" : "当前没有截图，建议结合资源名称、大小和文件数量判断。"}</p></div>\n                    </div>\n                </aside>`, 
             r.appendChild(o), document.body.appendChild(r), o.querySelector(".whatslink-title").textContent = e?.name || "未知资源", 
             o.querySelector(".whatslink-tag").textContent = i, o.querySelector(".whatslink-magnet").textContent = t;
-            const s = o.querySelector(".whatslink-hero"), l = o.querySelector(".whatslink-thumbs"), c = o.querySelector(".whatslink-counter"), d = () => {
-                n.length && (s.src = n[a], c.textContent = `${a + 1} / ${n.length}`, [ ...l.children ].forEach((e, t) => e.classList.toggle("active", t === a)));
+            const s = o.querySelector(".whatslink-hero"), l = o.querySelector(".whatslink-thumbs"), d = o.querySelector(".whatslink-counter"), c = () => {
+                n.length && (s.src = n[a], d.textContent = `${a + 1} / ${n.length}`, [ ...l.children ].forEach((e, t) => e.classList.toggle("active", t === a)));
             };
             n.forEach((e, t) => {
                 const n = document.createElement("button");
                 n.type = "button", n.className = "whatslink-thumb", n.innerHTML = `<img src="${e}" alt="截图 ${t + 1}">`, 
                 n.addEventListener("click", () => {
-                    a = t, d();
+                    a = t, c();
                 }), l.appendChild(n);
             }), o.querySelector(".whatslink-prev").addEventListener("click", () => {
-                n.length && (a = (a + n.length - 1) % n.length, d());
+                n.length && (a = (a + n.length - 1) % n.length, c());
             }), o.querySelector(".whatslink-next").addEventListener("click", () => {
-                n.length && (a = (a + 1) % n.length, d());
+                n.length && (a = (a + 1) % n.length, c());
             });
             const p = () => r.remove();
             o.querySelector(".whatslink-close").addEventListener("click", p), r.addEventListener("click", e => {
                 e.target === r && p();
-            }), d();
+            }), c();
         }
         function q(t) {
             const n = document.createElement("table");
@@ -1283,7 +1284,7 @@
             r.style.textAlign = "left";
             const o = e.getAll(), s = a.defaultEngine, l = document.createElement("select");
             l.style.cssText = "height:22px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;padding:1px 22px 1px 6px;min-width:84px;background:#fff;color:#172033;font-weight:650;";
-            const c = {
+            const d = {
                 [a.javdbSearchUrl]: "JavDB",
                 [a.ciligouUrl]: "CiliGou",
                 [a.btdigUrl]: "BtDig",
@@ -1293,15 +1294,15 @@
             };
             Object.keys(o).forEach(e => {
                 const t = document.createElement("option");
-                t.value = e, t.textContent = c[e] || e, e === s && (t.selected = !0), l.appendChild(t);
+                t.value = e, t.textContent = d[e] || e, e === s && (t.selected = !0), l.appendChild(t);
             });
-            const d = () => {
+            const c = () => {
                 l.style.width = "";
                 const e = l.offsetWidth;
                 l.style.width = Math.max(e, 80) + "px";
             };
-            requestAnimationFrame(d), l.addEventListener("change", () => {
-                L(n, t, l.value), requestAnimationFrame(d);
+            requestAnimationFrame(c), l.addEventListener("change", () => {
+                L(n, t, l.value), requestAnimationFrame(c);
             }), r.appendChild(l), i.appendChild(r), [ "大小", "操作", "115" ].forEach(e => {
                 const t = document.createElement("th");
                 t.textContent = e, "115" === e && (t.className = "nong-115-head"), i.appendChild(t);
@@ -1360,11 +1361,11 @@
                     i.insertBefore(e, i.firstChild), s || (i.style.background = "linear-gradient(90deg,#dbeafe 0%,#eff6ff 55%,#fff 100%)", 
                     i.style.borderLeft = "4px solid #2563eb", i.style.paddingLeft = "5px");
                 }
-                const c = document.createElement("a");
-                c.href = t.src || t.maglink, c.target = "_blank", c.textContent = t.title, i.appendChild(c), 
+                const d = document.createElement("a");
+                d.href = t.src || t.maglink, d.target = "_blank", d.textContent = t.title, i.appendChild(d), 
                 a.appendChild(i), n.appendChild(a);
-                const d = document.createElement("td");
-                d.style.whiteSpace = "nowrap", d.textContent = t.size, n.appendChild(d);
+                const c = document.createElement("td");
+                c.style.whiteSpace = "nowrap", c.textContent = t.size, n.appendChild(c);
                 const m = document.createElement("td");
                 m.style.whiteSpace = "nowrap";
                 const h = document.createElement("a"), v = t.maglink.substring(0, 60), g = e => {
@@ -1446,16 +1447,16 @@
             l.onclick = e => {
                 e.preventDefault(), L(t, n, a);
             }, r.appendChild(o), r.appendChild(l), i.appendChild(r), t.appendChild(i);
-            let c = !1;
-            const d = setTimeout(() => {
-                c = !0, o.textContent = "加载超时 ", l.style.display = "inline";
+            let d = !1;
+            const c = setTimeout(() => {
+                d = !0, o.textContent = "加载超时 ", l.style.display = "inline";
             }, 8e3);
             try {
                 const i = e.getAll(), r = i[a] || Object.values(i)[0], {url: o, data: s} = await r(n);
-                if (clearTimeout(d), c) return;
+                if (clearTimeout(c), d) return;
                 A(t, s, o);
             } catch (e) {
-                clearTimeout(d), s("磁力搜索出错:", e), o.textContent = "搜索出错 ", l.style.display = "inline";
+                clearTimeout(c), s("磁力搜索出错:", e), o.textContent = "搜索出错 ", l.style.display = "inline";
             }
         }
         return GM_addStyle('\n            .jav-nong-wrapper {\n                overflow-x: auto !important;\n                overflow-y: hidden !important;\n                scrollbar-width: thin;\n            }\n            #jav-nong-table {\n                width: 100%;\n                min-width: 320px;\n                table-layout: fixed;\n                margin: 8px 0; color: #666;\n                font-size: 13px; text-align: center;\n                background: #f2f2f2; border-collapse: collapse;\n                max-width: 100%;\n            }\n            #jav-nong-table th, #jav-nong-table td {\n                text-align: center; height: 30px;\n                background: #fff; padding: 0 6px;\n                border: 1px solid #efefef;\n                overflow: hidden;\n                text-overflow: ellipsis;\n                white-space: nowrap;\n            }\n            #jav-nong-table th:nth-child(2), #jav-nong-table td:nth-child(2) { width: 74px; }\n            #jav-nong-table th:nth-child(3), #jav-nong-table td:nth-child(3) { width: 74px; }\n            #jav-nong-table th:nth-child(4), #jav-nong-table td:nth-child(4) { width: 48px; }\n            #jav-nong-table:has(td.mag-laosiji-ready-cell) th:nth-child(3),\n            #jav-nong-table:has(td.mag-laosiji-ready-cell) td:nth-child(3) {\n                width: 104px;\n            }\n            #jav-nong-table td.mag-laosiji-ready-cell {\n                overflow: visible;\n            }\n            #jav-nong-table td:first-child {\n                text-align: left;\n            }\n            #jav-nong-table .nong-head-row th { background: #f8f8f8; font-weight: 600; }\n            #jav-nong-table .nong-magnet-name {\n                display: flex;\n                align-items: center;\n                gap: 4px;\n                min-width: 0;\n                width: 100%;\n                max-width: 100%;\n                white-space: nowrap;\n                overflow: hidden;\n                text-overflow: ellipsis;\n            }\n            #jav-nong-table .nong-magnet-name > a {\n                flex: 1 1 auto;\n                min-width: 0;\n                display: block;\n                overflow: hidden;\n                text-overflow: ellipsis;\n                white-space: nowrap;\n            }\n            .nong-copy { color: #08c !important; cursor: pointer; }\n            .nong-check { color: #be185d !important; cursor: pointer; margin-left: 8px; }\n            .nong-offline-115 { color: rgb(0,180,30) !important; cursor: pointer; }\n            .nong-offline-115:hover { color: red !important; }\n            .whatslink-overlay { position: fixed; inset: 0; z-index: 10000040; display: flex; align-items: center; justify-content: center; padding: 22px; background: rgba(15,23,42,.66); backdrop-filter: blur(8px); }\n            .whatslink-modal { width: min(1100px,96vw); max-height: 90vh; display: grid; grid-template-columns: 1.55fr .75fr; background: #f5f7fb; border: 1px solid rgba(203,213,225,.9); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 80px rgba(2,8,23,.38); font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }\n            .whatslink-modal.no-shots { grid-template-columns: 1.1fr .9fr; }\n            .whatslink-viewer { min-width: 0; display: grid; grid-template-rows: minmax(430px,1fr) auto; gap: 10px; padding: 14px; background: radial-gradient(circle at 20% 0%,#fff1f8 0,transparent 34%),#eef3f8; }\n            .whatslink-stage { position: relative; min-height: 470px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #dde7f2; border-radius: 12px; background: #111827; box-shadow: 0 18px 36px rgba(15,23,42,.16); }\n            .whatslink-stage img { width: 100%; height: 100%; max-height: 68vh; object-fit: contain; border-radius: 10px; }\n            .whatslink-modal.no-shots .whatslink-viewer { grid-template-rows: minmax(430px,1fr); background: linear-gradient(135deg,#f8fafc,#eef2ff); }\n            .whatslink-modal.no-shots .whatslink-stage { background: linear-gradient(145deg,#fff,#f1f5f9); border-style: dashed; box-shadow: inset 0 0 0 1px rgba(255,255,255,.8),0 18px 36px rgba(15,23,42,.08); }\n            .whatslink-modal.no-shots .whatslink-stage img, .whatslink-modal.no-shots .whatslink-nav, .whatslink-modal.no-shots .whatslink-counter, .whatslink-modal.no-shots .whatslink-thumbs { display: none; }\n            .whatslink-empty { display: none; width: min(420px,72%); text-align: center; color: #475569; }\n            .whatslink-modal.no-shots .whatslink-empty { display: block; }\n            .whatslink-empty-icon { width: 62px; height: 62px; margin: 0 auto 15px; display: grid; place-items: center; border-radius: 18px; background: linear-gradient(135deg,#fce7f3,#e0e7ff); color: #be185d; font-size: 27px; box-shadow: 0 12px 26px rgba(190,24,93,.16); }\n            .whatslink-empty-title { font-size: 18px; font-weight: 800; color: #1e293b; margin-bottom: 7px; }\n            .whatslink-empty-text { margin: 0; font-size: 13px; line-height: 1.6; }\n            .whatslink-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 52px; border: 0; border-radius: 8px; background: rgba(255,255,255,.14); color: #fff; font-size: 28px; cursor: pointer; }\n            .whatslink-nav:hover { background: rgba(255,255,255,.24); }\n            .whatslink-prev { left: 12px; } .whatslink-next { right: 12px; }\n            .whatslink-counter { position: absolute; right: 14px; bottom: 12px; color: #e2e8f0; font-size: 12px; text-shadow: 0 1px 6px rgba(0,0,0,.6); }\n            .whatslink-thumbs { display: grid; grid-template-columns: repeat(5,1fr); gap: 7px; padding: 0; background: transparent; }\n            .whatslink-thumb { border: 2px solid #e2e8f0; border-radius: 9px; padding: 0; overflow: hidden; background: #fff; cursor: pointer; aspect-ratio: 16 / 9; box-shadow: 0 6px 14px rgba(15,23,42,.08); }\n            .whatslink-thumb.active { border-color: #db2777; box-shadow: 0 8px 18px rgba(219,39,119,.22); }\n            .whatslink-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }\n            .whatslink-info { min-width: 0; padding: 14px; background: #f8fafc; overflow: auto; color: #172033; }\n            .whatslink-head { position: sticky; top: 0; z-index: 2; margin: -14px -14px 12px; padding: 13px 14px; background: rgba(248,250,252,.94); border-bottom: 1px solid #e2e8f0; backdrop-filter: blur(10px); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }\n            .whatslink-kicker { color: #db2777; font-size: 12px; font-weight: 800; margin-bottom: 5px; }\n            .whatslink-title { margin: 0; font-size: 21px; line-height: 1.18; color: #111827; word-break: break-word; }\n            .whatslink-close { width: 32px; height: 32px; border: 0; border-radius: 8px; color: #64748b; background: transparent; cursor: pointer; font-size: 25px; line-height: 1; }\n            .whatslink-tag { display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; margin-top: 8px; border-radius: 999px; background: #ecfdf5; color: #047857; font-size: 12px; font-weight: 700; }\n            .whatslink-meta { display: grid; grid-template-columns: 1fr; gap: 7px; margin: 10px 0 12px; }\n            .whatslink-metric { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 11px; background: #fff; box-shadow: 0 8px 20px rgba(15,23,42,.06); }\n            .whatslink-metric b { color: #172033; font-size: 13px; order: 2; }\n            .whatslink-metric span { color: #64748b; font-size: 12px; order: 1; }\n            .whatslink-section, .whatslink-summary-card { border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; padding: 10px; box-shadow: 0 8px 20px rgba(15,23,42,.06); }\n            .whatslink-section h3 { margin: 0 0 8px; color: #be185d; font-size: 12px; }\n            .whatslink-magnet { word-break: break-all; max-height: 86px; overflow: auto; padding: 9px; border-radius: 8px; background: #f6f8fb; color: #334155; font-family: ui-monospace,SFMono-Regular,Consolas,monospace; font-size: 12px; }\n            .whatslink-summary { display: grid; gap: 8px; margin-top: 10px; }\n            .whatslink-summary-card strong { display: block; margin-bottom: 4px; color: #111827; font-size: 12px; }\n            .whatslink-summary-card p { margin: 0; color: #64748b; font-size: 11px; line-height: 1.45; }\n            .whatslink-loading { padding: 28px; text-align: center; color: #475569; font-size: 14px; }\n            #jav-nong-notice {\n                padding: 8px 0;\n            }\n            .nong-magnet-name {\n                max-width: 320px; white-space: nowrap;\n                overflow: hidden; text-overflow: ellipsis;\n                display: flex; align-items: center; text-align: left;\n            }\n            #jav-nong-refresh {\n                display: none; margin-left: 8px;\n                color: #e74c3c; font-weight: bold; cursor: pointer;\n            }\n        '), 
@@ -1528,7 +1529,7 @@
         },
         _ensureJavdbReviewsStyle() {
             y._ensureApiMovieTabStyle?.(), "1" !== document.documentElement.dataset.laosijiJavbusJavdbReviewsStyle && (document.documentElement.dataset.laosijiJavbusJavdbReviewsStyle = "1", 
-            GM_addStyle("\n                .javbus-javdb-reviews {\n                    margin: 18px 0 24px !important;\n                    border: 1px solid #e5e7eb !important;\n                    border-radius: 6px !important;\n                    background: #fff !important;\n                    overflow: hidden !important;\n                    box-shadow: 0 1px 2px rgba(15, 23, 42, .04) !important;\n                }\n                .javbus-javdb-reviews-head {\n                    display: flex !important;\n                    align-items: center !important;\n                    justify-content: space-between !important;\n                    gap: 12px !important;\n                    padding: 10px 12px !important;\n                    border-bottom: 1px solid #e5e7eb !important;\n                    background: #f8fafc !important;\n                    color: #1f2937 !important;\n                    font-size: 15px !important;\n                    font-weight: 800 !important;\n                }\n                .javbus-javdb-reviews-head a {\n                    color: #2563eb !important;\n                    font-size: 12px !important;\n                    font-weight: 800 !important;\n                    text-decoration: none !important;\n                }\n                .javbus-javdb-reviews-badge {\n                    display: inline-flex !important;\n                    align-items: center !important;\n                    height: 20px !important;\n                    margin-left: 8px !important;\n                    padding: 0 7px !important;\n                    border: 1px solid #bfdbfe !important;\n                    border-radius: 999px !important;\n                    background: #eff6ff !important;\n                    color: #1d4ed8 !important;\n                    font-size: 11px !important;\n                    line-height: 1 !important;\n                    vertical-align: middle !important;\n                }\n                .javbus-javdb-reviews-body .message,\n                .javbus-javdb-reviews-body .message-body {\n                    margin: 0 !important;\n                    border: 0 !important;\n                    background: transparent !important;\n                    padding: 0 !important;\n                }\n                .javbus-javdb-reviews-footer {\n                    padding: 10px 0 12px !important;\n                    background: #fff !important;\n                }\n            "));
+            GM_addStyle('\n                .javbus-javdb-reviews {\n                    margin: 18px 0 24px !important;\n                    border: 1px solid #e5e7eb !important;\n                    border-radius: 6px !important;\n                    background: #fff !important;\n                    overflow: hidden !important;\n                    box-shadow: 0 1px 2px rgba(15, 23, 42, .04) !important;\n                }\n                .javbus-javdb-reviews-head {\n                    display: flex !important;\n                    align-items: center !important;\n                    justify-content: space-between !important;\n                    gap: 12px !important;\n                    padding: 10px 12px !important;\n                    border-bottom: 1px solid #e5e7eb !important;\n                    background: #f8fafc !important;\n                    color: #1f2937 !important;\n                    font-size: 15px !important;\n                    font-weight: 800 !important;\n                }\n                .javbus-javdb-reviews-toggle {\n                    display: inline-flex !important;\n                    align-items: center !important;\n                    gap: 8px !important;\n                    padding: 0 !important;\n                    border: 0 !important;\n                    background: transparent !important;\n                    color: inherit !important;\n                    font: inherit !important;\n                    cursor: pointer !important;\n                }\n                .javbus-javdb-reviews-toggle::before {\n                    content: "▸";\n                    color: #64748b;\n                    font-size: 13px;\n                    transition: transform .16s ease;\n                }\n                .javbus-javdb-reviews.is-expanded .javbus-javdb-reviews-toggle::before {\n                    transform: rotate(90deg);\n                }\n                .javbus-javdb-reviews-head a {\n                    color: #2563eb !important;\n                    font-size: 12px !important;\n                    font-weight: 800 !important;\n                    text-decoration: none !important;\n                }\n                .javbus-javdb-reviews-badge {\n                    display: inline-flex !important;\n                    align-items: center !important;\n                    height: 20px !important;\n                    margin-left: 8px !important;\n                    padding: 0 7px !important;\n                    border: 1px solid #bfdbfe !important;\n                    border-radius: 999px !important;\n                    background: #eff6ff !important;\n                    color: #1d4ed8 !important;\n                    font-size: 11px !important;\n                    line-height: 1 !important;\n                    vertical-align: middle !important;\n                }\n                .javbus-javdb-reviews-body .message,\n                .javbus-javdb-reviews-body .message-body {\n                    margin: 0 !important;\n                    border: 0 !important;\n                    background: transparent !important;\n                    padding: 0 !important;\n                }\n                .javbus-javdb-reviews-body[hidden] {\n                    display: none !important;\n                }\n                .javbus-javdb-reviews-footer {\n                    padding: 10px 0 12px !important;\n                    background: #fff !important;\n                }\n                .javbus-javdb-reviews-collapse-bar {\n                    padding: 10px 12px 0 !important;\n                    margin-bottom: 0 !important;\n                }\n            '));
         },
         _findRecommendHeading: () => [ ...document.querySelectorAll("h4") ].find(e => {
             const t = (e.textContent || "").trim();
@@ -1551,39 +1552,55 @@
             if (!n) return;
             this._ensureJavdbReviewsStyle();
             const a = n.nextElementSibling, i = document.createElement("section");
-            i.className = "javbus-javdb-reviews", i.dataset.avid = e, i.innerHTML = `\n                <div class="javbus-javdb-reviews-head">\n                    <span>JavDB 短评<span class="javbus-javdb-reviews-badge" title="此区块已由 JAV 老司机脚本替换">老司机</span></span>\n                    <a class="javbus-javdb-reviews-link" href="https://javdb.com/search?q=${encodeURIComponent(e)}" target="_blank" rel="noopener noreferrer">JavDB</a>\n                </div>\n                <div class="javbus-javdb-reviews-body">\n                    <div class="javdb-api-tab-loading">正在读取短评...</div>\n                </div>\n            `, 
-            n.replaceWith(i), this._isRecommendContainer(a) && a.remove(), this._bindJavbusReviewLoadMore(i), 
-            this._loadJavdbReviewsForJavbus(e, i);
+            i.className = "javbus-javdb-reviews", i.dataset.avid = e, i.innerHTML = `\n                <div class="javbus-javdb-reviews-head">\n                    <button type="button" class="javbus-javdb-reviews-toggle" aria-expanded="false">JavDB 短评<span class="javbus-javdb-reviews-badge" title="此区块已由 JAV 老司机脚本替换">老司机</span></button>\n                    <a class="javbus-javdb-reviews-link" href="https://javdb.com/search?q=${encodeURIComponent(e)}" target="_blank" rel="noopener noreferrer">JavDB</a>\n                </div>\n                <div class="javbus-javdb-reviews-body" hidden>\n                    <div class="javdb-api-tab-loading">正在读取短评...</div>\n                </div>\n            `, 
+            n.replaceWith(i), this._isRecommendContainer(a) && a.remove(), this._bindJavbusReviewLoadMore(i);
         },
         _renderJavbusReviewFooter: (e, t) => `<div class="javdb-api-tab-footer javbus-javdb-reviews-footer">${e ? `<button type="button" class="javdb-api-tab-load-more javbus-javdb-reviews-load-more" data-shown-count="${t}" data-load-limit="20">加载更多短评</button>` : '<div class="javdb-api-tab-end">已加载全部短评</div>'}</div>`,
+        _renderJavbusReviewCollapseBar: () => '<div class="javdb-api-review-collapse-bar javbus-javdb-reviews-collapse-bar"><button type="button" class="javdb-api-review-collapse javbus-javdb-reviews-collapse" data-javbus-reviews-collapse="1">收起短评</button></div>',
         _renderJavbusReviews(e, t = 0, a = !1) {
-            const i = Array.isArray(e) ? e.slice(0, n) : [];
-            return `<article class="message video-panel"><div class="message-body"><div class="javdb-api-tab-items">${i.length ? y._renderApiReviewItems(i, t, n) : '<div class="javdb-api-tab-empty">暂无短评</div>'}</div>${this._renderJavbusReviewFooter(a, t + i.length)}</div></article>`;
+            const i = Array.isArray(e) ? e.slice(0, n) : [], r = i.length ? y._renderApiReviewItems(i, t, n) : '<div class="javdb-api-tab-empty">暂无短评</div>';
+            return `<article class="message video-panel"><div class="message-body">${this._renderJavbusReviewCollapseBar()}<div class="javdb-api-tab-items">${r}</div>${this._renderJavbusReviewFooter(a, t + i.length)}</div></article>`;
         },
         _bindJavbusReviewLoadMore(e) {
             e && "1" !== e.dataset.reviewsLoadMoreBound && (e.dataset.reviewsLoadMoreBound = "1", 
             e.addEventListener("click", t => {
-                const n = t.target?.closest?.(".javbus-javdb-reviews-load-more");
-                n && e.contains(n) && (t.preventDefault(), t.stopPropagation(), t.stopImmediatePropagation?.(), 
-                this._loadMoreJavdbReviewsForJavbus(e, n));
+                const n = t.target?.closest?.(".javbus-javdb-reviews-toggle");
+                if (n && e.contains(n)) {
+                    t.preventDefault(), t.stopPropagation(), t.stopImmediatePropagation?.();
+                    const a = e.querySelector(".javbus-javdb-reviews-body"), i = e.classList.toggle("is-expanded");
+                    return a && (a.hidden = !i), n.setAttribute("aria-expanded", i ? "true" : "false"), 
+                    void (i && "1" !== e.dataset.reviewsLoaded && this._loadJavdbReviewsForJavbus(e.dataset.avid || "", e));
+                }
+                const a = t.target?.closest?.("[data-javbus-reviews-collapse]");
+                if (a && e.contains(a)) {
+                    t.preventDefault(), t.stopPropagation(), t.stopImmediatePropagation?.();
+                    const n = e.querySelector(".javbus-javdb-reviews-body"), a = e.querySelector(".javbus-javdb-reviews-toggle");
+                    return e.classList.remove("is-expanded"), n && (n.hidden = !0), void a?.setAttribute("aria-expanded", "false");
+                }
+                const i = t.target?.closest?.(".javbus-javdb-reviews-load-more");
+                i && e.contains(i) && (t.preventDefault(), t.stopPropagation(), t.stopImmediatePropagation?.(), 
+                this._loadMoreJavdbReviewsForJavbus(e, i));
             }, !0));
         },
         async _loadJavdbReviewsForJavbus(e, t) {
             const n = t?.querySelector(".javbus-javdb-reviews-body");
-            if (n) try {
-                const a = await f.javdbApi.searchMovieByNumber(e, {
-                    limit: 5
-                });
-                if (!a?.id) return void (n.innerHTML = `<div class="javdb-api-tab-empty">JavDB 未找到 ${y._escapeHtml(e)} 的短评</div>`);
-                const i = t.querySelector(".javbus-javdb-reviews-link");
-                i && (i.href = `https://javdb.com/v/${encodeURIComponent(a.id)}`), t.dataset.movieId = a.id;
-                const r = await f.javdbApi.movieReviews(a.id, {
-                    page: 1,
-                    limit: 7
-                }), o = Array.isArray(r?.data?.reviews) ? r.data.reviews : [], s = o.slice(0, 6);
-                n.innerHTML = s.length ? this._renderJavbusReviews(s, 0, o.length > 6) : '<div class="javdb-api-tab-empty">暂无短评</div>';
-            } catch (e) {
-                console.warn("[老司机] JavBus JavDB 短评读取失败:", e), n.innerHTML = `<div class="javdb-api-tab-error">${y._escapeHtml(e.message || "短评读取失败")}</div>`;
+            if (n) {
+                t.dataset.reviewsLoaded = "1";
+                try {
+                    const a = await f.javdbApi.searchMovieByNumber(e, {
+                        limit: 5
+                    });
+                    if (!a?.id) return void (n.innerHTML = `<div class="javdb-api-tab-empty">JavDB 未找到 ${y._escapeHtml(e)} 的短评</div>`);
+                    const i = t.querySelector(".javbus-javdb-reviews-link");
+                    i && (i.href = `https://javdb.com/v/${encodeURIComponent(a.id)}`), t.dataset.movieId = a.id;
+                    const r = await f.javdbApi.movieReviews(a.id, {
+                        page: 1,
+                        limit: 7
+                    }), o = Array.isArray(r?.data?.reviews) ? r.data.reviews : [], s = o.slice(0, 6);
+                    n.innerHTML = s.length ? this._renderJavbusReviews(s, 0, o.length > 6) : '<div class="javdb-api-tab-empty">暂无短评</div>';
+                } catch (e) {
+                    console.warn("[老司机] JavBus JavDB 短评读取失败:", e), n.innerHTML = `<div class="javdb-api-tab-error">${y._escapeHtml(e.message || "短评读取失败")}</div>`;
+                }
             }
         },
         async _loadMoreJavdbReviewsForJavbus(e, t) {
@@ -1598,8 +1615,8 @@
                 }), t = Array.isArray(e?.data?.reviews) ? e.data.reviews : [], n = t.slice(r, r + o), s = i.querySelector(".javdb-api-tab-items"), l = i.querySelector(".javbus-javdb-reviews-footer");
                 if (!n.length) return void (l && (l.outerHTML = this._renderJavbusReviewFooter(!1, r)));
                 s?.insertAdjacentHTML("beforeend", y._renderApiReviewItems(n, r, o));
-                const c = r + n.length, d = t.length > c;
-                l && (l.outerHTML = this._renderJavbusReviewFooter(d, c));
+                const d = r + n.length, c = t.length > d;
+                l && (l.outerHTML = this._renderJavbusReviewFooter(c, d));
             } catch (e) {
                 return console.warn("[老司机] JavBus JavDB 更多短评读取失败:", e), t.textContent = "加载失败，点击重试", 
                 void (t.disabled = !1);
@@ -1699,8 +1716,8 @@
         },
         initPage(e) {
             document.querySelector(".app-desktop-banner")?.remove(), this._dismissOver18Modal(), 
-            this._insertTopSettingsButton(), this._installApiRankingShell(), this._hideScriptFc2AdvancedSearchBox(), 
-            this._initPaginationJump(), this._redirectCurrentApiRankingEntry() || (this._getApiRankingShellMode() ? this._initApiRankingShellPage().catch(e => console.warn("[老司机] JavDB API 榜单渲染失败:", e)) : this._getApiDetailShellMode() ? this._initApiDetailShellPage().catch(e => console.warn("[老司机] JavDB API 详情渲染失败:", e)) : location.pathname.startsWith("/v/") ? (this._insertCopyButton(e), 
+            this._insertTopSettingsButton(), this._ensureDarkThemeStyle(), this._installApiRankingShell(), 
+            this._hideScriptFc2AdvancedSearchBox(), this._initPaginationJump(), this._redirectCurrentApiRankingEntry() || (this._getApiRankingShellMode() ? this._initApiRankingShellPage().catch(e => console.warn("[老司机] JavDB API 榜单渲染失败:", e)) : this._getApiDetailShellMode() ? this._initApiDetailShellPage().catch(e => console.warn("[老司机] JavDB API 详情渲染失败:", e)) : location.pathname.startsWith("/v/") ? (this._insertCopyButton(e), 
             this._hideDownloadCorrectionBlock(), GM_addStyle('\n                .container { max-width: 100% !important; }\n                .movie-panel-info { overflow: hidden; word-break: break-word; }\n                .movie-panel-info .panel-block { flex-wrap: wrap; }\n                .movie-panel-info .value { overflow: hidden; word-break: break-word; }\n                .review-buttons > .panel-block:has(a[href="#magnet-links"]),\n                .review-buttons > .panel-block:has(a[href*="/corrections/new"]) { display: none !important; }\n            '), 
             this._ensureDetailLayout(), this._insertMagnet(e), this._initApiMovieTabs()) : this._initListPage());
         },
@@ -1708,6 +1725,10 @@
             document.querySelectorAll(".review-buttons > .panel-block").forEach(e => {
                 e.querySelector('a[href="#magnet-links"], a[href*="/corrections/new"]') && e.remove();
             });
+        },
+        _ensureDarkThemeStyle() {
+            "1" !== document.documentElement.dataset.laosijiJavdbDarkStyle && (document.documentElement.dataset.laosijiJavdbDarkStyle = "1", 
+            GM_addStyle('\n                html[data-theme="dark"] .jav-card {\n                    background: #252525 !important;\n                    border-color: #3f3f46 !important;\n                    box-shadow: 0 1px 4px rgba(0, 0, 0, .34) !important;\n                }\n                html[data-theme="dark"] .jav-card:hover {\n                    border-color: rgba(96, 165, 250, .58) !important;\n                    box-shadow: 0 12px 26px rgba(0, 0, 0, .38) !important;\n                }\n                html[data-theme="dark"] .jav-card-link,\n                html[data-theme="dark"] .javdb-card-grid .item .javdb-card-link.box {\n                    background: #252525 !important;\n                    color: #8ab4ff !important;\n                }\n                html[data-theme="dark"] .jav-card-link:visited {\n                    color: #c4a7ff !important;\n                }\n                html[data-theme="dark"] .jav-card-cover,\n                html[data-theme="dark"] .jav-card-image {\n                    background: #18181b !important;\n                    border-color: #3f3f46 !important;\n                }\n                html[data-theme="dark"] .javdb-card-score {\n                    color: #cbd5e1 !important;\n                }\n                html[data-theme="dark"] .javdb-card-meta {\n                    color: #94a3b8 !important;\n                }\n                html[data-theme="dark"] .javdb-card-tags .tag:not(.is-success):not(.is-info):not(.is-primary):not(.is-warning):not(.is-danger) {\n                    background: #333333 !important;\n                    color: #d1d5db !important;\n                }\n                html[data-theme="dark"] .jav-nong-wrapper {\n                    background: transparent !important;\n                    color: #d1d5db !important;\n                }\n                html[data-theme="dark"] #jav-nong-table {\n                    background: #2f2f2f !important;\n                    color: #d1d5db !important;\n                }\n                html[data-theme="dark"] #jav-nong-table th,\n                html[data-theme="dark"] #jav-nong-table td {\n                    background: #262626 !important;\n                    border-color: #3f3f46 !important;\n                    color: #d1d5db !important;\n                }\n                html[data-theme="dark"] #jav-nong-table .nong-head-row th {\n                    background: #303030 !important;\n                    color: #e5e7eb !important;\n                }\n                html[data-theme="dark"] #jav-nong-table .nong-magnet-name > a {\n                    color: #8ab4ff !important;\n                }\n                html[data-theme="dark"] #jav-nong-notice,\n                html[data-theme="dark"] #jav-nong-refresh {\n                    color: #cbd5e1 !important;\n                }\n                html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] article.message.video-panel,\n                html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] article.message.video-panel .message-body {\n                    background: #252525 !important;\n                    border-color: #3f3f46 !important;\n                    color: #e5e7eb !important;\n                }\n                html[data-theme="dark"] .javdb-api-review,\n                html[data-theme="dark"] .javdb-api-related {\n                    background: #252525 !important;\n                    border-bottom-color: #3f3f46 !important;\n                }\n                html[data-theme="dark"] .javdb-api-review-head,\n                html[data-theme="dark"] .javdb-api-related-head,\n                html[data-theme="dark"] .javdb-api-review-content,\n                html[data-theme="dark"] .javdb-api-related-desc {\n                    color: #e5e7eb !important;\n                }\n                html[data-theme="dark"] .javdb-api-related-meta,\n                html[data-theme="dark"] .javdb-api-tab-loading,\n                html[data-theme="dark"] .javdb-api-tab-empty,\n                html[data-theme="dark"] .javdb-api-tab-end {\n                    color: #cbd5e1 !important;\n                }\n                html[data-theme="dark"] .javdb-api-tab-error {\n                    color: #fb7185 !important;\n                }\n                html[data-theme="dark"] .javdb-api-review-toggle,\n                html[data-theme="dark"] .javdb-api-review-collapse,\n                html[data-theme="dark"] .javdb-api-tab-load-more {\n                    background: #2f3b4f !important;\n                    border-color: #4b5f80 !important;\n                    color: #dbeafe !important;\n                }\n                html[data-theme="dark"] .javdb-api-review-toggle::before {\n                    color: #93c5fd !important;\n                }\n                html[data-theme="dark"] .javdb-api-tab-badge {\n                    background: #1e3a5f !important;\n                    border-color: #3b82f6 !important;\n                    color: #dbeafe !important;\n                }\n                html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .item {\n                    background: #252525 !important;\n                    border-color: #3f3f46 !important;\n                    color: #e5e7eb !important;\n                }\n                html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .item.odd {\n                    background: #2a2a2a !important;\n                }\n                html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .magnet-name a,\n                html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links a {\n                    color: #8ab4ff !important;\n                }\n                html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .meta,\n                html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .date {\n                    color: #94a3b8 !important;\n                }\n                html[data-theme="dark"] .jav-stills-shell {\n                    background: #252525 !important;\n                    border-color: #3f3f46 !important;\n                    box-shadow: 0 8px 18px rgba(0, 0, 0, .28) !important;\n                }\n                html[data-theme="dark"] .jav-stills-rail > a,\n                html[data-theme="dark"] .jav-stills-rail > .tile-item,\n                html[data-theme="dark"] .jav-stills-rail > .preview-video-container {\n                    background: #1f2937 !important;\n                    border-color: #4b5563 !important;\n                    box-shadow: none !important;\n                }\n                html[data-theme="dark"] .jav-stills-arrow {\n                    background: rgba(39, 39, 42, .92) !important;\n                    border-color: #52525b !important;\n                    color: #e5e7eb !important;\n                }\n                html[data-theme="dark"] .jav-stills-arrow:hover {\n                    background: #303030 !important;\n                    border-color: rgba(96, 165, 250, .58) !important;\n                }\n            '));
         },
         _dismissOver18Modal() {
             if (!this.match()) return;
@@ -1762,7 +1783,7 @@
         },
         _ensureApiMovieTabStyle() {
             "1" !== document.documentElement.dataset.laosijiJavdbApiMovieTabStyle && (document.documentElement.dataset.laosijiJavdbApiMovieTabStyle = "1", 
-            GM_addStyle("\n                #tabs-container[data-laosiji-api-movie-tabs] .top-meta { display: none !important; }\n                .javdb-api-tab-loading,\n                .javdb-api-tab-empty,\n                .javdb-api-tab-error,\n                .javdb-api-tab-end {\n                    padding: 12px 14px !important;\n                    color: #64748b !important;\n                    font-size: 13px !important;\n                    font-weight: 700 !important;\n                }\n                .javdb-api-tab-error { color: #be123c !important; }\n                .javdb-api-review,\n                .javdb-api-related {\n                    margin: 0 !important;\n                    padding: 11px 12px !important;\n                    border-bottom: 1px solid #edf2f7 !important;\n                    background: #fff !important;\n                    word-break: break-word !important;\n                }\n                .javdb-api-review-head,\n                .javdb-api-related-head {\n                    display: flex !important;\n                    align-items: center !important;\n                    justify-content: space-between !important;\n                    gap: 10px !important;\n                    flex-wrap: wrap !important;\n                    color: #334155 !important;\n                    font-size: 13px !important;\n                }\n                .javdb-api-review-content,\n                .javdb-api-related-desc {\n                    margin-top: 7px !important;\n                    color: #1f2937 !important;\n                    font-size: 13px !important;\n                    line-height: 1.65 !important;\n                    white-space: normal !important;\n                }\n                .javdb-api-related-meta {\n                    display: flex !important;\n                    gap: 10px !important;\n                    flex-wrap: wrap !important;\n                    margin-top: 7px !important;\n                    color: #64748b !important;\n                    font-size: 12px !important;\n                }\n                .javdb-api-tab-footer { padding: 10px 0 0 !important; }\n                .javdb-api-tab-load-more {\n                    width: 100% !important;\n                    min-height: 34px !important;\n                    border: 1px solid #bfdbfe !important;\n                    border-radius: 6px !important;\n                    background: #eff6ff !important;\n                    color: #1d4ed8 !important;\n                    font-size: 13px !important;\n                    font-weight: 800 !important;\n                    cursor: pointer !important;\n                }\n                .javdb-api-tab-badge-item {\n                    display: flex !important;\n                    align-items: center !important;\n                    margin-left: 4px !important;\n                    pointer-events: auto !important;\n                }\n                .javdb-api-tab-badge {\n                    margin-left: 0 !important;\n                    align-self: center !important;\n                    display: inline-flex !important;\n                    align-items: center !important;\n                    height: 20px !important;\n                    padding: 0 7px !important;\n                    border: 1px solid #bfdbfe !important;\n                    border-radius: 999px !important;\n                    background: #eff6ff !important;\n                    color: #1d4ed8 !important;\n                    font-size: 11px !important;\n                    font-weight: 850 !important;\n                    line-height: 1 !important;\n                    white-space: nowrap !important;\n                }\n            "));
+            GM_addStyle('\n                #tabs-container[data-laosiji-api-movie-tabs] .top-meta { display: none !important; }\n                .javdb-api-tab-loading,\n                .javdb-api-tab-empty,\n                .javdb-api-tab-error,\n                .javdb-api-tab-end {\n                    padding: 12px 14px !important;\n                    color: #64748b !important;\n                    font-size: 13px !important;\n                    font-weight: 700 !important;\n                }\n                .javdb-api-tab-error { color: #be123c !important; }\n                .javdb-api-review,\n                .javdb-api-related {\n                    margin: 0 !important;\n                    padding: 11px 12px !important;\n                    border-bottom: 1px solid #edf2f7 !important;\n                    background: #fff !important;\n                    word-break: break-word !important;\n                }\n                .javdb-api-review-head,\n                .javdb-api-related-head {\n                    display: flex !important;\n                    align-items: center !important;\n                    justify-content: space-between !important;\n                    gap: 10px !important;\n                    flex-wrap: wrap !important;\n                    color: #334155 !important;\n                    font-size: 13px !important;\n                }\n                .javdb-api-review-content,\n                .javdb-api-related-desc {\n                    margin-top: 7px !important;\n                    color: #1f2937 !important;\n                    font-size: 13px !important;\n                    line-height: 1.65 !important;\n                    white-space: normal !important;\n                }\n                .javdb-api-related-meta {\n                    display: flex !important;\n                    gap: 10px !important;\n                    flex-wrap: wrap !important;\n                    margin-top: 7px !important;\n                    color: #64748b !important;\n                    font-size: 12px !important;\n                }\n                .javdb-api-tab-footer { padding: 10px 0 0 !important; }\n                .javdb-api-tab-load-more {\n                    width: 100% !important;\n                    min-height: 34px !important;\n                    border: 1px solid #bfdbfe !important;\n                    border-radius: 6px !important;\n                    background: #eff6ff !important;\n                    color: #1d4ed8 !important;\n                    font-size: 13px !important;\n                    font-weight: 800 !important;\n                    cursor: pointer !important;\n                }\n                .javdb-api-review-toggle {\n                    width: 100% !important;\n                    min-height: 38px !important;\n                    display: flex !important;\n                    align-items: center !important;\n                    justify-content: center !important;\n                    gap: 8px !important;\n                    border: 1px solid #e2e8f0 !important;\n                    border-radius: 6px !important;\n                    background: #f8fafc !important;\n                    color: #334155 !important;\n                    font-size: 13px !important;\n                    font-weight: 850 !important;\n                    cursor: pointer !important;\n                }\n                .javdb-api-review-toggle::before {\n                    content: "▸";\n                    color: #64748b;\n                    font-size: 13px;\n                }\n                .javdb-api-review-collapse-bar {\n                    display: flex !important;\n                    justify-content: flex-end !important;\n                    margin-bottom: 8px !important;\n                }\n                .javdb-api-review-collapse {\n                    min-height: 28px !important;\n                    padding: 0 10px !important;\n                    border: 1px solid #e2e8f0 !important;\n                    border-radius: 6px !important;\n                    background: #f8fafc !important;\n                    color: #334155 !important;\n                    font-size: 12px !important;\n                    font-weight: 800 !important;\n                    cursor: pointer !important;\n                }\n                .javdb-api-tab-badge-item {\n                    display: flex !important;\n                    align-items: center !important;\n                    margin-left: 4px !important;\n                    pointer-events: auto !important;\n                }\n                .javdb-api-tab-badge {\n                    margin-left: 0 !important;\n                    align-self: center !important;\n                    display: inline-flex !important;\n                    align-items: center !important;\n                    height: 20px !important;\n                    padding: 0 7px !important;\n                    border: 1px solid #bfdbfe !important;\n                    border-radius: 999px !important;\n                    background: #eff6ff !important;\n                    color: #1d4ed8 !important;\n                    font-size: 11px !important;\n                    font-weight: 850 !important;\n                    line-height: 1 !important;\n                    white-space: nowrap !important;\n                }\n            '));
         },
         _ensureApiMovieTabBadge() {
             const e = document.querySelector(".tabs.no-bottom");
@@ -1782,6 +1803,8 @@
         _renderApiTabError(e) {
             return `<article class="message video-panel"><div class="message-body"><div class="javdb-api-tab-error">${this._escapeHtml(e || "读取失败")}</div></div></article>`;
         },
+        _renderApiReviewCollapsed: () => '<article class="message video-panel"><div class="message-body"><button type="button" class="javdb-api-review-toggle" data-laosiji-api-expand-reviews="1">展开短评</button></div></article>',
+        _renderApiReviewCollapseBar: () => '<div class="javdb-api-review-collapse-bar"><button type="button" class="javdb-api-review-collapse" data-laosiji-api-collapse-reviews="1">收起短评</button></div>',
         _renderApiTabFooter(e, t, n, a, i, r = 20, o = 0, s = r) {
             return `<div class="javdb-api-tab-footer">${n ? `<button type="button" class="javdb-api-tab-load-more" data-laosiji-api-load-tab="${e}" data-next-page="${t}" data-page-size="${r}" data-shown-count="${o}" data-load-limit="${s}">${this._escapeHtml(i)}</button>` : `<div class="javdb-api-tab-end">${this._escapeHtml(a)}</div>`}</div>`;
         },
@@ -1802,8 +1825,8 @@
             return (Array.isArray(e) ? e.slice(0, i) : []).map((e, n) => `\n                <div class="javdb-api-review">\n                    <div class="javdb-api-review-head">\n                        <span><strong>#${t + n + 1}</strong> ${this._escapeHtml(e?.username || "匿名")}</span>\n                        <span>${this._renderApiStars(e?.score)} ${this._escapeHtml(this._formatApiDate(e?.created_at))} ${Number(e?.likes_count || 0) ? ` · 點讚:${this._escapeHtml(e.likes_count)}` : ""}</span>\n                    </div>\n                    <div class="javdb-api-review-content">${this._renderApiLinkedText(e?.content || "")}</div>\n                </div>\n            `).join("");
         },
         _renderApiReviews(e, t, a) {
-            const i = Array.isArray(e) ? e.slice(0, a) : [];
-            return `<article class="message video-panel"><div class="message-body"><div class="javdb-api-tab-items">${i.length ? this._renderApiReviewItems(i, (t - 1) * a, a) : '<div class="javdb-api-tab-empty">暂无短评</div>'}</div>${this._renderApiTabFooter("reviews", t + 1, i.length >= a, "已加载全部短评", "加载更多短评", a, i.length, n)}</div></article>`;
+            const i = Array.isArray(e) ? e.slice(0, a) : [], r = i.length ? this._renderApiReviewItems(i, (t - 1) * a, a) : '<div class="javdb-api-tab-empty">暂无短评</div>';
+            return `<article class="message video-panel"><div class="message-body">${this._renderApiReviewCollapseBar()}<div class="javdb-api-tab-items">${r}</div>${this._renderApiTabFooter("reviews", t + 1, i.length >= a, "已加载全部短评", "加载更多短评", a, i.length, n)}</div></article>`;
         },
         _renderApiRelatedItems(e, t = 0) {
             return (Array.isArray(e) ? e : []).map((e, n) => {
@@ -1833,13 +1856,13 @@
         _updateApiTabFooter(e, t, a, i, r, o) {
             const s = e?.querySelector(".javdb-api-tab-footer");
             if (!s) return;
-            const l = "reviews" === t ? n : 20, c = "reviews" === t ? e.querySelectorAll(".javdb-api-review").length : 0;
-            s.outerHTML = this._renderApiTabFooter(t, a, i, r, o, l, c, l);
+            const l = "reviews" === t ? n : 20, d = "reviews" === t ? e.querySelectorAll(".javdb-api-review").length : 0;
+            s.outerHTML = this._renderApiTabFooter(t, a, i, r, o, l, d, l);
         },
         async _loadApiMovieTab(e, t, a = 1, i = !1, r = null, o = null, s = null) {
             const l = document.getElementById("magnets" === t ? "magnets" : t);
             if (!l || !e) return;
-            const c = "reviews" === t && i ? Math.max(0, parseInt(o, 10) || l.querySelectorAll(".javdb-api-review").length || 0) : 0, d = i ? Math.max(1, parseInt(s, 10) || n) : 6, p = "reviews" === t ? c + d : 20;
+            const d = "reviews" === t && i ? Math.max(0, parseInt(o, 10) || l.querySelectorAll(".javdb-api-review").length || 0) : 0, c = i ? Math.max(1, parseInt(s, 10) || n) : 6, p = "reviews" === t ? d + c : 20;
             i || (l.innerHTML = this._renderApiTabLoading("magnets" === t ? "正在读取磁力..." : "reviews" === t ? "正在读取短评..." : "正在读取相关清单..."));
             try {
                 if ("magnets" === t) {
@@ -1850,8 +1873,8 @@
                     const t = await f.javdbApi.movieReviews(e, {
                         page: 1,
                         limit: p
-                    }), n = Array.isArray(t?.data?.reviews) ? t.data.reviews : [], r = i ? n.slice(c, c + d) : n.slice(0, 6);
-                    return i ? (l.querySelector(".javdb-api-tab-items")?.insertAdjacentHTML("beforeend", this._renderApiReviewItems(r, c, d)), 
+                    }), n = Array.isArray(t?.data?.reviews) ? t.data.reviews : [], r = i ? n.slice(d, d + c) : n.slice(0, 6);
+                    return i ? (l.querySelector(".javdb-api-tab-items")?.insertAdjacentHTML("beforeend", this._renderApiReviewItems(r, d, c)), 
                     this._updateApiTabFooter(l, "reviews", a + 1, n.length >= p && r.length > 0, "已加载全部短评", "加载更多短评")) : l.innerHTML = this._renderApiReviews(r, a, 6), 
                     void (l.dataset.laosijiApiLoaded = "1");
                 }
@@ -1885,28 +1908,34 @@
             o.addEventListener("click", n => {
                 if (n.target?.closest?.(".javdb-api-tab-badge-item")) return n.preventDefault(), 
                 void n.stopImmediatePropagation();
-                const a = n.target?.closest?.(".copy-to-clipboard[data-clipboard-text]");
-                if (a && t.contains(a)) {
-                    n.preventDefault(), n.stopImmediatePropagation(), GM_setClipboard(a.dataset.clipboardText || "");
-                    const e = a.textContent;
-                    return a.textContent = "已複製", void setTimeout(() => {
-                        a.textContent = e;
+                const i = n.target?.closest?.(".copy-to-clipboard[data-clipboard-text]");
+                if (i && t.contains(i)) {
+                    n.preventDefault(), n.stopImmediatePropagation(), GM_setClipboard(i.dataset.clipboardText || "");
+                    const e = i.textContent;
+                    return i.textContent = "已複製", void setTimeout(() => {
+                        i.textContent = e;
                     }, 900);
                 }
-                const i = n.target?.closest?.(".javdb-api-tab-load-more[data-laosiji-api-load-tab]");
-                if (i && t.contains(i)) {
+                const r = n.target?.closest?.(".javdb-api-tab-load-more[data-laosiji-api-load-tab]");
+                if (r && t.contains(r)) {
                     n.preventDefault(), n.stopImmediatePropagation();
-                    const t = i.dataset.laosijiApiLoadTab, a = parseInt(i.dataset.nextPage || "2", 10) || 2, r = parseInt(i.dataset.pageSize || "", 10) || null, o = parseInt(i.dataset.shownCount || "", 10) || null, s = parseInt(i.dataset.loadLimit || "", 10) || null;
-                    return i.textContent = "加载中...", i.disabled = !0, void this._loadApiMovieTab(e, t, a, !0, r, o, s);
+                    const t = r.dataset.laosijiApiLoadTab, a = parseInt(r.dataset.nextPage || "2", 10) || 2, i = parseInt(r.dataset.pageSize || "", 10) || null, o = parseInt(r.dataset.shownCount || "", 10) || null, s = parseInt(r.dataset.loadLimit || "", 10) || null;
+                    return r.textContent = "加载中...", r.disabled = !0, void this._loadApiMovieTab(e, t, a, !0, i, o, s);
                 }
-                const r = n.target?.closest?.("[data-laosiji-api-tab]");
-                if (!r || !o.contains(r)) return;
+                const s = n.target?.closest?.("[data-laosiji-api-expand-reviews]");
+                if (s && t.contains(s)) return n.preventDefault(), n.stopImmediatePropagation(), 
+                void this._loadApiMovieTab(e, "reviews");
+                const l = n.target?.closest?.("[data-laosiji-api-collapse-reviews]");
+                if (l && t.contains(l)) return n.preventDefault(), n.stopImmediatePropagation(), 
+                delete a.dataset.laosijiApiLoaded, void (a.innerHTML = this._renderApiReviewCollapsed());
+                const d = n.target?.closest?.("[data-laosiji-api-tab]");
+                if (!d || !o.contains(d)) return;
                 n.preventDefault(), n.stopImmediatePropagation();
-                const s = r.dataset.laosijiApiTab;
-                this._setApiMovieTab(s);
-                const l = document.getElementById("magnets" === s ? "magnets" : s);
-                l && "1" !== l.dataset.laosijiApiLoaded && this._loadApiMovieTab(e, s);
-            }, !0), this._setApiMovieTab("reviews"), this._loadApiMovieTab(e, "reviews").catch(e => console.warn("[老司机] JavDB API 短评读取失败:", e));
+                const c = d.dataset.laosijiApiTab;
+                this._setApiMovieTab(c);
+                const p = document.getElementById("magnets" === c ? "magnets" : c);
+                p && "1" !== p.dataset.laosijiApiLoaded && ("reviews" === c ? p.querySelector("[data-laosiji-api-expand-reviews]") || (p.innerHTML = this._renderApiReviewCollapsed()) : this._loadApiMovieTab(e, c));
+            }, !0), this._setApiMovieTab("reviews"), a.innerHTML = this._renderApiReviewCollapsed();
         },
         _ensurePaginationJumpStyle() {
             "1" !== document.documentElement.dataset.laosijiJavdbPaginationJumpStyle && (document.documentElement.dataset.laosijiJavdbPaginationJumpStyle = "1", 
@@ -2321,9 +2350,9 @@
             const l = e.querySelector(".cover, .box");
             l && (l.style.setProperty("width", "100%", "important"), l.style.setProperty("max-width", "100%", "important"), 
             l.style.setProperty("box-sizing", "border-box", "important"));
-            const c = e.querySelector("img");
-            return c && (c.style.setProperty("width", "100%", "important"), c.style.setProperty("height", "auto", "important"), 
-            c.style.setProperty("max-width", "100%", "important")), r;
+            const d = e.querySelector("img");
+            return d && (d.style.setProperty("width", "100%", "important"), d.style.setProperty("height", "auto", "important"), 
+            d.style.setProperty("max-width", "100%", "important")), r;
         },
         _insertMagnet(e) {
             if (!a.magnetTable) return;
@@ -2537,7 +2566,7 @@
             if (e.closest(".emby-btn, .emby-badge, .emby-button-group, .emby-javlibrary-list-badge")) return null;
             const t = e.getAttribute("href") || "";
             if (/^(?:magnet:|javascript:|#)/i.test(t)) return null;
-            const n = [ e.getAttribute("title"), e.getAttribute("aria-label"), e.textContent, t ].filter(Boolean).join(" "), a = C.extractCode(n), i = P.extractCode(n, a);
+            const n = [ e.getAttribute("title"), e.getAttribute("aria-label"), e.textContent, t ].filter(Boolean).join(" "), a = C.extractCode(n), i = M.extractCode(n, a);
             if (!a || !i) return null;
             const r = (e.textContent || e.getAttribute("title") || "").trim(), o = r.length > 0;
             if (!o) return null;
@@ -2553,7 +2582,7 @@
             /(javlibrary|javlib|r86m|s87n)/i.test(location.hostname) && document.querySelectorAll(".videothumblist .video > a[href]:not(.emby-javlibrary-list-badge)").forEach(e => {
                 if (t.has(e) || "1" === e.dataset.pan115Checked) return;
                 if (e.closest(".emby-btn, .emby-badge, .emby-button-group, .emby-javlibrary-list-badge")) return;
-                const a = e.closest(".video"), i = [ a?.querySelector(".id")?.textContent, a?.querySelector(".title")?.textContent, e.getAttribute("title"), e.href ].filter(Boolean).join(" "), r = C.extractCode(i), o = P.extractCode(i, r);
+                const a = e.closest(".video"), i = [ a?.querySelector(".id")?.textContent, a?.querySelector(".title")?.textContent, e.getAttribute("title"), e.href ].filter(Boolean).join(" "), r = C.extractCode(i), o = M.extractCode(i, r);
                 r && o && (t.add(e), n.push({
                     anchor: e,
                     code: o
@@ -2569,7 +2598,7 @@
             }), n;
         },
         insertPan115ListBadge(e, t, n) {
-            if (!P.enabled() || !t?.pickcode || !e || "1" === e.dataset.pan115HasBadge) return;
+            if (!M.enabled() || !t?.pickcode || !e || "1" === e.dataset.pan115HasBadge) return;
             if (e.matches?.(".emby-javlibrary-list-badge") || e.closest?.(".emby-btn, .emby-badge, .emby-button-group, .emby-javlibrary-list-badge")) return;
             const a = e.querySelector(".title, .video-title");
             if (a) {
@@ -2792,13 +2821,13 @@
                     s.className = "jav-stills-viewer-top";
                     const l = document.createElement("div");
                     l.className = "jav-stills-viewer-count";
-                    const c = document.createElement("button");
-                    c.type = "button", c.className = "jav-stills-viewer-close", c.textContent = "×", 
-                    c.setAttribute("aria-label", "关闭剧照预览"), s.append(l, c);
-                    const d = document.createElement("div");
-                    d.className = "jav-stills-viewer-body";
+                    const d = document.createElement("button");
+                    d.type = "button", d.className = "jav-stills-viewer-close", d.textContent = "×", 
+                    d.setAttribute("aria-label", "关闭剧照预览"), s.append(l, d);
+                    const c = document.createElement("div");
+                    c.className = "jav-stills-viewer-body";
                     const p = document.createElement("img");
-                    p.className = "jav-stills-viewer-img", d.appendChild(p);
+                    p.className = "jav-stills-viewer-img", c.appendChild(p);
                     const m = document.createElement("button");
                     m.type = "button", m.className = "jav-stills-viewer-nav jav-stills-viewer-prev", 
                     m.textContent = "‹", m.setAttribute("aria-label", "上一张剧照");
@@ -2820,15 +2849,15 @@
                         "Escape" !== e.key ? "ArrowLeft" !== e.key && "ArrowRight" !== e.key || (e.preventDefault(), 
                         e.stopPropagation(), e.stopImmediatePropagation?.(), v(r + ("ArrowRight" === e.key ? 1 : -1))) : g(e);
                     };
-                    c.addEventListener("click", g, !0), m.addEventListener("click", e => {
+                    d.addEventListener("click", g, !0), m.addEventListener("click", e => {
                         e.preventDefault(), e.stopPropagation(), e.stopImmediatePropagation?.(), v(r - 1);
                     }, !0), u.addEventListener("click", e => {
                         e.preventDefault(), e.stopPropagation(), e.stopImmediatePropagation?.(), v(r + 1);
                     }, !0), p.addEventListener("click", e => {
                         e.preventDefault(), e.stopPropagation(), e.stopImmediatePropagation?.(), p.classList.toggle("is-zoomed");
                     }, !0), o.addEventListener("click", e => {
-                        e.target !== o && e.target !== d || g(e);
-                    }, !0), document.addEventListener("keydown", b, !0), o.append(s, d, m, u, h), document.body.appendChild(o), 
+                        e.target !== o && e.target !== c || g(e);
+                    }, !0), document.addEventListener("keydown", b, !0), o.append(s, c, m, u, h), document.body.appendChild(o), 
                     e = g, v(r);
                 }(o, s));
             }, !0));
@@ -3047,51 +3076,51 @@
                 })) : o.src = e;
             };
             l(e, n);
-            const c = document.createElement("div");
-            c.className = "preview-toolbar", c.style.cssText = "\n                position: fixed;\n                top: 20px;\n                right: 20px;\n                display: flex;\n                gap: 12px;\n                z-index: 2147483648;\n            ";
-            const d = (e, t, n, a) => {
+            const d = document.createElement("div");
+            d.className = "preview-toolbar", d.style.cssText = "\n                position: fixed;\n                top: 20px;\n                right: 20px;\n                display: flex;\n                gap: 12px;\n                z-index: 2147483648;\n            ";
+            const c = (e, t, n, a) => {
                 const i = document.createElement("button");
                 return i.className = `preview-btn ${n}`, i.innerHTML = `${t} ${e}`, i.onclick = a, 
                 i;
             }, p = e => {
                 m.classList.toggle("active", "javfree" === e), u.classList.toggle("active", "projectjav" === e), 
                 h.classList.toggle("active", "javstore" === e);
-            }, m = d("javfree", "🟢", "javfree", async e => {
+            }, m = c("javfree", "🟢", "javfree", async e => {
                 e.stopPropagation();
                 const n = await E.javfree(t);
                 n ? (l(n, "javfree"), p("javfree")) : alert("javfree 未找到预览图");
-            }), u = d("projectjav", "🟡", "javstore", async e => {
+            }), u = c("projectjav", "🟡", "javstore", async e => {
                 e.stopPropagation();
                 const n = await E.projectjav(t);
                 n ? (l(n, "projectjav"), p("projectjav")) : alert("projectjav 未找到预览图");
-            }), h = d("javstore", "🔴", "javstore", async e => {
+            }), h = c("javstore", "🔴", "javstore", async e => {
                 e.stopPropagation();
                 const n = await E.javstore(t);
                 n ? (l(n, "javstore"), p("javstore")) : alert("javstore 未找到预览图");
-            }), v = d("新窗口", "🌐", "action", e => {
+            }), v = c("新窗口", "🌐", "action", e => {
                 e.stopPropagation(), window.open(o.src);
-            }), g = d("下载", "⬇️", "action", e => {
+            }), g = c("下载", "⬇️", "action", e => {
                 e.stopPropagation(), GM_download(o.src, `${t}.jpg`);
             });
             "javfree" === n ? m.classList.add("active") : "projectjav" === n ? u.classList.add("active") : "javstore" === n && h.classList.add("active"), 
-            c.appendChild(m), c.appendChild(u), c.appendChild(h), c.appendChild(v), c.appendChild(g), 
+            d.appendChild(m), d.appendChild(u), d.appendChild(h), d.appendChild(v), d.appendChild(g), 
             r.appendChild(o);
             const b = () => {
-                r.parentNode && (r.remove(), c.remove(), document.documentElement.style.overflow = a, 
+                r.parentNode && (r.remove(), d.remove(), document.documentElement.style.overflow = a, 
                 document.body.style.overflow = i, s && (URL.revokeObjectURL(s), s = null));
             };
             r.onclick = b;
             const f = e => {
                 "Escape" === e.key && (b(), document.removeEventListener("keydown", f));
             };
-            document.addEventListener("keydown", f), document.body.appendChild(r), document.body.appendChild(c);
+            document.addEventListener("keydown", f), document.body.appendChild(r), document.body.appendChild(d);
         },
         showTrailerOverlay({code: e, url: t, type: n = "video", source: a = "预告片", qualities: i = null, quality: r = null, urls: o = null}) {
             document.querySelector(".trailer-overlay")?.remove();
-            const s = "iframe" === n, l = document.documentElement.style.overflow, c = document.body.style.overflow;
+            const s = "iframe" === n, l = document.documentElement.style.overflow, d = document.body.style.overflow;
             document.documentElement.style.overflow = "hidden", document.body.style.overflow = "hidden";
-            const d = document.createElement("div");
-            d.className = "trailer-overlay";
+            const c = document.createElement("div");
+            c.className = "trailer-overlay";
             const p = document.createElement("div");
             p.className = "trailer-modal", p.onclick = e => e.stopPropagation();
             const m = document.createElement("div");
@@ -3132,7 +3161,7 @@
             E.step = "1", E.value = "0", E.title = "播放进度";
             const q = document.createElement("button");
             q.className = "trailer-control-btn", q.type = "button", q.textContent = "⛶", q.title = "全屏";
-            let A = null, L = t, $ = r, M = null, P = null, T = !1;
+            let A = null, L = t, $ = r, P = null, M = null, T = !1;
             const I = Array.isArray(o) ? [ ...new Set(o.filter(Boolean)) ] : [ t ].filter(Boolean);
             let z = Math.max(0, I.indexOf(t));
             const R = {
@@ -3161,102 +3190,189 @@
                 S.textContent = D(A.currentTime || 0), C.textContent = D(A.duration || 0), !T && Number.isFinite(A.duration) && A.duration > 0 && (E.value = String(Math.round((A.currentTime || 0) / A.duration * 1e3))));
             }, G = () => {
                 A && (g.textContent = `${Math.round(100 * A.volume)}%`, g.classList.add("is-visible"), 
-                clearTimeout(M), M = setTimeout(() => {
+                clearTimeout(P), P = setTimeout(() => {
                     g.classList.remove("is-visible");
                 }, 820));
             }, O = () => {
-                v.classList.remove("is-controls-hidden"), clearTimeout(P), A && !A.paused && (P = setTimeout(() => {
-                    Q.matches(":hover") || document.activeElement === k || v.classList.add("is-controls-hidden");
+                v.classList.remove("is-controls-hidden"), clearTimeout(M), A && !A.paused && (M = setTimeout(() => {
+                    ie.matches(":hover") || document.activeElement === k || v.classList.add("is-controls-hidden");
                 }, 2e3));
             }, H = () => {
-                clearTimeout(P), A && !A.paused ? P = setTimeout(() => {
+                clearTimeout(M), A && !A.paused ? M = setTimeout(() => {
                     v.classList.add("is-controls-hidden");
                 }, 2e3) : v.classList.remove("is-controls-hidden");
             }, F = () => {
                 document.fullscreenElement ? document.exitFullscreen?.() : v.requestFullscreen?.();
-            }, V = /\.m3u8(?:[?#].*)?$/i.test(t), K = () => class {
+            }, V = /\.m3u8(?:[?#].*)?$/i.test(t), K = "https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js", W = () => {
+                const e = window.Hls || globalThis.Hls || ("undefined" != typeof Hls ? Hls : null);
+                return e?.isSupported?.() ? e : null;
+            };
+            let Z = null;
+            const Y = () => class {
                 constructor(e) {
-                    this.config = e, this.context = null, this.callbacks = null, this.loader = null;
+                    this.config = e, this.context = null, this.callbacks = null, this.loader = null, 
+                    this.stats = this.createStats();
+                }
+                createStats() {
+                    return {
+                        aborted: !1,
+                        loaded: 0,
+                        retry: 0,
+                        total: 0,
+                        chunkCount: 0,
+                        bwEstimate: 0,
+                        trequest: 0,
+                        tfirst: 0,
+                        tload: 0,
+                        loading: {
+                            start: 0,
+                            first: 0,
+                            end: 0
+                        },
+                        parsing: {
+                            start: 0,
+                            end: 0
+                        },
+                        buffering: {
+                            start: 0,
+                            first: 0,
+                            end: 0
+                        }
+                    };
                 }
                 destroy() {
                     this.abort();
                 }
                 abort() {
-                    this.loader?.abort?.(), this.loader = null;
+                    this.stats && (this.stats.aborted = !0), this.loader?.abort?.(), this.loader = null;
                 }
                 load(e, t, n) {
                     this.context = e, this.callbacks = n;
-                    const a = e.url;
-                    this.loader = GM_xmlhttpRequest({
+                    const a = e.url, i = "arraybuffer" === e.responseType || /\.(?:ts|m4s|mp4|key)(?:[?#]|$)/i.test(a), r = performance.now(), o = this.stats = this.createStats();
+                    o.trequest = r, o.tfirst = r, o.tload = r, o.loading.start = r, this.loader = GM_xmlhttpRequest({
                         method: "GET",
                         url: a,
-                        responseType: "arraybuffer" === e.responseType ? "arraybuffer" : "text",
+                        responseType: i ? "arraybuffer" : "text",
                         timeout: t?.timeout || 2e4,
+                        headers: {
+                            Accept: i ? "*/*" : "application/vnd.apple.mpegurl, application/x-mpegURL, */*"
+                        },
+                        onprogress: e => {
+                            o.loaded = Number(e?.loaded || o.loaded || 0), o.total = Number(e?.total || o.total || o.loaded || 0), 
+                            !o.loading.first && o.loaded > 0 && (o.loading.first = performance.now());
+                        },
                         onload: t => {
-                            const i = "arraybuffer" === e.responseType ? t.response : t.responseText || "";
-                            n.onSuccess?.({
-                                data: i,
+                            const r = Number(t.status || 0), s = {
+                                code: r,
+                                text: t.statusText || "",
                                 url: t.finalUrl || a
-                            }, {
-                                trequest: Date.now(),
-                                tfirst: Date.now(),
-                                tload: Date.now()
-                            }, e);
+                            };
+                            if (o.tfirst = o.tfirst || performance.now(), o.tload = performance.now(), o.loading.first = o.loading.first || o.tload, 
+                            o.loading.end = o.tload, r < 200 || r >= 300) return void n.onError?.(s, e, null, o);
+                            const l = i ? t.response : t.responseText || "";
+                            o.loaded = l?.byteLength || l?.length || o.loaded || 0, o.total = o.total || o.loaded, 
+                            o.bwEstimate = o.loading.end > o.loading.first ? Math.round(8e3 * o.total / (o.loading.end - o.loading.first)) : 0, 
+                            n.onSuccess?.({
+                                data: l,
+                                url: s.url
+                            }, o, e, s);
                         },
                         onerror: () => n.onError?.({
                             code: 0,
-                            text: "network error"
-                        }, e, null),
-                        ontimeout: () => n.onTimeout?.(Date.now(), e, null)
+                            text: "network error",
+                            url: a
+                        }, e, null, o),
+                        ontimeout: () => {
+                            o.tload = performance.now(), o.loading.end = o.tload, n.onTimeout?.(o, e, null);
+                        }
                     });
                 }
-            }, W = e => {
+            }, X = e => {
                 e && (A.src = e);
-            }, Z = e => {
-                e && (/\.m3u8(?:[?#].*)?$/i.test(e) ? (e => {
-                    if (!e) return;
-                    if (!(window.Hls && window.Hls.isSupported && window.Hls.isSupported())) return void (A.src = e);
-                    const t = new window.Hls({
-                        enableWorker: !1,
-                        lowLatencyMode: !0,
-                        loader: K(),
-                        autoStartLoad: !0,
-                        startPosition: 0,
-                        capLevelToPlayerSize: !0,
-                        testBandwidth: !1,
-                        preferManagedMediaSource: !1,
-                        maxBufferLength: 6,
-                        maxMaxBufferLength: 12,
-                        backBufferLength: 30,
-                        maxBufferHole: .5,
-                        nudgeOffset: .1,
-                        manifestLoadingMaxRetry: 2,
-                        levelLoadingMaxRetry: 2,
-                        fragLoadingMaxRetry: 2,
-                        manifestLoadingTimeOut: 12e3,
-                        levelLoadingTimeOut: 12e3,
-                        fragLoadingTimeOut: 12e3,
-                        abrEwmaFastLive: 3,
-                        abrEwmaSlowLive: 9
-                    });
-                    t.on(window.Hls.Events.MANIFEST_PARSED, () => {
-                        t.startLoad(0), A.play().catch(() => {});
-                    }), t.on(window.Hls.Events.ERROR, (n, a) => {
-                        if (a?.fatal) {
-                            if (a.type === window.Hls.ErrorTypes.NETWORK_ERROR && z < I.length - 1) {
-                                z += 1;
-                                const e = I[z];
-                                return L = e, R.href = e, t.loadSource(e), void t.startLoad(0);
-                            }
-                            if (z >= I.length - 1) {
-                                try {
-                                    t.destroy();
-                                } catch {}
-                                A._hls = null, A.src = e, A.load?.(), A.play().catch(() => {});
-                            }
+            }, Q = e => {
+                if (!e) return;
+                const t = W();
+                if (!t) return A.src = e, void A.load?.();
+                const n = new t({
+                    enableWorker: !1,
+                    lowLatencyMode: !0,
+                    loader: Y(),
+                    autoStartLoad: !0,
+                    startPosition: 0,
+                    capLevelToPlayerSize: !0,
+                    testBandwidth: !1,
+                    preferManagedMediaSource: !1,
+                    maxBufferLength: 6,
+                    maxMaxBufferLength: 12,
+                    backBufferLength: 30,
+                    maxBufferHole: .5,
+                    nudgeOffset: .1,
+                    manifestLoadingMaxRetry: 2,
+                    levelLoadingMaxRetry: 2,
+                    fragLoadingMaxRetry: 2,
+                    manifestLoadingTimeOut: 12e3,
+                    levelLoadingTimeOut: 12e3,
+                    fragLoadingTimeOut: 12e3,
+                    abrEwmaFastLive: 3,
+                    abrEwmaSlowLive: 9
+                });
+                n.on(t.Events.MANIFEST_PARSED, () => {
+                    n.startLoad(0), A.play().catch(() => {});
+                }), n.on(t.Events.ERROR, (a, i) => {
+                    if (i?.fatal) {
+                        if (console.warn("[TrailerResolver:HLS] 播放失败", i), i.type === t.ErrorTypes.NETWORK_ERROR && z < I.length - 1) {
+                            z += 1;
+                            const e = I[z];
+                            return L = e, R.href = e, n.loadSource(e), void n.startLoad(0);
                         }
-                    }), t.loadSource(e), t.attachMedia(A), A._hls = t;
-                })(e) : W(e));
+                        if (z >= I.length - 1) {
+                            try {
+                                n.destroy();
+                            } catch {}
+                            A._hls = null, A.src = e, A.load?.(), A.play().catch(() => {});
+                        }
+                    }
+                }), n.loadSource(e), n.attachMedia(A), A._hls = n;
+            }, ee = e => {
+                e && (/\.m3u8(?:[?#].*)?$/i.test(e) ? Q(e) : X(e));
+            }, te = e => {
+                V && !W() ? (() => {
+                    const e = W();
+                    if (e) return Promise.resolve(e);
+                    if (Z) return Z;
+                    const t = () => new Promise(e => {
+                        GM_xmlhttpRequest({
+                            method: "GET",
+                            url: K,
+                            timeout: 15e3,
+                            onload: t => {
+                                if (t.status >= 200 && t.status < 300 && t.responseText) try {
+                                    Function(`${t.responseText}\n//# sourceURL=${K}`).call(globalThis);
+                                } catch (e) {
+                                    console.warn("[TrailerResolver:HLS] hls.js 执行失败", e);
+                                }
+                                e(W());
+                            },
+                            onerror: () => e(W()),
+                            ontimeout: () => e(W())
+                        });
+                    });
+                    return Z = new Promise(e => {
+                        const n = document.querySelector('script[data-laosiji-hls="1"]');
+                        if (n) return n.addEventListener("load", () => e(W()), {
+                            once: !0
+                        }), n.addEventListener("error", () => t().then(e), {
+                            once: !0
+                        }), void setTimeout(() => {
+                            W() || t().then(e);
+                        }, 4e3);
+                        const a = document.createElement("script");
+                        a.src = K, a.async = !0, a.dataset.laosijiHls = "1", a.onload = () => e(W()), a.onerror = () => t().then(e), 
+                        document.head.appendChild(a);
+                    }).then(e => (e || (Z = null), e)), Z;
+                })().then(t => {
+                    A && A.isConnected && (t ? Q(e) : X(e));
+                }) : ee(e);
             };
             if (s) {
                 const e = document.createElement("iframe");
@@ -3267,30 +3383,13 @@
                 A.playsInline = !0;
                 const e = Number(GM_getValue("trailer_volume", .35)), n = GM_getValue("trailer_muted", !1);
                 A.volume = Number.isFinite(e) ? Math.min(1, Math.max(0, e)) : .35, A.muted = Boolean(n), 
-                (e => {
-                    if (V && !window.Hls) {
-                        const t = document.createElement("script");
-                        t.src = "https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js", t.async = !0, 
-                        t.onload = () => Z(e), t.onerror = () => W(e), document.head.appendChild(t);
-                    } else Z(e);
-                    if (V) {
-                        const t = e;
-                        setTimeout(() => {
-                            if (A && A.isConnected && A.readyState < 2 && !A.error) {
-                                try {
-                                    A._hls && (A._hls.destroy(), A._hls = null);
-                                } catch {}
-                                A.src = t, A.play().catch(() => {});
-                            }
-                        }, 2500);
-                    }
-                })(I[z] || t), A.preload = "auto", A.addEventListener("volumechange", () => {
+                te(I[z] || t), A.preload = "auto", A.addEventListener("volumechange", () => {
                     GM_setValue("trailer_volume", A.volume), GM_setValue("trailer_muted", A.muted), 
                     J();
                 }), A.addEventListener("play", () => {
                     J(), H();
                 }), A.addEventListener("pause", () => {
-                    J(), v.classList.remove("is-controls-hidden"), clearTimeout(P);
+                    J(), v.classList.remove("is-controls-hidden"), clearTimeout(M);
                 }), A.addEventListener("timeupdate", () => {
                     J(), B();
                 }), A.addEventListener("durationchange", () => {
@@ -3300,7 +3399,7 @@
                 }), A.addEventListener("ended", () => ((e = N) => sessionStorage.removeItem(e))()), 
                 A.addEventListener("error", () => {
                     z >= I.length - 1 || (z += 1, L = I[z], R.href = L, A._hls && (A._hls.destroy(), 
-                    A._hls = null), Z(L), A.load?.(), A.play().catch(() => {}));
+                    A._hls = null), ee(L), A.load?.(), A.play().catch(() => {}));
                 }), v.appendChild(A), v.appendChild(g), b.addEventListener("click", e => {
                     e.preventDefault(), e.stopPropagation(), A && (A.paused ? A.play().catch(() => {}) : A.pause(), 
                     J());
@@ -3309,7 +3408,7 @@
                     G(), J());
                 }), k.addEventListener("input", e => {
                     if (e.stopPropagation(), !A) return;
-                    v.classList.remove("is-controls-hidden"), clearTimeout(P);
+                    v.classList.remove("is-controls-hidden"), clearTimeout(M);
                     const t = Math.min(1, Math.max(0, Number(k.value) / 100));
                     A.volume = t, A.muted = t <= 0, G(), J();
                 }), k.addEventListener("change", H), A.addEventListener("click", e => {
@@ -3327,58 +3426,59 @@
                     A.play().catch(() => {}), J(), H();
                 }, 120);
             }
-            const Y = document.createElement("div"), X = i && "object" == typeof i ? i : null;
-            if (!s && X && Object.keys(X).length > 1) {
+            const ne = document.createElement("div"), ae = i && "object" == typeof i ? i : null;
+            if (!s && ae && Object.keys(ae).length > 1) {
                 const e = [ "4k", "hhb", "hmb", "mhb", "mmb", "dm", "sm" ], t = {
                     "4k": "4K",
                     hhb: "1080P",
                     hmb: "720P",
                     mhb: "576P",
                     mmb: "432P"
-                }, n = Object.keys(X).filter(e => X[e]).sort((t, n) => e.indexOf(t) - e.indexOf(n));
-                Y.className = "trailer-quality-bar";
+                }, n = Object.keys(ae).filter(e => ae[e]).sort((t, n) => e.indexOf(t) - e.indexOf(n));
+                ne.className = "trailer-quality-bar";
                 const a = document.createElement("select");
                 a.className = "trailer-quality-select";
                 const i = e => {
-                    $ = e, L = X[e], a.value = e;
+                    $ = e, L = ae[e], a.value = e;
                 };
                 n.forEach(e => {
                     const n = document.createElement("option");
                     n.value = e, n.textContent = t[e] || e, a.appendChild(n);
                 }), a.addEventListener("change", async () => {
                     const e = a.value;
-                    if (!A || !X[e] || $ === e) return;
+                    if (!A || !ae[e] || $ === e) return;
                     const t = A.currentTime || 0, n = !A.paused;
-                    B(t), A.src = X[e], A.dataset.playbackRestored = "1", z = Math.max(0, I.indexOf(X[e])), 
+                    B(t), A.src = ae[e], A.dataset.playbackRestored = "1", z = Math.max(0, I.indexOf(ae[e])), 
                     A.load(), A.currentTime = t, i(e), R.href = L, n && await A.play().catch(() => {});
-                }), Y.appendChild(a), i($ && X[$] ? $ : n[0]);
+                }), ne.appendChild(a), i($ && ae[$] ? $ : n[0]);
             }
-            const Q = document.createElement("div");
-            Q.className = "trailer-footer";
-            const ee = document.createElement("div");
-            ee.className = "trailer-control-left", s || (ee.appendChild(b), ee.appendChild(x), 
-            ee.appendChild(S), ee.appendChild(E), ee.appendChild(C));
-            const te = document.createElement("div");
-            te.className = "trailer-control-right", te.appendChild(Y), Q.appendChild(ee), te.appendChild(q), 
-            Q.appendChild(te), p.appendChild(v), v.appendChild(m), s || v.appendChild(Q), d.appendChild(p), 
-            s || (v.addEventListener("mousemove", O), v.addEventListener("mouseenter", O), v.addEventListener("mouseleave", () => {
+            const ie = document.createElement("div");
+            ie.className = "trailer-footer";
+            const re = document.createElement("div");
+            re.className = "trailer-control-left", s || (re.appendChild(b), re.appendChild(x), 
+            re.appendChild(S), re.appendChild(E), re.appendChild(C));
+            const oe = document.createElement("div");
+            oe.className = "trailer-control-right", oe.appendChild(ne), ie.appendChild(re), 
+            oe.appendChild(q), ie.appendChild(oe), p.appendChild(v), v.appendChild(m), s || v.appendChild(ie), 
+            c.appendChild(p), s || (v.addEventListener("mousemove", O), v.addEventListener("mouseenter", O), 
+            v.addEventListener("mouseleave", () => {
                 A && !A.paused && v.classList.add("is-controls-hidden");
-            }), Q.addEventListener("mouseenter", () => {
-                v.classList.remove("is-controls-hidden"), clearTimeout(P);
-            }), Q.addEventListener("mouseleave", H));
-            const ne = (e = null) => {
+            }), ie.addEventListener("mouseenter", () => {
+                v.classList.remove("is-controls-hidden"), clearTimeout(M);
+            }), ie.addEventListener("mouseleave", H));
+            const se = (e = null) => {
                 e && (e.preventDefault(), e.stopPropagation(), e.stopImmediatePropagation?.());
-                const t = d.querySelector("video");
-                t && (B(t.currentTime || 0), t.pause(), t.removeAttribute("src"), t.load()), d.remove(), 
-                document.documentElement.style.overflow = l, document.body.style.overflow = c, window.removeEventListener("pointerdown", ae, !0), 
-                window.removeEventListener("mousedown", ae, !0), window.removeEventListener("click", ae, !0), 
-                document.removeEventListener("keydown", ie, !0), clearTimeout(M), clearTimeout(P);
-            }, ae = e => {
-                if (!d.contains(e.target)) return;
-                (e.target === d || e.target.closest(".jav-player-close")) && ("click" !== e.type ? (e.stopPropagation(), 
-                e.stopImmediatePropagation?.()) : ne(e));
-            }, ie = e => {
-                if ("Escape" === e.key) return void ne();
+                const t = c.querySelector("video");
+                t && (B(t.currentTime || 0), t.pause(), t.removeAttribute("src"), t.load()), c.remove(), 
+                document.documentElement.style.overflow = l, document.body.style.overflow = d, window.removeEventListener("pointerdown", le, !0), 
+                window.removeEventListener("mousedown", le, !0), window.removeEventListener("click", le, !0), 
+                document.removeEventListener("keydown", de, !0), clearTimeout(P), clearTimeout(M);
+            }, le = e => {
+                if (!c.contains(e.target)) return;
+                (e.target === c || e.target.closest(".jav-player-close")) && ("click" !== e.type ? (e.stopPropagation(), 
+                e.stopImmediatePropagation?.()) : se(e));
+            }, de = e => {
+                if ("Escape" === e.key) return void se();
                 if (s) return;
                 const t = e.key;
                 if ([ " ", "Spacebar", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown" ].includes(t) && (e.preventDefault(), 
@@ -3394,11 +3494,11 @@
                     G();
                 }
             };
-            h.addEventListener("click", ne, !0), d.addEventListener("click", e => {
-                e.target === d && ne(e);
-            }, !0), window.addEventListener("pointerdown", ae, !0), window.addEventListener("mousedown", ae, !0), 
-            window.addEventListener("click", ae, !0), document.addEventListener("keydown", ie, !0), 
-            document.body.appendChild(d);
+            h.addEventListener("click", se, !0), c.addEventListener("click", e => {
+                e.target === c && se(e);
+            }, !0), window.addEventListener("pointerdown", le, !0), window.addEventListener("mousedown", le, !0), 
+            window.addEventListener("click", le, !0), document.addEventListener("keydown", de, !0), 
+            document.body.appendChild(c);
         },
         getJavBusUrl(e) {
             const t = e.toLowerCase();
@@ -3547,14 +3647,14 @@
                     s = t.startsWith("http") ? t : `https://projectjav.com${t}`;
                 }
                 console.log("[projectjav] 详情页:", s);
-                const l = r === s ? a : await t(s), c = l.responseText || "", d = l.finalUrl || s, p = (new DOMParser).parseFromString(c, "text/html"), m = [ ...p.querySelectorAll('.col-md-12.thumbnail a[data-featherlight="image"], .thumbnail a[data-featherlight="image"]') ].find(t => this.isCodeMatched([ t.outerHTML, t.closest(".thumbnail")?.outerHTML, d ].join(" "), e));
+                const l = r === s ? a : await t(s), d = l.responseText || "", c = l.finalUrl || s, p = (new DOMParser).parseFromString(d, "text/html"), m = [ ...p.querySelectorAll('.col-md-12.thumbnail a[data-featherlight="image"], .thumbnail a[data-featherlight="image"]') ].find(t => this.isCodeMatched([ t.outerHTML, t.closest(".thumbnail")?.outerHTML, c ].join(" "), e));
                 if (console.log("[projectjav] screenshotLink matched:", !!m, "href:", m?.getAttribute("href")), 
                 m) {
                     const e = m.querySelector("img"), t = m.getAttribute("href") || "";
-                    if (t) return this.normalizePreviewUrl(t, d);
+                    if (t) return this.normalizePreviewUrl(t, c);
                     if (e) {
                         const t = (e.getAttribute("src") || "").replace(/\?.*$/, "");
-                        if (t) return this.normalizePreviewUrl(t, d);
+                        if (t) return this.normalizePreviewUrl(t, c);
                     }
                 }
                 return console.warn("[projectjav] 详情页未找到图片，页面标题:", p.title), null;
@@ -3676,9 +3776,9 @@
                     e.className = "jav-detail-preview-loading", e.textContent = "预览图加载中...", l.appendChild(e), 
                     s.anchor?.parentElement === s.slot ? s.slot.insertBefore(l, s.anchor) : s.slot.insertBefore(l, s.slot.firstChild);
                 }
-                const c = await E.get(i);
+                const d = await E.get(i);
                 if (o !== t || !l.isConnected) return;
-                if (!c?.url) return l.remove(), s.standalone || s.slot.classList.remove("has-detail-preview-inline"), 
+                if (!d?.url) return l.remove(), s.standalone || s.slot.classList.remove("has-detail-preview-inline"), 
                 void (n = {
                     code: i,
                     status: "missing"
@@ -3687,11 +3787,11 @@
                     code: i,
                     status: "loaded"
                 }, l.dataset.state = "loaded", l.innerHTML = "";
-                const d = document.createElement("img");
-                d.className = "jav-detail-preview-inline", d.dataset.code = i, d.src = c.url, d.alt = i, 
-                d.loading = "lazy", d.title = "点击查看预览图", d.addEventListener("click", e => {
-                    e.preventDefault(), e.stopPropagation(), C.showOverlay(c.url, i, c.source);
-                }), l.appendChild(d);
+                const c = document.createElement("img");
+                c.className = "jav-detail-preview-inline", c.dataset.code = i, c.src = d.url, c.alt = i, 
+                c.loading = "lazy", c.title = "点击查看预览图", c.addEventListener("click", e => {
+                    e.preventDefault(), e.stopPropagation(), C.showOverlay(d.url, i, d.source);
+                }), l.appendChild(c);
             },
             remove: a
         };
@@ -3701,6 +3801,10 @@
         normalize: e => C.normalizeCode(e),
         cacheKey(e) {
             return `trailer_cache_v10_${this.normalize(e)}`;
+        },
+        isDynamicTrailer(e) {
+            const t = String(e?.url || "");
+            return "hls" === String(e?.type || "").toLowerCase() || /\.m3u8(?:[?#].*)?$/i.test(t);
         },
         debug(...e) {
             console.log("[TrailerResolver]", ...e);
@@ -3741,10 +3845,16 @@
                 if (e) {
                     try {
                         const t = JSON.parse(e);
-                        if (t?.url) return this.debug("缓存命中", {
-                            source: t.source,
-                            url: t.url
-                        }), t;
+                        if (t?.url) {
+                            if (!this.isDynamicTrailer(t)) return this.debug("缓存命中", {
+                                source: t.source,
+                                url: t.url
+                            }), t;
+                            this.debug("动态预告不缓存，已清理旧缓存", {
+                                source: t.source,
+                                url: t.url
+                            }), sessionStorage.removeItem(this.cacheKey(n));
+                        }
                     } catch {}
                     this.debug("缓存无效，已移除"), sessionStorage.removeItem(this.cacheKey(n));
                 }
@@ -3759,7 +3869,8 @@
                         type: r.type || "video",
                         url: r.url,
                         qualities: r.qualities ? Object.keys(r.qualities) : []
-                    }), a && sessionStorage.setItem(this.cacheKey(n), JSON.stringify(r)), r;
+                    }), a && !this.isDynamicTrailer(r) && sessionStorage.setItem(this.cacheKey(n), JSON.stringify(r)), 
+                    r;
                     this.debug("来源无结果", i);
                 } catch (e) {
                     console.warn(`[TrailerResolver] 来源异常: ${i}`, e);
@@ -3832,6 +3943,7 @@
         },
         javxySourceLabels: {
             DMM: "Javxy | dmm",
+            JavDB: "Javxy | Javdb",
             HEYZO: "Javxy | Heyzo",
             PACO: "Javxy | Paco",
             "10MU": "Javxy | 10mu",
@@ -3849,66 +3961,75 @@
                 label: "Javxy Worker"
             } ];
             for (const e of a) {
-                const t = `https://${e.host}/trailers/${encodeURIComponent(n)}?client=laosiji-new`;
+                const t = new URLSearchParams({
+                    client: "laosiji-new"
+                }), a = `${e.protocol || "https"}://${e.host}/trailers/${encodeURIComponent(n)}?${t}`;
                 this.debug("Javxy 请求 API", {
                     query: n,
-                    apiUrl: t,
+                    apiUrl: a,
                     endpoint: e.label
                 });
-                const a = await this.request(t, {
+                const i = await this.request(a, {
                     timeout: 15e3,
                     headers: {
                         Accept: "application/json,text/plain,*/*",
                         "X-Javxy-Token": this.javxyToken()
                     }
                 });
-                if (!a) {
+                if (!i) {
                     this.debug("Javxy API 网络失败，尝试下一个节点", {
                         endpoint: e.label
                     });
                     continue;
                 }
-                if (a.status >= 500 || 0 === a.status) {
+                if (i.status >= 500 || 0 === i.status) {
                     this.debug("Javxy API 服务异常，尝试下一个节点", {
                         endpoint: e.label,
-                        status: a.status
+                        status: i.status
                     });
                     continue;
                 }
-                if (a.status < 200 || a.status >= 400) return this.debug("Javxy API 无结果，停止查询", {
+                if ([ 401, 403, 429 ].includes(i.status)) {
+                    this.debug("Javxy API 被拒绝或限流，尝试下一个节点", {
+                        endpoint: e.label,
+                        status: i.status
+                    });
+                    continue;
+                }
+                if (i.status < 200 || i.status >= 400) return this.debug("Javxy API 无结果，停止查询", {
                     endpoint: e.label,
-                    status: a.status
+                    status: i.status
                 }), null;
-                if (!a.responseText) return this.debug("Javxy API 响应为空，停止查询", {
+                if (!i.responseText) return this.debug("Javxy API 响应为空，停止查询", {
                     endpoint: e.label,
-                    status: a.status
+                    status: i.status
                 }), null;
-                let i;
+                let r;
                 try {
-                    i = JSON.parse(a.responseText);
+                    r = JSON.parse(i.responseText);
                 } catch {
                     this.debug("Javxy JSON 解析失败，尝试下一个节点", {
                         endpoint: e.label
                     });
                     continue;
                 }
-                const r = String(i?.trailer || "").trim();
-                if (!r) return this.debug("Javxy 无 trailer 字段，停止查询", {
+                const o = String(r?.trailer || "").trim();
+                if (!o) return this.debug("Javxy 无 trailer 字段，停止查询", {
                     endpoint: e.label,
-                    keys: Object.keys(i || {})
+                    keys: Object.keys(r || {})
                 }), null;
-                const o = i?.qualities && "object" == typeof i.qualities ? i.qualities : {}, s = i?.quality && o[i.quality] ? i.quality : this.selectHighestQuality(o), l = this.javxySourceLabels[i?.source] || `Javxy | ${i?.source || "dmm"}`, c = "javxy.cc.cd" === e.host ? l : `${l} | Worker`;
+                const s = r?.qualities && "object" == typeof r.qualities ? r.qualities : {}, l = r?.quality && s[r.quality] ? r.quality : this.selectHighestQuality(s), d = this.javxySourceLabels[r?.source] || `Javxy | ${r?.source || "dmm"}`;
                 this.debug("Javxy 返回结果", {
                     endpoint: e.label,
-                    source: i?.source,
-                    quality: s,
-                    qualities: Object.keys(o)
+                    source: r?.source,
+                    quality: l,
+                    qualities: Object.keys(s)
                 });
-                const d = String(i?.type || "").trim() || "video";
-                return this.result(o[s] || r, c, d, {
-                    qualities: o,
-                    quality: s,
-                    urls: Array.isArray(i?.urls) && i.urls.length ? i.urls : this.sortQualityKeys(o).map(e => o[e])
+                const c = String(r?.type || "").trim() || "video";
+                return this.result(s[l] || o, d, c, {
+                    qualities: s,
+                    quality: l,
+                    urls: Array.isArray(r?.urls) && r.urls.length ? r.urls : this.sortQualityKeys(s).map(e => s[e])
                 });
             }
             return null;
@@ -3918,12 +4039,12 @@
         getTrailerCacheEnabled: () => !0,
         getDefaultSearchEngine() {
             const e = GM_getValue("default_search_engine", 2);
-            return M[e] || M[0];
+            return P[e] || P[0];
         },
         getDefaultVideoEngine: () => GM_getValue("default_video_engine", "missav"),
-        getVideoEngines: () => c,
+        getVideoEngines: () => d,
         getSourceOrder: () => GM_getValue("thumb_source_order", [ "javfree", "projectjav", "javstore" ])
-    }, M = [ {
+    }, P = [ {
         name: "BTDigg",
         color: "#F60",
         url: e => `https://btdig.com/search?q=${e}`
@@ -3943,11 +4064,11 @@
         name: "DuckGo",
         color: "#DE5833",
         url: e => `https://duckduckgo.com/?q=${e}`
-    } ], P = {
+    } ], M = {
         api: "https://webapi.115.com/files/search",
         videoExts: new Set([ "mp4", "mkv", "avi", "wmv", "mov", "m4v", "ts", "flv", "rmvb", "webm" ]),
         pending: new Map,
-        cachePrefix: "pan115_cache_v5_",
+        cachePrefix: "pan115_cache_v6_",
         mgstagePrefixMap: {
             LUXU: "259LUXU",
             MIUM: "300MIUM",
@@ -4023,42 +4144,55 @@
             const t = this.uncensoredParts(e);
             return t ? `${t.date}${t.sep}${t.num}` : "";
         },
+        fc2Number(e) {
+            const t = this.normalizeKeepSeparator(e).match(/^FC2[-_\s]?(?:PPV[-_\s]?)?(\d{6,9})$/i);
+            return t ? t[1] : "";
+        },
         extractCode(e, t = "") {
-            const n = this.sourcePattern(), a = String(e || "").match(new RegExp(`\\b(\\d{6})([-_])(\\d{2,3})[-_\\s]*(${n})\\b`, "i"));
-            if (a) {
-                const e = a[4].toUpperCase(), t = "_" === a[2] ? "_" : "-";
-                return `${a[1]}${t}${a[3]}-${e}`;
-            }
-            const i = String(e || "").match(new RegExp(`\\b(${n})[-_\\s]*(\\d{6})([-_])(\\d{2,3})\\b`, "i"));
+            const n = String(e || "").match(/\bFC2[-_\s]?(?:PPV[-_\s]?)?(\d{6,9})\b/i);
+            if (n) return `FC2-PPV-${n[1]}`;
+            const a = this.sourcePattern(), i = String(e || "").match(new RegExp(`\\b(\\d{6})([-_])(\\d{2,3})[-_\\s]*(${a})\\b`, "i"));
             if (i) {
-                const e = i[1].toUpperCase(), t = "_" === i[3] ? "_" : "-";
-                return `${i[2]}${t}${i[4]}-${e}`;
+                const e = i[4].toUpperCase(), t = "_" === i[2] ? "_" : "-";
+                return `${i[1]}${t}${i[3]}-${e}`;
+            }
+            const r = String(e || "").match(new RegExp(`\\b(${a})[-_\\s]*(\\d{6})([-_])(\\d{2,3})\\b`, "i"));
+            if (r) {
+                const e = r[1].toUpperCase(), t = "_" === r[3] ? "_" : "-";
+                return `${r[2]}${t}${r[4]}-${e}`;
             }
             return t || C.extractCode(e);
         },
-        searchKeyword: e => String(e || "").trim().toLowerCase().replace(/^fc2-/, ""),
+        searchKeyword(e) {
+            const t = this.fc2Number(e);
+            return t || String(e || "").trim().toLowerCase().replace(/^fc2-(?:ppv-)?/, "");
+        },
         searchVariants(e) {
-            const t = this.normalizeKeepSeparator(e), n = [ t ], a = t.match(/^(\d{3})([A-Z]{2,10})-(\d{2,6})$/);
-            a && Object.values(this.mgstagePrefixMap).includes(`${a[1]}${a[2]}`) && n.push(`${a[2]}-${a[3]}`);
-            const i = t.match(/^([A-Z]{2,10})-(\d{2,6})$/);
-            i && this.mgstagePrefixMap[i[1]] && n.push(`${this.mgstagePrefixMap[i[1]]}-${i[2]}`);
-            const r = this.uncensoredParts(t);
-            return r && (n.push(`${r.date}${r.sep}${r.num}`), r.source && this.sourceGroup(r.source).forEach(e => {
-                n.push(`${r.date}${r.sep}${r.num}-${e}`), n.push(`${e}-${r.date}${r.sep}${r.num}`);
+            const t = this.normalizeKeepSeparator(e), n = [ t ], a = this.fc2Number(t);
+            a && n.push(`FC2-${a}`, `FC2-PPV-${a}`, a);
+            const i = t.match(/^(\d{3})([A-Z]{2,10})-(\d{2,6})$/);
+            i && Object.values(this.mgstagePrefixMap).includes(`${i[1]}${i[2]}`) && n.push(`${i[2]}-${i[3]}`);
+            const r = t.match(/^([A-Z]{2,10})-(\d{2,6})$/);
+            r && this.mgstagePrefixMap[r[1]] && n.push(`${this.mgstagePrefixMap[r[1]]}-${r[2]}`);
+            const o = this.uncensoredParts(t);
+            return o && (n.push(`${o.date}${o.sep}${o.num}`), o.source && this.sourceGroup(o.source).forEach(e => {
+                n.push(`${o.date}${o.sep}${o.num}-${e}`), n.push(`${e}-${o.date}${o.sep}${o.num}`);
             })), [ ...new Set(n.filter(Boolean)) ];
         },
         codeRegex(e) {
+            const t = this.fc2Number(e);
+            if (t) return new RegExp(`(^|[^A-Z0-9])(?:FC2[-_\\s]?(?:PPV[-_\\s]?)?${t}|${t})([^A-Z0-9]|$)`, "i");
             if (this.uncensoredDigitKey(e)) {
                 const t = this.uncensoredParts(e), n = "_" === t.sep ? "_" : "-";
                 return new RegExp(`(^|[^0-9])${t.date}${n}${t.num}([^0-9]|$)`, "i");
             }
-            const t = [];
+            const n = [];
             return this.searchVariants(e).forEach(e => {
-                const n = this.normalizeCode(e);
-                if (!n) return;
-                const a = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[-_]/g, "[-_\\s]?");
-                t.push(a, n.replace(/[-_]/g, ""));
-            }), new RegExp(`(?:${[ ...new Set(t) ].join("|")})`, "i");
+                const t = this.normalizeCode(e);
+                if (!t) return;
+                const a = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[-_]/g, "[-_\\s]?");
+                n.push(a, t.replace(/[-_]/g, ""));
+            }), new RegExp(`(?:${[ ...new Set(n) ].join("|")})`, "i");
         },
         isVideoName(e) {
             const t = String(e || "").split(".").pop().toLowerCase();
@@ -4097,15 +4231,15 @@
             });
         },
         async search(e) {
-            const t = this.codeRegex(e), n = new Set;
-            for (const a of this.searchVariants(e).map(e => this.searchKeyword(e))) {
-                const e = await this.requestSearch(a);
-                if (!1 === (e?.state ?? e?.success)) {
-                    throw new Error(String(e?.error || e?.message || e?.errno || "115查询失败"));
+            const t = this.codeRegex(e), n = new Set, a = [ ...new Set(this.searchVariants(e).map(e => this.searchKeyword(e)).filter(Boolean)) ];
+            for (const e of a) {
+                const a = await this.requestSearch(e);
+                if (!1 === (a?.state ?? a?.success)) {
+                    throw new Error(String(a?.error || a?.message || a?.errno || "115查询失败"));
                 }
-                for (const a of this.flattenFiles(e)) {
-                    const e = a.pickcode || a.name;
-                    if (!n.has(e) && (n.add(e), t.test(a.name) && this.isVideoName(a.name))) return a;
+                for (const e of this.flattenFiles(a)) {
+                    const a = e.pickcode || e.name;
+                    if (!n.has(a) && (n.add(a), t.test(e.name) && this.isVideoName(e.name))) return e;
                 }
             }
             return null;
@@ -4177,11 +4311,11 @@
             url: o[e.key]
         })).filter(e => e.url);
         if (!l.length) return;
-        const c = $.getDefaultVideoEngine(), d = l.find(e => e.key === c) || l[0], p = l.filter(e => e !== d), m = e => C.createJumpLinkBtn(`🎬 ${e.label}`, e.color, e.url);
-        if (!p.length) return void t.appendChild(m(d));
+        const d = $.getDefaultVideoEngine(), c = l.find(e => e.key === d) || l[0], p = l.filter(e => e !== c), m = e => C.createJumpLinkBtn(`🎬 ${e.label}`, e.color, e.url);
+        if (!p.length) return void t.appendChild(m(c));
         const u = document.createElement("div");
-        u.className = "search-menu missav-menu", u.style.setProperty("--jav-btn-accent", d.color);
-        const h = m(d);
+        u.className = "search-menu missav-menu", u.style.setProperty("--jav-btn-accent", c.color);
+        const h = m(c);
         h.classList.add("search-main-btn"), u.appendChild(h);
         const v = document.createElement("button");
         v.type = "button", v.className = "search-toggle-btn", v.title = "展开同类站点", v.innerHTML = '<span class="search-arrow">▼</span>', 
@@ -4220,15 +4354,15 @@
         a.classList.add("jav-preview-btn"), t.appendChild(a);
     }
     function J(e, t, n = !1) {
-        if (!P.enabled() || !e || !t) return;
-        const a = P.normalizeKeepSeparator(e);
+        if (!M.enabled() || !e || !t) return;
+        const a = M.normalizeKeepSeparator(e);
         if (!a || t.dataset.pan115PlayCode === a) return;
         t.dataset.pan115PlayCode = a;
         const i = document.createComment("pan115-play"), r = t.querySelector(".jav-trailer-btn, .jav-preview-btn, .jav-settings-btn");
-        t.insertBefore(i, r || null), P.searchCached(a).then(e => {
+        t.insertBefore(i, r || null), M.searchCached(a).then(e => {
             const t = e?.pickcode;
-            if (!P.enabled() || !t || !i.parentNode) return;
-            const n = C.createJumpLinkBtn("115播放", "#00a85a", P.playUrl(t));
+            if (!M.enabled() || !t || !i.parentNode) return;
+            const n = C.createJumpLinkBtn("115播放", "#00a85a", M.playUrl(t));
             n.classList.add("jav-pan115-play-btn"), n.dataset.pickcode = t, n.title = e.name || `115播放：${a}`, 
             i.parentNode.insertBefore(n, i);
         }).catch(e => {
@@ -4249,7 +4383,7 @@
         o.type = "button", o.className = "search-toggle-btn", o.title = "展开搜索引擎", o.innerHTML = '<span class="search-arrow">▼</span>', 
         i.appendChild(o);
         const s = document.createElement("div");
-        s.className = "search-submenu", M.forEach(t => {
+        s.className = "search-submenu", P.forEach(t => {
             if (t.name === a.name) return;
             const i = C.createBtn(`🔍 ${t.name}`, t.color, () => {
                 window.open(t.url(e)), s.classList.remove("is-open");
@@ -4265,15 +4399,15 @@
         n.classList.add("jav-settings-btn"), n.title = "打开老司机设置", e.appendChild(n);
     }
     function H(e, t, n = !0) {
-        const a = P.playUrl(e.pickcode), i = document.createElement(n ? "a" : "span");
-        if (i.className = "jav-pan115-badge", i.textContent = "115匹配", i.title = e.name || `115播放：${P.normalizeKeepSeparator(t)}`, 
+        const a = M.playUrl(e.pickcode), i = document.createElement(n ? "a" : "span");
+        if (i.className = "jav-pan115-badge", i.textContent = "115匹配", i.title = e.name || `115播放：${M.normalizeKeepSeparator(t)}`, 
         i.dataset.pickcode = e.pickcode, n) i.href = a, i.target = "_blank", i.rel = "noopener noreferrer", 
         i.addEventListener("click", e => {
             e.stopImmediatePropagation();
         }, !0); else {
             i.setAttribute("role", "link"), i.tabIndex = 0;
             const e = e => {
-                e.preventDefault(), e.stopImmediatePropagation(), window.open(P.playUrl(i.dataset.pickcode), "_blank", "noopener,noreferrer");
+                e.preventDefault(), e.stopImmediatePropagation(), window.open(M.playUrl(i.dataset.pickcode), "_blank", "noopener,noreferrer");
             };
             i.addEventListener("click", e, !0), i.addEventListener("keydown", t => {
                 "Enter" !== t.key && " " !== t.key || e(t);
@@ -4283,7 +4417,7 @@
     }
     let F = !1;
     async function V() {
-        if (!P.enabled() || F || j.isDetailPage()) return;
+        if (!M.enabled() || F || j.isDetailPage()) return;
         F = !0;
         const e = j.collectPan115ListTargets().slice(0, 36);
         try {
@@ -4291,7 +4425,7 @@
                 e.dataset.pan115Checked = "1";
             }), await Promise.all(e.map(async ({anchor: e, code: t}) => {
                 try {
-                    const n = await P.searchCached(t);
+                    const n = await M.searchCached(t);
                     j.insertPan115ListBadge(e, n, t);
                 } catch (e) {
                     console.warn("[老司机] 115列表单项查询失败:", e);
@@ -4300,16 +4434,16 @@
         } catch (e) {
             console.warn("[老司机] 115列表自动查询失败:", e);
         } finally {
-            F = !1, P.enabled() && j.collectPan115ListTargets().length && oe();
+            F = !1, M.enabled() && j.collectPan115ListTargets().length && oe();
         }
     }
     function K() {
         document.querySelectorAll(".jav-pan115-badge[data-pickcode], .jav-pan115-play-btn[data-pickcode]").forEach(e => {
-            const t = P.playUrl(e.dataset.pickcode);
+            const t = M.playUrl(e.dataset.pickcode);
             "A" === e.tagName && (e.href = t);
         }), j.isDetailPage() ? ae.render() : oe();
     }
-    function W(e = P.enabled()) {
+    function W(e = M.enabled()) {
         if (!e) return clearTimeout(re), document.querySelectorAll(".jav-pan115-badge, .jav-pan115-play-btn").forEach(e => e.remove()), 
         document.querySelectorAll("[data-pan115-checked], [data-pan115-has-badge]").forEach(e => {
             delete e.dataset.pan115Checked, delete e.dataset.pan115HasBadge;
@@ -4517,7 +4651,7 @@
             delete t.dataset.enhanced;
         }
         if (n && "emby" !== e.id) {
-            const a = C.extractCode(t.textContent), i = P.extractCode(t.textContent, a);
+            const a = C.extractCode(t.textContent), i = M.extractCode(t.textContent, a);
             return i && J(i, n), O(n), void ne(e, t, n);
         }
         if ("1" === t.dataset.enhanced) return;
@@ -4528,7 +4662,7 @@
             keepUncensoredSource: !0
         }) || i, o = document.createElement("div");
         if (o.className = "jav-jump-btn-group", o.dataset.laosijiJump = "1", "javlibrary" === e.id) I(i, o), 
-        z(i, o), R(i, o), N(i, o), B(i, o), G(i, o), Z(o), J(P.extractCode(a, i), o), U(r, o), 
+        z(i, o), R(i, o), N(i, o), B(i, o), G(i, o), Z(o), J(M.extractCode(a, i), o), U(r, o), 
         D(i, o), O(o), o.querySelectorAll("a").forEach(e => {
             let t = e.getAttribute("style") || "";
             t = t.replace(/background:\s*([^;]+);/g, "background: $1 !important;"), t = t.replace(/color:\s*([^;]+);/g, "color: $1 !important;"), 
@@ -4539,19 +4673,19 @@
             s.className = "search-menu", s.style.setProperty("--jav-btn-accent", n.color);
             const l = C.createLinkBtn(`🔍 ${n.name}`, n.color, n.url(i));
             l.classList.add("search-main-btn"), s.appendChild(l);
-            const c = document.createElement("button");
-            c.type = "button", c.className = "search-toggle-btn", c.title = "展开搜索引擎", c.innerHTML = '<span class="search-arrow">▼</span>', 
-            s.appendChild(c);
-            const d = document.createElement("div");
-            d.className = "search-submenu", M.forEach(e => {
+            const d = document.createElement("button");
+            d.type = "button", d.className = "search-toggle-btn", d.title = "展开搜索引擎", d.innerHTML = '<span class="search-arrow">▼</span>', 
+            s.appendChild(d);
+            const c = document.createElement("div");
+            c.className = "search-submenu", P.forEach(e => {
                 if (e.name === n.name) return;
                 const t = C.createLinkBtn(`🔍 ${e.name}`, e.color, e.url(i));
-                t.style.margin = "2px 0", d.appendChild(t);
-            }), s.appendChild(d), T(s, c, d, l), o.appendChild(s), J(P.extractCode(a, i), o), 
+                t.style.margin = "2px 0", c.appendChild(t);
+            }), s.appendChild(c), T(s, d, c, l), o.appendChild(s), J(M.extractCode(a, i), o), 
             U(r, o), D(i, o), O(o), o.style.cssText = "\n                margin: 10px 0 6px 0;\n                display: flex;\n                flex-wrap: wrap;\n                gap: 8px;\n                align-items: center;\n                position: relative;\n                z-index: 9999;\n            ", 
             ne(e, t, o);
         } else I(i, o), z(i, o), R(i, o), N(i, o), B(i, o), G(i, o), [ "javbus", "javdb", "supjav", "jable" ].includes(e.id) && Z(o), 
-        J(P.extractCode(a, i), o), U(r, o), D(i, o), O(o), "emby" === e.id ? (o.classList.add("emby-fix"), 
+        J(M.extractCode(a, i), o), U(r, o), D(i, o), O(o), "emby" === e.id ? (o.classList.add("emby-fix"), 
         o.dataset.embyRenderKey = j.getEmbyRenderKey(t), j.getEmbyInsertAnchor(t).insertAdjacentElement("afterend", o)) : ne(e, t, o);
     }
     function ne(e, t, n) {
@@ -4757,7 +4891,7 @@
     l.expose("__LAOSIJI_INFINITE_SCROLL__", ie);
     let re = null;
     function oe() {
-        P.enabled() && !j.isDetailPage() && (clearTimeout(re), re = setTimeout(V, 300));
+        M.enabled() && !j.isDetailPage() && (clearTimeout(re), re = setTimeout(V, 300));
     }
     l.expose("__LAOSIJI_SCHEDULE_PAN115__", oe), l.expose("__LAOSIJI_RENDER_BUTTONS__", () => ae.render());
     const se = {
@@ -4775,7 +4909,7 @@
         refreshListDecorations() {
             q.sync(), _.sync(), oe();
         },
-        syncPan115(e = P.enabled()) {
+        syncPan115(e = M.enabled()) {
             W(e);
         },
         syncInfiniteScroll(e = a.infiniteScroll) {
@@ -4796,12 +4930,12 @@
     };
     l.expose("__LAOSIJI_RUNTIME__", se);
     let le = null;
-    const ce = new MutationObserver(() => {
+    const de = new MutationObserver(() => {
         clearTimeout(le), le = setTimeout(() => {
             se.refresh();
         }, 120);
     });
-    let de = location.href;
+    let ce = location.href;
     let pe = [];
     function me() {
         pe.forEach(e => clearTimeout(e)), pe = [];
@@ -4818,8 +4952,8 @@
         });
     }
     function he() {
-        if (location.href === de) return;
-        de = location.href;
+        if (location.href === ce) return;
+        ce = location.href;
         j.isEmbyPage() ? (j.isEmbyPage() && (document.querySelectorAll('.jav-jump-btn-group[data-laosiji-jump="1"]').forEach(e => e.remove()), 
         document.querySelectorAll('h1[data-enhanced="1"]').forEach(e => delete e.dataset.enhanced)), 
         ue()) : ae.render();
@@ -4829,7 +4963,7 @@
         observerReady: !1,
         navigationReady: !1,
         initRuntimeObserver() {
-            this.observerReady || (this.observerReady = !0, document.body && ce.observe(document.body, {
+            this.observerReady || (this.observerReady = !0, document.body && de.observe(document.body, {
                 childList: !0,
                 subtree: !0
             }));
