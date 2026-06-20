@@ -4,7 +4,7 @@
 // @description  Load image from cover/screenshot links.
 // @description:zh-CN  从封面/截图链接加载图片并显示。基于York Wang 0.9.8版本自用修改, 添加更多站点支持
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=sukebei.nyaa.si
-// @version      2.0.2
+// @version      2.0.3
 // @license      MIT
 // @author       ZiPenOk
 // @include      /^https://(?:[^/]+\.)?nyaa\.[^/]+/.*$/
@@ -92,6 +92,7 @@
 // @include      /^https://(?:[^/]+\.)?imgo\.[^/]+/.*$/
 // @include      /^https://(?:[^/]+\.)?sht-link\.[^/]+/.*$/
 // @include      /^https://(?:[^/]+\.)?shentai-anime\.[^/]+/.*$/
+// @include      /^https://(?:[^/]+\.)?4up\.[^/]+/.*$/
 
 // @run-at       document-end
 // @grant        unsafeWindow
@@ -360,6 +361,15 @@
             btn && btn.click()
         }
     })
+    addHandler(/^https?:\/\/[\w-]+\.4up\.pics(\/[\w-]+)+/, null, async (url, callback) => {
+        const enUrl = url.replace(/^(https?:\/\/[^\/]+)\//, '$1/en/')
+        const html = await doGetHtml(enUrl)
+        if (!html) return
+        const match = html.match(/Application\/storage\/app\/public\/uploads\/users\/[\w\/.-]+\.(?:jpg|jpeg|png|gif|webp)/i)
+        if (!match) return
+        const domainMatch = url.match(/^(https?:\/\/[^\/]+)/)
+        if (domainMatch) callback(`${domainMatch[1]}/${match[0]}`)
+    })
     addHandler(/^https?:\/\/(imgair\.net|imgfrost\.net|imgblaze\.net)(\/\w+)$/, callback => {
         unsafeWindow.wuLu && unsafeWindow.wuLu()
         const img = document.querySelector('#newImgE')
@@ -433,7 +443,7 @@
         'sht-link\\.[a-z]+',
         'sweetie-fox\\.[a-z]+',
         'xcamcovid\\.[a-z]+',
-        'xxpics\\.[a-z]+', 
+        'xxpics\\.[a-z]+',
         'shentai-anime\\.[a-z]+'
     ];
 
