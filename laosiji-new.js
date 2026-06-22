@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.6.3
+// @version      2.6.4
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -34,6 +34,7 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_download
 // @grant        GM_info
+// @grant        unsafeWindow
 // @require      https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js
 // @connect      *
 // @license      GPL-3.0
@@ -45,7 +46,7 @@
 
 !function() {
     "use strict";
-    const e = "2.6.3", t = 86, n = 20, a = {
+    const e = "2.6.4", t = 86, n = 20, a = {
         get javdbSearchUrl() {
             return GM_getValue("cfg_javdb_search_url", "javdb.com");
         },
@@ -698,15 +699,15 @@
                     search: s.querySelector("#sp-btn-search"),
                     trailer: s.querySelector("#sp-btn-trailer"),
                     preview: s.querySelector("#sp-btn-preview")
-                }, y = s.querySelector("#sp-clear-cache"), w = s.querySelector("#sp-cache-feedback"), j = s.querySelector("#sp-thumb-order"), _ = Object.fromEntries(t.map(e => [ e.key, a[e.key] ]));
-                let k = GM_getValue("thumb_source_order", [ "javfree", "projectjav", "javstore" ]);
+                }, y = s.querySelector("#sp-clear-cache"), w = s.querySelector("#sp-cache-feedback"), j = s.querySelector("#sp-thumb-order"), k = Object.fromEntries(t.map(e => [ e.key, a[e.key] ]));
+                let _ = GM_getValue("thumb_source_order", [ "javfree", "projectjav", "javstore" ]);
                 Object.keys(i).forEach(e => {
-                    k.includes(e) || k.push(e);
-                }), k = k.filter(e => i[e]);
+                    _.includes(e) || _.push(e);
+                }), _ = _.filter(e => i[e]);
                 const S = () => {
                     const e = l.value || a.defaultEngine;
                     l.innerHTML = "", t.forEach(e => {
-                        const t = _[e.key], n = document.createElement("option");
+                        const t = k[e.key], n = document.createElement("option");
                         n.value = t, n.textContent = `${e.label} (${t})`, l.appendChild(n);
                     }), l.value = [ ...l.options ].some(t => t.value === e) ? e : a.defaultEngine, [ ...l.options ].some(e => e.value === l.value) || (l.selectedIndex = 0);
                 };
@@ -716,10 +717,10 @@
                 });
                 const C = () => {
                     const e = t.find(e => e.key === p.value);
-                    m.value = _[p.value] || "", m.placeholder = e?.placeholder || "";
+                    m.value = k[p.value] || "", m.placeholder = e?.placeholder || "";
                 };
                 p.addEventListener("change", C), m.addEventListener("input", () => {
-                    _[p.value] = r(m.value), S();
+                    k[p.value] = r(m.value), S();
                 }), n.forEach((e, t) => {
                     const n = document.createElement("option");
                     n.value = String(t), n.textContent = e, u.appendChild(n);
@@ -732,19 +733,19 @@
                 x.missav.checked = a.btnShowMissav, x.fanza.checked = a.btnShowFanza, x.search.checked = a.btnShowSearch, 
                 x.trailer.checked = a.btnShowTrailer, x.preview.checked = a.btnShowPreview;
                 const E = () => {
-                    j.innerHTML = "", k.forEach((e, t) => {
+                    j.innerHTML = "", _.forEach((e, t) => {
                         const n = i[e], a = document.createElement("div");
-                        a.className = "sp-order-item", a.dataset.src = e, a.innerHTML = `\n                        <div><div class="sp-order-name">${n.label}</div></div>\n                        <span class="sp-dot" style="background:${n.color}"></span>\n                        <div class="sp-order-actions">\n                            <button class="sp-order-btn" type="button" data-dir="-1" title="上移" ${0 === t ? "disabled" : ""}>↑</button>\n                            <button class="sp-order-btn" type="button" data-dir="1" title="下移" ${t === k.length - 1 ? "disabled" : ""}>↓</button>\n                        </div>`, 
+                        a.className = "sp-order-item", a.dataset.src = e, a.innerHTML = `\n                        <div><div class="sp-order-name">${n.label}</div></div>\n                        <span class="sp-dot" style="background:${n.color}"></span>\n                        <div class="sp-order-actions">\n                            <button class="sp-order-btn" type="button" data-dir="-1" title="上移" ${0 === t ? "disabled" : ""}>↑</button>\n                            <button class="sp-order-btn" type="button" data-dir="1" title="下移" ${t === _.length - 1 ? "disabled" : ""}>↓</button>\n                        </div>`, 
                         j.appendChild(a);
                     });
                 };
                 j.addEventListener("click", e => {
                     const t = e.target.closest(".sp-order-btn");
                     if (!t) return;
-                    const n = t.closest(".sp-order-item"), a = k.indexOf(n?.dataset.src), i = a + parseInt(t.dataset.dir, 10);
-                    a < 0 || i < 0 || i >= k.length || ([k[a], k[i]] = [ k[i], k[a] ], E());
+                    const n = t.closest(".sp-order-item"), a = _.indexOf(n?.dataset.src), i = a + parseInt(t.dataset.dir, 10);
+                    a < 0 || i < 0 || i >= _.length || ([_[a], _[i]] = [ _[i], _[a] ], E());
                 });
-                const q = (e, t, n) => {
+                const A = (e, t, n) => {
                     e && (e.classList.remove("is-done"), e.classList.add("is-clearing"), setTimeout(() => {
                         e.classList.remove("is-clearing"), e.classList.add("is-done"), w.textContent = n ? `${t} ${n} 项` : `${t}无缓存`, 
                         setTimeout(() => e.classList.remove("is-done"), 900), setTimeout(() => {
@@ -754,18 +755,18 @@
                 };
                 g.addEventListener("click", () => {
                     const e = c.clearSessionByPrefixes([ "thumb_cache_" ]);
-                    q(g, "预览图已清理", e);
+                    A(g, "预览图已清理", e);
                 }), b.addEventListener("click", () => {
                     const e = c.clearSessionByPrefixes([ "trailer_cache_" ]);
-                    q(b, "预告片已清理", e);
+                    A(b, "预告片已清理", e);
                 }), y.addEventListener("click", () => {
                     const e = c.clearSessionByPrefixes([ "thumb_cache_", "trailer_cache_", "pan115_cache_" ]);
                     w.textContent = e ? `已清空 ${e} 项` : "无缓存", setTimeout(() => {
                         w.textContent = "";
                     }, 1800);
                 }), p.value = "javdbSearchUrl", C(), S(), E();
-                const A = () => o.remove();
-                s.querySelector(".sp-close").addEventListener("click", A), s.querySelector(".sp-btn-cancel").addEventListener("click", A), 
+                const q = () => o.remove();
+                s.querySelector(".sp-close").addEventListener("click", q), s.querySelector(".sp-btn-cancel").addEventListener("click", q), 
                 s.querySelector(".sp-btn-save").addEventListener("click", () => {
                     const e = () => JSON.stringify({
                         domains: t.map(e => a[e.key]),
@@ -792,14 +793,14 @@
                         thumbOrder: GM_getValue("thumb_source_order", [ "javfree", "projectjav", "javstore" ])
                     }), n = e(), i = a.pan115Player, o = "115master" === f?.value ? "115master" : "official";
                     t.forEach(e => {
-                        a[e.key] = r(_[e.key]);
+                        a[e.key] = r(k[e.key]);
                     }), a.defaultEngine = l.value, GM_setValue("default_search_engine", parseInt(u.value, 10) || 0), 
                     a.defaultVideoEngine = h.value || "missav", a.pan115Player = o, a.magnetTable = v.checked, 
                     a.btnShowNyaa = x.nyaa.checked, a.btnShowJavbus = x.javbus.checked, a.btnShowJavdb = x.javdb.checked, 
                     a.btnShowMissav = x.missav.checked, a.btnShowFanza = x.fanza.checked, a.btnShowSearch = x.search.checked, 
-                    a.btnShowTrailer = x.trailer.checked, a.btnShowPreview = x.preview.checked, GM_setValue("thumb_source_order", k);
+                    a.btnShowTrailer = x.trailer.checked, a.btnShowPreview = x.preview.checked, GM_setValue("thumb_source_order", _);
                     const s = i !== o, d = n !== e();
-                    A(), d ? location.reload() : s && se.syncPan115(a.btnShowPan115);
+                    q(), d ? location.reload() : s && se.syncPan115(a.btnShowPan115);
                 });
             }
         };
@@ -820,18 +821,18 @@
                 const s = document.createElement("div");
                 s.id = "jav-quick-settings-popover", s.innerHTML = `\n                <div class="qs-head">\n                    <div>\n                        <div class="qs-title">快捷设置</div>\n                        <div class="qs-site">${e[n] || "当前站点"}</div>\n                    </div>\n                    <button class="qs-close" type="button" title="关闭">×</button>\n                </div>\n                <div class="qs-row">\n                    <div class="qs-name">卡片列数</div>\n                    <input class="qs-range" id="qs-columns" type="range" min="2" max="10" step="1">\n                    <span class="qs-value" id="qs-columns-value">5</span>\n                </div>\n                <div class="qs-row">\n                    <div class="qs-name">页面宽度</div>\n                    <input class="qs-range" id="qs-zoom" type="range" min="60" max="100" step="1">\n                    <span class="qs-value" id="qs-zoom-value">100%</span>\n                </div>\n                <div class="qs-detail-flex" id="qs-detail-flex">\n                    <div class="qs-section-title">详情比例</div>\n                    <div class="qs-row" data-detail-flex-row="cover">\n                        <div class="qs-name">封面</div>\n                        <input class="qs-range" id="qs-detail-cover" type="range" min="50" max="200" step="5">\n                        <span class="qs-value" id="qs-detail-cover-value">1.0</span>\n                    </div>\n                    <div class="qs-row" data-detail-flex-row="info">\n                        <div class="qs-name">信息</div>\n                        <input class="qs-range" id="qs-detail-info" type="range" min="50" max="200" step="5">\n                        <span class="qs-value" id="qs-detail-info-value">1.0</span>\n                    </div>\n                    <div class="qs-row" data-detail-flex-row="magnet">\n                        <div class="qs-name">磁力</div>\n                        <input class="qs-range" id="qs-detail-magnet" type="range" min="50" max="200" step="5">\n                        <span class="qs-value" id="qs-detail-magnet-value">关闭</span>\n                    </div>\n                </div>\n                <div class="qs-switch-grid">\n                    <div class="qs-switch-row">\n                        <div class="qs-name">115匹配</div>\n                        <label class="qs-toggle">\n                            <input id="qs-pan115" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">瀑布流</div>\n                        <label class="qs-toggle">\n                            <input id="qs-infinite-scroll" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">翻译标题</div>\n                        <label class="qs-toggle">\n                            <input id="qs-title-translate" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">新标签打开页面</div>\n                        <label class="qs-toggle">\n                            <input id="qs-list-open-new-tab" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">快捷预览图</div>\n                        <label class="qs-toggle">\n                            <input id="qs-list-preview" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                    <div class="qs-switch-row">\n                        <div class="qs-name">预览图直显</div>\n                        <label class="qs-toggle">\n                            <input id="qs-detail-preview-inline" type="checkbox">\n                            <span class="qs-toggle-track"></span>\n                        </label>\n                    </div>\n                </div>\n                <div class="qs-footer">\n                    <button class="qs-more" type="button">更多设置</button>\n                </div>\n            `, 
                 document.body.appendChild(s);
-                const l = () => s.remove(), d = s.querySelector("#qs-columns"), p = s.querySelector("#qs-columns-value"), m = s.querySelector("#qs-zoom"), u = s.querySelector("#qs-zoom-value"), h = s.querySelector("#qs-pan115"), v = s.querySelector("#qs-infinite-scroll"), b = s.querySelector("#qs-list-preview"), f = s.querySelector("#qs-detail-preview-inline"), x = s.querySelector("#qs-title-translate"), y = s.querySelector("#qs-list-open-new-tab"), w = o.detectCurrentSite(), j = s.querySelector("#qs-detail-flex"), _ = {
+                const l = () => s.remove(), d = s.querySelector("#qs-columns"), p = s.querySelector("#qs-columns-value"), m = s.querySelector("#qs-zoom"), u = s.querySelector("#qs-zoom-value"), h = s.querySelector("#qs-pan115"), v = s.querySelector("#qs-infinite-scroll"), b = s.querySelector("#qs-list-preview"), f = s.querySelector("#qs-detail-preview-inline"), x = s.querySelector("#qs-title-translate"), y = s.querySelector("#qs-list-open-new-tab"), w = o.detectCurrentSite(), j = s.querySelector("#qs-detail-flex"), k = {
                     cover: s.querySelector("#qs-detail-cover"),
                     info: s.querySelector("#qs-detail-info"),
                     magnet: s.querySelector("#qs-detail-magnet")
-                }, k = {
+                }, _ = {
                     cover: s.querySelector("#qs-detail-cover-value"),
                     info: s.querySelector("#qs-detail-info-value"),
                     magnet: s.querySelector("#qs-detail-magnet-value")
                 }, S = e => (o.clamp(e) / 100).toFixed(2).replace(/\.?0+$/, ""), C = () => {
                     const e = w && o.hasMagnet(w), t = s.querySelector('[data-detail-flex-row="magnet"]');
-                    return t && t.classList.toggle("is-disabled", !e), _.magnet && (_.magnet.disabled = !e), 
-                    k.magnet && !e && (k.magnet.textContent = a.magnetTable ? "未渲染" : "关闭"), e;
+                    return t && t.classList.toggle("is-disabled", !e), k.magnet && (k.magnet.disabled = !e), 
+                    _.magnet && !e && (_.magnet.textContent = a.magnetTable ? "未渲染" : "关闭"), e;
                 };
                 if (c.bindRange(d, p, i.get(n), e => String(i.clamp(e)), e => {
                     const t = i.clamp(e);
@@ -841,8 +842,8 @@
                     r.set(n, t), r.apply(n, t);
                 }), w && o.hasLayout(w)) {
                     const e = o.get(w);
-                    j?.classList.add("is-visible"), Object.entries(_).forEach(([t, n]) => {
-                        const a = k[t];
+                    j?.classList.add("is-visible"), Object.entries(k).forEach(([t, n]) => {
+                        const a = _[t];
                         n && a && c.bindRange(n, a, e[t], S, e => {
                             if (!("magnet" !== t || C())) return;
                             const n = o.clamp(e);
@@ -885,8 +886,8 @@
                 [a.javdbSearchUrl]: v,
                 [a.ciligouUrl]: x,
                 [a.btdigUrl]: y,
-                [a.btsearchUrl]: _,
-                [a.sukebeiUrl]: k,
+                [a.btsearchUrl]: k,
+                [a.sukebeiUrl]: _,
                 [a.sokittyUrl]: S
             }),
             getCurrent() {
@@ -1161,7 +1162,7 @@
                 "x-sign": r(`${i.sort().join("&")}&key=long2ice`).toUpperCase()
             };
         }
-        async function _(e) {
+        async function k(e) {
             const t = "https://" + a.btsearchUrl, n = `${t}/search?keyword=${encodeURIComponent(e)}`, i = {
                 keyword: e,
                 limit: "10",
@@ -1186,7 +1187,7 @@
                 data: s
             };
         }
-        async function k(e) {
+        async function _(e) {
             const t = "https://" + a.sukebeiUrl, n = await u(`${t}/?f=0&c=0_0&q=${e}`);
             if (!n.loadstuts) return {
                 url: t,
@@ -1275,7 +1276,7 @@
                 e.target === r && p();
             }), c();
         }
-        function q(t) {
+        function A(t) {
             const n = document.createElement("table");
             n.id = "jav-nong-table", n.dataset.avid = t;
             const i = document.createElement("tr");
@@ -1302,7 +1303,7 @@
                 l.style.width = Math.max(e, 80) + "px";
             };
             requestAnimationFrame(c), l.addEventListener("change", () => {
-                L(n, t, l.value), requestAnimationFrame(c);
+                M(n, t, l.value), requestAnimationFrame(c);
             }), r.appendChild(l), i.appendChild(r), [ "大小", "操作", "115" ].forEach(e => {
                 const t = document.createElement("th");
                 t.textContent = e, "115" === e && (t.className = "nong-115-head"), i.appendChild(t);
@@ -1312,10 +1313,10 @@
             const u = document.createTextNode("Loading…"), h = document.createElement("a");
             return h.id = "jav-nong-refresh", h.href = "#", h.textContent = "🔄 刷新", h.title = "网络加载失败，点击重试", 
             h.addEventListener("click", e => {
-                e.preventDefault(), L(n, t, l.value);
+                e.preventDefault(), M(n, t, l.value);
             }), m.appendChild(u), m.appendChild(h), p.appendChild(m), n.appendChild(p), n;
         }
-        function A(e, t, n) {
+        function q(e, t, n) {
             const i = e => {
                 if (!e) return 0;
                 const t = e.replace(/,/g, "").match(/([\d.]+)\s*(GiB|MiB|KiB|GB|MB|KB|B)?/i);
@@ -1340,7 +1341,7 @@
                 r.addEventListener("click", t => {
                     t.preventDefault();
                     const n = e.querySelector("select")?.value || a.defaultEngine;
-                    L(e, e.dataset.avid || "", n);
+                    M(e, e.dataset.avid || "", n);
                 }), i.appendChild(r), t.appendChild(i), void e.appendChild(t);
             }
             t.forEach(t => {
@@ -1438,14 +1439,14 @@
                 }), y.appendChild(w), n.appendChild(y), e.appendChild(n);
             });
         }
-        async function L(t, n, a) {
+        async function M(t, n, a) {
             [ ...t.querySelectorAll("tr:not(.nong-head-row)") ].forEach(e => e.remove());
             const i = document.createElement("tr"), r = document.createElement("td");
             r.colSpan = 4, r.id = "jav-nong-notice";
             const o = document.createTextNode("Loading…"), l = t.querySelector("#jav-nong-refresh") || document.createElement("a");
             l.id = "jav-nong-refresh", l.href = "#", l.textContent = "🔄 刷新", l.style.cssText = "display:none;margin-left:8px;color:#e74c3c;font-weight:bold;cursor:pointer;", 
             l.onclick = e => {
-                e.preventDefault(), L(t, n, a);
+                e.preventDefault(), M(t, n, a);
             }, r.appendChild(o), r.appendChild(l), i.appendChild(r), t.appendChild(i);
             let d = !1;
             const c = setTimeout(() => {
@@ -1454,7 +1455,7 @@
             try {
                 const i = e.getAll(), r = i[a] || Object.values(i)[0], {url: o, data: s} = await r(n);
                 if (clearTimeout(c), d) return;
-                A(t, s, o);
+                q(t, s, o);
             } catch (e) {
                 clearTimeout(c), s("磁力搜索出错:", e), o.textContent = "搜索出错 ", l.style.display = "inline";
             }
@@ -1469,8 +1470,8 @@
                 const i = document.createElement("span");
                 i.style.cssText = "color:#0066cc;font-size:14px;font-weight:600;", i.textContent = "🔥 磁力搜索", 
                 n.appendChild(i), t.appendChild(n);
-                const r = q(e);
-                return t.appendChild(r), L(r, e, a.defaultEngine), t;
+                const r = A(e);
+                return t.appendChild(r), M(r, e, a.defaultEngine), t;
             },
             javdbApi: f
         };
@@ -1642,7 +1643,7 @@
         },
         _decorateCard(e) {
             if (!e) return;
-            if ("1" === e.dataset.laosijiGridCard) return void q.attach(e);
+            if ("1" === e.dataset.laosijiGridCard) return void A.attach(e);
             e.dataset.laosijiGridCard = "1", e.classList.add("jav-card", "javbus-grid-card"), 
             e.style.removeProperty("position"), e.style.removeProperty("top"), e.style.removeProperty("left"), 
             e.style.removeProperty("width");
@@ -1675,7 +1676,7 @@
             }
             const o = i?.querySelector("date");
             o && "1" !== o.dataset.laosijiCode && (o.dataset.laosijiCode = "1", o.classList.add("javbus-card-code")), 
-            q.attach(e);
+            A.attach(e);
         },
         _flattenWaterfall() {
             document.querySelectorAll('[id="waterfall"]').forEach(e => {
@@ -2300,7 +2301,7 @@
             const o = e.querySelector(".meta");
             o?.classList.add("javdb-card-meta");
             const s = e.querySelector(".tags");
-            s?.classList.add("javdb-card-tags"), q.attach(e);
+            s?.classList.add("javdb-card-tags"), A.attach(e);
         },
         _insertTopSettingsButton() {
             const e = document.querySelector("#navbar-menu-user .navbar-end");
@@ -2543,7 +2544,7 @@
             return null;
         },
         decorateInfiniteScrollItem(e, t) {
-            "javbus" === e && x._decorateCard?.(t), "javdb" === e && y._decorateCard?.(t), q.attach(t);
+            "javbus" === e && x._decorateCard?.(t), "javdb" === e && y._decorateCard?.(t), A.attach(t);
         },
         reflowInfiniteScroll(e, t) {
             if ("javbus" === e) {
@@ -2566,7 +2567,7 @@
             if (e.closest(".emby-btn, .emby-badge, .emby-button-group, .emby-javlibrary-list-badge")) return null;
             const t = e.getAttribute("href") || "";
             if (/^(?:magnet:|javascript:|#)/i.test(t)) return null;
-            const n = [ e.getAttribute("title"), e.getAttribute("aria-label"), e.textContent, t ].filter(Boolean).join(" "), a = C.extractCode(n), i = M.extractCode(n, a);
+            const n = [ e.getAttribute("title"), e.getAttribute("aria-label"), e.textContent, t ].filter(Boolean).join(" "), a = C.extractCode(n), i = P.extractCode(n, a);
             if (!a || !i) return null;
             const r = (e.textContent || e.getAttribute("title") || "").trim(), o = r.length > 0;
             if (!o) return null;
@@ -2582,7 +2583,7 @@
             /(javlibrary|javlib|r86m|s87n)/i.test(location.hostname) && document.querySelectorAll(".videothumblist .video > a[href]:not(.emby-javlibrary-list-badge)").forEach(e => {
                 if (t.has(e) || "1" === e.dataset.pan115Checked) return;
                 if (e.closest(".emby-btn, .emby-badge, .emby-button-group, .emby-javlibrary-list-badge")) return;
-                const a = e.closest(".video"), i = [ a?.querySelector(".id")?.textContent, a?.querySelector(".title")?.textContent, e.getAttribute("title"), e.href ].filter(Boolean).join(" "), r = C.extractCode(i), o = M.extractCode(i, r);
+                const a = e.closest(".video"), i = [ a?.querySelector(".id")?.textContent, a?.querySelector(".title")?.textContent, e.getAttribute("title"), e.href ].filter(Boolean).join(" "), r = C.extractCode(i), o = P.extractCode(i, r);
                 r && o && (t.add(e), n.push({
                     anchor: e,
                     code: o
@@ -2598,11 +2599,11 @@
             }), n;
         },
         insertPan115ListBadge(e, t, n) {
-            if (!M.enabled() || !t?.pickcode || !e || "1" === e.dataset.pan115HasBadge) return;
+            if (!P.enabled() || !t?.pickcode || !e || "1" === e.dataset.pan115HasBadge) return;
             if (e.matches?.(".emby-javlibrary-list-badge") || e.closest?.(".emby-btn, .emby-badge, .emby-button-group, .emby-javlibrary-list-badge")) return;
             const a = e.querySelector(".title, .video-title");
             if (a) {
-                const i = H(t, n, !1), r = a.querySelector(".javlib-card-headline");
+                const i = O(t, n, !1), r = a.querySelector(".javlib-card-headline");
                 if (r) {
                     const t = a.querySelector(".javlib-card-footer");
                     return t ? t.insertBefore(i, t.firstChild) : r.insertAdjacentElement("afterend", i), 
@@ -2614,10 +2615,10 @@
             }
             const i = this.findPan115TitleTextNode(e);
             if (i?.parentNode && e.contains(i.parentNode)) {
-                const e = H(t, n, !1);
+                const e = O(t, n, !1);
                 i.parentNode.insertBefore(e, i);
             } else {
-                const a = H(t, n, !0);
+                const a = O(t, n, !0);
                 e.parentNode?.insertBefore(a, e);
             }
             e.dataset.pan115HasBadge = "1";
@@ -2705,7 +2706,7 @@
             s("匹配站点:", e.constructor?.name || "未知", "| 番号:", t), e.initPage(t), r.applyCurrent(), 
             o.apply();
         }
-    }, _ = (() => {
+    }, k = (() => {
         const e = "laosijiListNewTab";
         function t() {
             if (j.isDetailPage()) return [];
@@ -2753,8 +2754,8 @@
             clear: () => i()
         };
     })();
-    l.expose("__LAOSIJI_LIST_OPEN_NEW_TAB__", _);
-    const k = (() => {
+    l.expose("__LAOSIJI_LIST_OPEN_NEW_TAB__", k);
+    const _ = (() => {
         let e = null;
         function t(e, t, n, a) {
             const i = document.createElement("button");
@@ -2917,8 +2918,8 @@
         j.initCurrent();
     }
     l.expose("__LAOSIJI_SITE_MANAGER__", j), l.expose("__LAOSIJI_SITE_JAVBUS__", x), 
-    l.expose("__LAOSIJI_SITE_JAVDB__", y), l.expose("__LAOSIJI_SITE_JAVLIB__", w), l.expose("__LAOSIJI_STILLS_GALLERY__", k), 
-    GM_addStyle('\n        .preview-overlay {\n            position: fixed;\n            inset: 0;\n            background: rgba(0,0,0,0.85);\n            z-index: 2147483647;\n            display: flex;\n            overflow: auto;\n            cursor: zoom-out;\n            backdrop-filter: blur(5px);\n        }\n        .preview-img {\n            border-radius: 4px;\n            margin: auto;\n            cursor: zoom-in;\n            max-width: 95vw;\n            max-height: 95vh;\n            object-fit: contain;\n            display: block;\n            box-shadow: 0 0 20px rgba(0,0,0,0.5);\n        }\n        .preview-img.zoomed {\n            max-width: none;\n            max-height: none;\n            cursor: zoom-out;\n        }\n        a:focus:not(:focus-visible),\n        button:focus:not(:focus-visible),\n        [role="button"]:focus:not(:focus-visible),\n        input[type="button"]:focus:not(:focus-visible),\n        input[type="submit"]:focus:not(:focus-visible) {\n            outline: none !important;\n        }\n\n        .jav-jump-btn-group {\n            margin-top: 8px;\n            margin-bottom: 4px;\n            display: flex;\n            flex-wrap: wrap;\n            gap: 8px;\n            align-items: center;\n        }\n\n\n        .emby-fix {\n            width: 100% !important;\n            flex-basis: 100% !important;\n            clear: both !important;\n            margin-top: 8px !important;\n            margin-bottom: 4px !important;\n        }\n\n        .mini-switch {\n            width: 40px;\n            height: 20px;\n            appearance: none;\n            background: #e0e0e0;\n            border-radius: 20px;\n            position: relative;\n            cursor: pointer;\n            outline: none;\n            transition: background 0.2s;\n        }\n        .mini-switch:checked {\n            background: #4CAF50;\n        }\n        .mini-switch::before {\n            content: \'\';\n            position: absolute;\n            width: 16px;\n            height: 16px;\n            border-radius: 50%;\n            background: white;\n            top: 2px;\n            left: 2px;\n            transition: left 0.2s;\n        }\n        .mini-switch:checked::before {\n            left: calc(100% - 18px);\n        }\n\n        @keyframes btnSlideIn {\n            from {\n                opacity: 0;\n                transform: translateX(-10px);\n            }\n            to {\n                opacity: 1;\n                transform: translateX(0);\n            }\n        }\n\n        .jav-jump-btn-group a {\n            transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;\n            animation: btnSlideIn 0.3s ease-out;\n        }\n\n        .jav-jump-btn-group a:hover {\n            background: var(--jav-btn-hover-bg, #f8fafc) !important;\n            transform: translateY(-1px) !important;\n            filter: none !important;\n            box-shadow: 0 5px 14px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.76) !important;\n            text-decoration: none !important;\n        }\n\n        @keyframes menuFadeIn {\n            from {\n                opacity: 0;\n                transform: translateY(-10px);\n            }\n            to {\n                opacity: 1;\n                transform: translateY(0);\n            }\n        }\n\n        .search-menu {\n            position: relative;\n            display: inline-block;\n            border-radius: 4px;\n        }\n        .search-main-btn {\n            padding-right: 28px !important;\n        }\n        .search-toggle-btn {\n            position: absolute;\n            right: 4px;\n            top: 50%;\n            transform: translateY(-50%);\n            width: 16px;\n            height: 16px;\n            padding: 0 !important;\n            margin: 0 !important;\n            display: inline-flex !important;\n            align-items: center;\n            justify-content: center;\n            flex-shrink: 0;\n            font-size: 10px !important;\n            line-height: 1;\n            opacity: 1;\n            background: color-mix(in srgb, var(--jav-btn-accent, #64748b) 18%, #ffffff) !important;\n            color: inherit !important;\n            border: 1px solid color-mix(in srgb, var(--jav-btn-accent, #64748b) 26%, #ffffff) !important;\n            border-radius: 999px !important;\n            box-shadow: 0 1px 2px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.7) !important;\n            cursor: pointer;\n        }\n        .search-toggle-btn:hover { filter: none; background: color-mix(in srgb, var(--jav-btn-accent, #64748b) 26%, #ffffff) !important; }\n        .search-toggle-btn .search-arrow { display: inline-block; transform: translateY(-1px); pointer-events: none; }\n        .search-submenu {\n            position: absolute;\n            top: calc(100% + 4px);\n            left: 0;\n            display: none;\n            flex-direction: column;\n            gap: 4px;\n            padding: 4px;\n            background: rgba(255,255,255,0.95);\n            border-radius: 6px;\n            box-shadow: 0 4px 12px rgba(0,0,0,0.2);\n            z-index: 10000;\n            min-width: 120px;\n            backdrop-filter: blur(5px);\n        }\n        .search-submenu.is-open { display: flex; }\n        .search-submenu a { transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; }\n        .search-submenu a:hover { transform: translateX(5px) scale(1.02); filter: brightness(1.1); }\n        .jav-pan115-badge {\n            display: inline-flex;\n            align-items: center;\n            justify-content: center;\n            min-width: 58px;\n            height: 22px !important;\n            padding: 0 7px;\n            margin-right: 6px;\n            position: static !important;\n            top: auto !important;\n            transform: none !important;\n            border-radius: 6px;\n            background: #bbf7d0;\n            border: 1px solid #22c55e;\n            color: #065f46;\n            font-size: 12px !important;\n            font-weight: 800;\n            line-height: 22px !important;\n            text-decoration: none;\n            box-sizing: border-box;\n            vertical-align: middle;\n            box-shadow: inset 0 1px 0 rgba(255,255,255,0.72);\n        }\n        .jav-pan115-badge:hover {\n            background: #86efac;\n            color: #064e3b;\n            text-decoration: none;\n            box-shadow: 0 4px 12px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.76);\n        }\n        span.jav-pan115-badge {\n            cursor: pointer;\n        }\n        .jav-infinite-sentinel {\n            width: 100%;\n            padding: 14px 0;\n            color: #64748b;\n            font-size: 13px;\n            font-weight: 700;\n            text-align: center;\n            clear: both;\n        }\n        .jav-infinite-sentinel.is-loading { color: #2563eb; }\n        .jav-infinite-sentinel.is-done { color: #94a3b8; }\n        .jav-infinite-sentinel.is-error { color: #dc2626; cursor: pointer; }\n\n        .preview-toolbar {\n            position: fixed;\n            top: 20px;\n            right: 20px;\n            display: flex;\n            gap: 8px;\n            z-index: 2147483648;\n            background: rgba(30, 30, 30, 0.75);\n            backdrop-filter: blur(10px);\n            padding: 6px 12px;\n            border-radius: 30px;\n            border: 1px solid rgba(255, 255, 255, 0.08);\n            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);\n        }\n\n        .preview-btn {\n            border: none;\n            color: #eee;\n            font-size: 13px;\n            font-weight: 450;\n            cursor: pointer;\n            padding: 6px 14px;\n            border-radius: 24px;\n            transition: all 0.2s ease;\n            display: inline-flex;\n            align-items: center;\n            gap: 6px;\n            background: rgba(100, 100, 120, 0.3);\n            border: 1px solid rgba(255, 255, 255, 0.05);\n            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);\n            letter-spacing: 0.2px;\n        }\n\n        .preview-btn:hover {\n            background: rgba(140, 140, 160, 0.4);\n            transform: translateY(-2px);\n            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);\n        }\n\n        .preview-btn.javfree.active {\n            background: #2ecc71;\n            color: white;\n            border-color: rgba(255, 255, 255, 0.3);\n            box-shadow: 0 0 16px rgba(46, 204, 113, 0.6);\n            font-weight: 500;\n        }\n\n        .preview-btn.javstore.active {\n            background: #e74c3c;\n            color: white;\n            border-color: rgba(255, 255, 255, 0.3);\n            box-shadow: 0 0 16px rgba(231, 76, 60, 0.6);\n            font-weight: 500;\n        }\n\n        .preview-btn.action {\n            background: rgba(100, 100, 120, 0.3);\n        }\n        .preview-btn.action:hover {\n            background: rgba(140, 140, 160, 0.5);\n        }\n\n        .preview-btn:active {\n            transform: translateY(0);\n            box-shadow: 0 2px 4px rgba(0,0,0,0.15);\n        }\n\n        .trailer-overlay {\n            position: fixed;\n            inset: 0;\n            z-index: 2147483647;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            padding: 34px;\n            background:\n                radial-gradient(circle at 50% 18%, rgba(56, 189, 248, 0.16), transparent 32%),\n                linear-gradient(180deg, rgba(5, 7, 12, 0.88), rgba(0, 0, 0, 0.96));\n            backdrop-filter: blur(16px) saturate(0.85);\n            cursor: default;\n        }\n        .trailer-modal {\n            width: min(1120px, 94vw);\n            max-height: 92vh;\n            display: flex;\n            flex-direction: column;\n            overflow: hidden;\n            color: #f8fafc;\n            background: #05070c;\n            border: 1px solid rgba(255, 255, 255, 0.12);\n            border-radius: 8px;\n            box-shadow:\n                0 30px 80px rgba(0, 0, 0, 0.68),\n                0 0 0 1px rgba(255, 255, 255, 0.04) inset;\n            cursor: default;\n            animation: trailerFadeIn .18s ease-out;\n        }\n        @keyframes trailerFadeIn {\n            from { opacity: 0; transform: translateY(14px) scale(.985); }\n            to { opacity: 1; transform: translateY(0) scale(1); }\n        }\n        .trailer-header {\n            position: absolute;\n            top: 0;\n            left: 0;\n            right: 0;\n            z-index: 4;\n            display: flex;\n            align-items: center;\n            justify-content: space-between;\n            gap: 16px;\n            padding: 16px 18px 34px;\n            background: linear-gradient(180deg, rgba(0, 0, 0, 0.66), rgba(0, 0, 0, 0));\n            border: 0;\n            pointer-events: none;\n            opacity: 1;\n            transition: opacity .18s ease, transform .18s ease;\n        }\n        .trailer-title {\n            min-width: 0;\n            display: flex;\n            align-items: center;\n            gap: 10px;\n            font: 700 15px/1.3 Arial, "Microsoft YaHei", sans-serif;\n            pointer-events: auto;\n        }\n        .trailer-code {\n            overflow: hidden;\n            text-overflow: ellipsis;\n            white-space: nowrap;\n            letter-spacing: .4px;\n        }\n        .trailer-source {\n            flex-shrink: 0;\n            padding: 3px 9px;\n            border-radius: 999px;\n            color: rgba(255, 255, 255, 0.82);\n            background: rgba(255, 255, 255, 0.12);\n            border: 1px solid rgba(255, 255, 255, 0.18);\n            font-size: 12px;\n            font-weight: 500;\n            backdrop-filter: blur(12px);\n        }\n        .jav-player-close {\n            width: 34px;\n            height: 34px;\n            border: 0;\n            border-radius: 50%;\n            color: #fff;\n            background: rgba(255, 255, 255, 0.14);\n            cursor: pointer;\n            font-size: 18px;\n            line-height: 34px;\n            pointer-events: auto;\n            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);\n            transition: transform .15s ease, background .15s ease, box-shadow .15s ease;\n        }\n        .jav-player-close:hover {\n            transform: scale(1.08);\n            background: rgba(248, 113, 113, 0.34);\n            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);\n        }\n        .trailer-screen {\n            position: relative;\n            aspect-ratio: 16 / 9;\n            width: 100%;\n            max-height: 82vh;\n            overflow: hidden;\n            background:\n                radial-gradient(circle at center, rgba(31, 41, 55, .75), #000 62%),\n                #000;\n        }\n        .trailer-screen:fullscreen {\n            width: 100vw;\n            height: 100vh;\n            max-height: none;\n            aspect-ratio: auto;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            background: #000;\n        }\n        .trailer-screen:-webkit-full-screen {\n            width: 100vw;\n            height: 100vh;\n            max-height: none;\n            aspect-ratio: auto;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            background: #000;\n        }\n        .trailer-screen::before {\n            content: "";\n            position: absolute;\n            inset: 0;\n            z-index: 1;\n            pointer-events: none;\n            background:\n                linear-gradient(180deg, rgba(0, 0, 0, 0.52), rgba(0, 0, 0, 0) 30%),\n                linear-gradient(0deg, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0) 36%);\n        }\n        .trailer-screen.is-iframe::before {\n            display: none;\n        }\n        .trailer-screen video,\n        .trailer-screen iframe {\n            position: absolute;\n            inset: 0;\n            width: 100%;\n            height: 100%;\n            display: block;\n            border: 0;\n            background: #000;\n            object-fit: contain;\n        }\n        .trailer-volume-indicator {\n            position: absolute;\n            top: 62px;\n            right: 26px;\n            z-index: 5;\n            color: #f8fafc;\n            font: 750 24px/1 Arial, "Microsoft YaHei", sans-serif;\n            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.82);\n            opacity: 0;\n            pointer-events: none;\n            transition: opacity .14s ease;\n        }\n        .trailer-volume-indicator.is-visible {\n            opacity: 1;\n        }\n        .trailer-quality-bar {\n            display: flex;\n            align-items: center;\n            gap: 8px;\n            padding: 0;\n            background: transparent;\n            border: none;\n            border-radius: 0;\n            backdrop-filter: none;\n        }\n        .trailer-quality-select {\n            min-width: 78px;\n            max-width: 140px;\n            height: 30px;\n            padding: 0 10px;\n            border-radius: 999px;\n            border: 1px solid rgba(255, 255, 255, 0.16);\n            background: rgba(255, 255, 255, 0.12);\n            color: #f8fafc;\n            outline: none;\n            font-size: 12px;\n            line-height: 28px;\n            text-align: center;\n            text-align-last: center;\n            appearance: none;\n            cursor: pointer;\n        }\n        .trailer-quality-select option {\n            background: #0b1020;\n            color: #f8fafc;\n        }\n        .trailer-footer {\n            position: absolute;\n            left: 16px;\n            right: 16px;\n            bottom: 16px;\n            z-index: 4;\n            display: flex;\n            align-items: center;\n            justify-content: space-between;\n            gap: 10px;\n            padding: 9px 10px;\n            color: rgba(255, 255, 255, 0.78);\n            background: rgba(10, 14, 22, 0.62);\n            border: 1px solid rgba(255, 255, 255, 0.16);\n            border-radius: 8px;\n            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);\n            backdrop-filter: blur(16px) saturate(1.08);\n            font: 12px/1.4 Arial, "Microsoft YaHei", sans-serif;\n            opacity: 1;\n            transform: translateY(0);\n            transition: opacity .18s ease, transform .18s ease;\n        }\n        .trailer-screen.is-controls-hidden {\n            cursor: none;\n        }\n        .trailer-screen.is-controls-hidden .trailer-header {\n            opacity: 0;\n            transform: translateY(-8px);\n            pointer-events: none;\n        }\n        .trailer-screen.is-controls-hidden .trailer-footer {\n            opacity: 0;\n            transform: translateY(10px);\n            pointer-events: none;\n        }\n        .trailer-control-left,\n        .trailer-control-right {\n            display: flex;\n            align-items: center;\n            gap: 9px;\n            min-width: 0;\n        }\n        .trailer-control-left {\n            flex: 1 1 auto;\n        }\n        .trailer-control-right {\n            flex: 0 0 auto;\n        }\n        .trailer-control-btn {\n            width: 30px;\n            height: 30px;\n            display: inline-flex;\n            align-items: center;\n            justify-content: center;\n            flex: 0 0 auto;\n            padding: 0;\n            border: 0;\n            border-radius: 999px;\n            color: #fff;\n            background: rgba(255, 255, 255, 0.14);\n            cursor: pointer;\n            font: 700 13px/1 Arial, "Microsoft YaHei", sans-serif;\n            transition: background .15s ease, transform .15s ease;\n        }\n        .trailer-control-btn:hover {\n            background: rgba(255, 255, 255, 0.24);\n            transform: translateY(-1px);\n        }\n        .trailer-volume-wrap {\n            position: relative;\n            display: inline-flex;\n            flex: 0 0 auto;\n            align-items: center;\n            justify-content: center;\n        }\n        .trailer-volume-wrap::before {\n            content: "";\n            position: absolute;\n            left: 50%;\n            bottom: 100%;\n            width: 46px;\n            height: 14px;\n            transform: translateX(-50%);\n        }\n        .trailer-volume-popover {\n            position: absolute;\n            left: 50%;\n            bottom: calc(100% + 8px);\n            width: 34px;\n            height: 118px;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            padding: 10px 0;\n            border-radius: 999px;\n            background: rgba(10, 14, 22, 0.76);\n            border: 1px solid rgba(255, 255, 255, 0.16);\n            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.34);\n            backdrop-filter: blur(16px) saturate(1.08);\n            opacity: 0;\n            pointer-events: none;\n            transform: translate(-50%, 6px);\n            transition: opacity .15s ease, transform .15s ease;\n        }\n        .trailer-volume-wrap:hover .trailer-volume-popover {\n            opacity: 1;\n            pointer-events: auto;\n            transform: translate(-50%, 0);\n        }\n        .trailer-volume-rail {\n            position: absolute;\n            left: 50%;\n            top: 14px;\n            bottom: 14px;\n            width: 4px;\n            transform: translateX(-50%);\n            border-radius: 999px;\n            background: rgba(255, 255, 255, 0.32);\n            pointer-events: none;\n        }\n        .trailer-volume-fill {\n            position: absolute;\n            left: 0;\n            right: 0;\n            bottom: 0;\n            height: var(--volume-percent, 35%);\n            border-radius: 999px;\n            background: #38bdf8;\n        }\n        .trailer-volume-thumb {\n            position: absolute;\n            left: 50%;\n            bottom: var(--volume-percent, 35%);\n            width: 16px;\n            height: 16px;\n            transform: translate(-50%, 50%);\n            border-radius: 50%;\n            background: #38bdf8;\n            border: 2px solid rgba(255, 255, 255, 0.92);\n            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.38);\n        }\n        .trailer-volume-slider {\n            position: absolute;\n            top: 8px;\n            bottom: 8px;\n            left: 50%;\n            width: 16px;\n            height: calc(100% - 16px);\n            margin: 0;\n            transform: translateX(-50%);\n            appearance: none;\n            -webkit-appearance: none;\n            writing-mode: vertical-lr;\n            direction: rtl;\n            background: transparent;\n            cursor: pointer;\n        }\n        .trailer-volume-slider::-webkit-slider-runnable-track {\n            width: 100%;\n            height: 100%;\n            background: transparent;\n        }\n        .trailer-volume-slider::-moz-range-track {\n            width: 100%;\n            height: 100%;\n            background: transparent;\n        }\n        .trailer-volume-slider::-webkit-slider-thumb {\n            -webkit-appearance: none;\n            width: 24px;\n            height: 16px;\n            background: transparent;\n            border: 0;\n            box-shadow: none;\n        }\n        .trailer-volume-slider::-moz-range-thumb {\n            width: 24px;\n            height: 16px;\n            background: transparent;\n            border: 0;\n            box-shadow: none;\n        }\n        .trailer-time {\n            flex: 0 0 auto;\n            min-width: 36px;\n            color: rgba(255, 255, 255, 0.78);\n            font: 11px/1.3 Arial, "Microsoft YaHei", sans-serif;\n            white-space: nowrap;\n            text-align: center;\n        }\n        .trailer-progress {\n            flex: 1 1 160px;\n            min-width: 120px;\n            height: 4px;\n            margin: 0;\n            border-radius: 999px;\n            accent-color: #38bdf8;\n            cursor: pointer;\n        }\n        .jav-jump-toast {\n            position: fixed;\n            left: 50%;\n            top: 72px;\n            z-index: 2147483647;\n            display: flex;\n            align-items: flex-start;\n            gap: 12px;\n            width: min(420px, calc(100vw - 32px));\n            padding: 14px 16px;\n            color: #f8fafc;\n            background: rgba(15, 23, 42, 0.94);\n            border: 1px solid rgba(148, 163, 184, 0.28);\n            border-left: 4px solid #38bdf8;\n            border-radius: 12px;\n            box-shadow:\n                0 18px 44px rgba(0, 0, 0, 0.34),\n                0 0 0 1px rgba(255, 255, 255, 0.04) inset;\n            backdrop-filter: blur(14px) saturate(1.1);\n            font-family: Arial, "Microsoft YaHei", sans-serif;\n            transform: translate(-50%, -12px);\n            opacity: 0;\n            pointer-events: none;\n            transition: opacity .18s ease, transform .18s ease;\n        }\n        .jav-jump-toast.show {\n            opacity: 1;\n            transform: translate(-50%, 0);\n        }\n        .jav-jump-toast.hide {\n            opacity: 0;\n            transform: translate(-50%, -12px);\n        }\n        .jav-jump-toast-icon {\n            flex: 0 0 auto;\n            width: 24px;\n            height: 24px;\n            border-radius: 999px;\n            color: #082f49;\n            background: #7dd3fc;\n            font-size: 16px;\n            font-weight: 800;\n            line-height: 24px;\n            text-align: center;\n        }\n        .jav-jump-toast-title {\n            margin: 0 0 4px;\n            font-size: 14px;\n            font-weight: 700;\n            line-height: 1.35;\n        }\n        .jav-jump-toast-message {\n            margin: 0;\n            color: #cbd5e1;\n            font-size: 13px;\n            line-height: 1.45;\n        }\n        @media (max-width: 720px) {\n            .trailer-overlay { padding: 12px; }\n            .trailer-modal { width: 100%; border-radius: 8px; }\n            .trailer-header { padding: 12px 12px 30px; }\n            .trailer-title { gap: 7px; font-size: 13px; }\n            .trailer-source { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n            .trailer-footer {\n                left: 8px;\n                right: 8px;\n                bottom: 8px;\n                flex-direction: column;\n                align-items: stretch;\n                gap: 7px;\n                padding: 8px;\n            }\n            .trailer-control-left,\n            .trailer-control-right {\n                width: 100%;\n                justify-content: center;\n            }\n            .trailer-progress { min-width: 80px; }\n            .jav-jump-toast {\n                top: 18px;\n                width: calc(100vw - 24px);\n                padding: 13px 14px;\n            }\n        }\n    ');
+    l.expose("__LAOSIJI_SITE_JAVDB__", y), l.expose("__LAOSIJI_SITE_JAVLIB__", w), l.expose("__LAOSIJI_STILLS_GALLERY__", _), 
+    GM_addStyle('\n        .preview-overlay {\n            position: fixed;\n            inset: 0;\n            background: rgba(0,0,0,0.85);\n            z-index: 2147483647;\n            display: flex;\n            overflow: auto;\n            cursor: zoom-out;\n            backdrop-filter: blur(5px);\n        }\n        .preview-img {\n            border-radius: 4px;\n            margin: auto;\n            cursor: zoom-in;\n            max-width: 95vw;\n            max-height: 95vh;\n            object-fit: contain;\n            display: block;\n            box-shadow: 0 0 20px rgba(0,0,0,0.5);\n        }\n        .preview-img.zoomed {\n            max-width: none;\n            max-height: none;\n            cursor: zoom-out;\n        }\n        a:focus:not(:focus-visible),\n        button:focus:not(:focus-visible),\n        [role="button"]:focus:not(:focus-visible),\n        input[type="button"]:focus:not(:focus-visible),\n        input[type="submit"]:focus:not(:focus-visible) {\n            outline: none !important;\n        }\n\n        .jav-jump-btn-group {\n            margin-top: 8px;\n            margin-bottom: 4px;\n            display: flex;\n            flex-wrap: wrap;\n            gap: 8px;\n            align-items: center;\n        }\n\n\n        .emby-fix {\n            width: 100% !important;\n            flex-basis: 100% !important;\n            clear: both !important;\n            margin-top: 8px !important;\n            margin-bottom: 4px !important;\n        }\n\n        .mini-switch {\n            width: 40px;\n            height: 20px;\n            appearance: none;\n            background: #e0e0e0;\n            border-radius: 20px;\n            position: relative;\n            cursor: pointer;\n            outline: none;\n            transition: background 0.2s;\n        }\n        .mini-switch:checked {\n            background: #4CAF50;\n        }\n        .mini-switch::before {\n            content: \'\';\n            position: absolute;\n            width: 16px;\n            height: 16px;\n            border-radius: 50%;\n            background: white;\n            top: 2px;\n            left: 2px;\n            transition: left 0.2s;\n        }\n        .mini-switch:checked::before {\n            left: calc(100% - 18px);\n        }\n\n        @keyframes btnSlideIn {\n            from {\n                opacity: 0;\n                transform: translateX(-10px);\n            }\n            to {\n                opacity: 1;\n                transform: translateX(0);\n            }\n        }\n\n        .jav-jump-btn-group a {\n            transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;\n            animation: btnSlideIn 0.3s ease-out;\n        }\n\n        .jav-jump-btn-group a:hover {\n            background: var(--jav-btn-hover-bg, #f8fafc) !important;\n            transform: translateY(-1px) !important;\n            filter: none !important;\n            box-shadow: 0 5px 14px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.76) !important;\n            text-decoration: none !important;\n        }\n\n        @keyframes menuFadeIn {\n            from {\n                opacity: 0;\n                transform: translateY(-10px);\n            }\n            to {\n                opacity: 1;\n                transform: translateY(0);\n            }\n        }\n\n        .search-menu {\n            position: relative;\n            display: inline-block;\n            border-radius: 4px;\n        }\n        .search-main-btn {\n            padding-right: 28px !important;\n        }\n        .search-toggle-btn {\n            position: absolute;\n            right: 4px;\n            top: 50%;\n            transform: translateY(-50%);\n            width: 16px;\n            height: 16px;\n            padding: 0 !important;\n            margin: 0 !important;\n            display: inline-flex !important;\n            align-items: center;\n            justify-content: center;\n            flex-shrink: 0;\n            font-size: 10px !important;\n            line-height: 1;\n            opacity: 1;\n            background: color-mix(in srgb, var(--jav-btn-accent, #64748b) 18%, #ffffff) !important;\n            color: inherit !important;\n            border: 1px solid color-mix(in srgb, var(--jav-btn-accent, #64748b) 26%, #ffffff) !important;\n            border-radius: 999px !important;\n            box-shadow: 0 1px 2px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.7) !important;\n            cursor: pointer;\n        }\n        .search-toggle-btn:hover { filter: none; background: color-mix(in srgb, var(--jav-btn-accent, #64748b) 26%, #ffffff) !important; }\n        .search-toggle-btn .search-arrow { display: inline-block; transform: translateY(-1px); pointer-events: none; }\n        .search-submenu {\n            position: absolute;\n            top: calc(100% + 4px);\n            left: 0;\n            display: none;\n            flex-direction: column;\n            gap: 4px;\n            padding: 4px;\n            background: rgba(255,255,255,0.95);\n            border-radius: 6px;\n            box-shadow: 0 4px 12px rgba(0,0,0,0.2);\n            z-index: 10000;\n            min-width: 120px;\n            backdrop-filter: blur(5px);\n        }\n        .search-submenu.is-open { display: flex; }\n        .search-submenu a { transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; }\n        .search-submenu a:hover { transform: translateX(5px) scale(1.02); filter: brightness(1.1); }\n        .jav-pan115-badge {\n            display: inline-flex;\n            align-items: center;\n            justify-content: center;\n            min-width: 58px;\n            height: 22px !important;\n            padding: 0 7px;\n            margin-right: 6px;\n            position: static !important;\n            top: auto !important;\n            transform: none !important;\n            border-radius: 6px;\n            background: #bbf7d0;\n            border: 1px solid #22c55e;\n            color: #065f46;\n            font-size: 12px !important;\n            font-weight: 800;\n            line-height: 22px !important;\n            text-decoration: none;\n            box-sizing: border-box;\n            vertical-align: middle;\n            box-shadow: inset 0 1px 0 rgba(255,255,255,0.72);\n        }\n        .jav-pan115-badge:hover {\n            background: #86efac;\n            color: #064e3b;\n            text-decoration: none;\n            box-shadow: 0 4px 12px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.76);\n        }\n        span.jav-pan115-badge {\n            cursor: pointer;\n        }\n        .jav-infinite-sentinel {\n            width: 100%;\n            padding: 14px 0;\n            color: #64748b;\n            font-size: 13px;\n            font-weight: 700;\n            text-align: center;\n            clear: both;\n        }\n        .jav-infinite-sentinel.is-loading { color: #2563eb; }\n        .jav-infinite-sentinel.is-done { color: #94a3b8; }\n        .jav-infinite-sentinel.is-error { color: #dc2626; cursor: pointer; }\n\n        .preview-toolbar {\n            position: fixed;\n            top: 20px;\n            right: 20px;\n            display: flex;\n            gap: 8px;\n            z-index: 2147483648;\n            background: rgba(30, 30, 30, 0.75);\n            backdrop-filter: blur(10px);\n            padding: 6px 12px;\n            border-radius: 30px;\n            border: 1px solid rgba(255, 255, 255, 0.08);\n            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);\n        }\n\n        .preview-btn {\n            border: none;\n            color: #eee;\n            font-size: 13px;\n            font-weight: 450;\n            cursor: pointer;\n            padding: 6px 14px;\n            border-radius: 24px;\n            transition: all 0.2s ease;\n            display: inline-flex;\n            align-items: center;\n            gap: 6px;\n            background: rgba(100, 100, 120, 0.3);\n            border: 1px solid rgba(255, 255, 255, 0.05);\n            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);\n            letter-spacing: 0.2px;\n        }\n\n        .preview-btn:hover {\n            background: rgba(140, 140, 160, 0.4);\n            transform: translateY(-2px);\n            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);\n        }\n\n        .preview-btn.javfree.active {\n            background: #2ecc71;\n            color: white;\n            border-color: rgba(255, 255, 255, 0.3);\n            box-shadow: 0 0 16px rgba(46, 204, 113, 0.6);\n            font-weight: 500;\n        }\n\n        .preview-btn.javstore.active {\n            background: #e74c3c;\n            color: white;\n            border-color: rgba(255, 255, 255, 0.3);\n            box-shadow: 0 0 16px rgba(231, 76, 60, 0.6);\n            font-weight: 500;\n        }\n\n        .preview-btn.action {\n            background: rgba(100, 100, 120, 0.3);\n        }\n        .preview-btn.action:hover {\n            background: rgba(140, 140, 160, 0.5);\n        }\n\n        .preview-btn:active {\n            transform: translateY(0);\n            box-shadow: 0 2px 4px rgba(0,0,0,0.15);\n        }\n\n        .trailer-overlay {\n            position: fixed;\n            inset: 0;\n            z-index: 2147483647;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            padding: 34px;\n            background:\n                radial-gradient(circle at 50% 18%, rgba(56, 189, 248, 0.16), transparent 32%),\n                linear-gradient(180deg, rgba(5, 7, 12, 0.88), rgba(0, 0, 0, 0.96));\n            backdrop-filter: blur(16px) saturate(0.85);\n            cursor: default;\n        }\n        .trailer-modal {\n            width: min(1120px, 94vw);\n            max-height: 92vh;\n            display: flex;\n            flex-direction: column;\n            overflow: hidden;\n            color: #f8fafc;\n            background: #05070c;\n            border: 1px solid rgba(255, 255, 255, 0.12);\n            border-radius: 8px;\n            box-shadow:\n                0 30px 80px rgba(0, 0, 0, 0.68),\n                0 0 0 1px rgba(255, 255, 255, 0.04) inset;\n            cursor: default;\n            animation: trailerFadeIn .18s ease-out;\n        }\n        @keyframes trailerFadeIn {\n            from { opacity: 0; transform: translateY(14px) scale(.985); }\n            to { opacity: 1; transform: translateY(0) scale(1); }\n        }\n        .trailer-header {\n            position: absolute;\n            top: 0;\n            left: 0;\n            right: 0;\n            z-index: 4;\n            display: flex;\n            align-items: center;\n            justify-content: space-between;\n            gap: 16px;\n            padding: 16px 18px 34px;\n            background: linear-gradient(180deg, rgba(0, 0, 0, 0.66), rgba(0, 0, 0, 0));\n            border: 0;\n            pointer-events: none;\n            opacity: 1;\n            transition: opacity .18s ease, transform .18s ease;\n        }\n        .trailer-title {\n            min-width: 0;\n            display: flex;\n            align-items: center;\n            gap: 10px;\n            font: 700 15px/1.3 Arial, "Microsoft YaHei", sans-serif;\n            pointer-events: auto;\n        }\n        .trailer-code {\n            overflow: hidden;\n            text-overflow: ellipsis;\n            white-space: nowrap;\n            letter-spacing: .4px;\n        }\n        .trailer-source {\n            flex-shrink: 0;\n            padding: 3px 9px;\n            border-radius: 999px;\n            color: rgba(255, 255, 255, 0.82);\n            background: rgba(255, 255, 255, 0.12);\n            border: 1px solid rgba(255, 255, 255, 0.18);\n            font-size: 12px;\n            font-weight: 500;\n            backdrop-filter: blur(12px);\n        }\n        .jav-player-close {\n            width: 34px;\n            height: 34px;\n            border: 0;\n            border-radius: 50%;\n            color: #fff;\n            background: rgba(255, 255, 255, 0.14);\n            cursor: pointer;\n            font-size: 18px;\n            line-height: 34px;\n            pointer-events: auto;\n            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);\n            transition: transform .15s ease, background .15s ease, box-shadow .15s ease;\n        }\n        .jav-player-close:hover {\n            transform: scale(1.08);\n            background: rgba(248, 113, 113, 0.34);\n            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);\n        }\n        .trailer-screen {\n            position: relative;\n            aspect-ratio: 16 / 9;\n            width: 100%;\n            max-height: 82vh;\n            overflow: hidden;\n            background:\n                radial-gradient(circle at center, rgba(31, 41, 55, .75), #000 62%),\n                #000;\n        }\n        .trailer-screen:fullscreen {\n            width: 100vw;\n            height: 100vh;\n            max-height: none;\n            aspect-ratio: auto;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            background: #000;\n        }\n        .trailer-screen:-webkit-full-screen {\n            width: 100vw;\n            height: 100vh;\n            max-height: none;\n            aspect-ratio: auto;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            background: #000;\n        }\n        .trailer-screen::before {\n            content: "";\n            position: absolute;\n            inset: 0;\n            z-index: 1;\n            pointer-events: none;\n            background:\n                linear-gradient(180deg, rgba(0, 0, 0, 0.52), rgba(0, 0, 0, 0) 30%),\n                linear-gradient(0deg, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0) 36%);\n        }\n        .trailer-screen.is-iframe::before {\n            display: none;\n        }\n        .trailer-screen video,\n        .trailer-screen iframe {\n            position: absolute;\n            inset: 0;\n            width: 100%;\n            height: 100%;\n            display: block;\n            border: 0;\n            background: #000;\n            object-fit: contain;\n        }\n        .trailer-volume-indicator {\n            position: absolute;\n            top: 62px;\n            right: 26px;\n            z-index: 5;\n            color: #f8fafc;\n            font: 750 24px/1 Arial, "Microsoft YaHei", sans-serif;\n            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.82);\n            opacity: 0;\n            pointer-events: none;\n            transition: opacity .14s ease;\n        }\n        .trailer-volume-indicator.is-visible {\n            opacity: 1;\n        }\n        .trailer-fallback-status {\n            position: absolute;\n            left: 18px;\n            top: 58px;\n            z-index: 5;\n            max-width: min(520px, calc(100% - 36px));\n            padding: 7px 10px;\n            border-radius: 8px;\n            color: rgba(255, 255, 255, 0.9);\n            background: rgba(10, 14, 22, 0.68);\n            border: 1px solid rgba(255, 255, 255, 0.16);\n            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);\n            backdrop-filter: blur(14px);\n            font: 12px/1.45 Arial, "Microsoft YaHei", sans-serif;\n            opacity: 0;\n            transform: translateY(-4px);\n            pointer-events: none;\n            transition: opacity .16s ease, transform .16s ease;\n        }\n        .trailer-fallback-status.is-visible {\n            opacity: 1;\n            transform: translateY(0);\n        }\n        .trailer-quality-bar {\n            display: flex;\n            align-items: center;\n            gap: 8px;\n            padding: 0;\n            background: transparent;\n            border: none;\n            border-radius: 0;\n            backdrop-filter: none;\n        }\n        .trailer-quality-select {\n            min-width: 78px;\n            max-width: 140px;\n            height: 30px;\n            padding: 0 10px;\n            border-radius: 999px;\n            border: 1px solid rgba(255, 255, 255, 0.16);\n            background: rgba(255, 255, 255, 0.12);\n            color: #f8fafc;\n            outline: none;\n            font-size: 12px;\n            line-height: 28px;\n            text-align: center;\n            text-align-last: center;\n            appearance: none;\n            cursor: pointer;\n        }\n        .trailer-quality-select option {\n            background: #0b1020;\n            color: #f8fafc;\n        }\n        .trailer-footer {\n            position: absolute;\n            left: 16px;\n            right: 16px;\n            bottom: 16px;\n            z-index: 4;\n            display: flex;\n            align-items: center;\n            justify-content: space-between;\n            gap: 10px;\n            padding: 9px 10px;\n            color: rgba(255, 255, 255, 0.78);\n            background: rgba(10, 14, 22, 0.62);\n            border: 1px solid rgba(255, 255, 255, 0.16);\n            border-radius: 8px;\n            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);\n            backdrop-filter: blur(16px) saturate(1.08);\n            font: 12px/1.4 Arial, "Microsoft YaHei", sans-serif;\n            opacity: 1;\n            transform: translateY(0);\n            transition: opacity .18s ease, transform .18s ease;\n        }\n        .trailer-screen.is-controls-hidden {\n            cursor: none;\n        }\n        .trailer-screen.is-controls-hidden .trailer-header {\n            opacity: 0;\n            transform: translateY(-8px);\n            pointer-events: none;\n        }\n        .trailer-screen.is-controls-hidden .trailer-footer {\n            opacity: 0;\n            transform: translateY(10px);\n            pointer-events: none;\n        }\n        .trailer-control-left,\n        .trailer-control-right {\n            display: flex;\n            align-items: center;\n            gap: 9px;\n            min-width: 0;\n        }\n        .trailer-control-left {\n            flex: 1 1 auto;\n        }\n        .trailer-control-right {\n            flex: 0 0 auto;\n        }\n        .trailer-control-btn {\n            width: 30px;\n            height: 30px;\n            display: inline-flex;\n            align-items: center;\n            justify-content: center;\n            flex: 0 0 auto;\n            padding: 0;\n            border: 0;\n            border-radius: 999px;\n            color: #fff;\n            background: rgba(255, 255, 255, 0.14);\n            cursor: pointer;\n            font: 700 13px/1 Arial, "Microsoft YaHei", sans-serif;\n            transition: background .15s ease, transform .15s ease;\n        }\n        .trailer-control-btn:hover {\n            background: rgba(255, 255, 255, 0.24);\n            transform: translateY(-1px);\n        }\n        .trailer-volume-wrap {\n            position: relative;\n            display: inline-flex;\n            flex: 0 0 auto;\n            align-items: center;\n            justify-content: center;\n        }\n        .trailer-volume-wrap::before {\n            content: "";\n            position: absolute;\n            left: 50%;\n            bottom: 100%;\n            width: 46px;\n            height: 14px;\n            transform: translateX(-50%);\n        }\n        .trailer-volume-popover {\n            position: absolute;\n            left: 50%;\n            bottom: calc(100% + 8px);\n            width: 34px;\n            height: 118px;\n            display: flex;\n            align-items: center;\n            justify-content: center;\n            padding: 10px 0;\n            border-radius: 999px;\n            background: rgba(10, 14, 22, 0.76);\n            border: 1px solid rgba(255, 255, 255, 0.16);\n            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.34);\n            backdrop-filter: blur(16px) saturate(1.08);\n            opacity: 0;\n            pointer-events: none;\n            transform: translate(-50%, 6px);\n            transition: opacity .15s ease, transform .15s ease;\n        }\n        .trailer-volume-wrap:hover .trailer-volume-popover {\n            opacity: 1;\n            pointer-events: auto;\n            transform: translate(-50%, 0);\n        }\n        .trailer-volume-rail {\n            position: absolute;\n            left: 50%;\n            top: 14px;\n            bottom: 14px;\n            width: 4px;\n            transform: translateX(-50%);\n            border-radius: 999px;\n            background: rgba(255, 255, 255, 0.32);\n            pointer-events: none;\n        }\n        .trailer-volume-fill {\n            position: absolute;\n            left: 0;\n            right: 0;\n            bottom: 0;\n            height: var(--volume-percent, 35%);\n            border-radius: 999px;\n            background: #38bdf8;\n        }\n        .trailer-volume-thumb {\n            position: absolute;\n            left: 50%;\n            bottom: var(--volume-percent, 35%);\n            width: 16px;\n            height: 16px;\n            transform: translate(-50%, 50%);\n            border-radius: 50%;\n            background: #38bdf8;\n            border: 2px solid rgba(255, 255, 255, 0.92);\n            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.38);\n        }\n        .trailer-volume-slider {\n            position: absolute;\n            top: 8px;\n            bottom: 8px;\n            left: 50%;\n            width: 16px;\n            height: calc(100% - 16px);\n            margin: 0;\n            transform: translateX(-50%);\n            appearance: none;\n            -webkit-appearance: none;\n            writing-mode: vertical-lr;\n            direction: rtl;\n            background: transparent;\n            cursor: pointer;\n        }\n        .trailer-volume-slider::-webkit-slider-runnable-track {\n            width: 100%;\n            height: 100%;\n            background: transparent;\n        }\n        .trailer-volume-slider::-moz-range-track {\n            width: 100%;\n            height: 100%;\n            background: transparent;\n        }\n        .trailer-volume-slider::-webkit-slider-thumb {\n            -webkit-appearance: none;\n            width: 24px;\n            height: 16px;\n            background: transparent;\n            border: 0;\n            box-shadow: none;\n        }\n        .trailer-volume-slider::-moz-range-thumb {\n            width: 24px;\n            height: 16px;\n            background: transparent;\n            border: 0;\n            box-shadow: none;\n        }\n        .trailer-time {\n            flex: 0 0 auto;\n            min-width: 36px;\n            color: rgba(255, 255, 255, 0.78);\n            font: 11px/1.3 Arial, "Microsoft YaHei", sans-serif;\n            white-space: nowrap;\n            text-align: center;\n        }\n        .trailer-progress {\n            flex: 1 1 160px;\n            min-width: 120px;\n            height: 4px;\n            margin: 0;\n            border-radius: 999px;\n            accent-color: #38bdf8;\n            cursor: pointer;\n        }\n        .jav-jump-toast {\n            position: fixed;\n            left: 50%;\n            top: 72px;\n            z-index: 2147483647;\n            display: flex;\n            align-items: flex-start;\n            gap: 12px;\n            width: min(420px, calc(100vw - 32px));\n            padding: 14px 16px;\n            color: #f8fafc;\n            background: rgba(15, 23, 42, 0.94);\n            border: 1px solid rgba(148, 163, 184, 0.28);\n            border-left: 4px solid #38bdf8;\n            border-radius: 12px;\n            box-shadow:\n                0 18px 44px rgba(0, 0, 0, 0.34),\n                0 0 0 1px rgba(255, 255, 255, 0.04) inset;\n            backdrop-filter: blur(14px) saturate(1.1);\n            font-family: Arial, "Microsoft YaHei", sans-serif;\n            transform: translate(-50%, -12px);\n            opacity: 0;\n            pointer-events: none;\n            transition: opacity .18s ease, transform .18s ease;\n        }\n        .jav-jump-toast.show {\n            opacity: 1;\n            transform: translate(-50%, 0);\n        }\n        .jav-jump-toast.hide {\n            opacity: 0;\n            transform: translate(-50%, -12px);\n        }\n        .jav-jump-toast-icon {\n            flex: 0 0 auto;\n            width: 24px;\n            height: 24px;\n            border-radius: 999px;\n            color: #082f49;\n            background: #7dd3fc;\n            font-size: 16px;\n            font-weight: 800;\n            line-height: 24px;\n            text-align: center;\n        }\n        .jav-jump-toast-title {\n            margin: 0 0 4px;\n            font-size: 14px;\n            font-weight: 700;\n            line-height: 1.35;\n        }\n        .jav-jump-toast-message {\n            margin: 0;\n            color: #cbd5e1;\n            font-size: 13px;\n            line-height: 1.45;\n        }\n        @media (max-width: 720px) {\n            .trailer-overlay { padding: 12px; }\n            .trailer-modal { width: 100%; border-radius: 8px; }\n            .trailer-header { padding: 12px 12px 30px; }\n            .trailer-title { gap: 7px; font-size: 13px; }\n            .trailer-source { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n            .trailer-footer {\n                left: 8px;\n                right: 8px;\n                bottom: 8px;\n                flex-direction: column;\n                align-items: stretch;\n                gap: 7px;\n                padding: 8px;\n            }\n            .trailer-control-left,\n            .trailer-control-right {\n                width: 100%;\n                justify-content: center;\n            }\n            .trailer-progress { min-width: 80px; }\n            .jav-jump-toast {\n                top: 18px;\n                width: calc(100vw - 24px);\n                padding: 13px 14px;\n            }\n        }\n    ');
     const C = {
         normalizeCode(e) {
             const t = String(e || "").trim();
@@ -3115,100 +3116,151 @@
             };
             document.addEventListener("keydown", f), document.body.appendChild(r), document.body.appendChild(d);
         },
-        showTrailerOverlay({code: e, url: t, type: n = "video", source: a = "预告片", qualities: i = null, quality: r = null, urls: o = null}) {
+        showTrailerOverlay({code: e, url: t, type: n = "video", source: a = "预告片", qualities: i = null, quality: r = null, urls: o = null, fallbackResolver: s = null, javxySource: l = null}) {
             document.querySelector(".trailer-overlay")?.remove();
-            const s = "iframe" === n, l = document.documentElement.style.overflow, d = document.body.style.overflow;
+            const d = "iframe" === n, c = document.documentElement.style.overflow, p = document.body.style.overflow;
             document.documentElement.style.overflow = "hidden", document.body.style.overflow = "hidden";
-            const c = document.createElement("div");
-            c.className = "trailer-overlay";
-            const p = document.createElement("div");
-            p.className = "trailer-modal", p.onclick = e => e.stopPropagation();
             const m = document.createElement("div");
-            m.className = "trailer-header";
+            m.className = "trailer-overlay";
             const u = document.createElement("div");
-            u.className = "trailer-title", u.innerHTML = `\n                <span>🎞️</span>\n                <span class="trailer-code">${e}</span>\n                <span class="trailer-source">${a}</span>\n            `;
-            const h = document.createElement("button");
-            h.className = "jav-player-close", h.type = "button", h.textContent = "×", m.appendChild(u), 
-            m.appendChild(h);
+            u.className = "trailer-modal", u.onclick = e => e.stopPropagation();
+            const h = document.createElement("div");
+            h.className = "trailer-header";
             const v = document.createElement("div");
-            v.className = "trailer-screen", s && v.classList.add("is-iframe");
-            const g = document.createElement("div");
-            g.className = "trailer-volume-indicator";
-            const b = document.createElement("button");
-            b.className = "trailer-control-btn", b.type = "button", b.textContent = "⏸", b.title = "播放/暂停";
-            const f = document.createElement("button");
-            f.className = "trailer-control-btn", f.type = "button", f.textContent = "🔊", f.title = "静音/取消静音";
+            v.className = "trailer-title", v.innerHTML = `\n                <span>🎞️</span>\n                <span class="trailer-code">${e}</span>\n                <span class="trailer-source">${a}</span>\n            `;
+            const g = v.querySelector(".trailer-source"), b = document.createElement("button");
+            b.className = "jav-player-close", b.type = "button", b.textContent = "×", h.appendChild(v), 
+            h.appendChild(b);
+            const f = document.createElement("div");
+            f.className = "trailer-screen", d && f.classList.add("is-iframe");
             const x = document.createElement("div");
-            x.className = "trailer-volume-wrap";
+            x.className = "trailer-fallback-status";
             const y = document.createElement("div");
-            y.className = "trailer-volume-popover";
-            const w = document.createElement("div");
-            w.className = "trailer-volume-rail";
-            const j = document.createElement("div");
-            j.className = "trailer-volume-fill";
+            y.className = "trailer-volume-indicator";
+            const w = document.createElement("button");
+            w.className = "trailer-control-btn", w.type = "button", w.textContent = "⏸", w.title = "播放/暂停";
+            const j = document.createElement("button");
+            j.className = "trailer-control-btn", j.type = "button", j.textContent = "🔊", j.title = "静音/取消静音";
+            const k = document.createElement("div");
+            k.className = "trailer-volume-wrap";
             const _ = document.createElement("div");
-            _.className = "trailer-volume-thumb";
-            const k = document.createElement("input");
-            k.className = "trailer-volume-slider", k.type = "range", k.min = "0", k.max = "100", 
-            k.step = "1", k.value = "35", k.title = "音量", w.appendChild(j), w.appendChild(_), 
-            y.appendChild(w), y.appendChild(k), x.appendChild(f), x.appendChild(y);
-            const S = document.createElement("span");
-            S.className = "trailer-time", S.textContent = "00:00";
-            const C = document.createElement("span");
-            C.className = "trailer-time", C.textContent = "00:00";
-            const E = document.createElement("input");
-            E.className = "trailer-progress", E.type = "range", E.min = "0", E.max = "1000", 
-            E.step = "1", E.value = "0", E.title = "播放进度";
-            const q = document.createElement("button");
-            q.className = "trailer-control-btn", q.type = "button", q.textContent = "⛶", q.title = "全屏";
-            let A = null, L = t, $ = r, P = null, M = null, T = !1;
-            const I = Array.isArray(o) ? [ ...new Set(o.filter(Boolean)) ] : [ t ].filter(Boolean);
-            let z = Math.max(0, I.indexOf(t));
-            const R = {
-                href: L
-            }, N = `trailer_playback_${String(e || "").trim().toUpperCase()}_${String(t || "").slice(0, 160)}`, B = (e = A?.currentTime || 0, t = N) => {
+            _.className = "trailer-volume-popover";
+            const S = document.createElement("div");
+            S.className = "trailer-volume-rail";
+            const C = document.createElement("div");
+            C.className = "trailer-volume-fill";
+            const E = document.createElement("div");
+            E.className = "trailer-volume-thumb";
+            const A = document.createElement("input");
+            A.className = "trailer-volume-slider", A.type = "range", A.min = "0", A.max = "100", 
+            A.step = "1", A.value = "35", A.title = "音量", S.appendChild(C), S.appendChild(E), 
+            _.appendChild(S), _.appendChild(A), k.appendChild(j), k.appendChild(_);
+            const q = document.createElement("span");
+            q.className = "trailer-time", q.textContent = "00:00";
+            const M = document.createElement("span");
+            M.className = "trailer-time", M.textContent = "00:00";
+            const L = document.createElement("input");
+            L.className = "trailer-progress", L.type = "range", L.min = "0", L.max = "1000", 
+            L.step = "1", L.value = "0", L.title = "播放进度";
+            const $ = document.createElement("button");
+            $.className = "trailer-control-btn", $.type = "button", $.textContent = "⛶", $.title = "全屏";
+            let P = null, T = t, I = n, z = a, R = l || a, N = r, D = null, B = null, U = null, J = null, G = !1, H = !1, O = !1, F = null;
+            const V = new Set;
+            let K = !1, W = Array.isArray(o) ? [ ...new Set(o.filter(Boolean)) ] : [ t ].filter(Boolean), Z = Math.max(0, W.indexOf(t));
+            const Y = {
+                href: T
+            }, X = (t = T) => `trailer_playback_${String(e || "").trim().toUpperCase()}_${String(t || "").slice(0, 160)}`;
+            let Q = X(T);
+            const ee = (e = P?.currentTime || 0, t = Q) => {
                 if (!Number.isFinite(e) || e < 3) return;
-                const n = Number(A?.duration || 0);
+                const n = Number(P?.duration || 0);
                 Number.isFinite(n) && n > 0 && n - e < 3 ? sessionStorage.removeItem(t) : sessionStorage.setItem(t, String(Math.floor(e)));
-            }, U = (e = N) => {
-                if (!A || "1" === A.dataset.playbackRestored) return;
-                const t = ((e = N) => {
+            }, te = (e = Q) => {
+                if (!P || "1" === P.dataset.playbackRestored) return;
+                const t = ((e = Q) => {
                     const t = Number(sessionStorage.getItem(e) || 0);
                     return Number.isFinite(t) && t > 0 ? t : 0;
                 })(e);
                 if (!t) return;
-                const n = Number(A.duration || 0);
-                Number.isFinite(n) && n > 0 && t < n - 3 && (A.currentTime = t, A.dataset.playbackRestored = "1", 
-                J());
-            }, D = e => {
+                const n = Number(P.duration || 0);
+                Number.isFinite(n) && n > 0 && t < n - 3 && (P.currentTime = t, P.dataset.playbackRestored = "1", 
+                de());
+            }, ne = (e, t = !1) => {
+                clearTimeout(U), x.textContent = e || "", x.classList.toggle("is-visible", Boolean(e)), 
+                e && t && (U = setTimeout(() => {
+                    x.classList.remove("is-visible");
+                }, 1800));
+            }, ae = () => {
+                O = !0, clearTimeout(J), ne("", !1);
+            }, ie = () => {
+                if (P?._hls) {
+                    try {
+                        P._hls.destroy();
+                    } catch {}
+                    P._hls = null;
+                }
+            }, re = (e = R) => {
+                const t = String(e || "").trim().toLowerCase();
+                return t.includes("mgstage") ? "MGStage" : t.includes("javdb") ? "JavDB" : t.includes("avwikidb") ? "AVWikiDB" : t.includes("javdatabase") ? "JAVDatabase" : t.includes("dmm") ? "DMM" : String(e || z || "").replace(/^Javxy\s*\|\s*/i, "").trim();
+            }, oe = (e = "timeout") => {
+                clearTimeout(J);
+                const t = /\.m3u8(?:[?#].*)?$/i.test(T) || "hls" === I ? 8e3 : 6200;
+                J = setTimeout(() => {
+                    H || O || !P || !P.isConnected || P.readyState >= 1 || se(e);
+                }, t);
+            }, se = async (e = "error") => {
+                if (H || !P || G) return;
+                if (O && "timeout" !== e) return;
+                if (Z < W.length - 1) return Z += 1, T = W[Z], Y.href = T, ie(), ne("当前画质加载失败，正在切换备用画质..."), 
+                we(T), P.load?.(), P.play().catch(() => {}), void oe(e);
+                if ("function" != typeof s) return;
+                const t = re();
+                if (t && !V.has(t)) {
+                    V.add(t), G = !0, ne(`${t} 加载失败，正在切换备用来源...`), ie();
+                    try {
+                        const e = await s([ ...V ]);
+                        if (!e?.url) return void ne("备用来源暂不可用", !0);
+                        (e => {
+                            T = e.url, I = e.type || "video", z = e.source || "预告片", R = e.javxySource || e.source || z, 
+                            N = e.quality || null, O = !1, W = Array.isArray(e.urls) && e.urls.length ? [ ...new Set(e.urls.filter(Boolean)) ] : [ T ].filter(Boolean), 
+                            Z = Math.max(0, W.indexOf(T)), Y.href = T, Q = X(T), g && (g.textContent = z), F && (F.style.display = "none");
+                        })(e), ne(`已切换到 ${re(e.javxySource || e.source) || "备用来源"}`, !0), we(T), P.load?.(), 
+                        P.play().catch(() => {}), oe("fallback");
+                    } catch (e) {
+                        console.warn("[TrailerResolver] 播放失败回落异常", e), ne("备用来源切换失败", !0);
+                    } finally {
+                        G = !1;
+                    }
+                }
+            }, le = e => {
                 if (!Number.isFinite(e) || e < 0) return "00:00";
                 const t = Math.floor(e), n = Math.floor(t / 3600), a = Math.floor(t % 3600 / 60), i = t % 60;
                 return n ? `${n}:${String(a).padStart(2, "0")}:${String(i).padStart(2, "0")}` : `${String(a).padStart(2, "0")}:${String(i).padStart(2, "0")}`;
-            }, J = () => {
-                A && (b.textContent = A.paused ? "▶" : "⏸", f.textContent = A.muted || A.volume <= 0 ? "🔇" : "🔊", 
-                k.value = String(Math.round(100 * (A.muted ? 0 : A.volume))), w.style.setProperty("--volume-percent", `${k.value}%`), 
-                S.textContent = D(A.currentTime || 0), C.textContent = D(A.duration || 0), !T && Number.isFinite(A.duration) && A.duration > 0 && (E.value = String(Math.round((A.currentTime || 0) / A.duration * 1e3))));
-            }, G = () => {
-                A && (g.textContent = `${Math.round(100 * A.volume)}%`, g.classList.add("is-visible"), 
-                clearTimeout(P), P = setTimeout(() => {
-                    g.classList.remove("is-visible");
+            }, de = () => {
+                P && (w.textContent = P.paused ? "▶" : "⏸", j.textContent = P.muted || P.volume <= 0 ? "🔇" : "🔊", 
+                A.value = String(Math.round(100 * (P.muted ? 0 : P.volume))), S.style.setProperty("--volume-percent", `${A.value}%`), 
+                q.textContent = le(P.currentTime || 0), M.textContent = le(P.duration || 0), !K && Number.isFinite(P.duration) && P.duration > 0 && (L.value = String(Math.round((P.currentTime || 0) / P.duration * 1e3))));
+            }, ce = () => {
+                P && (y.textContent = `${Math.round(100 * P.volume)}%`, y.classList.add("is-visible"), 
+                clearTimeout(D), D = setTimeout(() => {
+                    y.classList.remove("is-visible");
                 }, 820));
-            }, O = () => {
-                v.classList.remove("is-controls-hidden"), clearTimeout(M), A && !A.paused && (M = setTimeout(() => {
-                    ie.matches(":hover") || document.activeElement === k || v.classList.add("is-controls-hidden");
+            }, pe = () => {
+                f.classList.remove("is-controls-hidden"), clearTimeout(B), P && !P.paused && (B = setTimeout(() => {
+                    _e.matches(":hover") || document.activeElement === A || f.classList.add("is-controls-hidden");
                 }, 2e3));
-            }, H = () => {
-                clearTimeout(M), A && !A.paused ? M = setTimeout(() => {
-                    v.classList.add("is-controls-hidden");
-                }, 2e3) : v.classList.remove("is-controls-hidden");
-            }, F = () => {
-                document.fullscreenElement ? document.exitFullscreen?.() : v.requestFullscreen?.();
-            }, V = /\.m3u8(?:[?#].*)?$/i.test(t), K = "https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js", W = () => {
+            }, me = () => {
+                clearTimeout(B), P && !P.paused ? B = setTimeout(() => {
+                    f.classList.add("is-controls-hidden");
+                }, 2e3) : f.classList.remove("is-controls-hidden");
+            }, ue = () => {
+                document.fullscreenElement ? document.exitFullscreen?.() : f.requestFullscreen?.();
+            }, he = /\.m3u8(?:[?#].*)?$/i.test(t), ve = "https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js", ge = () => {
                 const e = window.Hls || globalThis.Hls || ("undefined" != typeof Hls ? Hls : null);
                 return e?.isSupported?.() ? e : null;
             };
-            let Z = null;
-            const Y = () => class {
+            let be = null;
+            const fe = () => class {
                 constructor(e) {
                     this.config = e, this.context = null, this.callbacks = null, this.loader = null, 
                     this.stats = this.createStats();
@@ -3287,16 +3339,16 @@
                         }
                     });
                 }
-            }, X = e => {
-                e && (A.src = e);
-            }, Q = e => {
+            }, xe = e => {
+                e && (P.src = e);
+            }, ye = e => {
                 if (!e) return;
-                const t = W();
-                if (!t) return A.src = e, void A.load?.();
+                const t = ge();
+                if (!t) return P.src = e, void P.load?.();
                 const n = new t({
                     enableWorker: !1,
                     lowLatencyMode: !0,
-                    loader: Y(),
+                    loader: fe(),
                     autoStartLoad: !0,
                     startPosition: 0,
                     capLevelToPlayerSize: !0,
@@ -3317,188 +3369,192 @@
                     abrEwmaSlowLive: 9
                 });
                 n.on(t.Events.MANIFEST_PARSED, () => {
-                    n.startLoad(0), A.play().catch(() => {});
-                }), n.on(t.Events.ERROR, (a, i) => {
-                    if (i?.fatal) {
-                        if (console.warn("[TrailerResolver:HLS] 播放失败", i), i.type === t.ErrorTypes.NETWORK_ERROR && z < I.length - 1) {
-                            z += 1;
-                            const e = I[z];
-                            return L = e, R.href = e, n.loadSource(e), void n.startLoad(0);
-                        }
-                        if (z >= I.length - 1) {
-                            try {
-                                n.destroy();
-                            } catch {}
-                            A._hls = null, A.src = e, A.load?.(), A.play().catch(() => {});
-                        }
-                    }
-                }), n.loadSource(e), n.attachMedia(A), A._hls = n;
-            }, ee = e => {
-                e && (/\.m3u8(?:[?#].*)?$/i.test(e) ? Q(e) : X(e));
-            }, te = e => {
-                V && !W() ? (() => {
-                    const e = W();
+                    ae(), n.startLoad(0), P.play().catch(() => {});
+                }), n.on(t.Events.ERROR, (e, a) => {
+                    if (a?.fatal) if (console.warn("[TrailerResolver:HLS] 播放失败", a), a.type === t.ErrorTypes.MEDIA_ERROR && (O || P?.readyState >= 2)) {
+                        try {
+                            n.recoverMediaError?.();
+                        } catch {}
+                        ae();
+                    } else H || se("hls");
+                }), n.loadSource(e), n.attachMedia(P), P._hls = n;
+            }, we = e => {
+                e && (ne(`正在加载 ${re() || "预告片"}...`), /\.m3u8(?:[?#].*)?$/i.test(e) ? ye(e) : xe(e), 
+                oe("timeout"));
+            }, je = e => {
+                he && !ge() ? (() => {
+                    const e = ge();
                     if (e) return Promise.resolve(e);
-                    if (Z) return Z;
+                    if (be) return be;
                     const t = () => new Promise(e => {
                         GM_xmlhttpRequest({
                             method: "GET",
-                            url: K,
+                            url: ve,
                             timeout: 15e3,
                             onload: t => {
                                 if (t.status >= 200 && t.status < 300 && t.responseText) try {
-                                    Function(`${t.responseText}\n//# sourceURL=${K}`).call(globalThis);
+                                    Function(`${t.responseText}\n//# sourceURL=${ve}`).call(globalThis);
                                 } catch (e) {
                                     console.warn("[TrailerResolver:HLS] hls.js 执行失败", e);
                                 }
-                                e(W());
+                                e(ge());
                             },
-                            onerror: () => e(W()),
-                            ontimeout: () => e(W())
+                            onerror: () => e(ge()),
+                            ontimeout: () => e(ge())
                         });
                     });
-                    return Z = new Promise(e => {
+                    return be = new Promise(e => {
                         const n = document.querySelector('script[data-laosiji-hls="1"]');
-                        if (n) return n.addEventListener("load", () => e(W()), {
+                        if (n) return n.addEventListener("load", () => e(ge()), {
                             once: !0
                         }), n.addEventListener("error", () => t().then(e), {
                             once: !0
                         }), void setTimeout(() => {
-                            W() || t().then(e);
+                            ge() || t().then(e);
                         }, 4e3);
                         const a = document.createElement("script");
-                        a.src = K, a.async = !0, a.dataset.laosijiHls = "1", a.onload = () => e(W()), a.onerror = () => t().then(e), 
-                        document.head.appendChild(a);
-                    }).then(e => (e || (Z = null), e)), Z;
+                        a.src = ve, a.async = !0, a.dataset.laosijiHls = "1", a.onload = () => e(ge()), 
+                        a.onerror = () => t().then(e), document.head.appendChild(a);
+                    }).then(e => (e || (be = null), e)), be;
                 })().then(t => {
-                    A && A.isConnected && (t ? Q(e) : X(e));
-                }) : ee(e);
+                    P && P.isConnected && (t ? ye(e) : xe(e));
+                }) : we(e);
             };
-            if (s) {
+            if (d) {
                 const e = document.createElement("iframe");
                 e.src = t, e.allow = "autoplay; fullscreen; picture-in-picture; encrypted-media", 
-                e.allowFullscreen = !0, v.appendChild(e);
+                e.allowFullscreen = !0, f.appendChild(e);
             } else {
-                A = document.createElement("video"), A.controls = !1, A.autoplay = !0, A.loop = !0, 
-                A.playsInline = !0;
+                P = document.createElement("video"), P.controls = !1, P.autoplay = !0, P.loop = !0, 
+                P.playsInline = !0;
                 const e = Number(GM_getValue("trailer_volume", .35)), n = GM_getValue("trailer_muted", !1);
-                A.volume = Number.isFinite(e) ? Math.min(1, Math.max(0, e)) : .35, A.muted = Boolean(n), 
-                te(I[z] || t), A.preload = "auto", A.addEventListener("volumechange", () => {
-                    GM_setValue("trailer_volume", A.volume), GM_setValue("trailer_muted", A.muted), 
-                    J();
-                }), A.addEventListener("play", () => {
-                    J(), H();
-                }), A.addEventListener("pause", () => {
-                    J(), v.classList.remove("is-controls-hidden"), clearTimeout(M);
-                }), A.addEventListener("timeupdate", () => {
-                    J(), B();
-                }), A.addEventListener("durationchange", () => {
-                    J(), U();
-                }), A.addEventListener("loadedmetadata", () => {
-                    J(), U();
-                }), A.addEventListener("ended", () => ((e = N) => sessionStorage.removeItem(e))()), 
-                A.addEventListener("error", () => {
-                    z >= I.length - 1 || (z += 1, L = I[z], R.href = L, A._hls && (A._hls.destroy(), 
-                    A._hls = null), ee(L), A.load?.(), A.play().catch(() => {}));
-                }), v.appendChild(A), v.appendChild(g), b.addEventListener("click", e => {
-                    e.preventDefault(), e.stopPropagation(), A && (A.paused ? A.play().catch(() => {}) : A.pause(), 
-                    J());
-                }), f.addEventListener("click", e => {
-                    e.preventDefault(), e.stopPropagation(), A && (A.muted = !A.muted, !A.muted && A.volume <= 0 && (A.volume = .35), 
-                    G(), J());
-                }), k.addEventListener("input", e => {
-                    if (e.stopPropagation(), !A) return;
-                    v.classList.remove("is-controls-hidden"), clearTimeout(M);
-                    const t = Math.min(1, Math.max(0, Number(k.value) / 100));
-                    A.volume = t, A.muted = t <= 0, G(), J();
-                }), k.addEventListener("change", H), A.addEventListener("click", e => {
-                    e.preventDefault(), A.paused ? A.play().catch(() => {}) : A.pause(), J();
-                }), E.addEventListener("input", () => {
-                    if (T = !0, !A || !Number.isFinite(A.duration) || A.duration <= 0) return;
-                    const e = Number(E.value) / 1e3 * A.duration;
-                    S.textContent = D(e);
-                }), E.addEventListener("change", () => {
-                    A && Number.isFinite(A.duration) && A.duration > 0 && (A.currentTime = Number(E.value) / 1e3 * A.duration, 
-                    B(A.currentTime)), T = !1, J();
-                }), q.addEventListener("click", e => {
-                    e.preventDefault(), e.stopPropagation(), q.blur(), F();
+                P.volume = Number.isFinite(e) ? Math.min(1, Math.max(0, e)) : .35, P.muted = Boolean(n), 
+                je(W[Z] || t), P.preload = "auto", P.addEventListener("volumechange", () => {
+                    GM_setValue("trailer_volume", P.volume), GM_setValue("trailer_muted", P.muted), 
+                    de();
+                }), P.addEventListener("play", () => {
+                    ae(), de(), me();
+                }), P.addEventListener("pause", () => {
+                    de(), f.classList.remove("is-controls-hidden"), clearTimeout(B);
+                }), P.addEventListener("timeupdate", () => {
+                    (P.currentTime || 0) > .15 && ae(), de(), ee();
+                }), P.addEventListener("durationchange", () => {
+                    de(), te();
+                }), P.addEventListener("loadedmetadata", () => {
+                    ae(), de(), te();
+                }), P.addEventListener("canplay", ae), P.addEventListener("ended", () => ((e = Q) => sessionStorage.removeItem(e))()), 
+                P.addEventListener("error", () => {
+                    se("video");
+                }), f.appendChild(P), f.appendChild(x), f.appendChild(y), w.addEventListener("click", e => {
+                    e.preventDefault(), e.stopPropagation(), P && (P.paused ? P.play().catch(() => {}) : P.pause(), 
+                    de());
+                }), j.addEventListener("click", e => {
+                    e.preventDefault(), e.stopPropagation(), P && (P.muted = !P.muted, !P.muted && P.volume <= 0 && (P.volume = .35), 
+                    ce(), de());
+                }), A.addEventListener("input", e => {
+                    if (e.stopPropagation(), !P) return;
+                    f.classList.remove("is-controls-hidden"), clearTimeout(B);
+                    const t = Math.min(1, Math.max(0, Number(A.value) / 100));
+                    P.volume = t, P.muted = t <= 0, ce(), de();
+                }), A.addEventListener("change", me), P.addEventListener("click", e => {
+                    e.preventDefault(), P.paused ? P.play().catch(() => {}) : P.pause(), de();
+                }), L.addEventListener("input", () => {
+                    if (K = !0, !P || !Number.isFinite(P.duration) || P.duration <= 0) return;
+                    const e = Number(L.value) / 1e3 * P.duration;
+                    q.textContent = le(e);
+                }), L.addEventListener("change", () => {
+                    P && Number.isFinite(P.duration) && P.duration > 0 && (P.currentTime = Number(L.value) / 1e3 * P.duration, 
+                    ee(P.currentTime)), K = !1, de();
+                }), $.addEventListener("click", e => {
+                    e.preventDefault(), e.stopPropagation(), $.blur(), ue();
                 }), setTimeout(() => {
-                    A.play().catch(() => {}), J(), H();
+                    P.play().catch(() => {}), de(), me();
                 }, 120);
             }
-            const ne = document.createElement("div"), ae = i && "object" == typeof i ? i : null;
-            if (!s && ae && Object.keys(ae).length > 1) {
+            F = document.createElement("div");
+            const ke = i && "object" == typeof i ? i : null;
+            if (!d && ke && Object.keys(ke).length > 1) {
                 const e = [ "4k", "hhb", "hmb", "mhb", "mmb", "dm", "sm" ], t = {
                     "4k": "4K",
                     hhb: "1080P",
                     hmb: "720P",
                     mhb: "576P",
                     mmb: "432P"
-                }, n = Object.keys(ae).filter(e => ae[e]).sort((t, n) => e.indexOf(t) - e.indexOf(n));
-                ne.className = "trailer-quality-bar";
+                }, n = Object.keys(ke).filter(e => ke[e]).sort((t, n) => e.indexOf(t) - e.indexOf(n));
+                F.className = "trailer-quality-bar";
                 const a = document.createElement("select");
                 a.className = "trailer-quality-select";
                 const i = e => {
-                    $ = e, L = ae[e], a.value = e;
+                    N = e, T = ke[e], a.value = e;
                 };
                 n.forEach(e => {
                     const n = document.createElement("option");
                     n.value = e, n.textContent = t[e] || e, a.appendChild(n);
                 }), a.addEventListener("change", async () => {
                     const e = a.value;
-                    if (!A || !ae[e] || $ === e) return;
-                    const t = A.currentTime || 0, n = !A.paused;
-                    B(t), A.src = ae[e], A.dataset.playbackRestored = "1", z = Math.max(0, I.indexOf(ae[e])), 
-                    A.load(), A.currentTime = t, i(e), R.href = L, n && await A.play().catch(() => {});
-                }), ne.appendChild(a), i($ && ae[$] ? $ : n[0]);
+                    if (!P || !ke[e] || N === e) return;
+                    const t = P.currentTime || 0, n = !P.paused;
+                    ee(t), ie(), O = !1, P.dataset.playbackRestored = "1", Z = Math.max(0, W.indexOf(ke[e])), 
+                    P.currentTime = t, i(e), Y.href = T, we(T), P.load(), P.currentTime = t, n && await P.play().catch(() => {});
+                }), F.appendChild(a), i(N && ke[N] ? N : n[0]);
             }
-            const ie = document.createElement("div");
-            ie.className = "trailer-footer";
-            const re = document.createElement("div");
-            re.className = "trailer-control-left", s || (re.appendChild(b), re.appendChild(x), 
-            re.appendChild(S), re.appendChild(E), re.appendChild(C));
-            const oe = document.createElement("div");
-            oe.className = "trailer-control-right", oe.appendChild(ne), ie.appendChild(re), 
-            oe.appendChild(q), ie.appendChild(oe), p.appendChild(v), v.appendChild(m), s || v.appendChild(ie), 
-            c.appendChild(p), s || (v.addEventListener("mousemove", O), v.addEventListener("mouseenter", O), 
-            v.addEventListener("mouseleave", () => {
-                A && !A.paused && v.classList.add("is-controls-hidden");
-            }), ie.addEventListener("mouseenter", () => {
-                v.classList.remove("is-controls-hidden"), clearTimeout(M);
-            }), ie.addEventListener("mouseleave", H));
-            const se = (e = null) => {
-                e && (e.preventDefault(), e.stopPropagation(), e.stopImmediatePropagation?.());
-                const t = c.querySelector("video");
-                t && (B(t.currentTime || 0), t.pause(), t.removeAttribute("src"), t.load()), c.remove(), 
-                document.documentElement.style.overflow = l, document.body.style.overflow = d, window.removeEventListener("pointerdown", le, !0), 
-                window.removeEventListener("mousedown", le, !0), window.removeEventListener("click", le, !0), 
-                document.removeEventListener("keydown", de, !0), clearTimeout(P), clearTimeout(M);
-            }, le = e => {
-                if (!c.contains(e.target)) return;
-                (e.target === c || e.target.closest(".jav-player-close")) && ("click" !== e.type ? (e.stopPropagation(), 
-                e.stopImmediatePropagation?.()) : se(e));
-            }, de = e => {
-                if ("Escape" === e.key) return void se();
-                if (s) return;
+            const _e = document.createElement("div");
+            _e.className = "trailer-footer";
+            const Se = document.createElement("div");
+            Se.className = "trailer-control-left", d || (Se.appendChild(w), Se.appendChild(k), 
+            Se.appendChild(q), Se.appendChild(L), Se.appendChild(M));
+            const Ce = document.createElement("div");
+            Ce.className = "trailer-control-right", Ce.appendChild(F), _e.appendChild(Se), Ce.appendChild($), 
+            _e.appendChild(Ce), u.appendChild(f), f.appendChild(h), d || f.appendChild(_e), 
+            m.appendChild(u), d || (f.addEventListener("mousemove", pe), f.addEventListener("mouseenter", pe), 
+            f.addEventListener("mouseleave", () => {
+                P && !P.paused && f.classList.add("is-controls-hidden");
+            }), _e.addEventListener("mouseenter", () => {
+                f.classList.remove("is-controls-hidden"), clearTimeout(B);
+            }), _e.addEventListener("mouseleave", me));
+            const Ee = (e = null) => {
+                e && (e.preventDefault(), e.stopPropagation(), e.stopImmediatePropagation?.()), 
+                H = !0;
+                const t = m.querySelector("video");
+                if (t) {
+                    if (ee(t.currentTime || 0), t._hls) {
+                        try {
+                            t._hls.destroy();
+                        } catch {}
+                        t._hls = null;
+                    }
+                    t.pause(), t.removeAttribute("src"), t.load();
+                }
+                m.remove(), document.documentElement.style.overflow = c, document.body.style.overflow = p, 
+                window.removeEventListener("pointerdown", Ae, !0), window.removeEventListener("mousedown", Ae, !0), 
+                window.removeEventListener("click", Ae, !0), document.removeEventListener("keydown", qe, !0), 
+                clearTimeout(D), clearTimeout(B), clearTimeout(U), clearTimeout(J);
+            }, Ae = e => {
+                if (!m.contains(e.target)) return;
+                (e.target === m || e.target.closest(".jav-player-close")) && ("click" !== e.type ? (e.stopPropagation(), 
+                e.stopImmediatePropagation?.()) : Ee(e));
+            }, qe = e => {
+                if ("Escape" === e.key) return void Ee();
+                if (d) return;
                 const t = e.key;
                 if ([ " ", "Spacebar", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown" ].includes(t) && (e.preventDefault(), 
-                e.stopPropagation(), e.stopImmediatePropagation?.()), "Enter" === t) return F(), 
-                void O();
-                if (A) if (" " === t || "Spacebar" === t) A.paused ? A.play().catch(() => {}) : A.pause(), 
-                J(), O(); else if ("ArrowLeft" === t) A.currentTime = Math.max(0, (A.currentTime || 0) - 2); else if ("ArrowRight" === t) {
-                    const e = (A.currentTime || 0) + 2;
-                    A.currentTime = Number.isFinite(A.duration) ? Math.min(A.duration, e) : e;
+                e.stopPropagation(), e.stopImmediatePropagation?.()), "Enter" === t) return ue(), 
+                void pe();
+                if (P) if (" " === t || "Spacebar" === t) P.paused ? P.play().catch(() => {}) : P.pause(), 
+                de(), pe(); else if ("ArrowLeft" === t) P.currentTime = Math.max(0, (P.currentTime || 0) - 2); else if ("ArrowRight" === t) {
+                    const e = (P.currentTime || 0) + 2;
+                    P.currentTime = Number.isFinite(P.duration) ? Math.min(P.duration, e) : e;
                 } else if ("ArrowUp" === t || "ArrowDown" === t) {
                     const e = "ArrowUp" === t ? .05 : -.05;
-                    A.volume = Math.min(1, Math.max(0, Math.round(100 * (A.volume + e)) / 100)), A.volume > 0 && (A.muted = !1), 
-                    G();
+                    P.volume = Math.min(1, Math.max(0, Math.round(100 * (P.volume + e)) / 100)), P.volume > 0 && (P.muted = !1), 
+                    ce();
                 }
             };
-            h.addEventListener("click", se, !0), c.addEventListener("click", e => {
-                e.target === c && se(e);
-            }, !0), window.addEventListener("pointerdown", le, !0), window.addEventListener("mousedown", le, !0), 
-            window.addEventListener("click", le, !0), document.addEventListener("keydown", de, !0), 
-            document.body.appendChild(c);
+            b.addEventListener("click", Ee, !0), m.addEventListener("click", e => {
+                e.target === m && Ee(e);
+            }, !0), window.addEventListener("pointerdown", Ae, !0), window.addEventListener("mousedown", Ae, !0), 
+            window.addEventListener("click", Ae, !0), document.addEventListener("keydown", qe, !0), 
+            document.body.appendChild(m);
         },
         getJavBusUrl(e) {
             const t = e.toLowerCase();
@@ -3512,7 +3568,7 @@
             return n ? n[1] : t;
         },
         sourceOrder() {
-            const e = $.getSourceOrder(), t = Array.isArray(e) ? e : [], n = new Set;
+            const e = L.getSourceOrder(), t = Array.isArray(e) ? e : [], n = new Set;
             return [ ...t, ...this.sources ].filter(e => !n.has(e) && "function" == typeof this[e] && (n.add(e), 
             !0));
         },
@@ -3546,7 +3602,7 @@
         },
         async javfree(e) {
             e = this.lookupCode(e);
-            const t = this.cacheKey(e), n = $.getPreviewCacheEnabled();
+            const t = this.cacheKey(e), n = L.getPreviewCacheEnabled();
             if (n) {
                 const e = sessionStorage.getItem(t);
                 if (e) return e;
@@ -3663,7 +3719,7 @@
             }
         },
         async get(e) {
-            const t = $.getPreviewCacheEnabled(), n = this.cacheKey(e);
+            const t = L.getPreviewCacheEnabled(), n = this.cacheKey(e);
             if (t) {
                 const e = sessionStorage.getItem(n);
                 if (e) return {
@@ -3689,7 +3745,7 @@
             const t = await this.get(e);
             t.url ? C.showOverlay(t.url, e, t.source) : alert("未找到预览图");
         }
-    }, q = (() => {
+    }, A = (() => {
         let e = !1;
         function t() {
             return GM_getValue("list_preview_quick_enabled", !0);
@@ -3734,8 +3790,8 @@
             attach: n
         };
     })();
-    l.expose("__LAOSIJI_LIST_PREVIEW__", q);
-    const A = (() => {
+    l.expose("__LAOSIJI_LIST_PREVIEW__", A);
+    const q = (() => {
         let e = !1, t = 0, n = {
             code: "",
             status: ""
@@ -3796,8 +3852,8 @@
             remove: a
         };
     })();
-    l.expose("__LAOSIJI_DETAIL_PREVIEW_INLINE__", A);
-    const L = {
+    l.expose("__LAOSIJI_DETAIL_PREVIEW_INLINE__", q);
+    const M = {
         normalize: e => C.normalizeCode(e),
         cacheKey(e) {
             return `trailer_cache_v10_${this.normalize(e)}`;
@@ -3817,25 +3873,46 @@
         },
         async show(e) {
             const t = await this.get(e);
-            t?.url ? (this.debug("打开播放器", {
-                code: this.normalize(e),
-                source: t.source,
-                type: t.type || "video",
-                url: t.url
-            }), C.showTrailerOverlay({
-                code: this.normalize(e),
-                url: t.url,
-                type: t.type || "video",
-                source: t.source || "预告片",
-                qualities: t.qualities,
-                quality: t.quality,
-                urls: t.urls
-            })) : (this.debug("最终未找到可用视频源", {
+            if (t?.url) {
+                this.debug("打开播放器", {
+                    code: this.normalize(e),
+                    source: t.source,
+                    type: t.type || "video",
+                    url: t.url
+                });
+                const n = this.normalize(e), a = String(e || "").trim(), i = this.normalizeJavxySource(t.javxySource || t.source);
+                let r = null;
+                "DMM" === i && (r = this.fallbackJavxyResult(n, a, [ i ], {
+                    silent: !0
+                }).then(e => (e?.url && this.debug("Javxy 备用来源已预取，不切换当前播放", {
+                    source: e.javxySource || e.source,
+                    type: e.type || "video",
+                    url: e.url
+                }), e)).catch(e => (console.warn("[TrailerResolver] Javxy 预取备用来源失败", e), null))), 
+                C.showTrailerOverlay({
+                    code: n,
+                    url: t.url,
+                    type: t.type || "video",
+                    source: t.source || "预告片",
+                    qualities: t.qualities,
+                    quality: t.quality,
+                    urls: t.urls,
+                    javxySource: t.javxySource || t.source,
+                    fallbackResolver: async (e = []) => {
+                        const t = [ ...new Set(e.map(e => this.normalizeJavxySource(e)).filter(Boolean)) ];
+                        if (t.includes("DMM") && this.markJpSourceTemporarilyFailed("DMM"), r && 1 === t.length && t[0] === i) {
+                            const e = await r;
+                            if (e?.url) return e;
+                        }
+                        return this.fallbackJavxyResult(n, a, t);
+                    }
+                });
+            } else this.debug("最终未找到可用视频源", {
                 code: this.normalize(e)
-            }), C.showToast("未找到可用的视频源。", "节点不可用，请将DMM域名分流到日本ip", 3e3));
+            }), C.showToast("未找到可用的视频源。", "节点不可用，请将DMM域名分流到日本ip", 3e3);
         },
         async get(e) {
-            const t = String(e || "").trim(), n = this.normalize(e), a = $.getTrailerCacheEnabled();
+            const t = String(e || "").trim(), n = this.normalize(e), a = L.getTrailerCacheEnabled();
             if (this.debug("开始查询", {
                 rawCode: t,
                 normalized: n,
@@ -3845,12 +3922,15 @@
                 if (e) {
                     try {
                         const t = JSON.parse(e);
-                        if (t?.url) {
-                            if (!this.isDynamicTrailer(t)) return this.debug("缓存命中", {
+                        if (t?.url) if (this.isDynamicTrailer(t)) this.debug("动态预告不缓存，已清理旧缓存", {
+                            source: t.source,
+                            url: t.url
+                        }), sessionStorage.removeItem(this.cacheKey(n)); else {
+                            if (!this.isJpSourceTemporarilyFailed("DMM") || "DMM" !== this.normalizeJavxySource(t.javxySource || t.source)) return this.debug("缓存命中", {
                                 source: t.source,
                                 url: t.url
                             }), t;
-                            this.debug("动态预告不缓存，已清理旧缓存", {
+                            this.debug("DMM 会话内已失败，跳过旧缓存", {
                                 source: t.source,
                                 url: t.url
                             }), sessionStorage.removeItem(this.cacheKey(n));
@@ -3863,14 +3943,16 @@
                 const i = e.name || "anonymous";
                 try {
                     this.debug("尝试来源", i);
-                    const r = await e.fn.call(this, n, t);
-                    if (r?.url) return this.debug("来源命中", i, {
-                        source: r.source,
-                        type: r.type || "video",
-                        url: r.url,
-                        qualities: r.qualities ? Object.keys(r.qualities) : []
-                    }), a && !this.isDynamicTrailer(r) && sessionStorage.setItem(this.cacheKey(n), JSON.stringify(r)), 
-                    r;
+                    const r = "fromJavxyCcCd" === i && this.isJpSourceTemporarilyFailed("DMM") ? {
+                        skip: [ "DMM" ]
+                    } : {}, o = await e.fn.call(this, n, t, r);
+                    if (o?.url) return this.debug("来源命中", i, {
+                        source: o.source,
+                        type: o.type || "video",
+                        url: o.url,
+                        qualities: o.qualities ? Object.keys(o.qualities) : []
+                    }), a && !this.isDynamicTrailer(o) && sessionStorage.setItem(this.cacheKey(n), JSON.stringify(o)), 
+                    o;
                     this.debug("来源无结果", i);
                 } catch (e) {
                     console.warn(`[TrailerResolver] 来源异常: ${i}`, e);
@@ -3891,6 +3973,37 @@
             });
         }),
         javxyToken: () => [ 118, 119, 112, 71, 97, 110, 28, 84, 124, 65, 76, 102, 65, 16, 77, 109, 64, 82, 85, 83, 67, 92, 125, 108, 83, 65, 124, 107, 84, 104, 71, 84, 17, 124, 118, 125, 104, 8, 125, 96, 112, 103, 29, 18, 82, 83, 87, 84 ].map(e => String.fromCharCode(37 ^ e)).join(""),
+        normalizeJavxySource(e) {
+            const t = String(e || "").trim().toLowerCase();
+            return t.includes("mgstage") ? "MGStage" : t.includes("javdb") ? "JavDB" : t.includes("avwikidb") ? "AVWikiDB" : t.includes("javdatabase") ? "JAVDatabase" : t.includes("dmm") ? "DMM" : String(e || "").trim();
+        },
+        jpSourceFailedKey: (e = "DMM") => `javxy_jp_source_failed_until_${String(e || "").toUpperCase()}`,
+        isJpSourceTemporarilyFailed(e = "DMM") {
+            const t = Number(sessionStorage.getItem(this.jpSourceFailedKey(e)) || 0);
+            return !(!Number.isFinite(t) || t <= Date.now()) || (sessionStorage.removeItem(this.jpSourceFailedKey(e)), 
+            !1);
+        },
+        markJpSourceTemporarilyFailed(e = "DMM") {
+            sessionStorage.setItem(this.jpSourceFailedKey(e), String(Date.now() + 18e5));
+        },
+        async fallbackJavxyResult(e, t = "", n = [], a = {}) {
+            const i = [ ...new Set((n || []).map(e => this.normalizeJavxySource(e)).filter(Boolean)) ];
+            return i.length ? (a.silent || this.debug("Javxy 播放失败回落查询", {
+                code: e,
+                skip: i,
+                rule: "仅跳过失败来源，后续顺序按服务端后台设置"
+            }), this.fromJavxyCcCd(e, t, {
+                skip: i
+            })) : null;
+        },
+        installFallbackDebugHelper() {
+            const e = "undefined" != typeof unsafeWindow ? unsafeWindow : globalThis;
+            e.__javxyFailDMMFor30m = globalThis.__javxyFailDMMFor30m = () => {
+                this.markJpSourceTemporarilyFailed("DMM"), this.debug("已手动标记 DMM 30 分钟内跳过");
+            }, e.__javxyClearDMMFail = globalThis.__javxyClearDMMFail = () => {
+                sessionStorage.removeItem(this.jpSourceFailedKey("DMM")), this.debug("已清除 DMM 跳过标记");
+            };
+        },
         result: (e, t, n = "video", a = {}) => ({
             url: e,
             source: t,
@@ -3950,101 +4063,113 @@
             Caribbean: "Javxy | 加勒比",
             "1Pondo": "Javxy | 一本道"
         },
-        async fromJavxyCcCd(e, t = "") {
-            const n = String(e || t || "").trim();
-            if (!n) return this.debug("Javxy 跳过：查询词为空"), null;
-            const a = [ {
+        async fromJavxyCcCd(e, t = "", n = {}) {
+            const a = String(e || t || "").trim();
+            if (!a) return this.debug("Javxy 跳过：查询词为空"), null;
+            const i = [ {
                 host: "javxy.cc.cd",
                 label: "Javxy"
             }, {
                 host: "worker.javxy.cc.cd",
                 label: "Javxy Worker"
             } ];
-            for (const e of a) {
-                const t = new URLSearchParams({
+            for (const e of i) {
+                const i = new URLSearchParams({
                     client: "laosiji-new"
-                }), a = `${e.protocol || "https"}://${e.host}/trailers/${encodeURIComponent(n)}?${t}`;
+                });
+                Array.isArray(n.skip) && n.skip.length && i.set("skip", n.skip.join(",")), Array.isArray(n.prefer) && n.prefer.length && i.set("prefer", n.prefer.join(",")), 
+                Array.isArray(n.source) && n.source.length && i.set("source", n.source.join(","));
+                const r = `${e.protocol || "https"}://${e.host}/trailers/${encodeURIComponent(a)}?${i}`;
                 this.debug("Javxy 请求 API", {
-                    query: n,
-                    apiUrl: a,
+                    query: a,
+                    apiUrl: r,
                     endpoint: e.label
                 });
-                const i = await this.request(a, {
+                const o = await this.request(r, {
                     timeout: 15e3,
                     headers: {
                         Accept: "application/json,text/plain,*/*",
                         "X-Javxy-Token": this.javxyToken()
                     }
                 });
-                if (!i) {
+                if (!o) {
                     this.debug("Javxy API 网络失败，尝试下一个节点", {
                         endpoint: e.label
                     });
                     continue;
                 }
-                if (i.status >= 500 || 0 === i.status) {
+                if (o.status >= 500 || 0 === o.status) {
                     this.debug("Javxy API 服务异常，尝试下一个节点", {
                         endpoint: e.label,
-                        status: i.status
+                        status: o.status
                     });
                     continue;
                 }
-                if ([ 401, 403, 429 ].includes(i.status)) {
+                if ([ 401, 403, 429 ].includes(o.status)) {
                     this.debug("Javxy API 被拒绝或限流，尝试下一个节点", {
                         endpoint: e.label,
-                        status: i.status
+                        status: o.status
                     });
                     continue;
                 }
-                if (i.status < 200 || i.status >= 400) return this.debug("Javxy API 无结果，停止查询", {
+                if (o.status < 200 || o.status >= 400) return this.debug("Javxy API 无结果，停止查询", {
                     endpoint: e.label,
-                    status: i.status
+                    status: o.status
                 }), null;
-                if (!i.responseText) return this.debug("Javxy API 响应为空，停止查询", {
+                if (!o.responseText) return this.debug("Javxy API 响应为空，停止查询", {
                     endpoint: e.label,
-                    status: i.status
+                    status: o.status
                 }), null;
-                let r;
+                let s;
                 try {
-                    r = JSON.parse(i.responseText);
+                    s = JSON.parse(o.responseText);
                 } catch {
                     this.debug("Javxy JSON 解析失败，尝试下一个节点", {
                         endpoint: e.label
                     });
                     continue;
                 }
-                const o = String(r?.trailer || "").trim();
-                if (!o) return this.debug("Javxy 无 trailer 字段，停止查询", {
+                const l = String(s?.trailer || "").trim();
+                if (!l) return this.debug("Javxy 无 trailer 字段，停止查询", {
                     endpoint: e.label,
-                    keys: Object.keys(r || {})
+                    keys: Object.keys(s || {})
                 }), null;
-                const s = r?.qualities && "object" == typeof r.qualities ? r.qualities : {}, l = r?.quality && s[r.quality] ? r.quality : this.selectHighestQuality(s), d = this.javxySourceLabels[r?.source] || `Javxy | ${r?.source || "dmm"}`;
+                const d = s?.qualities && "object" == typeof s.qualities ? s.qualities : {}, c = s?.quality && d[s.quality] ? s.quality : this.selectHighestQuality(d), p = this.javxySourceLabels[s?.source] || `Javxy | ${s?.source || "dmm"}`;
                 this.debug("Javxy 返回结果", {
                     endpoint: e.label,
-                    source: r?.source,
-                    quality: l,
-                    qualities: Object.keys(s)
+                    source: s?.source,
+                    quality: c,
+                    qualities: Object.keys(d)
                 });
-                const c = String(r?.type || "").trim() || "video";
-                return this.result(s[l] || o, d, c, {
-                    qualities: s,
-                    quality: l,
-                    urls: Array.isArray(r?.urls) && r.urls.length ? r.urls : this.sortQualityKeys(s).map(e => s[e])
+                const m = String(s?.type || "").trim() || "video";
+                return this.result(d[c] || l, p, m, {
+                    qualities: d,
+                    quality: c,
+                    code: this.normalize(a),
+                    rawCode: t,
+                    javxySource: String(s?.source || "").trim(),
+                    requiresJP: Boolean(s?.requiresJP),
+                    fallbackSources: Array.isArray(s?.fallback) ? s.fallback.filter(Boolean) : [],
+                    fallbackQuery: {
+                        skip: Array.isArray(n.skip) ? n.skip.filter(Boolean) : [],
+                        prefer: Array.isArray(n.prefer) ? n.prefer.filter(Boolean) : []
+                    },
+                    urls: Array.isArray(s?.urls) && s.urls.length ? s.urls : this.sortQualityKeys(d).map(e => d[e])
                 });
             }
             return null;
         }
-    }, $ = {
+    }, L = {
         getPreviewCacheEnabled: () => !0,
         getTrailerCacheEnabled: () => !0,
         getDefaultSearchEngine() {
             const e = GM_getValue("default_search_engine", 2);
-            return P[e] || P[0];
+            return $[e] || $[0];
         },
         getDefaultVideoEngine: () => GM_getValue("default_video_engine", "missav"),
         getVideoEngines: () => d,
         getSourceOrder: () => GM_getValue("thumb_source_order", [ "javfree", "projectjav", "javstore" ])
-    }, P = [ {
+    }, $ = [ {
         name: "BTDigg",
         color: "#F60",
         url: e => `https://btdig.com/search?q=${e}`
@@ -4064,7 +4189,7 @@
         name: "DuckGo",
         color: "#DE5833",
         url: e => `https://duckduckgo.com/?q=${e}`
-    } ], M = {
+    } ], P = {
         api: "https://webapi.115.com/files/search",
         videoExts: new Set([ "mp4", "mkv", "avi", "wmv", "mov", "m4v", "ts", "flv", "rmvb", "webm" ]),
         pending: new Map,
@@ -4306,12 +4431,12 @@
             javday: `https://javday.app/videos/${r}/`,
             supjav: `https://supjav.com/zh/?s=${encodeURIComponent(e)}`,
             javrate: `https://www.javrate.com/search/${encodeURIComponent(i)}`
-        }, s = new Set([ ...a ? [ "missav", "jable", "123av", "javday", "supjav", "javrate" ] : [] ]), l = $.getVideoEngines().filter(e => s.has(e.key) && !e.host.test(location.hostname)).map(e => ({
+        }, s = new Set([ ...a ? [ "missav", "jable", "123av", "javday", "supjav", "javrate" ] : [] ]), l = L.getVideoEngines().filter(e => s.has(e.key) && !e.host.test(location.hostname)).map(e => ({
             ...e,
             url: o[e.key]
         })).filter(e => e.url);
         if (!l.length) return;
-        const d = $.getDefaultVideoEngine(), c = l.find(e => e.key === d) || l[0], p = l.filter(e => e !== c), m = e => C.createJumpLinkBtn(`🎬 ${e.label}`, e.color, e.url);
+        const d = L.getDefaultVideoEngine(), c = l.find(e => e.key === d) || l[0], p = l.filter(e => e !== c), m = e => C.createJumpLinkBtn(`🎬 ${e.label}`, e.color, e.url);
         if (!p.length) return void t.appendChild(m(c));
         const u = document.createElement("div");
         u.className = "search-menu missav-menu", u.style.setProperty("--jav-btn-accent", c.color);
@@ -4326,27 +4451,27 @@
             t.style.margin = "2px 0", t.style.width = "100%", t.style.textAlign = "left", g.appendChild(t);
         }), u.appendChild(g), T(u, v, g, h), t.appendChild(u);
     }
-    function B(e, t, n = !1) {
+    function D(e, t, n = !1) {
         if (!GM_getValue("btn_show_fanza", !0)) return;
         const a = C.createBtn("▶ FANZA", "#c0392b", () => {
             window.open(`https://www.dmm.co.jp/mono/-/search/=/searchstr=${encodeURIComponent(e)}/`);
         }, n);
         t.appendChild(a);
     }
-    function U(e, t, n = !1) {
+    function B(e, t, n = !1) {
         if (!GM_getValue("btn_show_trailer", !0)) return;
         const a = C.createBtn("🎞️ 预告片", "#111827", async () => {
             const t = a.textContent;
             a.textContent = "🎞️ 解析中...", a.style.pointerEvents = "none", a.style.opacity = "0.72";
             try {
-                await L.show(e);
+                await M.show(e);
             } finally {
                 a.textContent = t, a.style.pointerEvents = "", a.style.opacity = "";
             }
         }, n);
         a.classList.add("jav-trailer-btn"), t.appendChild(a);
     }
-    function D(e, t, n = !1) {
+    function U(e, t, n = !1) {
         if (!GM_getValue("btn_show_preview", !0)) return;
         const a = C.createBtn("🖼️ 预览图", "#28a745", async () => {
             await E.show(e);
@@ -4354,15 +4479,15 @@
         a.classList.add("jav-preview-btn"), t.appendChild(a);
     }
     function J(e, t, n = !1) {
-        if (!M.enabled() || !e || !t) return;
-        const a = M.normalizeKeepSeparator(e);
+        if (!P.enabled() || !e || !t) return;
+        const a = P.normalizeKeepSeparator(e);
         if (!a || t.dataset.pan115PlayCode === a) return;
         t.dataset.pan115PlayCode = a;
         const i = document.createComment("pan115-play"), r = t.querySelector(".jav-trailer-btn, .jav-preview-btn, .jav-settings-btn");
-        t.insertBefore(i, r || null), M.searchCached(a).then(e => {
+        t.insertBefore(i, r || null), P.searchCached(a).then(e => {
             const t = e?.pickcode;
-            if (!M.enabled() || !t || !i.parentNode) return;
-            const n = C.createJumpLinkBtn("115播放", "#00a85a", M.playUrl(t));
+            if (!P.enabled() || !t || !i.parentNode) return;
+            const n = C.createJumpLinkBtn("115播放", "#00a85a", P.playUrl(t));
             n.classList.add("jav-pan115-play-btn"), n.dataset.pickcode = t, n.title = e.name || `115播放：${a}`, 
             i.parentNode.insertBefore(n, i);
         }).catch(e => {
@@ -4373,7 +4498,7 @@
     }
     function G(e, t, n = !1) {
         if (!GM_getValue("btn_show_search", !0)) return;
-        const a = $.getDefaultSearchEngine(), i = document.createElement("div");
+        const a = L.getDefaultSearchEngine(), i = document.createElement("div");
         i.className = "search-menu", i.style.setProperty("--jav-btn-accent", a.color);
         const r = C.createBtn(`🔍 ${a.name}`, a.color, () => {
             window.open(a.url(e));
@@ -4383,7 +4508,7 @@
         o.type = "button", o.className = "search-toggle-btn", o.title = "展开搜索引擎", o.innerHTML = '<span class="search-arrow">▼</span>', 
         i.appendChild(o);
         const s = document.createElement("div");
-        s.className = "search-submenu", P.forEach(t => {
+        s.className = "search-submenu", $.forEach(t => {
             if (t.name === a.name) return;
             const i = C.createBtn(`🔍 ${t.name}`, t.color, () => {
                 window.open(t.url(e)), s.classList.remove("is-open");
@@ -4391,23 +4516,23 @@
             i.style.margin = "2px 0", i.style.width = "100%", i.style.textAlign = "left", s.appendChild(i);
         }), i.appendChild(s), T(i, o, s, r), t.appendChild(i);
     }
-    function O(e, t = !1) {
+    function H(e, t = !1) {
         if (!e || e.querySelector(".jav-settings-btn")) return;
         const n = C.createBtn("⚙️ 设置", "#475569", () => {
             g.open();
         }, t);
         n.classList.add("jav-settings-btn"), n.title = "打开老司机设置", e.appendChild(n);
     }
-    function H(e, t, n = !0) {
-        const a = M.playUrl(e.pickcode), i = document.createElement(n ? "a" : "span");
-        if (i.className = "jav-pan115-badge", i.textContent = "115匹配", i.title = e.name || `115播放：${M.normalizeKeepSeparator(t)}`, 
+    function O(e, t, n = !0) {
+        const a = P.playUrl(e.pickcode), i = document.createElement(n ? "a" : "span");
+        if (i.className = "jav-pan115-badge", i.textContent = "115匹配", i.title = e.name || `115播放：${P.normalizeKeepSeparator(t)}`, 
         i.dataset.pickcode = e.pickcode, n) i.href = a, i.target = "_blank", i.rel = "noopener noreferrer", 
         i.addEventListener("click", e => {
             e.stopImmediatePropagation();
         }, !0); else {
             i.setAttribute("role", "link"), i.tabIndex = 0;
             const e = e => {
-                e.preventDefault(), e.stopImmediatePropagation(), window.open(M.playUrl(i.dataset.pickcode), "_blank", "noopener,noreferrer");
+                e.preventDefault(), e.stopImmediatePropagation(), window.open(P.playUrl(i.dataset.pickcode), "_blank", "noopener,noreferrer");
             };
             i.addEventListener("click", e, !0), i.addEventListener("keydown", t => {
                 "Enter" !== t.key && " " !== t.key || e(t);
@@ -4417,7 +4542,7 @@
     }
     let F = !1;
     async function V() {
-        if (!M.enabled() || F || j.isDetailPage()) return;
+        if (!P.enabled() || F || j.isDetailPage()) return;
         F = !0;
         const e = j.collectPan115ListTargets().slice(0, 36);
         try {
@@ -4425,7 +4550,7 @@
                 e.dataset.pan115Checked = "1";
             }), await Promise.all(e.map(async ({anchor: e, code: t}) => {
                 try {
-                    const n = await M.searchCached(t);
+                    const n = await P.searchCached(t);
                     j.insertPan115ListBadge(e, n, t);
                 } catch (e) {
                     console.warn("[老司机] 115列表单项查询失败:", e);
@@ -4434,16 +4559,16 @@
         } catch (e) {
             console.warn("[老司机] 115列表自动查询失败:", e);
         } finally {
-            F = !1, M.enabled() && j.collectPan115ListTargets().length && oe();
+            F = !1, P.enabled() && j.collectPan115ListTargets().length && oe();
         }
     }
     function K() {
         document.querySelectorAll(".jav-pan115-badge[data-pickcode], .jav-pan115-play-btn[data-pickcode]").forEach(e => {
-            const t = M.playUrl(e.dataset.pickcode);
+            const t = P.playUrl(e.dataset.pickcode);
             "A" === e.tagName && (e.href = t);
         }), j.isDetailPage() ? ae.render() : oe();
     }
-    function W(e = M.enabled()) {
+    function W(e = P.enabled()) {
         if (!e) return clearTimeout(re), document.querySelectorAll(".jav-pan115-badge, .jav-pan115-play-btn").forEach(e => e.remove()), 
         document.querySelectorAll("[data-pan115-checked], [data-pan115-has-badge]").forEach(e => {
             delete e.dataset.pan115Checked, delete e.dataset.pan115HasBadge;
@@ -4651,8 +4776,8 @@
             delete t.dataset.enhanced;
         }
         if (n && "emby" !== e.id) {
-            const a = C.extractCode(t.textContent), i = M.extractCode(t.textContent, a);
-            return i && J(i, n), O(n), void ne(e, t, n);
+            const a = C.extractCode(t.textContent), i = P.extractCode(t.textContent, a);
+            return i && J(i, n), H(n), void ne(e, t, n);
         }
         if ("1" === t.dataset.enhanced) return;
         t.dataset.enhanced = "1";
@@ -4662,14 +4787,14 @@
             keepUncensoredSource: !0
         }) || i, o = document.createElement("div");
         if (o.className = "jav-jump-btn-group", o.dataset.laosijiJump = "1", "javlibrary" === e.id) I(i, o), 
-        z(i, o), R(i, o), N(i, o), B(i, o), G(i, o), Z(o), J(M.extractCode(a, i), o), U(r, o), 
-        D(i, o), O(o), o.querySelectorAll("a").forEach(e => {
+        z(i, o), R(i, o), N(i, o), D(i, o), G(i, o), Z(o), J(P.extractCode(a, i), o), B(r, o), 
+        U(i, o), H(o), o.querySelectorAll("a").forEach(e => {
             let t = e.getAttribute("style") || "";
             t = t.replace(/background:\s*([^;]+);/g, "background: $1 !important;"), t = t.replace(/color:\s*([^;]+);/g, "color: $1 !important;"), 
             e.setAttribute("style", t);
         }), ne(e, t, o); else if ("missav" === e.id) {
             I(i, o), z(i, o), R(i, o), N(i, o);
-            const n = $.getDefaultSearchEngine(), s = document.createElement("div");
+            const n = L.getDefaultSearchEngine(), s = document.createElement("div");
             s.className = "search-menu", s.style.setProperty("--jav-btn-accent", n.color);
             const l = C.createLinkBtn(`🔍 ${n.name}`, n.color, n.url(i));
             l.classList.add("search-main-btn"), s.appendChild(l);
@@ -4677,15 +4802,15 @@
             d.type = "button", d.className = "search-toggle-btn", d.title = "展开搜索引擎", d.innerHTML = '<span class="search-arrow">▼</span>', 
             s.appendChild(d);
             const c = document.createElement("div");
-            c.className = "search-submenu", P.forEach(e => {
+            c.className = "search-submenu", $.forEach(e => {
                 if (e.name === n.name) return;
                 const t = C.createLinkBtn(`🔍 ${e.name}`, e.color, e.url(i));
                 t.style.margin = "2px 0", c.appendChild(t);
-            }), s.appendChild(c), T(s, d, c, l), o.appendChild(s), J(M.extractCode(a, i), o), 
-            U(r, o), D(i, o), O(o), o.style.cssText = "\n                margin: 10px 0 6px 0;\n                display: flex;\n                flex-wrap: wrap;\n                gap: 8px;\n                align-items: center;\n                position: relative;\n                z-index: 9999;\n            ", 
+            }), s.appendChild(c), T(s, d, c, l), o.appendChild(s), J(P.extractCode(a, i), o), 
+            B(r, o), U(i, o), H(o), o.style.cssText = "\n                margin: 10px 0 6px 0;\n                display: flex;\n                flex-wrap: wrap;\n                gap: 8px;\n                align-items: center;\n                position: relative;\n                z-index: 9999;\n            ", 
             ne(e, t, o);
-        } else I(i, o), z(i, o), R(i, o), N(i, o), B(i, o), G(i, o), [ "javbus", "javdb", "supjav", "jable" ].includes(e.id) && Z(o), 
-        J(M.extractCode(a, i), o), U(r, o), D(i, o), O(o), "emby" === e.id ? (o.classList.add("emby-fix"), 
+        } else I(i, o), z(i, o), R(i, o), N(i, o), D(i, o), G(i, o), [ "javbus", "javdb", "supjav", "jable" ].includes(e.id) && Z(o), 
+        J(P.extractCode(a, i), o), B(r, o), U(i, o), H(o), "emby" === e.id ? (o.classList.add("emby-fix"), 
         o.dataset.embyRenderKey = j.getEmbyRenderKey(t), j.getEmbyInsertAnchor(t).insertAdjacentElement("afterend", o)) : ne(e, t, o);
     }
     function ne(e, t, n) {
@@ -4891,13 +5016,13 @@
     l.expose("__LAOSIJI_INFINITE_SCROLL__", ie);
     let re = null;
     function oe() {
-        M.enabled() && !j.isDetailPage() && (clearTimeout(re), re = setTimeout(V, 300));
+        P.enabled() && !j.isDetailPage() && (clearTimeout(re), re = setTimeout(V, 300));
     }
     l.expose("__LAOSIJI_SCHEDULE_PAN115__", oe), l.expose("__LAOSIJI_RENDER_BUTTONS__", () => ae.render());
     const se = {
         refresh(e = {}) {
             const {jump: t = !0, listPreview: n = !0, detailPreview: a = !0, pan115: i = !0, infiniteScroll: r = !0, titleTranslate: o = !0, listOpenNewTab: s = !0, stillsGallery: l = !0} = e;
-            t && ae.render(), n && q.sync(), s && _.sync(), a && A.sync(), l && k.sync(), i && oe(), 
+            t && ae.render(), n && A.sync(), s && k.sync(), a && q.sync(), l && _.sync(), i && oe(), 
             r && ie.init(), o && X.sync();
         },
         refreshListPage() {
@@ -4907,25 +5032,25 @@
             });
         },
         refreshListDecorations() {
-            q.sync(), _.sync(), oe();
+            A.sync(), k.sync(), oe();
         },
-        syncPan115(e = M.enabled()) {
+        syncPan115(e = P.enabled()) {
             W(e);
         },
         syncInfiniteScroll(e = a.infiniteScroll) {
             e ? ie.init() : ie.destroy();
         },
         syncListPreview() {
-            q.sync();
+            A.sync();
         },
         syncDetailPreview() {
-            A.sync();
+            q.sync();
         },
         syncTitleTranslate() {
             X.sync();
         },
         syncListOpenNewTab() {
-            _.sync();
+            k.sync();
         }
     };
     l.expose("__LAOSIJI_RUNTIME__", se);
@@ -4987,8 +5112,8 @@
             }());
         },
         init() {
-            this.started || (this.started = !0, this.initRuntimeObserver(), this.initNavigationHooks(), 
-            j.setupJavDbGuards(), location.hostname.includes("javdb") && location.pathname.startsWith("/v/") ? setTimeout(S, 600) : S(), 
+            this.started || (this.started = !0, M.installFallbackDebugHelper(), this.initRuntimeObserver(), 
+            this.initNavigationHooks(), j.setupJavDbGuards(), location.hostname.includes("javdb") && location.pathname.startsWith("/v/") ? setTimeout(S, 600) : S(), 
             j.isEmbyPage() ? (ue(), se.refresh({
                 jump: !1
             })) : se.refresh());
