@@ -1,15 +1,17 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.6.5
+// @version      2.6.5.1
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
+
 // @match        *://*.javlibrary.com/*
 // @match        *://javlibrary.com/*
 // @match        *://*.javbus.com/*
 // @match        *://javbus.com/*
 // @include      *://*javdb*.com/*
+
 // @match        *://sukebei.nyaa.si/*
 // @match        *://169bbs.com/*
 // @match        *://supjav.com/*
@@ -21,6 +23,7 @@
 // @include      /^[^:]*?:\/\/missav\.[^/]*?\/.*?$/
 // @include      /^[^:]*?:\/\/emby\.[^/]*?\/web\/index\.html.*?$/
 // @include      /^[^:]*?:\/\/10\.[^/]*?:[^/]*?\/web\/index\.html.*?$/
+
 // @run-at       document-idle
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
@@ -40,9 +43,10 @@
 // @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/laosiji-new.js
 // @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/laosiji-new.js
 // ==/UserScript==
+
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.6.5';
+    const SCRIPT_VERSION = '2.6.5.1';
     const PAGE_ZOOM_DEFAULT = 86;
     const JAVDB_REVIEW_INITIAL_LIMIT = 6;
     const JAVDB_REVIEW_MORE_LIMIT = 20;
@@ -4552,9 +4556,9 @@
             };
             const schedulePlaybackGuard = (reason = 'timeout') => {
                 clearTimeout(playbackReadyTimer);
-                const timeout = /\.m3u8(?:[?#].*)?$/i.test(activeUrl) || activeType === 'hls' ? 8000 : 6200;
+                const timeout = /\.m3u8(?:[?#].*)?$/i.test(activeUrl) || activeType === 'hls' ? 8000 : 4000;
                 playbackReadyTimer = setTimeout(() => {
-                    if (overlayClosed || playbackStarted || !video || !video.isConnected || video.readyState >= 1) return;
+                    if (overlayClosed || playbackStarted || !video || !video.isConnected) return;
                     handlePlaybackFailure(reason);
                 }, timeout);
             };
@@ -4924,10 +4928,10 @@
                     syncTrailerControls();
                 });
                 video.addEventListener('play', () => {
-                    markPlaybackReady();
                     syncTrailerControls();
                     scheduleHideTrailerControls();
                 });
+                video.addEventListener('playing', markPlaybackReady);
                 video.addEventListener('pause', () => {
                     syncTrailerControls();
                     screen.classList.remove('is-controls-hidden');
@@ -4943,11 +4947,9 @@
                     restorePlaybackTime();
                 });
                 video.addEventListener('loadedmetadata', () => {
-                    markPlaybackReady();
                     syncTrailerControls();
                     restorePlaybackTime();
                 });
-                video.addEventListener('canplay', markPlaybackReady);
                 video.addEventListener('ended', () => clearPlaybackTime());
                 video.addEventListener('error', () => {
                     handlePlaybackFailure('video');
@@ -5685,24 +5687,6 @@
                 this.debug('打开播放器', { code: this.normalize(code), source: result.source, type: result.type || 'video', url: result.url });
                 const normalizedCode = this.normalize(code);
                 const rawCode = String(code || '').trim();
-                const initialSource = this.normalizeJavxySource(result.javxySource || result.source);
-                const shouldPrefetchFallback = initialSource === 'DMM';
-                let prefetchedFallback = null;
-                if (shouldPrefetchFallback) {
-                    prefetchedFallback = this.fallbackJavxyResult(normalizedCode, rawCode, [initialSource], { silent: true }).then(prefetched => {
-                        if (prefetched?.url) {
-                            this.debug('Javxy 备用来源已预取，不切换当前播放', {
-                                source: prefetched.javxySource || prefetched.source,
-                                type: prefetched.type || 'video',
-                                url: prefetched.url
-                            });
-                        }
-                        return prefetched;
-                    }).catch(err => {
-                        console.warn('[TrailerResolver] Javxy 预取备用来源失败', err);
-                        return null;
-                    });
-                }
                 Utils.showTrailerOverlay({
                     code: normalizedCode,
                     url: result.url,
@@ -5715,10 +5699,6 @@
                     fallbackResolver: async (failedSources = []) => {
                         const failed = [...new Set(failedSources.map(source => this.normalizeJavxySource(source)).filter(Boolean))];
                         if (failed.includes('DMM')) this.markJpSourceTemporarilyFailed('DMM');
-                        if (prefetchedFallback && failed.length === 1 && failed[0] === initialSource) {
-                            const prefetched = await prefetchedFallback;
-                            if (prefetched?.url) return prefetched;
-                        }
                         return this.fallbackJavxyResult(normalizedCode, rawCode, failed);
                     }
                 });
@@ -7404,3 +7384,4 @@
     Core.expose('__LAOSIJI_APP__', App);
     App.init();
 })();
+
