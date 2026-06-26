@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.6.5.1
+// @version      2.6.6
 // @description  JavBus / JavDB / javlibrary 磁力搜索与番号助手，集成 115 离线 匹配、番号复制、站点跳转、多源预览图、预告片播放、缓存管理和统一设置面板, 支持在 JavBus、JavDB、JavLibrary 等站点显示磁力表，并在 Sukebei、169bbs、SupJav、Emby、JavBus、JavDB、JavLibrary、Javrate、Sehuatang、HJD2048、MissAV 等页面提供番号跳转、预览图和预告片入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -46,10 +46,11 @@
 
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.6.5.1';
+    const SCRIPT_VERSION = '2.6.6';
     const PAGE_ZOOM_DEFAULT = 86;
     const JAVDB_REVIEW_INITIAL_LIMIT = 6;
     const JAVDB_REVIEW_MORE_LIMIT = 20;
+
     const CFG = {
         get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
         get ciligouUrl()       { return GM_getValue('cfg_ciligou_url',       'clg55.top'); },
@@ -57,6 +58,7 @@
         get btsearchUrl()      { return GM_getValue('cfg_btsearch_url',      'btsearch.love'); },
         get sukebeiUrl()       { return GM_getValue('cfg_sukebei_url',       'sukebei.nyaa.si'); },
         get sokittyUrl()       { return GM_getValue('cfg_sokitty_url',       'w1.sokitty.me'); },
+
         get defaultEngine()    { return GM_getValue('cfg_default_engine', 'sukebei.nyaa.si'); },
         get defaultVideoEngine() { return GM_getValue('default_video_engine', 'missav'); },
         get pan115Player() { return GM_getValue('pan115_player_mode', 'official'); },
@@ -76,6 +78,7 @@
         get portraitCards() { return GM_getValue('portrait_cards_enabled', false); },
         get thumbSourceOrder() { return GM_getValue('thumb_source_order', ['javfree', 'projectjav', 'javstore']); },
         get detailFlex() { return GM_getValue('detail_flex_settings', {}); },
+
         set javdbSearchUrl(v)   { GM_setValue('cfg_javdb_search_url', v); },
         set ciligouUrl(v)       { GM_setValue('cfg_ciligou_url', v); },
         set btdigUrl(v)         { GM_setValue('cfg_btdig_url', v); },
@@ -101,6 +104,7 @@
         set portraitCards(v) { GM_setValue('portrait_cards_enabled', !!v); },
         set thumbSourceOrder(v) { GM_setValue('thumb_source_order', v); },
         set detailFlex(v) { GM_setValue('detail_flex_settings', v || {}); },
+
         get btnShowNyaa()    { return GM_getValue('btn_show_nyaa',    true); },
         get btnShowJavbus()  { return GM_getValue('btn_show_javbus',  true); },
         get btnShowJavdb()   { return GM_getValue('btn_show_javdb',   true); },
@@ -112,6 +116,8 @@
         get btnShowPan115()  { return GM_getValue('btn_show_pan115',  false); },
         get magnetTable()    { return GM_getValue('magnet_table_enabled', true); },
         get infiniteScroll() { return GM_getValue('infinite_scroll_enabled', false); },
+        get cardFx()         { return GM_getValue('card_fx_enabled', true); },
+
         set btnShowNyaa(v)    { GM_setValue('btn_show_nyaa',    v); },
         set btnShowJavbus(v)  { GM_setValue('btn_show_javbus',  v); },
         set btnShowJavdb(v)   { GM_setValue('btn_show_javdb',   v); },
@@ -123,7 +129,9 @@
         set btnShowPan115(v)  { GM_setValue('btn_show_pan115',  v); },
         set magnetTable(v)    { GM_setValue('magnet_table_enabled', v); },
         set infiniteScroll(v) { GM_setValue('infinite_scroll_enabled', v); },
+        set cardFx(v)         { GM_setValue('card_fx_enabled', !!v); },
     };
+
     const CardColumns = (() => {
         const LIMITS = { min: 2, max: 10 };
         const SITE_META = {
@@ -131,19 +139,23 @@
             javdb:  { getter: () => CFG.javdbCardColumns,  setter: v => { CFG.javdbCardColumns = v; },  portraitGetter: () => CFG.javdbPortraitCardColumns,  portraitSetter: v => { CFG.javdbPortraitCardColumns = v; },  selector: '.javdb-card-grid',  host: /javdb/i },
             javlib: { getter: () => CFG.javlibCardColumns, setter: v => { CFG.javlibCardColumns = v; }, portraitGetter: () => CFG.javlibPortraitCardColumns, portraitSetter: v => { CFG.javlibPortraitCardColumns = v; }, selector: '.javlib-card-grid', host: /(javlibrary|javlib|r86m|s87n)/i },
         };
+
         function clamp(value) {
             return Math.min(LIMITS.max, Math.max(LIMITS.min, parseInt(value, 10) || 5));
         }
+
         function get(siteId) {
             const meta = SITE_META[siteId];
             if (!meta) return 5;
             return clamp((CFG.portraitCards ? meta.portraitGetter : meta.getter)());
         }
+
         function set(siteId, value) {
             const meta = SITE_META[siteId];
             if (!meta) return;
             (CFG.portraitCards ? meta.portraitSetter : meta.setter)(clamp(value));
         }
+
         function apply(siteId, value = get(siteId)) {
             const meta = SITE_META[siteId];
             if (!meta) return;
@@ -151,27 +163,34 @@
                 el.style.setProperty('--jav-card-columns', String(clamp(value)));
             });
         }
+
         function detectCurrentSite() {
             const host = location.hostname;
             return Object.entries(SITE_META).find(([, meta]) => meta.host.test(host))?.[0] || '';
         }
+
         return { LIMITS, clamp, get, set, apply, detectCurrentSite };
     })();
+
     const PortraitCards = (() => {
         let styleReady = false;
+
         function enabled() {
             return !!CFG.portraitCards;
         }
+
         function ensureStyle() {
             if (styleReady) return;
             styleReady = true;
-            GM_addStyle(`html.jav-card-portrait-mode .jav-card-grid{gap:14px !important}html.jav-card-portrait-mode .jav-card-cover{aspect-ratio:2 / 3 !important;background:#f1f5f9 !important}html.jav-card-portrait-mode .jav-card-image{object-fit:cover !important;object-position:center top !important}html.jav-card-portrait-mode .javbus-card-title,html.jav-card-portrait-mode .javdb-card-title{min-height:calc((var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em)+58px) !important}html.jav-card-portrait-mode .javlib-card-title{min-height:calc((var(--javlib-title-line-height,22px) * var(--jav-card-title-lines,2))+54px) !important}`);
+            GM_addStyle(`html.jav-card-portrait-mode .jav-card-grid{gap:14px !important}html.jav-card-portrait-mode .jav-card-cover{aspect-ratio:2 / 3 !important;background:#f1f5f9 !important}html.jav-card-portrait-mode .jav-card-image{object-fit:cover !important;object-position:center top !important}html.jav-card-portrait-mode .javbus-card-title,html.jav-card-portrait-mode .javdb-card-title{min-height:calc((var(--jav-card-title-line-height,1.5)* var(--jav-card-title-lines,2)* 1em)+58px)!important}html.jav-card-portrait-mode .javlib-card-title{min-height:calc((var(--javlib-title-line-height,22px)* var(--jav-card-title-lines,2))+54px)!important}`);
         }
+
         function javbusCoverFromThumb(src) {
             let full = String(src || '').replace(/\/(imgs|pics)\/(thumb|thumbs)\//i, '/$1/cover/');
             if (!/nopic\.jpg/i.test(full)) full = full.replace(/(\.jpg|\.jpeg|\.png)(?:([?#].*)?)$/i, '_b$1$2');
             return full;
         }
+
         function syncJavbusImage(img, on) {
             if (!img) return;
             const thumb = img.dataset.laosijiThumbSrc || '';
@@ -183,6 +202,7 @@
                 img.setAttribute('src', next);
             }
         }
+
         function syncJavlibImage(img, on) {
             if (!img) return;
             const current = img.getAttribute('src') || '';
@@ -198,6 +218,7 @@
                 img.setAttribute('src', next);
             }
         }
+
         function syncJavdbImage(img, on) {
             if (!img) return;
             const current = img.getAttribute('src') || '';
@@ -219,11 +240,13 @@
                 img.setAttribute('src', next);
             }
         }
+
         function syncImages(on = enabled()) {
             document.querySelectorAll('.javbus-card-image').forEach(img => syncJavbusImage(img, on));
             document.querySelectorAll('.javdb-card-image').forEach(img => syncJavdbImage(img, on));
             document.querySelectorAll('.javlib-card-image').forEach(img => syncJavlibImage(img, on));
         }
+
         function apply(on = enabled()) {
             ensureStyle();
             document.documentElement.classList.toggle('jav-card-portrait-mode', !!on);
@@ -231,12 +254,15 @@
             const site = CardColumns.detectCurrentSite();
             if (site) CardColumns.apply(site);
         }
+
         function set(value) {
             CFG.portraitCards = !!value;
             apply(!!value);
         }
+
         return { enabled, apply, set, syncImages };
     })();
+
     const PageZoom = (() => {
         const LIMITS = { min: 60, max: 100 };
         const SITE_META = {
@@ -244,16 +270,20 @@
             javdb:  { getter: () => CFG.javdbPageZoom,  setter: v => { CFG.javdbPageZoom = v; },  selector: 'body > section > div',     host: /javdb/i },
             javlib: { getter: () => CFG.javlibPageZoom, setter: v => { CFG.javlibPageZoom = v; }, selector: '#content',                 host: /(javlibrary|javlib|r86m|s87n)/i },
         };
+
         function clamp(value) {
             return Math.min(LIMITS.max, Math.max(LIMITS.min, parseInt(value, 10) || 100));
         }
+
         function get(siteId) {
             return SITE_META[siteId] ? clamp(SITE_META[siteId].getter()) : 100;
         }
+
         function set(siteId, value) {
             if (!SITE_META[siteId]) return;
             SITE_META[siteId].setter(clamp(value));
         }
+
         function isJavbusActorIndexPage(url = location.href) {
             try {
                 const path = new URL(url, location.href).pathname.replace(/\/+$/, '');
@@ -262,6 +292,7 @@
                 return false;
             }
         }
+
         function reflowJavbusActorWaterfall() {
             const waterfall = document.querySelector('#waterfall');
             if (!waterfall || !waterfall.querySelector('.avatar-box')) return;
@@ -269,6 +300,7 @@
             waterfall.style.setProperty('max-width', '100%', 'important');
             waterfall.style.setProperty('margin-left', 'auto', 'important');
             waterfall.style.setProperty('margin-right', 'auto', 'important');
+
             const run = () => {
                 const jq = window.jQuery || window.$;
                 try {
@@ -285,6 +317,7 @@
             requestAnimationFrame(run);
             setTimeout(run, 160);
         }
+
         function apply(siteId, value = get(siteId)) {
             const meta = SITE_META[siteId];
             if (!meta) return;
@@ -331,16 +364,20 @@
                 reflowJavbusActorWaterfall();
             }
         }
+
         function detectCurrentSite() {
             const host = location.hostname;
             return Object.entries(SITE_META).find(([, meta]) => meta.host.test(host))?.[0] || '';
         }
+
         function applyCurrent() {
             const current = detectCurrentSite();
             if (current) apply(current);
         }
+
         return { LIMITS, clamp, get, set, apply, applyCurrent, detectCurrentSite };
     })();
+
     const DetailFlex = (() => {
         const LIMITS = { min: 50, max: 200 };
         const DEFAULTS = {
@@ -368,17 +405,21 @@
                 vars: { cover: '--javlib-cover-flex', info: '--javlib-info-flex', magnet: '--javlib-magnet-flex' },
             },
         };
+
         function clamp(value) {
             return Math.min(LIMITS.max, Math.max(LIMITS.min, parseInt(value, 10) || 100));
         }
+
         function detectCurrentSite() {
             const host = location.hostname;
             return Object.entries(META).find(([, meta]) => meta.host.test(host) && meta.detail())?.[0] || '';
         }
+
         function getAll() {
             const saved = CFG.detailFlex;
             return saved && typeof saved === 'object' ? saved : {};
         }
+
         function get(siteId) {
             const all = getAll();
             const defaults = DEFAULTS[siteId] || DEFAULTS.javbus;
@@ -389,15 +430,18 @@
                 magnet: clamp(saved.magnet ?? defaults.magnet),
             };
         }
+
         function set(siteId, key, value) {
             if (!META[siteId] || !DEFAULTS[siteId] || !DEFAULTS[siteId].hasOwnProperty(key)) return;
             const all = getAll();
             all[siteId] = { ...get(siteId), [key]: clamp(value) };
             CFG.detailFlex = all;
         }
+
         function toFlex(value) {
             return (clamp(value) / 100).toFixed(2).replace(/\.?0+$/, '');
         }
+
         function defaultCss(siteId = detectCurrentSite()) {
             const values = DEFAULTS[siteId] || DEFAULTS.javbus;
             return {
@@ -406,14 +450,17 @@
                 magnet: toFlex(values.magnet),
             };
         }
+
         function hasMagnet(siteId = detectCurrentSite()) {
             if (!siteId || !CFG.magnetTable) return false;
             return !!document.querySelector('.jav-nong-slot');
         }
+
         function hasLayout(siteId = detectCurrentSite()) {
             const meta = META[siteId];
             return !!meta?.root?.();
         }
+
         function apply(siteId = detectCurrentSite()) {
             const meta = META[siteId];
             if (!meta) return;
@@ -426,9 +473,12 @@
                 root.style.setProperty(meta.vars.magnet, toFlex(values.magnet));
             }
         }
+
         return { LIMITS, DEFAULTS, clamp, detectCurrentSite, get, set, apply, hasMagnet, hasLayout, defaultCss };
     })();
+
     const log = (...args) => console.log('[老司机]', ...args);
+
     const Core = {
         version: SCRIPT_VERSION,
         cfg: CFG,
@@ -442,6 +492,7 @@
         },
     };
     Core.expose('__LAOSIJI_CORE__', Core);
+
     const VIDEO_ENGINES = [
         { key: 'missav', label: 'MissAV', host: /missav\.(com|ai|ws)/i, color: '#ec4899' },
         { key: 'jable',  label: 'Jable',  host: /jable\.tv/i, color: '#f97316' },
@@ -451,6 +502,7 @@
         { key: 'javrate', label: 'JavRate', host: /javrate\.com/i, color: '#8b5cf6' },
     ];
     Core.expose('__LAOSIJI_VIDEO_ENGINES__', VIDEO_ENGINES);
+
     const Ui = {
         on(el, event, handler, options) {
             if (!el || typeof handler !== 'function') return null;
@@ -501,12 +553,15 @@
         },
     };
     Core.expose('__LAOSIJI_UI__', Ui);
+
     function notify(title, text, url) {
         GM_notification({ title, text, onclick: () => url && window.open(url) });
     }
+
     function parseHTML(str) {
         return new DOMParser().parseFromString(str, 'text/html');
     }
+
     function gmFetch(url, opts = {}) {
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
@@ -524,6 +579,7 @@
             });
         });
     }
+
     function normalizeAvid(raw) {
         if (!raw) return '';
         raw = raw.trim().toUpperCase();
@@ -533,12 +589,14 @@
         if (m) return m[1].replace(/[-_]$/, '') + '-' + m[2];
         return raw;
     }
+
     function insertAvidCopyBtn(anchor, avid, nativeCopyBtn = null, append = false) {
         if (!anchor || !avid) return;
         const code = normalizeAvid(avid);
         const parent = anchor.parentElement || anchor;
         parent.querySelectorAll('.jav-avid-copy').forEach(btn => btn.remove());
         nativeCopyBtn?.style.setProperty('display', 'none', 'important');
+
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'jav-avid-copy';
@@ -555,6 +613,7 @@
         if (append) anchor.appendChild(btn);
         else anchor.after(btn);
     }
+
     const SettingsPanel = (() => {
         const MAGNET_ENGINES = [
             { key: 'javdbSearchUrl',  label: 'JavDB',        placeholder: 'javdb.com' },
@@ -571,17 +630,115 @@
             javstore:   { label: 'javstore.net',   color: '#dc2626' },
         };
         const stripProtocol = value => String(value || '').trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+
         function open() {
             document.getElementById('jav-settings-overlay')?.remove();
-            GM_addStyle(`#jav-settings-overlay{position:fixed;inset:0;z-index:10000020;background:rgba(15,23,42,.62);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(7px);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}#jav-settings-panel{width:min(800px,94vw);max-height:88vh;background:linear-gradient(180deg,#f8fbff 0%,#f6f3ff 46%,#fff7ed 100%);color:#111827;border:1px solid rgba(148,163,184,.38);border-radius:16px;box-shadow:0 26px 76px rgba(15,23,42,.36);display:flex;flex-direction:column;overflow:hidden}#jav-settings-panel *{box-sizing:border-box}#jav-settings-panel .sp-header{padding:18px 22px;background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 54%,#7c2d12 100%);border-bottom:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:space-between}#jav-settings-panel .sp-title{font-size:18px;font-weight:750;color:#fff}#jav-settings-panel .sp-close{width:32px;height:32px;border:1px solid rgba(255,255,255,.24);border-radius:8px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font-size:18px;line-height:1}#jav-settings-panel .sp-close:hover{background:rgba(255,255,255,.18)}#jav-settings-panel .sp-body{padding:18px 22px;overflow:auto;display:grid;gap:14px}#jav-settings-panel .sp-card{position:relative;background:rgba(255,255,255,.92);border:1px solid rgba(203,213,225,.88);border-radius:10px;padding:15px;box-shadow:0 10px 24px rgba(15,23,42,.06);overflow:hidden}#jav-settings-panel .sp-card::before{content:'';position:absolute;left:0;top:0;width:4px;height:100%;background:#2563eb}#jav-settings-panel .sp-card-magnet::before{background:#16a34a}#jav-settings-panel .sp-card-defaults::before{background:#2563eb}#jav-settings-panel .sp-card-features::before{background:#00a85a}#jav-settings-panel .sp-card-order::before{background:#dc2626}#jav-settings-panel .sp-card-title{font-size:13px;font-weight:750;color:#1e293b;margin-bottom:12px}#jav-settings-panel .sp-card-jump::before{background:#6366f1}#jav-settings-panel .sp-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}#jav-settings-panel .sp-feature-order-row{display:grid;grid-template-columns:2fr 1fr;gap:14px;align-items:stretch}#jav-settings-panel .sp-feature-order-row>.sp-card{height:100%}#jav-settings-panel .sp-feature-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#jav-settings-panel .sp-feature-item{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0;padding:10px 11px;border:1px solid #e2e8f0;border-radius:8px;background:linear-gradient(180deg,#fff 0%,#f8fafc 100%)}#jav-settings-panel .sp-feature-item:has(#sp-magnet-table){order:1;grid-column:1}#jav-settings-panel .sp-feature-item:has(#sp-clear-preview-cache){order:2;grid-column:1}#jav-settings-panel .sp-feature-item:has(#sp-clear-trailer-cache){order:2;grid-column:2}#jav-settings-panel .sp-feature-item .sp-desc{margin-top:2px;font-size:11px}#jav-settings-panel .sp-feature-select{order:1;grid-column:2;display:grid;grid-template-columns:1fr 64px;align-items:center;gap:10px;min-width:0;padding:10px 11px;border:1px solid #e2e8f0;border-radius:8px;background:linear-gradient(180deg,#fff 0%,#f8fafc 100%)}#jav-settings-panel .sp-feature-select .sp-select{height:28px;padding:3px 2px 3px 4px;font-size:12px;text-align:left}#jav-settings-panel .sp-cache-clean{background:linear-gradient(135deg,#fff 0%,#f8fbff 58%,#f0f9ff 100%)}#jav-settings-panel .sp-cache-clear-btn{position:relative;width:34px;height:34px;flex:0 0 auto;display:grid;place-items:center;border:1px solid #bae6fd;border-radius:10px;background:linear-gradient(180deg,#f0f9ff,#fff);color:#0284c7;cursor:pointer;overflow:hidden;transition:transform .16s,border-color .16s,background .16s,color .16s,box-shadow .16s}#jav-settings-panel .sp-cache-clear-btn::after{content:'';position:absolute;inset:-8px;border-radius:inherit;background:radial-gradient(circle,rgba(14,165,233,.22),transparent 62%);opacity:0;transform:scale(.45);transition:opacity .22s,transform .22s}#jav-settings-panel .sp-cache-clear-btn:hover{transform:translateY(-1px);border-color:#38bdf8;color:#0369a1;box-shadow:0 8px 18px rgba(14,165,233,.18)}#jav-settings-panel .sp-cache-clear-btn:active{transform:translateY(0) scale(.96)}#jav-settings-panel .sp-cache-clear-btn.is-clearing::after{opacity:1;transform:scale(1)}#jav-settings-panel .sp-cache-clear-btn.is-done{border-color:#86efac;background:linear-gradient(180deg,#ecfdf5,#fff);color:#15803d}#jav-settings-panel .sp-cache-clear-icon{position:relative;z-index:1;display:inline-block;font-size:15px;line-height:1}#jav-settings-panel .sp-cache-clear-btn.is-clearing .sp-cache-clear-icon{animation:spCacheSpin .48s ease}@keyframes spCacheSpin{to{transform:rotate(360deg)}}#jav-settings-panel .sp-field{display:flex;flex-direction:column;gap:6px;min-width:0}#jav-settings-panel .sp-label{font-size:12px;font-weight:650;color:#475569}#jav-settings-panel .sp-input,#jav-settings-panel .sp-select{width:100%;min-width:0;height:34px;padding:6px 9px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0f172a;font-size:13px;outline:none}#jav-settings-panel .sp-input:focus,#jav-settings-panel .sp-select:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.13)}#jav-settings-panel .sp-engine-row{display:grid;grid-template-columns:170px 1fr;gap:10px;align-items:end}#jav-settings-panel .sp-cache-actions{display:flex;align-items:center;gap:8px;margin-right:auto}#jav-settings-panel .sp-cache-feedback{min-width:64px;color:#059669;font-size:12px;font-weight:650}#jav-settings-panel .sp-footer-links{display:flex;align-items:center;gap:8px;margin-right:4px}#jav-settings-panel .sp-footer-link{color:#475569;font-size:12px;font-weight:700;text-decoration:none;padding:6px 8px;border-radius:7px}#jav-settings-panel .sp-footer-link:hover{color:#1d4ed8;background:#eff6ff}#jav-settings-panel .sp-footer-sep{width:1px;height:16px;background:#cbd5e1}#jav-settings-panel .sp-desc{font-size:12px;color:#64748b;line-height:1.45}#jav-settings-panel .sp-toggle{position:relative;display:inline-block;width:42px;height:24px;flex:0 0 auto}#jav-settings-panel .sp-toggle input{opacity:0;width:0;height:0}#jav-settings-panel .sp-toggle-track{position:absolute;inset:0;border-radius:999px;background:#cbd5e1;cursor:pointer;transition:background .18s}#jav-settings-panel .sp-toggle-track::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(15,23,42,.25);transition:transform .18s}#jav-settings-panel .sp-toggle input:checked+.sp-toggle-track{background:#2563eb}#jav-settings-panel .sp-toggle input:checked+.sp-toggle-track::before{transform:translateX(18px)}#jav-settings-panel .sp-order-list{display:flex;flex-direction:column;gap:8px}#jav-settings-panel .sp-order-item{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:10px 11px;border:1px solid #e2e8f0;border-radius:8px;background:linear-gradient(90deg,#fff 0%,#f8fafc 100%);user-select:none}#jav-settings-panel .sp-order-name{font-size:13px;font-weight:700;color:#1e293b}#jav-settings-panel .sp-dot{width:9px;height:9px;border-radius:50%}#jav-settings-panel .sp-order-actions{display:flex;gap:5px}#jav-settings-panel .sp-order-btn{width:28px;height:28px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#334155;cursor:pointer;font-size:14px;line-height:1}#jav-settings-panel .sp-order-btn:hover:not(:disabled){border-color:#2563eb;color:#1d4ed8;background:#eff6ff}#jav-settings-panel .sp-order-btn:disabled{opacity:.36;cursor:not-allowed}#jav-settings-panel .sp-footer{padding:14px 22px;background:rgba(255,255,255,.92);border-top:1px solid rgba(203,213,225,.86);display:flex;align-items:center;justify-content:flex-end;gap:10px}#jav-settings-panel .sp-btn{height:34px;padding:0 16px;border-radius:8px;border:1px solid transparent;font-size:13px;font-weight:700;cursor:pointer}#jav-settings-panel .sp-btn-cancel{background:#fff;color:#475569;border-color:#cbd5e1}#jav-settings-panel .sp-btn-clear{background:#fff7ed;color:#9a3412;border-color:#fed7aa}#jav-settings-panel .sp-btn-clear:hover{background:#ffedd5}#jav-settings-panel .sp-btn-save{background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;box-shadow:0 8px 20px rgba(79,70,229,.25)}@media (max-width:640px){#jav-settings-panel .sp-grid,#jav-settings-panel .sp-engine-row,#jav-settings-panel .sp-feature-grid,#jav-settings-panel .sp-feature-order-row{grid-template-columns:1fr}#jav-settings-panel .sp-feature-item{grid-column:auto !important}#jav-settings-panel .sp-cache-actions{margin-right:0}#jav-settings-panel .sp-footer{flex-wrap:wrap}}`);
+
+            GM_addStyle(`#jav-settings-overlay{position:fixed;inset:0;z-index:10000020;background:rgba(15,23,42,.62);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(7px);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}#jav-settings-panel{width:min(800px,94vw);max-height:88vh;background:linear-gradient(180deg,#f8fbff 0%,#f6f3ff 46%,#fff7ed 100%);color:#111827;border:1px solid rgba(148,163,184,.38);border-radius:16px;box-shadow:0 26px 76px rgba(15,23,42,.36);display:flex;flex-direction:column;overflow:hidden}#jav-settings-panel *{box-sizing:border-box}#jav-settings-panel .sp-header{padding:18px 22px;background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 54%,#7c2d12 100%);border-bottom:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:space-between}#jav-settings-panel .sp-title{font-size:18px;font-weight:750;color:#fff}#jav-settings-panel .sp-close{width:32px;height:32px;border:1px solid rgba(255,255,255,.24);border-radius:8px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font-size:18px;line-height:1}#jav-settings-panel .sp-close:hover{background:rgba(255,255,255,.18)}#jav-settings-panel .sp-body{padding:18px 22px;overflow:auto;display:grid;gap:14px}#jav-settings-panel .sp-card{position:relative;background:rgba(255,255,255,.92);border:1px solid rgba(203,213,225,.88);border-radius:10px;padding:15px;box-shadow:0 10px 24px rgba(15,23,42,.06);overflow:hidden}#jav-settings-panel .sp-card::before{content:'';position:absolute;left:0;top:0;width:4px;height:100%;background:#2563eb}#jav-settings-panel .sp-card-magnet::before{background:#16a34a}#jav-settings-panel .sp-card-defaults::before{background:#2563eb}#jav-settings-panel .sp-card-features::before{background:#00a85a}#jav-settings-panel .sp-card-order::before{background:#dc2626}#jav-settings-panel .sp-card-title{font-size:13px;font-weight:750;color:#1e293b;margin-bottom:12px}#jav-settings-panel .sp-card-jump::before{background:#6366f1}#jav-settings-panel .sp-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}#jav-settings-panel .sp-feature-order-row{display:grid;grid-template-columns:2fr 1fr;gap:14px;align-items:stretch}#jav-settings-panel .sp-feature-order-row>.sp-card{height:100%}#jav-settings-panel .sp-feature-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#jav-settings-panel .sp-feature-item{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0;padding:10px 11px;border:1px solid #e2e8f0;border-radius:8px;background:linear-gradient(180deg,#fff 0%,#f8fafc 100%)}#jav-settings-panel .sp-feature-item:has(#sp-magnet-table){order:1;grid-column:1}#jav-settings-panel .sp-feature-item:has(#sp-clear-preview-cache){order:2;grid-column:1}#jav-settings-panel .sp-feature-item:has(#sp-clear-trailer-cache){order:2;grid-column:2}#jav-settings-panel .sp-feature-item .sp-desc{margin-top:2px;font-size:11px}#jav-settings-panel .sp-feature-select{order:1;grid-column:2;display:grid;grid-template-columns:1fr 64px;align-items:center;gap:10px;min-width:0;padding:10px 11px;border:1px solid #e2e8f0;border-radius:8px;background:linear-gradient(180deg,#fff 0%,#f8fafc 100%)}#jav-settings-panel .sp-feature-select .sp-select{height:28px;padding:3px 2px 3px 4px;font-size:12px;text-align:left}#jav-settings-panel .sp-cache-clean{background:linear-gradient(135deg,#fff 0%,#f8fbff 58%,#f0f9ff 100%)}#jav-settings-panel .sp-cache-clear-btn{position:relative;width:34px;height:34px;flex:0 0 auto;display:grid;place-items:center;border:1px solid #bae6fd;border-radius:10px;background:linear-gradient(180deg,#f0f9ff,#fff);color:#0284c7;cursor:pointer;overflow:hidden;transition:transform .16s,border-color .16s,background .16s,color .16s,box-shadow .16s}#jav-settings-panel .sp-cache-clear-btn::after{content:'';position:absolute;inset:-8px;border-radius:inherit;background:radial-gradient(circle,rgba(14,165,233,.22),transparent 62%);opacity:0;transform:scale(.45);transition:opacity .22s,transform .22s}#jav-settings-panel .sp-cache-clear-btn:hover{transform:translateY(-1px);border-color:#38bdf8;color:#0369a1;box-shadow:0 8px 18px rgba(14,165,233,.18)}#jav-settings-panel .sp-cache-clear-btn:active{transform:translateY(0)scale(.96)}#jav-settings-panel .sp-cache-clear-btn.is-clearing::after{opacity:1;transform:scale(1)}#jav-settings-panel .sp-cache-clear-btn.is-done{border-color:#86efac;background:linear-gradient(180deg,#ecfdf5,#fff);color:#15803d}#jav-settings-panel .sp-cache-clear-icon{position:relative;z-index:1;display:inline-block;font-size:15px;line-height:1}#jav-settings-panel .sp-cache-clear-btn.is-clearing .sp-cache-clear-icon{animation:spCacheSpin .48s ease}@keyframes spCacheSpin{to{transform:rotate(360deg)}}#jav-settings-panel .sp-field{display:flex;flex-direction:column;gap:6px;min-width:0}#jav-settings-panel .sp-label{font-size:12px;font-weight:650;color:#475569}#jav-settings-panel .sp-input,#jav-settings-panel .sp-select{width:100%;min-width:0;height:34px;padding:6px 9px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0f172a;font-size:13px;outline:none}#jav-settings-panel .sp-input:focus,#jav-settings-panel .sp-select:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.13)}#jav-settings-panel .sp-engine-row{display:grid;grid-template-columns:170px 1fr;gap:10px;align-items:end}#jav-settings-panel .sp-cache-actions{display:flex;align-items:center;gap:8px;margin-right:auto}#jav-settings-panel .sp-cache-feedback{min-width:64px;color:#059669;font-size:12px;font-weight:650}#jav-settings-panel .sp-footer-links{display:flex;align-items:center;gap:8px;margin-right:4px}#jav-settings-panel .sp-footer-link{color:#475569;font-size:12px;font-weight:700;text-decoration:none;padding:6px 8px;border-radius:7px}#jav-settings-panel .sp-footer-link:hover{color:#1d4ed8;background:#eff6ff}#jav-settings-panel .sp-footer-sep{width:1px;height:16px;background:#cbd5e1}#jav-settings-panel .sp-desc{font-size:12px;color:#64748b;line-height:1.45}#jav-settings-panel .sp-toggle{position:relative;display:inline-block;width:42px;height:24px;flex:0 0 auto}#jav-settings-panel .sp-toggle input{opacity:0;width:0;height:0}#jav-settings-panel .sp-toggle-track{position:absolute;inset:0;border-radius:999px;background:#cbd5e1;cursor:pointer;transition:background .18s}#jav-settings-panel .sp-toggle-track::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(15,23,42,.25);transition:transform .18s}#jav-settings-panel .sp-toggle input:checked+.sp-toggle-track{background:#2563eb}#jav-settings-panel .sp-toggle input:checked+.sp-toggle-track::before{transform:translateX(18px)}#jav-settings-panel .sp-order-list{display:flex;flex-direction:column;gap:8px}#jav-settings-panel .sp-order-item{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:10px 11px;border:1px solid #e2e8f0;border-radius:8px;background:linear-gradient(90deg,#fff 0%,#f8fafc 100%);user-select:none}#jav-settings-panel .sp-order-name{font-size:13px;font-weight:700;color:#1e293b}#jav-settings-panel .sp-dot{width:9px;height:9px;border-radius:50%}#jav-settings-panel .sp-order-actions{display:flex;gap:5px}#jav-settings-panel .sp-order-btn{width:28px;height:28px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#334155;cursor:pointer;font-size:14px;line-height:1}#jav-settings-panel .sp-order-btn:hover:not(:disabled){border-color:#2563eb;color:#1d4ed8;background:#eff6ff}#jav-settings-panel .sp-order-btn:disabled{opacity:.36;cursor:not-allowed}#jav-settings-panel .sp-footer{padding:14px 22px;background:rgba(255,255,255,.92);border-top:1px solid rgba(203,213,225,.86);display:flex;align-items:center;justify-content:flex-end;gap:10px}#jav-settings-panel .sp-btn{height:34px;padding:0 16px;border-radius:8px;border:1px solid transparent;font-size:13px;font-weight:700;cursor:pointer}#jav-settings-panel .sp-btn-cancel{background:#fff;color:#475569;border-color:#cbd5e1}#jav-settings-panel .sp-btn-clear{background:#fff7ed;color:#9a3412;border-color:#fed7aa}#jav-settings-panel .sp-btn-clear:hover{background:#ffedd5}#jav-settings-panel .sp-btn-save{background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;box-shadow:0 8px 20px rgba(79,70,229,.25)}@media(max-width:640px){#jav-settings-panel .sp-grid,#jav-settings-panel .sp-engine-row,#jav-settings-panel .sp-feature-grid,#jav-settings-panel .sp-feature-order-row{grid-template-columns:1fr}#jav-settings-panel .sp-feature-item{grid-column:auto !important}#jav-settings-panel .sp-cache-actions{margin-right:0}#jav-settings-panel .sp-footer{flex-wrap:wrap}}`);
+
             const overlay = document.createElement('div');
             overlay.id = 'jav-settings-overlay';
             overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
             const panel = document.createElement('div');
             panel.id = 'jav-settings-panel';
-            panel.innerHTML = `<div class="sp-header"><div><div class="sp-title">老司机设置</div></div><button class="sp-close" type="button" title="关闭">×</button></div><div class="sp-body"><section class="sp-card sp-card-magnet"><div class="sp-card-title">磁力搜索</div><div class="sp-grid"><label class="sp-field"><span class="sp-label">默认磁力引擎</span><select class="sp-select" id="sp-default-engine"></select></label><div class="sp-engine-row"><label class="sp-field"><span class="sp-label">编辑引擎</span><select class="sp-select" id="sp-engine-picker"></select></label><label class="sp-field"><span class="sp-label">域名</span><input class="sp-input" id="sp-engine-domain"></label></div></div></section><section class="sp-card sp-card-defaults"><div class="sp-card-title">默认组跳转入口</div><div class="sp-grid"><label class="sp-field"><span class="sp-label">默认搜索入口</span><select class="sp-select" id="sp-jump-engine"></select></label><label class="sp-field"><span class="sp-label">默认视频入口</span><select class="sp-select" id="sp-video-engine"></select></label></div></section><div class="sp-feature-order-row"><section class="sp-card sp-card-features"><div class="sp-card-title">功能项开关</div><div class="sp-feature-grid"><div class="sp-feature-item"><div><div class="sp-label">磁力引擎</div></div><label class="sp-toggle"><input id="sp-magnet-table" type="checkbox"><span class="sp-toggle-track"></span></label></div><div class="sp-feature-item sp-cache-clean"><div><div class="sp-label">预览图缓存</div><div class="sp-desc">清理本页会话缓存</div></div><button class="sp-cache-clear-btn" id="sp-clear-preview-cache" type="button" title="清理预览图缓存"><span class="sp-cache-clear-icon">↻</span></button></div><div class="sp-feature-item sp-cache-clean"><div><div class="sp-label">预告片缓存</div><div class="sp-desc">清理解析结果缓存</div></div><button class="sp-cache-clear-btn" id="sp-clear-trailer-cache" type="button" title="清理预告片缓存"><span class="sp-cache-clear-icon">↻</span></button></div><label class="sp-feature-select"><div><div class="sp-label">115播放器</div></div><select class="sp-select" id="sp-pan115-player"><option value="official">官方</option><option value="115master">Master</option></select></label></div></section><section class="sp-card sp-card-order"><div class="sp-card-title">预览图来源顺序</div><div class="sp-order-list" id="sp-thumb-order"></div></section></div><section class="sp-card sp-card-jump" style="--card-color:#6366f1;"><style> #jav-settings-panel .sp-chip-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;} #jav-settings-panel .sp-chip input{display:none;} #jav-settings-panel .sp-chip-label{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;border:0.5px solid var(--color-border-secondary,#cbd5e1);background:var(--color-background-secondary,#f8fafc);color:var(--color-text-secondary,#64748b);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;user-select:none;} #jav-settings-panel .sp-chip input:checked + .sp-chip-label{border-color:#6366f1;background:#eef2ff;color:#4338ca;} #jav-settings-panel .sp-chip-label:hover{border-color:#a5b4fc;background:#f0f4ff;color:#4338ca;} #jav-settings-panel .sp-chip-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:0.6;flex:0 0 auto;} </style><div class="sp-card-title">跳转按钮控制</div><div class="sp-chip-group"><label class="sp-chip"><input id="sp-btn-nyaa" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>Sukebei</span></label><label class="sp-chip"><input id="sp-btn-javbus" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavBus</span></label><label class="sp-chip"><input id="sp-btn-javdb" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavDB</span></label><label class="sp-chip"><input id="sp-btn-missav" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>视频组</span></label><label class="sp-chip"><input id="sp-btn-fanza" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>FANZA</span></label><label class="sp-chip"><input id="sp-btn-search" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>搜索组</span></label><label class="sp-chip"><input id="sp-btn-trailer" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>预告片</span></label><label class="sp-chip"><input id="sp-btn-preview" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>预览图</span></label></div></section></div><div class="sp-footer"><div class="sp-cache-actions"><div class="sp-footer-links"><a class="sp-footer-link" href="https://github.com/ZiPenOk/scripts" target="_blank" rel="noopener noreferrer">Github</a><span class="sp-footer-sep"></span><a class="sp-footer-link" href="https://sleazyfork.org/zh-CN/scripts/576375-jav%E8%80%81%E5%8F%B8%E6%9C%BA-%E6%96%B0/feedback" target="_blank" rel="noopener noreferrer">反馈</a><span class="sp-footer-sep"></span><span class="sp-footer-link" style="cursor:default;color:#94a3b8;">v${SCRIPT_VERSION}</span></div><button class="sp-btn sp-btn-clear" id="sp-clear-cache" type="button">清空缓存</button><span class="sp-cache-feedback" id="sp-cache-feedback"></span></div><button class="sp-btn sp-btn-cancel" type="button">取消</button><button class="sp-btn sp-btn-save" type="button">保存设置</button></div>`;
+            panel.innerHTML = `
+                <div class="sp-header">
+                    <div>
+                        <div class="sp-title">老司机设置</div>
+                    </div>
+                    <button class="sp-close" type="button" title="关闭">×</button>
+                </div>
+                <div class="sp-body">
+                    <section class="sp-card sp-card-magnet">
+                        <div class="sp-card-title">磁力搜索</div>
+                        <div class="sp-grid">
+                            <label class="sp-field"><span class="sp-label">默认磁力引擎</span><select class="sp-select" id="sp-default-engine"></select></label>
+                            <div class="sp-engine-row">
+                                <label class="sp-field"><span class="sp-label">编辑引擎</span><select class="sp-select" id="sp-engine-picker"></select></label>
+                                <label class="sp-field"><span class="sp-label">域名</span><input class="sp-input" id="sp-engine-domain"></label>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="sp-card sp-card-defaults">
+                        <div class="sp-card-title">默认组跳转入口</div>
+                        <div class="sp-grid">
+                            <label class="sp-field"><span class="sp-label">默认搜索入口</span><select class="sp-select" id="sp-jump-engine"></select></label>
+                            <label class="sp-field"><span class="sp-label">默认视频入口</span><select class="sp-select" id="sp-video-engine"></select></label>
+                        </div>
+                    </section>
+                    <div class="sp-feature-order-row">
+                        <section class="sp-card sp-card-features">
+                            <div class="sp-card-title">功能项开关</div>
+                            <div class="sp-feature-grid">
+                                <div class="sp-feature-item">
+                                    <div><div class="sp-label">磁力引擎</div></div>
+                                    <label class="sp-toggle"><input id="sp-magnet-table" type="checkbox"><span class="sp-toggle-track"></span></label>
+                                </div>
+                                <div class="sp-feature-item sp-cache-clean">
+                                    <div><div class="sp-label">预览图缓存</div><div class="sp-desc">清理本页会话缓存</div></div>
+                                    <button class="sp-cache-clear-btn" id="sp-clear-preview-cache" type="button" title="清理预览图缓存"><span class="sp-cache-clear-icon">↻</span></button>
+                                </div>
+                                <div class="sp-feature-item sp-cache-clean">
+                                    <div><div class="sp-label">预告片缓存</div><div class="sp-desc">清理解析结果缓存</div></div>
+                                    <button class="sp-cache-clear-btn" id="sp-clear-trailer-cache" type="button" title="清理预告片缓存"><span class="sp-cache-clear-icon">↻</span></button>
+                                </div>
+                                <label class="sp-feature-select">
+                                    <div><div class="sp-label">115播放器</div></div>
+                                    <select class="sp-select" id="sp-pan115-player">
+                                        <option value="official">官方</option>
+                                        <option value="115master">Master</option>
+                                    </select>
+                                </label>
+                            </div>
+                        </section>
+                        <section class="sp-card sp-card-order">
+                            <div class="sp-card-title">预览图来源顺序</div>
+                            <div class="sp-order-list" id="sp-thumb-order"></div>
+                        </section>
+                    </div>
+                    <section class="sp-card sp-card-jump" style="--card-color:#6366f1;">
+                        <style>
+                            #jav-settings-panel .sp-chip-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
+                            #jav-settings-panel .sp-chip input{display:none;}
+                            #jav-settings-panel .sp-chip-label{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;border:0.5px solid var(--color-border-secondary,#cbd5e1);background:var(--color-background-secondary,#f8fafc);color:var(--color-text-secondary,#64748b);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;user-select:none;}
+                            #jav-settings-panel .sp-chip input:checked + .sp-chip-label{border-color:#6366f1;background:#eef2ff;color:#4338ca;}
+                            #jav-settings-panel .sp-chip-label:hover{border-color:#a5b4fc;background:#f0f4ff;color:#4338ca;}
+                            #jav-settings-panel .sp-chip-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:0.6;flex:0 0 auto;}
+                        </style>
+                        <div class="sp-card-title">跳转按钮控制</div>
+                        <div class="sp-chip-group">
+                            <label class="sp-chip"><input id="sp-btn-nyaa" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>Sukebei</span></label>
+                            <label class="sp-chip"><input id="sp-btn-javbus" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavBus</span></label>
+                            <label class="sp-chip"><input id="sp-btn-javdb" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavDB</span></label>
+                            <label class="sp-chip"><input id="sp-btn-missav" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>视频组</span></label>
+                            <label class="sp-chip"><input id="sp-btn-fanza" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>FANZA</span></label>
+                            <label class="sp-chip"><input id="sp-btn-search" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>搜索组</span></label>
+                            <label class="sp-chip"><input id="sp-btn-trailer" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>预告片</span></label>
+                            <label class="sp-chip"><input id="sp-btn-preview" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>预览图</span></label>
+                        </div>
+                    </section>
+                </div>
+                <div class="sp-footer">
+                    <div class="sp-cache-actions">
+                        <div class="sp-footer-links">
+                            <a class="sp-footer-link" href="https://github.com/ZiPenOk/scripts" target="_blank" rel="noopener noreferrer">Github</a>
+                            <span class="sp-footer-sep"></span>
+                            <a class="sp-footer-link" href="https://sleazyfork.org/zh-CN/scripts/576375-jav%E8%80%81%E5%8F%B8%E6%9C%BA-%E6%96%B0/feedback" target="_blank" rel="noopener noreferrer">反馈</a>
+                            <span class="sp-footer-sep"></span>
+                            <span class="sp-footer-link" style="cursor:default;color:#94a3b8;">v${SCRIPT_VERSION}</span>
+                        </div>
+                        <button class="sp-btn sp-btn-clear" id="sp-clear-cache" type="button">清空缓存</button>
+                        <span class="sp-cache-feedback" id="sp-cache-feedback"></span>
+                    </div>
+                    <button class="sp-btn sp-btn-cancel" type="button">取消</button>
+                    <button class="sp-btn sp-btn-save" type="button">保存设置</button>
+                </div>
+            `;
+
             overlay.appendChild(panel);
             document.body.appendChild(overlay);
+
             const defaultSelect = panel.querySelector('#sp-default-engine');
             const picker = panel.querySelector('#sp-engine-picker');
             const domainInput = panel.querySelector('#sp-engine-domain');
@@ -608,6 +765,7 @@
             let currentOrder = GM_getValue('thumb_source_order', ['javfree', 'projectjav', 'javstore']);
             Object.keys(THUMB_META).forEach(src => { if (!currentOrder.includes(src)) currentOrder.push(src); });
             currentOrder = currentOrder.filter(src => THUMB_META[src]);
+
             const syncDefaultOptions = () => {
                 const current = defaultSelect.value || CFG.defaultEngine;
                 defaultSelect.innerHTML = '';
@@ -637,6 +795,7 @@
                 domainDraft[picker.value] = stripProtocol(domainInput.value);
                 syncDefaultOptions();
             });
+
             JUMP_SEARCH_ENGINES.forEach((name, index) => {
                 const opt = document.createElement('option');
                 opt.value = String(index);
@@ -661,6 +820,7 @@
             btnToggles.search.checked  = CFG.btnShowSearch;
             btnToggles.trailer.checked = CFG.btnShowTrailer;
             btnToggles.preview.checked = CFG.btnShowPreview;
+
             const renderOrder = () => {
                 orderList.innerHTML = '';
                 currentOrder.forEach((src, index) => {
@@ -668,7 +828,13 @@
                     const item = document.createElement('div');
                     item.className = 'sp-order-item';
                     item.dataset.src = src;
-                    item.innerHTML = `<div><div class="sp-order-name">${meta.label}</div></div><span class="sp-dot" style="background:${meta.color}"></span><div class="sp-order-actions"><button class="sp-order-btn" type="button" data-dir="-1" title="上移"${index === 0 ? 'disabled' : ''}>↑</button><button class="sp-order-btn" type="button" data-dir="1" title="下移"${index === currentOrder.length - 1 ? 'disabled' : ''}>↓</button></div>`;
+                    item.innerHTML = `
+                        <div><div class="sp-order-name">${meta.label}</div></div>
+                        <span class="sp-dot" style="background:${meta.color}"></span>
+                        <div class="sp-order-actions">
+                            <button class="sp-order-btn" type="button" data-dir="-1" title="上移" ${index === 0 ? 'disabled' : ''}>↑</button>
+                            <button class="sp-order-btn" type="button" data-dir="1" title="下移" ${index === currentOrder.length - 1 ? 'disabled' : ''}>↓</button>
+                        </div>`;
                     orderList.appendChild(item);
                 });
             };
@@ -707,10 +873,12 @@
                 cacheFeedback.textContent = count ? `已清空 ${count} 项` : '无缓存';
                 setTimeout(() => { cacheFeedback.textContent = ''; }, 1800);
             });
+
             picker.value = 'javdbSearchUrl';
             loadPickedDomain();
             syncDefaultOptions();
             renderOrder();
+
             const closePanel = () => overlay.remove();
             panel.querySelector('.sp-close').addEventListener('click', closePanel);
             panel.querySelector('.sp-btn-cancel').addEventListener('click', closePanel);
@@ -767,20 +935,25 @@
                 if (pan115Changed) Runtime.syncPan115(CFG.btnShowPan115);
             });
         }
+
         return { open };
     })();
     Core.expose('__LAOSIJI_OPEN_SETTINGS__', () => SettingsPanel.open());
     GM_registerMenuCommand('⚙️ 老司机设置', () => SettingsPanel.open());
+
     const QuickSettingsPanel = (() => {
         const siteLabelMap = { javbus: 'JavBus', javdb: 'JavDB', javlib: 'JavLibrary' };
+
         function getCurrentSite() {
             return CardColumns.detectCurrentSite() || PageZoom.detectCurrentSite();
         }
+
         function ensureStyle() {
             if (document.documentElement.dataset.laosijiQuickSettingsStyle === '1') return;
             document.documentElement.dataset.laosijiQuickSettingsStyle = '1';
             GM_addStyle(`#jav-quick-settings-popover{position:fixed;z-index:10000030;width:286px;padding:10px;border:1px solid rgba(203,213,225,.85);border-radius:10px;background:rgba(255,255,255,.985);color:#0f172a;box-shadow:0 12px 28px rgba(15,23,42,.16);backdrop-filter:blur(6px);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-sizing:border-box}#jav-quick-settings-popover *{box-sizing:border-box}#jav-quick-settings-popover .qs-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}#jav-quick-settings-popover .qs-title{font-size:13px;font-weight:800;color:#1e293b}#jav-quick-settings-popover .qs-site{margin-top:1px;font-size:11px;font-weight:650;color:#64748b}#jav-quick-settings-popover .qs-close{width:24px;height:24px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#64748b;cursor:pointer;line-height:1;font-size:14px}#jav-quick-settings-popover .qs-close:hover{color:#1d4ed8;border-color:#93c5fd;background:#eff6ff}#jav-quick-settings-popover .qs-row{display:grid;grid-template-columns:72px 1fr 42px;align-items:center;gap:9px;padding:4px 0;border:0;border-radius:0;background:transparent}#jav-quick-settings-popover .qs-row+.qs-row{margin-top:4px}#jav-quick-settings-popover .qs-detail-flex{display:none;margin-top:8px;padding-top:7px;border-top:1px solid #e2e8f0}#jav-quick-settings-popover .qs-detail-flex.is-visible{display:block}#jav-quick-settings-popover .qs-section-title{margin-bottom:3px;font-size:12px;font-weight:850;color:#1e293b}#jav-quick-settings-popover .qs-row.is-disabled{opacity:.48}#jav-quick-settings-popover .qs-row.is-disabled .qs-range{cursor:not-allowed;background:#e2e8f0}#jav-quick-settings-popover .qs-row.is-disabled .qs-range::-webkit-slider-thumb{background:#94a3b8;cursor:not-allowed}#jav-quick-settings-popover .qs-row.is-disabled .qs-range::-moz-range-thumb{background:#94a3b8;cursor:not-allowed}#jav-quick-settings-popover .qs-switch-grid{display:grid;grid-template-columns:1fr;gap:6px;margin-top:6px}#jav-quick-settings-popover .qs-switch-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0;border:0;border-radius:0;background:transparent}#jav-quick-settings-popover .qs-name{font-size:12px;font-weight:750;color:#334155;white-space:nowrap}#jav-quick-settings-popover .qs-value{display:grid;place-items:center;min-width:34px;height:22px;border-radius:999px;background:#fff;color:#1d4ed8;font-size:12px;font-weight:800;border:1px solid #dbeafe}#jav-quick-settings-popover .qs-range{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:999px;background:linear-gradient(90deg,#93c5fd 0%,#dbeafe 100%);outline:none}#jav-quick-settings-popover .qs-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;border:2px solid #fff;background:#2563eb;box-shadow:0 3px 8px rgba(37,99,235,.22);cursor:pointer}#jav-quick-settings-popover .qs-range::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:#2563eb;box-shadow:0 3px 8px rgba(37,99,235,.22);cursor:pointer}#jav-quick-settings-popover .qs-toggle{position:relative;display:inline-block;width:36px;height:20px;flex:0 0 auto}#jav-quick-settings-popover .qs-toggle input{opacity:0;width:0;height:0}#jav-quick-settings-popover .qs-toggle-track{position:absolute;inset:0;border-radius:999px;background:#cbd5e1;cursor:pointer;transition:background .18s}#jav-quick-settings-popover .qs-toggle-track::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.22);transition:transform .18s}#jav-quick-settings-popover .qs-toggle input:checked+.qs-toggle-track{background:#2563eb}#jav-quick-settings-popover .qs-toggle input:checked+.qs-toggle-track::before{transform:translateX(14px)}#jav-quick-settings-popover .qs-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0}#jav-quick-settings-popover .qs-more{height:28px;padding:0 12px;border:1px solid #c7d2fe;border-radius:7px;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:800;cursor:pointer}#jav-quick-settings-popover .qs-more:hover{background:#e0e7ff;border-color:#a5b4fc}`);
         }
+
         function positionPanel(panel, anchor) {
             const rect = anchor?.getBoundingClientRect?.();
             const margin = 10;
@@ -793,18 +966,119 @@
             panel.style.left = `${left}px`;
             panel.style.top = `${top}px`;
         }
+
         function open(anchor = null) {
             document.getElementById('jav-quick-settings-popover')?.remove();
             ensureStyle();
+
             const site = getCurrentSite();
             if (!site) {
                 SettingsPanel.open();
                 return;
             }
+
             const panel = document.createElement('div');
             panel.id = 'jav-quick-settings-popover';
-            panel.innerHTML = `<div class="qs-head"><div><div class="qs-title">快捷设置</div><div class="qs-site">${siteLabelMap[site] || '当前站点'}</div></div><button class="qs-close" type="button" title="关闭">×</button></div><div class="qs-row"><div class="qs-name">卡片列数</div><input class="qs-range" id="qs-columns" type="range" min="2" max="10" step="1"><span class="qs-value" id="qs-columns-value">5</span></div><div class="qs-row"><div class="qs-name">页面宽度</div><input class="qs-range" id="qs-zoom" type="range" min="60" max="100" step="1"><span class="qs-value" id="qs-zoom-value">100%</span></div><div class="qs-detail-flex" id="qs-detail-flex"><div class="qs-section-title">详情比例</div><div class="qs-row" data-detail-flex-row="cover"><div class="qs-name">封面</div><input class="qs-range" id="qs-detail-cover" type="range" min="50" max="200" step="5"><span class="qs-value" id="qs-detail-cover-value">1.0</span></div><div class="qs-row" data-detail-flex-row="info"><div class="qs-name">信息</div><input class="qs-range" id="qs-detail-info" type="range" min="50" max="200" step="5"><span class="qs-value" id="qs-detail-info-value">1.0</span></div><div class="qs-row" data-detail-flex-row="magnet"><div class="qs-name">磁力</div><input class="qs-range" id="qs-detail-magnet" type="range" min="50" max="200" step="5"><span class="qs-value" id="qs-detail-magnet-value">关闭</span></div></div><div class="qs-switch-grid"><div class="qs-switch-row"><div class="qs-name">115匹配</div><label class="qs-toggle"><input id="qs-pan115" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">瀑布流</div><label class="qs-toggle"><input id="qs-infinite-scroll" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">翻译标题</div><label class="qs-toggle"><input id="qs-title-translate" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">竖图模式</div><label class="qs-toggle"><input id="qs-portrait-cards" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">新标签打开页面</div><label class="qs-toggle"><input id="qs-list-open-new-tab" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">快捷预览图</div><label class="qs-toggle"><input id="qs-list-preview" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">预览图直显</div><label class="qs-toggle"><input id="qs-detail-preview-inline" type="checkbox"><span class="qs-toggle-track"></span></label></div></div><div class="qs-footer"><button class="qs-more" type="button">更多设置</button></div>`;
+            panel.innerHTML = `
+                <div class="qs-head">
+                    <div>
+                        <div class="qs-title">快捷设置</div>
+                        <div class="qs-site">${siteLabelMap[site] || '当前站点'}</div>
+                    </div>
+                    <button class="qs-close" type="button" title="关闭">×</button>
+                </div>
+                <div class="qs-row">
+                    <div class="qs-name">卡片列数</div>
+                    <input class="qs-range" id="qs-columns" type="range" min="2" max="10" step="1">
+                    <span class="qs-value" id="qs-columns-value">5</span>
+                </div>
+                <div class="qs-row">
+                    <div class="qs-name">页面宽度</div>
+                    <input class="qs-range" id="qs-zoom" type="range" min="60" max="100" step="1">
+                    <span class="qs-value" id="qs-zoom-value">100%</span>
+                </div>
+                <div class="qs-detail-flex" id="qs-detail-flex">
+                    <div class="qs-section-title">详情比例</div>
+                    <div class="qs-row" data-detail-flex-row="cover">
+                        <div class="qs-name">封面</div>
+                        <input class="qs-range" id="qs-detail-cover" type="range" min="50" max="200" step="5">
+                        <span class="qs-value" id="qs-detail-cover-value">1.0</span>
+                    </div>
+                    <div class="qs-row" data-detail-flex-row="info">
+                        <div class="qs-name">信息</div>
+                        <input class="qs-range" id="qs-detail-info" type="range" min="50" max="200" step="5">
+                        <span class="qs-value" id="qs-detail-info-value">1.0</span>
+                    </div>
+                    <div class="qs-row" data-detail-flex-row="magnet">
+                        <div class="qs-name">磁力</div>
+                        <input class="qs-range" id="qs-detail-magnet" type="range" min="50" max="200" step="5">
+                        <span class="qs-value" id="qs-detail-magnet-value">关闭</span>
+                    </div>
+                </div>
+                <div class="qs-switch-grid">
+                    <div class="qs-switch-row">
+                        <div class="qs-name">115匹配</div>
+                        <label class="qs-toggle">
+                            <input id="qs-pan115" type="checkbox">
+                            <span class="qs-toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="qs-switch-row">
+                        <div class="qs-name">瀑布流</div>
+                        <label class="qs-toggle">
+                            <input id="qs-infinite-scroll" type="checkbox">
+                            <span class="qs-toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="qs-switch-row">
+                        <div class="qs-name">卡片特效</div>
+                        <label class="qs-toggle">
+                            <input id="qs-card-fx" type="checkbox">
+                            <span class="qs-toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="qs-switch-row">
+                        <div class="qs-name">翻译标题</div>
+                        <label class="qs-toggle">
+                            <input id="qs-title-translate" type="checkbox">
+                            <span class="qs-toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="qs-switch-row">
+                        <div class="qs-name">竖图模式</div>
+                        <label class="qs-toggle">
+                            <input id="qs-portrait-cards" type="checkbox">
+                            <span class="qs-toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="qs-switch-row">
+                        <div class="qs-name">新标签打开页面</div>
+                        <label class="qs-toggle">
+                            <input id="qs-list-open-new-tab" type="checkbox">
+                            <span class="qs-toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="qs-switch-row">
+                        <div class="qs-name">快捷预览图</div>
+                        <label class="qs-toggle">
+                            <input id="qs-list-preview" type="checkbox">
+                            <span class="qs-toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="qs-switch-row">
+                        <div class="qs-name">预览图直显</div>
+                        <label class="qs-toggle">
+                            <input id="qs-detail-preview-inline" type="checkbox">
+                            <span class="qs-toggle-track"></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="qs-footer">
+                    <button class="qs-more" type="button">更多设置</button>
+                </div>
+            `;
             document.body.appendChild(panel);
+
             const close = () => panel.remove();
             const columnsInput = panel.querySelector('#qs-columns');
             const columnsValue = panel.querySelector('#qs-columns-value');
@@ -812,6 +1086,7 @@
             const zoomValue = panel.querySelector('#qs-zoom-value');
             const pan115Input = panel.querySelector('#qs-pan115');
             const infiniteInput = panel.querySelector('#qs-infinite-scroll');
+            const cardFxInput = panel.querySelector('#qs-card-fx');
             const listPreviewInput = panel.querySelector('#qs-list-preview');
             const detailPreviewInput = panel.querySelector('#qs-detail-preview-inline');
             const titleTranslateInput = panel.querySelector('#qs-title-translate');
@@ -843,11 +1118,13 @@
                 if (detailValues.magnet && !hasMagnet) detailValues.magnet.textContent = CFG.magnetTable ? '未渲染' : '关闭';
                 return hasMagnet;
             };
+
             Ui.bindRange(columnsInput, columnsValue, CardColumns.get(site), v => String(CardColumns.clamp(v)), value => {
                 const next = CardColumns.clamp(value);
                 CardColumns.set(site, next);
                 CardColumns.apply(site, next);
             });
+
             Ui.bindRange(zoomInput, zoomValue, PageZoom.get(site), v => `${PageZoom.clamp(v)}%`, value => {
                 const next = PageZoom.clamp(value);
                 PageZoom.set(site, next);
@@ -877,6 +1154,10 @@
             Ui.bindCheckbox(infiniteInput, CFG.infiniteScroll, checked => {
                 CFG.infiniteScroll = checked;
                 Runtime.syncInfiniteScroll(checked);
+            });
+            Ui.bindCheckbox(cardFxInput, CFG.cardFx, checked => {
+                CFG.cardFx = checked;
+                Runtime.syncCardFx(checked);
             });
             Ui.bindCheckbox(listPreviewInput, CFG.listPreviewQuick, checked => {
                 CFG.listPreviewQuick = checked;
@@ -915,10 +1196,13 @@
             }, 0);
             positionPanel(panel, anchor);
         }
+
         return { open };
     })();
     Core.expose('__LAOSIJI_OPEN_QUICK_SETTINGS__', anchor => QuickSettingsPanel.open(anchor));
+
     const Magnet = (() => {
+
         const ENGINE_LABELS = () => ({
             [CFG.javdbSearchUrl]: 'JavDB',
             [CFG.ciligouUrl]:     'CiliGou',
@@ -927,6 +1211,7 @@
             [CFG.sukebeiUrl]:     'Sukebei',
             [CFG.sokittyUrl]:     'SoKitty',
         });
+
         const Engines = {
             getAll() {
                 return {
@@ -944,9 +1229,11 @@
                 return all[key] ? { key, fn: all[key] } : { key: Object.keys(all)[0], fn: Object.values(all)[0] };
             },
         };
+
         const JAVDB_API_BASE = 'https://jdforrepam.com/api';
         const JAVDB_SIGN_SALT = '71cf27bb3c0bcdf207b64abecddc970098c7421ee7203b9cdae54478478a199e7d5a6e1a57691123c1a931c057842fb73ba3b3c83bcd69c17ccf174081e3d8aa';
         let javdbSignCache = { ts: 0, sign: '' };
+
         function javdbMd5(str) {
             const b = new TextEncoder().encode(str);
             const l = b.length;
@@ -954,10 +1241,12 @@
             const m = new Uint32Array(n * 16);
             const k = [];
             const s = [7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21];
+
             for (let i = 0; i < 64; i++) k[i] = Math.floor(2 ** 32 * Math.abs(Math.sin(i + 1)));
             for (let i = 0; i < l; i++) m[i >> 2] |= b[i] << ((i % 4) << 3);
             m[l >> 2] |= 0x80 << ((l % 4) << 3);
             m[n * 16 - 2] = l * 8;
+
             let [a0, b0, c0, d0] = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476];
             for (let i = 0; i < n; i++) {
                 const g = m.slice(i * 16, (i + 1) * 16);
@@ -979,12 +1268,14 @@
                 c0 = (c0 + c) | 0;
                 d0 = (d0 + d) | 0;
             }
+
             return [a0, b0, c0, d0]
                 .map(v => new Uint32Array([v]))
                 .map(v => new Uint8Array(v.buffer))
                 .map(v => Array.from(v, b => b.toString(16).padStart(2, '0')).join(''))
                 .join('');
         }
+
         function buildJavdbSignature() {
             const curr = Math.floor(Date.now() / 1000);
             if (javdbSignCache.sign && curr - javdbSignCache.ts <= 20) return javdbSignCache.sign;
@@ -994,18 +1285,22 @@
             };
             return javdbSignCache.sign;
         }
+
         function parseJson(text) {
             try { return JSON.parse(text || '{}'); }
             catch { return null; }
         }
+
         function formatJavdbSize(size) {
             const mb = Number(size);
             if (!Number.isFinite(mb) || mb <= 0) return '';
             return mb >= 1024 ? `${(mb / 1024).toFixed(mb >= 10240 ? 1 : 2)} GB` : `${Math.round(mb)} MB`;
         }
+
         function compactJavdbNumber(value) {
             return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
         }
+
         async function findJavdbMovieByNumber(kw, { limit = 5, fallbackFirst = false } = {}) {
             const headers = {
                 accept: 'application/json',
@@ -1023,6 +1318,7 @@
             });
             const r = await gmFetch(`${JAVDB_API_BASE}/v2/search?${params.toString()}`, { headers, timeout: 20000 });
             if (!r.loadstuts || r.status < 200 || r.status >= 400) return null;
+
             const json = parseJson(r.responseText);
             const movies = Array.isArray(json?.data?.movies) ? json.data.movies : [];
             const compactKw = compactJavdbNumber(kw);
@@ -1032,14 +1328,17 @@
             });
             return exact || (fallbackFirst ? movies[0] : null) || null;
         }
+
         async function _searchJavDB(kw) {
             const webBase = 'https://' + CFG.javdbSearchUrl;
             const movie = await findJavdbMovieByNumber(kw, { limit: 5, fallbackFirst: true });
             if (!movie?.id) return { url: webBase, data: [] };
+
             const detailUrl = `${webBase}/v/${movie.id}`;
             const magnetsUrl = `${JAVDB_API_BASE}/v1/movies/${encodeURIComponent(movie.id)}/magnets`;
             const r2 = await gmFetch(magnetsUrl, { headers: { accept: 'application/json', jdSignature: buildJavdbSignature() } });
             if (!r2.loadstuts || r2.status < 200 || r2.status >= 400) return { url: detailUrl, data: [] };
+
             const magnetsJson = parseJson(r2.responseText);
             const magnets = Array.isArray(magnetsJson?.data?.magnets) ? magnetsJson.data.magnets : [];
             const data = magnets.map(item => {
@@ -1062,18 +1361,22 @@
                     hd: Boolean(item?.hd)
                 };
             }).filter(Boolean);
+
             return { url: detailUrl, data };
         }
+
         function javdbApiToken() {
             return localStorage.getItem('jhs_appAuthorization') ||
                 localStorage.getItem('javdb_appAuthorization') ||
                 GM_getValue('javdb_app_authorization', '');
         }
+
         function javdbAuthHeader() {
             const token = javdbApiToken();
             if (!token) return {};
             return { authorization: /^bearer\s+/i.test(token) ? token : `Bearer ${token}` };
         }
+
         async function javdbApiRequest(path, params = {}, extraHeaders = {}) {
             const query = new URLSearchParams(params).toString();
             const url = `${JAVDB_API_BASE}${path}${query ? `?${query}` : ''}`;
@@ -1094,6 +1397,7 @@
             if (!json) throw new Error('JavDB API 返回异常');
             return json;
         }
+
         const javdbApi = {
             token: javdbApiToken,
             async top250({ category = 'all', year = '', page = 1, limit = 50 } = {}) {
@@ -1174,10 +1478,13 @@
                 });
             },
         };
+
         async function _searchCiligou(kw) {
             const base = 'https://' + CFG.ciligouUrl;
+
             const encoded = btoa(unescape(encodeURIComponent(kw))).replace(/=+$/, '');
             const searchUrl = `${base}/search?word=${encoded}`;
+
             const r = await gmFetch(searchUrl, {
                 headers: {
                     'Referer': base + '/',
@@ -1186,23 +1493,31 @@
             });
             if (!r.loadstuts) return { url: searchUrl, data: [] };
             const doc = parseHTML(r.responseText);
+
             const data = [];
             doc.querySelectorAll('#Search_list_wrapper li').forEach(li => {
                 const titleA = li.querySelector('a.SearchListTitle_result_title');
                 if (!titleA) return;
+
                 const href = titleA.getAttribute('href') || '';
                 const hash = href.split('/').pop();
                 if (!hash) return;
+
                 const maglink = `magnet:?xt=urn:btih:${hash}`;
                 const src = base + href;
+
                 const title = titleA.textContent.trim();
+
                 const infoText = li.querySelector('.Search_list_info')?.textContent || '';
                 const sizeMatch = infoText.match(/文件大小：([^\s]+)/);
                 const size = sizeMatch ? sizeMatch[1] : '';
+
                 data.push({ title, maglink, size, src });
             });
+
             return { url: searchUrl, data };
         }
+
         async function _searchBtdig(kw) {
             const base = 'https://' + CFG.btdigUrl;
             const r = await gmFetch(`${base}/search?q=${kw}`);
@@ -1217,11 +1532,13 @@
             }));
             return { url: r.finalUrl || base, data };
         }
+
         function pickBTSearchItems(json) {
             if (Array.isArray(json?.data)) return json.data;
             if (Array.isArray(json?.data?.data)) return json.data.data;
             return [];
         }
+
         function cleanBTSearchText(value) {
             const raw = String(value || '').trim();
             if (!raw) return '';
@@ -1231,23 +1548,28 @@
                 .replace(/\s+/g, ' ')
                 .trim();
         }
+
         function normalizeBTSearchItem(item, base, searchUrl, keyword) {
             const title = cleanBTSearchText(item?.name);
             const hash = String(item?.hash || '').replace(/^magnet:\?xt=urn:btih:/i, '').replace(/[^a-z0-9]/gi, '');
             if (!/^[a-f0-9]{32,40}$/i.test(hash)) return null;
+
             const maglink = `magnet:?xt=urn:btih:${hash}`;
             const size = formatBytes(item?.size);
             const src = item?.id
                 ? `${base}/torrent/${encodeURIComponent(item.id)}?keyword=${encodeURIComponent(keyword)}`
                 : searchUrl;
+
             return { title: title || maglink, maglink, size, src };
         }
+
         function randomBTSearchNonce(length = 8) {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
             let nonce = '';
             for (let i = 0; i < length; i++) nonce += chars.charAt(Math.floor(Math.random() * chars.length));
             return nonce;
         }
+
         function buildBTSearchHeaders(params, referer) {
             const timestamp = Math.floor(Date.now() / 1000).toString();
             const nonce = randomBTSearchNonce();
@@ -1262,6 +1584,7 @@
                 'x-sign': javdbMd5(signText).toUpperCase()
             };
         }
+
         async function _searchBTSearch(kw) {
             const base = 'https://' + CFG.btsearchUrl;
             const searchUrl = `${base}/search?keyword=${encodeURIComponent(kw)}`;
@@ -1280,12 +1603,14 @@
                 headers: buildBTSearchHeaders(params, searchUrl)
             });
             if (!r.loadstuts || r.status < 200 || r.status >= 400) return { url: searchUrl, data: [] };
+
             const json = parseJson(r.responseText);
             const data = pickBTSearchItems(json)
                 .map(item => normalizeBTSearchItem(item, base, searchUrl, kw))
                 .filter(Boolean);
             return { url: searchUrl, data };
         }
+
         async function _searchsukebei(kw) {
             const base = 'https://' + CFG.sukebeiUrl;
             const r = await gmFetch(`${base}/?f=0&c=0_0&q=${kw}`);
@@ -1300,31 +1625,43 @@
             }));
             return { url: r.finalUrl || base, data };
         }
+
         async function _searchSokitty(kw) {
             const base = 'https://' + CFG.sokittyUrl;
+
             const searchUrl = `${base}/search?key=${encodeURIComponent(kw)}`;
             const r = await gmFetch(searchUrl, {
                 headers: { 'Referer': base + '/' },
             });
             if (!r.loadstuts) return { url: searchUrl, data: [] };
             const doc = parseHTML(r.responseText);
+
             const normalize = s => s.toUpperCase().replace(/[-_\s]/g, '');
             const kwNorm = normalize(kw);
+
             const data = [];
             doc.querySelectorAll('.panel.search-panel').forEach(panel => {
                 const titleA = panel.querySelector('h3.panel-title > a.list-title');
                 if (!titleA) return;
+
                 const href = titleA.getAttribute('href') || '';
                 if (!href.startsWith('/bt/')) return;
+
                 const hash = href.replace('/bt/', '');
                 if (!hash) return;
+
                 const title = titleA.textContent.trim();
+
                 if (!normalize(title).includes(kwNorm)) return;
+
                 const maglink = `magnet:?xt=urn:btih:${hash}`;
                 const src = base + href;
+
                 const size = panel.querySelector('.panel-footer .info-item')?.textContent?.trim() || '';
+
                 data.push({ title, maglink, size, src });
             });
+
             return { url: searchUrl, data };
         }
         async function offline115(maglink) {
@@ -1340,6 +1677,7 @@
             }
             const json = JSON.parse(tokenR.responseText);
             const uid = GM_getValue('jav_115_uid', '');
+
             return new Promise(resolve => {
                 GM_xmlhttpRequest({
                     method: 'POST',
@@ -1361,7 +1699,9 @@
                 });
             });
         }
-        GM_addStyle(`.jav-nong-wrapper{overflow-x:auto !important;overflow-y:hidden !important;scrollbar-width:thin}#jav-nong-table{width:100%;min-width:320px;table-layout:fixed;margin:8px 0;color:#666;font-size:13px;text-align:center;background:#f2f2f2;border-collapse:collapse;max-width:100%}#jav-nong-table th,#jav-nong-table td{text-align:center;height:30px;background:#fff;padding:0 6px;border:1px solid #efefef;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#jav-nong-table th:nth-child(2),#jav-nong-table td:nth-child(2){width:74px}#jav-nong-table th:nth-child(3),#jav-nong-table td:nth-child(3){width:74px}#jav-nong-table th:nth-child(4),#jav-nong-table td:nth-child(4){width:48px}#jav-nong-table:has(td.mag-laosiji-ready-cell) th:nth-child(3),#jav-nong-table:has(td.mag-laosiji-ready-cell) td:nth-child(3){width:104px}#jav-nong-table td.mag-laosiji-ready-cell{overflow:visible}#jav-nong-table td:first-child{text-align:left}#jav-nong-table .nong-head-row th{background:#f8f8f8;font-weight:600}#jav-nong-table .nong-magnet-name{display:flex;align-items:center;gap:4px;min-width:0;width:100%;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#jav-nong-table .nong-magnet-name>a{flex:1 1 auto;min-width:0;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.nong-copy{color:#08c !important;cursor:pointer}.nong-check{color:#be185d !important;cursor:pointer;margin-left:8px}.nong-offline-115{color:rgb(0,180,30) !important;cursor:pointer}.nong-offline-115:hover{color:red !important}.whatslink-overlay{position:fixed;inset:0;z-index:10000040;display:flex;align-items:center;justify-content:center;padding:22px;background:rgba(15,23,42,.66);backdrop-filter:blur(8px)}.whatslink-modal{width:min(1100px,96vw);max-height:90vh;display:grid;grid-template-columns:1.55fr .75fr;background:#f5f7fb;border:1px solid rgba(203,213,225,.9);border-radius:12px;overflow:hidden;box-shadow:0 30px 80px rgba(2,8,23,.38);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.whatslink-modal.no-shots{grid-template-columns:1.1fr .9fr}.whatslink-viewer{min-width:0;display:grid;grid-template-rows:minmax(430px,1fr) auto;gap:10px;padding:14px;background:radial-gradient(circle at 20% 0%,#fff1f8 0,transparent 34%),#eef3f8}.whatslink-stage{position:relative;min-height:470px;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #dde7f2;border-radius:12px;background:#111827;box-shadow:0 18px 36px rgba(15,23,42,.16)}.whatslink-stage img{width:100%;height:100%;max-height:68vh;object-fit:contain;border-radius:10px}.whatslink-modal.no-shots .whatslink-viewer{grid-template-rows:minmax(430px,1fr);background:linear-gradient(135deg,#f8fafc,#eef2ff)}.whatslink-modal.no-shots .whatslink-stage{background:linear-gradient(145deg,#fff,#f1f5f9);border-style:dashed;box-shadow:inset 0 0 0 1px rgba(255,255,255,.8),0 18px 36px rgba(15,23,42,.08)}.whatslink-modal.no-shots .whatslink-stage img,.whatslink-modal.no-shots .whatslink-nav,.whatslink-modal.no-shots .whatslink-counter,.whatslink-modal.no-shots .whatslink-thumbs{display:none}.whatslink-empty{display:none;width:min(420px,72%);text-align:center;color:#475569}.whatslink-modal.no-shots .whatslink-empty{display:block}.whatslink-empty-icon{width:62px;height:62px;margin:0 auto 15px;display:grid;place-items:center;border-radius:18px;background:linear-gradient(135deg,#fce7f3,#e0e7ff);color:#be185d;font-size:27px;box-shadow:0 12px 26px rgba(190,24,93,.16)}.whatslink-empty-title{font-size:18px;font-weight:800;color:#1e293b;margin-bottom:7px}.whatslink-empty-text{margin:0;font-size:13px;line-height:1.6}.whatslink-nav{position:absolute;top:50%;transform:translateY(-50%);width:38px;height:52px;border:0;border-radius:8px;background:rgba(255,255,255,.14);color:#fff;font-size:28px;cursor:pointer}.whatslink-nav:hover{background:rgba(255,255,255,.24)}.whatslink-prev{left:12px}.whatslink-next{right:12px}.whatslink-counter{position:absolute;right:14px;bottom:12px;color:#e2e8f0;font-size:12px;text-shadow:0 1px 6px rgba(0,0,0,.6)}.whatslink-thumbs{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;padding:0;background:transparent}.whatslink-thumb{border:2px solid #e2e8f0;border-radius:9px;padding:0;overflow:hidden;background:#fff;cursor:pointer;aspect-ratio:16 / 9;box-shadow:0 6px 14px rgba(15,23,42,.08)}.whatslink-thumb.active{border-color:#db2777;box-shadow:0 8px 18px rgba(219,39,119,.22)}.whatslink-thumb img{width:100%;height:100%;object-fit:cover;display:block}.whatslink-info{min-width:0;padding:14px;background:#f8fafc;overflow:auto;color:#172033}.whatslink-head{position:sticky;top:0;z-index:2;margin:-14px -14px 12px;padding:13px 14px;background:rgba(248,250,252,.94);border-bottom:1px solid #e2e8f0;backdrop-filter:blur(10px);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.whatslink-kicker{color:#db2777;font-size:12px;font-weight:800;margin-bottom:5px}.whatslink-title{margin:0;font-size:21px;line-height:1.18;color:#111827;word-break:break-word}.whatslink-close{width:32px;height:32px;border:0;border-radius:8px;color:#64748b;background:transparent;cursor:pointer;font-size:25px;line-height:1}.whatslink-tag{display:inline-flex;align-items:center;min-height:22px;padding:0 8px;margin-top:8px;border-radius:999px;background:#ecfdf5;color:#047857;font-size:12px;font-weight:700}.whatslink-meta{display:grid;grid-template-columns:1fr;gap:7px;margin:10px 0 12px}.whatslink-metric{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;box-shadow:0 8px 20px rgba(15,23,42,.06)}.whatslink-metric b{color:#172033;font-size:13px;order:2}.whatslink-metric span{color:#64748b;font-size:12px;order:1}.whatslink-section,.whatslink-summary-card{border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:10px;box-shadow:0 8px 20px rgba(15,23,42,.06)}.whatslink-section h3{margin:0 0 8px;color:#be185d;font-size:12px}.whatslink-magnet{word-break:break-all;max-height:86px;overflow:auto;padding:9px;border-radius:8px;background:#f6f8fb;color:#334155;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}.whatslink-summary{display:grid;gap:8px;margin-top:10px}.whatslink-summary-card strong{display:block;margin-bottom:4px;color:#111827;font-size:12px}.whatslink-summary-card p{margin:0;color:#64748b;font-size:11px;line-height:1.45}.whatslink-loading{padding:28px;text-align:center;color:#475569;font-size:14px}#jav-nong-notice{padding:8px 0}.nong-magnet-name{max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;text-align:left}#jav-nong-refresh{display:none;margin-left:8px;color:#e74c3c;font-weight:bold;cursor:pointer}`);
+
+        GM_addStyle(`.jav-nong-wrapper{overflow-x:auto !important;overflow-y:hidden !important;scrollbar-width:thin}#jav-nong-table{width:100%;min-width:320px;table-layout:fixed;margin:8px 0;color:#666;font-size:13px;text-align:center;background:#f2f2f2;border-collapse:collapse;max-width:100%}#jav-nong-table th,#jav-nong-table td{text-align:center;height:30px;background:#fff;padding:0 6px;border:1px solid #efefef;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#jav-nong-table th:nth-child(2),#jav-nong-table td:nth-child(2){width:74px}#jav-nong-table th:nth-child(3),#jav-nong-table td:nth-child(3){width:74px}#jav-nong-table th:nth-child(4),#jav-nong-table td:nth-child(4){width:48px}#jav-nong-table:has(td.mag-laosiji-ready-cell)th:nth-child(3),#jav-nong-table:has(td.mag-laosiji-ready-cell)td:nth-child(3){width:104px}#jav-nong-table td.mag-laosiji-ready-cell{overflow:visible}#jav-nong-table td:first-child{text-align:left}#jav-nong-table .nong-head-row th{background:#f8f8f8;font-weight:600}#jav-nong-table .nong-magnet-name{display:flex;align-items:center;gap:4px;min-width:0;width:100%;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#jav-nong-table .nong-magnet-name>a{flex:1 1 auto;min-width:0;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.nong-copy{color:#08c !important;cursor:pointer}.nong-check{color:#be185d !important;cursor:pointer;margin-left:8px}.nong-offline-115{color:rgb(0,180,30)!important;cursor:pointer}.nong-offline-115:hover{color:red !important}.whatslink-overlay{position:fixed;inset:0;z-index:10000040;display:flex;align-items:center;justify-content:center;padding:22px;background:rgba(15,23,42,.66);backdrop-filter:blur(8px)}.whatslink-modal{width:min(1100px,96vw);max-height:90vh;display:grid;grid-template-columns:1.55fr .75fr;background:#f5f7fb;border:1px solid rgba(203,213,225,.9);border-radius:12px;overflow:hidden;box-shadow:0 30px 80px rgba(2,8,23,.38);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.whatslink-modal.no-shots{grid-template-columns:1.1fr .9fr}.whatslink-viewer{min-width:0;display:grid;grid-template-rows:minmax(430px,1fr)auto;gap:10px;padding:14px;background:radial-gradient(circle at 20% 0%,#fff1f8 0,transparent 34%),#eef3f8}.whatslink-stage{position:relative;min-height:470px;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #dde7f2;border-radius:12px;background:#111827;box-shadow:0 18px 36px rgba(15,23,42,.16)}.whatslink-stage img{width:100%;height:100%;max-height:68vh;object-fit:contain;border-radius:10px}.whatslink-modal.no-shots .whatslink-viewer{grid-template-rows:minmax(430px,1fr);background:linear-gradient(135deg,#f8fafc,#eef2ff)}.whatslink-modal.no-shots .whatslink-stage{background:linear-gradient(145deg,#fff,#f1f5f9);border-style:dashed;box-shadow:inset 0 0 0 1px rgba(255,255,255,.8),0 18px 36px rgba(15,23,42,.08)}.whatslink-modal.no-shots .whatslink-stage img,.whatslink-modal.no-shots .whatslink-nav,.whatslink-modal.no-shots .whatslink-counter,.whatslink-modal.no-shots .whatslink-thumbs{display:none}.whatslink-empty{display:none;width:min(420px,72%);text-align:center;color:#475569}.whatslink-modal.no-shots .whatslink-empty{display:block}.whatslink-empty-icon{width:62px;height:62px;margin:0 auto 15px;display:grid;place-items:center;border-radius:18px;background:linear-gradient(135deg,#fce7f3,#e0e7ff);color:#be185d;font-size:27px;box-shadow:0 12px 26px rgba(190,24,93,.16)}.whatslink-empty-title{font-size:18px;font-weight:800;color:#1e293b;margin-bottom:7px}.whatslink-empty-text{margin:0;font-size:13px;line-height:1.6}.whatslink-nav{position:absolute;top:50%;transform:translateY(-50%);width:38px;height:52px;border:0;border-radius:8px;background:rgba(255,255,255,.14);color:#fff;font-size:28px;cursor:pointer}.whatslink-nav:hover{background:rgba(255,255,255,.24)}.whatslink-prev{left:12px}.whatslink-next{right:12px}.whatslink-counter{position:absolute;right:14px;bottom:12px;color:#e2e8f0;font-size:12px;text-shadow:0 1px 6px rgba(0,0,0,.6)}.whatslink-thumbs{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;padding:0;background:transparent}.whatslink-thumb{border:2px solid #e2e8f0;border-radius:9px;padding:0;overflow:hidden;background:#fff;cursor:pointer;aspect-ratio:16 / 9;box-shadow:0 6px 14px rgba(15,23,42,.08)}.whatslink-thumb.active{border-color:#db2777;box-shadow:0 8px 18px rgba(219,39,119,.22)}.whatslink-thumb img{width:100%;height:100%;object-fit:cover;display:block}.whatslink-info{min-width:0;padding:14px;background:#f8fafc;overflow:auto;color:#172033}.whatslink-head{position:sticky;top:0;z-index:2;margin:-14px -14px 12px;padding:13px 14px;background:rgba(248,250,252,.94);border-bottom:1px solid #e2e8f0;backdrop-filter:blur(10px);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.whatslink-kicker{color:#db2777;font-size:12px;font-weight:800;margin-bottom:5px}.whatslink-title{margin:0;font-size:21px;line-height:1.18;color:#111827;word-break:break-word}.whatslink-close{width:32px;height:32px;border:0;border-radius:8px;color:#64748b;background:transparent;cursor:pointer;font-size:25px;line-height:1}.whatslink-tag{display:inline-flex;align-items:center;min-height:22px;padding:0 8px;margin-top:8px;border-radius:999px;background:#ecfdf5;color:#047857;font-size:12px;font-weight:700}.whatslink-meta{display:grid;grid-template-columns:1fr;gap:7px;margin:10px 0 12px}.whatslink-metric{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;box-shadow:0 8px 20px rgba(15,23,42,.06)}.whatslink-metric b{color:#172033;font-size:13px;order:2}.whatslink-metric span{color:#64748b;font-size:12px;order:1}.whatslink-section,.whatslink-summary-card{border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:10px;box-shadow:0 8px 20px rgba(15,23,42,.06)}.whatslink-section h3{margin:0 0 8px;color:#be185d;font-size:12px}.whatslink-magnet{word-break:break-all;max-height:86px;overflow:auto;padding:9px;border-radius:8px;background:#f6f8fb;color:#334155;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}.whatslink-summary{display:grid;gap:8px;margin-top:10px}.whatslink-summary-card strong{display:block;margin-bottom:4px;color:#111827;font-size:12px}.whatslink-summary-card p{margin:0;color:#64748b;font-size:11px;line-height:1.45}.whatslink-loading{padding:28px;text-align:center;color:#475569;font-size:14px}#jav-nong-notice{padding:8px 0}.nong-magnet-name{max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;text-align:left}#jav-nong-refresh{display:none;margin-left:8px;color:#e74c3c;font-weight:bold;cursor:pointer}`);
+
         function formatBytes(bytes) {
             const num = Number(bytes) || 0;
             if (!num) return '-';
@@ -1374,12 +1714,14 @@
             }
             return `${value.toFixed(index >= 3 ? 2 : 1)} ${units[index]}`;
         }
+
         function formatWhatslinkType(payload) {
             const raw = String(payload?.file_type || payload?.type || '').toUpperCase();
             if (raw.includes('FOLDER')) return '文件夹';
             if (raw.includes('FILE')) return '文件';
             return '-';
         }
+
         function showWhatslinkModal(payload, magnet) {
             document.querySelector('.whatslink-overlay')?.remove();
             const shots = Array.isArray(payload?.screenshots) ? payload.screenshots.map(item => item?.screenshot).filter(Boolean) : [];
@@ -1389,7 +1731,45 @@
             overlay.className = 'whatslink-overlay';
             const modal = document.createElement('section');
             modal.className = `whatslink-modal${shots.length ? '' : ' no-shots'}`;
-            modal.innerHTML = `<div class="whatslink-viewer"><div class="whatslink-stage"><button class="whatslink-nav whatslink-prev" type="button">‹</button><img class="whatslink-hero" alt="截图预览"><button class="whatslink-nav whatslink-next" type="button">›</button><div class="whatslink-counter"></div><div class="whatslink-empty"><div class="whatslink-empty-icon">?</div><div class="whatslink-empty-title">暂无截图</div><p class="whatslink-empty-text">WhatsLink 已返回资源基础信息，但没有可展示的截图。可以通过名称、大小和文件数量先做基础判断。</p></div></div><div class="whatslink-thumbs"></div></div><aside class="whatslink-info"><div class="whatslink-head"><div><div class="whatslink-kicker">磁力验车</div><h2 class="whatslink-title"></h2><span class="whatslink-tag"></span></div><button class="whatslink-close" type="button">×</button></div><div class="whatslink-meta"><div class="whatslink-metric"><b>${formatBytes(payload?.size)}</b><span>资源大小</span></div><div class="whatslink-metric"><b>${payload?.count ?? '-'}</b><span>文件数量</span></div><div class="whatslink-metric"><b>${resourceType}</b><span>资源结构</span></div><div class="whatslink-metric"><b>${shots.length}</b><span>截图数量</span></div><div class="whatslink-metric"><b>${payload?.error ? '异常' : '无错误'}</b><span>接口状态</span></div></div><div class="whatslink-section"><h3>磁力链接</h3><div class="whatslink-magnet"></div></div><div class="whatslink-summary"><div class="whatslink-summary-card"><strong>验车结论</strong><p>${shots.length ? 'WhatsLink 已返回截图，优先用左侧大图确认内容是否匹配番号。' : '当前没有截图，建议结合资源名称、大小和文件数量判断。'}</p></div></div></aside>`;
+            modal.innerHTML = `
+                <div class="whatslink-viewer">
+                    <div class="whatslink-stage">
+                        <button class="whatslink-nav whatslink-prev" type="button">‹</button>
+                        <img class="whatslink-hero" alt="截图预览">
+                        <button class="whatslink-nav whatslink-next" type="button">›</button>
+                        <div class="whatslink-counter"></div>
+                        <div class="whatslink-empty">
+                            <div class="whatslink-empty-icon">?</div>
+                            <div class="whatslink-empty-title">暂无截图</div>
+                            <p class="whatslink-empty-text">WhatsLink 已返回资源基础信息，但没有可展示的截图。可以通过名称、大小和文件数量先做基础判断。</p>
+                        </div>
+                    </div>
+                    <div class="whatslink-thumbs"></div>
+                </div>
+                <aside class="whatslink-info">
+                    <div class="whatslink-head">
+                        <div>
+                            <div class="whatslink-kicker">磁力验车</div>
+                            <h2 class="whatslink-title"></h2>
+                            <span class="whatslink-tag"></span>
+                        </div>
+                        <button class="whatslink-close" type="button">×</button>
+                    </div>
+                    <div class="whatslink-meta">
+                        <div class="whatslink-metric"><b>${formatBytes(payload?.size)}</b><span>资源大小</span></div>
+                        <div class="whatslink-metric"><b>${payload?.count ?? '-'}</b><span>文件数量</span></div>
+                        <div class="whatslink-metric"><b>${resourceType}</b><span>资源结构</span></div>
+                        <div class="whatslink-metric"><b>${shots.length}</b><span>截图数量</span></div>
+                        <div class="whatslink-metric"><b>${payload?.error ? '异常' : '无错误'}</b><span>接口状态</span></div>
+                    </div>
+                    <div class="whatslink-section">
+                        <h3>磁力链接</h3>
+                        <div class="whatslink-magnet"></div>
+                    </div>
+                    <div class="whatslink-summary">
+                        <div class="whatslink-summary-card"><strong>验车结论</strong><p>${shots.length ? 'WhatsLink 已返回截图，优先用左侧大图确认内容是否匹配番号。' : '当前没有截图，建议结合资源名称、大小和文件数量判断。'}</p></div>
+                    </div>
+                </aside>`;
             overlay.appendChild(modal);
             document.body.appendChild(overlay);
             modal.querySelector('.whatslink-title').textContent = payload?.name || '未知资源';
@@ -1408,7 +1788,7 @@
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'whatslink-thumb';
-                btn.innerHTML = `<img src="${url}" alt="截图${i + 1}">`;
+                btn.innerHTML = `<img src="${url}" alt="截图 ${i + 1}">`;
                 btn.addEventListener('click', () => { index = i; render(); });
                 thumbs.appendChild(btn);
             });
@@ -1419,6 +1799,7 @@
             overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
             render();
         }
+
         async function checkWhatslink(magnet) {
             document.querySelector('.whatslink-overlay')?.remove();
             const overlay = document.createElement('div');
@@ -1437,12 +1818,15 @@
                 showWhatslinkModal({ error: e.message || '查询失败', name: '查询失败', type: '-', file_type: '-', size: 0, count: '-', screenshots: [] }, magnet);
             }
         }
+
         function buildTable(avid) {
             const table = document.createElement('table');
             table.id = 'jav-nong-table';
             table.dataset.avid = avid;
+
             const headRow = document.createElement('tr');
             headRow.className = 'nong-head-row';
+
             const thEngine = document.createElement('th');
             thEngine.style.textAlign = 'left';
             const allEngines = Engines.getAll();
@@ -1457,6 +1841,7 @@
                 if (k === curKey) op.selected = true;
                 sel.appendChild(op);
             });
+
             const fitSelWidth = () => {
                 sel.style.width = '';
                 const natural = sel.offsetWidth;
@@ -1469,13 +1854,16 @@
             });
             thEngine.appendChild(sel);
             headRow.appendChild(thEngine);
+
             ['大小', '操作', '115'].forEach(txt => {
                 const th = document.createElement('th');
                 th.textContent = txt;
                 if (txt === '115') th.className = 'nong-115-head';
                 headRow.appendChild(th);
             });
+
             table.appendChild(headRow);
+
             const loadRow = document.createElement('tr');
             const loadTd = document.createElement('td');
             loadTd.colSpan = 4;
@@ -1494,8 +1882,10 @@
             loadTd.appendChild(refreshBtn);
             loadRow.appendChild(loadTd);
             table.appendChild(loadRow);
+
             return table;
         }
+
         function fillTable(table, data, engineUrl) {
             const parseSize = s => {
                 if (!s) return 0;
@@ -1506,8 +1896,10 @@
                 return n * ({ GIB: 1073741824, MIB: 1048576, KIB: 1024, GB: 1073741824, MB: 1048576, KB: 1024, B: 1 }[u] || 1);
             };
             data = [...data].sort((a, b) => parseSize(b.size) - parseSize(a.size));
+
             const notice = table.querySelector('#jav-nong-notice');
             if (notice) notice.parentElement.remove();
+
             if (!data.length) {
                 const emptyRow = document.createElement('tr');
                 const td = document.createElement('td');
@@ -1527,9 +1919,11 @@
                 table.appendChild(emptyRow);
                 return;
             }
+
             data.forEach(item => {
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-maglink', item.maglink);
+
                 const tdTitle = document.createElement('td');
                 const nameSpan = document.createElement('span');
                 nameSpan.className = 'nong-magnet-name';
@@ -1571,10 +1965,12 @@
                 nameSpan.appendChild(titleLink);
                 tdTitle.appendChild(nameSpan);
                 tr.appendChild(tdTitle);
+
                 const tdSize = document.createElement('td');
                 tdSize.style.whiteSpace = 'nowrap';
                 tdSize.textContent = item.size;
                 tr.appendChild(tdSize);
+
                 const tdOp = document.createElement('td');
                 tdOp.style.whiteSpace = 'nowrap';
                 const copyBtn = document.createElement('a');
@@ -1619,6 +2015,7 @@
                 });
                 tdOp.appendChild(checkBtn);
                 tr.appendChild(tdOp);
+
                 const tdOffline = document.createElement('td');
                 tdOffline.className = 'nong-115-cell';
                 const offBtn = document.createElement('a');
@@ -1631,9 +2028,11 @@
                 });
                 tdOffline.appendChild(offBtn);
                 tr.appendChild(tdOffline);
+
                 table.appendChild(tr);
             });
         }
+
         async function runSearch(table, avid, engineKey) {
             [...table.querySelectorAll('tr:not(.nong-head-row)')].forEach(r => r.remove());
             const loadRow = document.createElement('tr');
@@ -1651,12 +2050,14 @@
             loadTd.appendChild(refreshBtn);
             loadRow.appendChild(loadTd);
             table.appendChild(loadRow);
+
             let timedOut = false;
             const timer = setTimeout(() => {
                 timedOut = true;
                 loadText.textContent = '加载超时 ';
                 refreshBtn.style.display = 'inline';
             }, 8000);
+
             try {
                 const allEngines = Engines.getAll();
                 const fn = allEngines[engineKey] || Object.values(allEngines)[0];
@@ -1671,6 +2072,7 @@
                 refreshBtn.style.display = 'inline';
             }
         }
+
         function createMagnetWidget(avid) {
             const wrapper = document.createElement('div');
             wrapper.className = 'jav-nong-wrapper';
@@ -1685,21 +2087,28 @@
                 border-radius: 6px;
                 overflow: hidden;
             `;
+
             const header = document.createElement('div');
             header.style.cssText = 'margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
+
             const title = document.createElement('span');
             title.style.cssText = 'color:#0066cc;font-size:14px;font-weight:600;';
             title.textContent = '🔥 磁力搜索';
             header.appendChild(title);
+
             wrapper.appendChild(header);
             const table = buildTable(avid);
             wrapper.appendChild(table);
+
             const engineKey = CFG.defaultEngine;
             runSearch(table, avid, engineKey);
+
             return wrapper;
         }
+
         return { createMagnetWidget, javdbApi };
     })();
+
     const SiteJavBus = {
         match() {
             return location.hostname.includes('javbus');
@@ -1724,36 +2133,46 @@
             document.querySelector('.ad-box')?.remove();
             this._insertTopSettingsButton();
             setTimeout(() => this._insertTopSettingsButton(), 500);
+
             if (this.isActorIndexPage()) return;
+
             if (document.querySelector('#waterfall div.item')) {
                 this._initListPage();
                 return;
             }
+
             this._insertCopyButton(avid);
             const detailDefaults = DetailFlex.defaultCss('javbus');
-            GM_addStyle(`.container{max-width:100% !important;width:100% !important;padding-left:20px !important;padding-right:20px !important}.row.movie{display:flex !important;gap:20px !important;align-items:flex-start !important;flex-wrap:nowrap !important;margin:0 !important}.row.movie{--javbus-cover-flex:${detailDefaults.cover};--javbus-info-flex:${detailDefaults.info};--javbus-magnet-flex:${detailDefaults.magnet}}.col-md-9.screencap{flex:var(--javbus-cover-flex) 1 0 !important;min-width:0 !important;width:auto !important;float:none !important;padding:0 !important}.col-md-3.info{flex:var(--javbus-info-flex) 1 0 !important;min-width:0 !important;width:auto !important;float:none !important;overflow:hidden !important;word-break:break-word !important}.jav-nong-slot{flex:var(--javbus-magnet-flex) 1 0 !important;min-width:0 !important;align-self:flex-start !important;overflow:hidden !important}.jav-nong-wrapper{width:560px;max-width:100%}.screencap img{width:100%;max-width:100%}.footer{padding:20px 0}#mag-submit-show,#mag-submit-show+div.movie:has(#magnet-table),div.movie:has(>#magnet-table){display:none !important}`);
-            this._hideNativeMagnetBlocks();
-            setTimeout(() => this._hideNativeMagnetBlocks(), 900);
+
+            GM_addStyle(`
+                .container { max-width: 100% !important; width: 100% !important;
+                    padding-left: 20px !important; padding-right: 20px !important; }
+                .row.movie { display: flex !important; gap: 20px !important;
+                    align-items: flex-start !important; flex-wrap: nowrap !important; margin: 0 !important; }
+                .row.movie { --javbus-cover-flex: ${detailDefaults.cover}; --javbus-info-flex: ${detailDefaults.info}; --javbus-magnet-flex: ${detailDefaults.magnet}; }
+                .col-md-9.screencap { flex: var(--javbus-cover-flex) 1 0 !important; min-width: 0 !important;
+                    width: auto !important; float: none !important; padding: 0 !important; }
+                .col-md-3.info { flex: var(--javbus-info-flex) 1 0 !important; min-width: 0 !important;
+                    width: auto !important; float: none !important;
+                    overflow: hidden !important; word-break: break-word !important; }
+                .jav-nong-slot { flex: var(--javbus-magnet-flex) 1 0 !important; min-width: 0 !important; align-self: flex-start !important; overflow: hidden !important; }
+                .jav-nong-wrapper { width: 560px; max-width: 100%; }
+                .screencap img { width: 100%; max-width: 100%; }
+                .footer { padding: 20px 0; }
+            `);
+
             this._insertMagnet(avid);
             this._replaceRecommendWithJavdbReviews(avid);
             setTimeout(() => this._replaceRecommendWithJavdbReviews(avid), 900);
         },
-        _hideNativeMagnetBlocks() {
-            const heading = document.querySelector('#mag-submit-show');
-            const next = heading?.nextElementSibling;
-            heading?.remove();
-            if (next?.matches?.('div.movie') && next.querySelector?.('#magnet-table')) next.remove();
-            document.querySelectorAll('#magnet-table').forEach(table => {
-                const block = table.closest('div.movie');
-                if (block && !block.classList.contains('row')) block.remove();
-            });
-        },
         _insertTopSettingsButton() {
             const navbar = document.querySelector('#navbar');
             if (!navbar || navbar.querySelector('.javbus-top-settings-nav')) return;
+
             const magnetNav = [...navbar.querySelectorAll(':scope > ul.nav.navbar-nav.navbar-right')].find(ul => {
                 return ul.querySelector('.glyphicon-magnet') || /\u5df2\u6709\u78c1\u529b/.test(ul.textContent || '');
             });
+
             const settingsNav = document.createElement('ul');
             settingsNav.className = 'nav navbar-nav navbar-right javbus-top-settings-nav';
             settingsNav.innerHTML = `<li><a href="javascript:void(0)" class="javbus-top-settings-btn" title="\u6253\u5f00\u8001\u53f8\u673a\u8bbe\u7f6e"><span class="glyphicon glyphicon-cog" style="font-size:12px;"></span><span class="hidden-md hidden-sm">\u8001\u53f8\u673a\u8bbe\u7f6e</span></a></li>`;
@@ -1762,14 +2181,16 @@
                 e.stopPropagation();
                 QuickSettingsPanel.open(e.currentTarget);
             });
+
             if (magnetNav) {
                 magnetNav.insertAdjacentElement('afterend', settingsNav);
             } else {
                 navbar.appendChild(settingsNav);
             }
+
             if (document.documentElement.dataset.laosijiJavbusTopSettingsStyle === '1') return;
             document.documentElement.dataset.laosijiJavbusTopSettingsStyle = '1';
-            GM_addStyle(`#navbar .javbus-top-settings-btn{color:#2563eb !important;font-weight:700 !important}#navbar .javbus-top-settings-btn:hover{color:#1d4ed8 !important;background:rgba(37,99,235,.08) !important}`);
+            GM_addStyle(`#navbar .javbus-top-settings-btn{color:#2563eb !important;font-weight:700 !important}#navbar .javbus-top-settings-btn:hover{color:#1d4ed8 !important;background:rgba(37,99,235,.08)!important}`);
         },
         _insertCopyButton(avid) {
             const infoCol = document.querySelector("div[class='col-md-3 info']");
@@ -1795,7 +2216,7 @@
             SiteJavDB._ensureApiMovieTabStyle?.();
             if (document.documentElement.dataset.laosijiJavbusJavdbReviewsStyle === '1') return;
             document.documentElement.dataset.laosijiJavbusJavdbReviewsStyle = '1';
-            GM_addStyle(`.javbus-javdb-reviews{margin:18px 0 24px !important;border:1px solid #e5e7eb !important;border-radius:6px !important;background:#fff !important;overflow:hidden !important;box-shadow:0 1px 2px rgba(15,23,42,.04) !important}.javbus-javdb-reviews-head{display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;padding:10px 12px !important;border-bottom:1px solid #e5e7eb !important;background:#f8fafc !important;color:#1f2937 !important;font-size:15px !important;font-weight:800 !important}.javbus-javdb-reviews-toggle{display:inline-flex !important;align-items:center !important;gap:8px !important;padding:0 !important;border:0 !important;background:transparent !important;color:inherit !important;font:inherit !important;cursor:pointer !important}.javbus-javdb-reviews-toggle::before{content:"▸";color:#64748b;font-size:13px;transition:transform .16s ease}.javbus-javdb-reviews.is-expanded .javbus-javdb-reviews-toggle::before{transform:rotate(90deg)}.javbus-javdb-reviews-head a{color:#2563eb !important;font-size:12px !important;font-weight:800 !important;text-decoration:none !important}.javbus-javdb-reviews-badge{display:inline-flex !important;align-items:center !important;height:20px !important;margin-left:8px !important;padding:0 7px !important;border:1px solid #bfdbfe !important;border-radius:999px !important;background:#eff6ff !important;color:#1d4ed8 !important;font-size:11px !important;line-height:1 !important;vertical-align:middle !important}.javbus-javdb-reviews-body .message,.javbus-javdb-reviews-body .message-body{margin:0 !important;border:0 !important;background:transparent !important;padding:0 !important}.javbus-javdb-reviews-body[hidden]{display:none !important}.javbus-javdb-reviews-footer{padding:10px 0 12px !important;background:#fff !important}.javbus-javdb-reviews-collapse-bar{padding:10px 12px 0 !important;margin-bottom:0 !important}`);
+            GM_addStyle(`.javbus-javdb-reviews{margin:18px 0 24px !important;border:1px solid #e5e7eb !important;border-radius:6px !important;background:#fff !important;overflow:hidden !important;box-shadow:0 1px 2px rgba(15,23,42,.04)!important}.javbus-javdb-reviews-head{display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;padding:10px 12px !important;border-bottom:1px solid #e5e7eb !important;background:#f8fafc !important;color:#1f2937 !important;font-size:15px !important;font-weight:800 !important}.javbus-javdb-reviews-toggle{display:inline-flex !important;align-items:center !important;gap:8px !important;padding:0 !important;border:0 !important;background:transparent !important;color:inherit !important;font:inherit !important;cursor:pointer !important}.javbus-javdb-reviews-toggle::before{content:"▸";color:#64748b;font-size:13px;transition:transform .16s ease}.javbus-javdb-reviews.is-expanded .javbus-javdb-reviews-toggle::before{transform:rotate(90deg)}.javbus-javdb-reviews-head a{color:#2563eb !important;font-size:12px !important;font-weight:800 !important;text-decoration:none !important}.javbus-javdb-reviews-badge{display:inline-flex !important;align-items:center !important;height:20px !important;margin-left:8px !important;padding:0 7px !important;border:1px solid #bfdbfe !important;border-radius:999px !important;background:#eff6ff !important;color:#1d4ed8 !important;font-size:11px !important;line-height:1 !important;vertical-align:middle !important}.javbus-javdb-reviews-body .message,.javbus-javdb-reviews-body .message-body{margin:0 !important;border:0 !important;background:transparent !important;padding:0 !important}.javbus-javdb-reviews-body[hidden]{display:none !important}.javbus-javdb-reviews-footer{padding:10px 0 12px !important;background:#fff !important}.javbus-javdb-reviews-collapse-bar{padding:10px 12px 0 !important;margin-bottom:0 !important}`);
         },
         _findRecommendHeading() {
             return [...document.querySelectorAll('h4')].find(h4 => {
@@ -1824,12 +2245,21 @@
             }
             const heading = this._findRecommendHeading();
             if (!heading) return;
+
             this._ensureJavdbReviewsStyle();
             const next = heading.nextElementSibling;
             const panel = document.createElement('section');
             panel.className = 'javbus-javdb-reviews';
             panel.dataset.avid = avid;
-            panel.innerHTML = `<div class="javbus-javdb-reviews-head"><button type="button" class="javbus-javdb-reviews-toggle" aria-expanded="false">JavDB 短评<span class="javbus-javdb-reviews-badge" title="此区块已由 JAV 老司机脚本替换">老司机</span></button><a class="javbus-javdb-reviews-link" href="https://javdb.com/search?q=${encodeURIComponent(avid)}" target="_blank" rel="noopener noreferrer">JavDB</a></div><div class="javbus-javdb-reviews-body" hidden><div class="javdb-api-tab-loading">正在读取短评...</div></div>`;
+            panel.innerHTML = `
+                <div class="javbus-javdb-reviews-head">
+                    <button type="button" class="javbus-javdb-reviews-toggle" aria-expanded="false">JavDB 短评<span class="javbus-javdb-reviews-badge" title="此区块已由 JAV 老司机脚本替换">老司机</span></button>
+                    <a class="javbus-javdb-reviews-link" href="https://javdb.com/search?q=${encodeURIComponent(avid)}" target="_blank" rel="noopener noreferrer">JavDB</a>
+                </div>
+                <div class="javbus-javdb-reviews-body" hidden>
+                    <div class="javdb-api-tab-loading">正在读取短评...</div>
+                </div>
+            `;
             heading.replaceWith(panel);
             if (this._isRecommendContainer(next)) next.remove();
             this._bindJavbusReviewLoadMore(panel);
@@ -1892,7 +2322,7 @@
             try {
                 const movie = await Magnet.javdbApi.searchMovieByNumber(avid, { limit: 5 });
                 if (!movie?.id) {
-                    body.innerHTML = `<div class="javdb-api-tab-empty">JavDB 未找到${SiteJavDB._escapeHtml(avid)}的短评</div>`;
+                    body.innerHTML = `<div class="javdb-api-tab-empty">JavDB 未找到 ${SiteJavDB._escapeHtml(avid)} 的短评</div>`;
                     return;
                 }
                 const link = panel.querySelector('.javbus-javdb-reviews-link');
@@ -1951,6 +2381,7 @@
         },
         _swapCover(img) {
             const src = img.getAttribute('src') || '';
+
             if (!/\/(imgs|pics)\/(thumb|thumbs)\//i.test(src)) return;
             if (img.dataset.laosijiCoverSwapped === '1') return;
             let full = src.replace(/\/(imgs|pics)\/(thumb|thumbs)\//i, '/$1/cover/');
@@ -1981,10 +2412,13 @@
             item.style.removeProperty('top');
             item.style.removeProperty('left');
             item.style.removeProperty('width');
+
             const anchor = item.querySelector(':scope > a.movie-box[href]') || item.querySelector('a.movie-box[href]');
             anchor?.classList.add('jav-card-link', 'javbus-card-link');
+
             const frame = item.querySelector('.photo-frame');
             frame?.classList.add('jav-card-cover', 'javbus-cover-frame');
+
             const img = frame?.querySelector('img[src]') || item.querySelector('img[src]');
             if (img) {
                 img.removeAttribute('width');
@@ -1992,6 +2426,7 @@
                 img.classList.add('jav-card-image', 'javbus-card-image');
                 this._swapCover(img);
             }
+
             const info = item.querySelector('.photo-info');
             info?.classList.add('jav-card-title', 'javbus-card-title');
             const infoBody = info?.querySelector(':scope > span') || info;
@@ -2051,6 +2486,60 @@
             return document.querySelector('#waterfall.jav-card-grid') ||
                    document.querySelector('#waterfall');
         },
+        _listPageNo(url = location.href) {
+            try {
+                const path = new URL(url, location.href).pathname.replace(/\/+$/, '');
+                let m = path.match(/\/page\/(\d+)$/i);
+                if (m) return parseInt(m[1], 10) || 1;
+                m = path.match(/\/(\d+)$/);
+                if (m) return parseInt(m[1], 10) || 1;
+                return 1;
+            } catch (e) {
+                return 1;
+            }
+        },
+        _resolveListNext(doc, baseUrl) {
+            const result = { nextUrl: '', maxPage: 0, curPage: this._listPageNo(baseUrl) };
+            try {
+                const nav = doc.querySelector('.pagination') || doc;
+                const links = [...nav.querySelectorAll('li > a[href], a[href]')];
+                const pageMap = new Map();
+                links.forEach(a => {
+                    const href = a.getAttribute('href') || '';
+                    if (!href || /^(?:#|javascript:)/i.test(href)) return;
+                    const n = this._listPageNo(href);
+                    if (/\/(?:page\/)?\d+$/i.test(href.replace(/\/+$/, '')) && n > 0) {
+                        if (!pageMap.has(n)) pageMap.set(n, new URL(href, baseUrl).href);
+                        if (n > result.maxPage) result.maxPage = n;
+                    }
+                });
+                const want = result.curPage + 1;
+                if (pageMap.has(want)) {
+                    result.nextUrl = pageMap.get(want);
+                } else if (want <= result.maxPage) {
+                    result.nextUrl = this._buildListPageUrl(baseUrl, want);
+                }
+            } catch (e) {}
+            return result;
+        },
+        _buildListPageUrl(baseUrl, page) {
+            try {
+                const u = new URL(baseUrl, location.href);
+                let path = u.pathname.replace(/\/+$/, '');
+                if (/\/page\/\d+$/i.test(path)) {
+                    path = path.replace(/\/page\/\d+$/i, page <= 1 ? '' : `/page/${page}`);
+                } else if (/\/\d+$/.test(path)) {
+                    path = path.replace(/\/\d+$/, page <= 1 ? '' : `/${page}`);
+                } else {
+                    path = path === '' ? (page <= 1 ? '' : `/page/${page}`)
+                                       : (page <= 1 ? path : `${path}/${page}`);
+                }
+                u.pathname = path || '/';
+                return u.href;
+            } catch (e) {
+                return '';
+            }
+        },
         _initListPage() {
             this._flattenWaterfall();
             const container = this._getGridContainer();
@@ -2060,15 +2549,17 @@
             container.style.setProperty('position', 'static', 'important');
             container.style.setProperty('height', 'auto', 'important');
             container.style.setProperty('width', 'auto', 'important');
+
             const needStyle = container.dataset.laosijiGrid !== '1';
             if (needStyle) {
                 container.dataset.laosijiGrid = '1';
                 container.classList.add('jav-card-grid', 'javbus-card-grid');
             }
             CardColumns.apply('javbus');
+
             container.querySelectorAll(':scope > .item').forEach(item => this._decorateCard(item));
             if (needStyle) {
-                GM_addStyle(`.jav-card-grid{--jav-card-title-size:15px;--jav-card-title-line-height:1.5;--jav-card-title-lines:2;display:grid !important;grid-template-columns:repeat(var(--jav-card-columns,5),minmax(0,1fr)) !important;gap:14px !important;align-items:stretch !important;width:100% !important;height:auto !important;box-sizing:border-box !important}.jav-card{position:static !important;float:none !important;display:block !important;width:auto !important;height:100% !important;max-height:none !important;min-width:0 !important;margin:0 !important;padding:0 !important;box-sizing:border-box !important;text-align:left !important;background:#fff !important;border:1px solid #e5e7eb !important;border-radius:6px !important;overflow:hidden !important;box-shadow:0 1px 4px rgba(15,23,42,.08) !important;transform:translateZ(0) !important;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease !important;will-change:transform !important}.jav-card:hover{border-color:rgba(37,99,235,.35) !important;box-shadow:0 10px 24px rgba(15,23,42,.16) !important;transform:translateY(-4px) scale(1.018) !important;z-index:2 !important}.jav-card-link{display:flex !important;flex-direction:column !important;height:100% !important;max-height:none !important;overflow:hidden !important;color:#2563eb !important;text-decoration:none !important}.jav-card-link:visited{color:#7c3aed !important}.jav-card-cover{display:block !important;width:100% !important;height:auto !important;aspect-ratio:800 / 538 !important;overflow:hidden !important;background:#f8fafc !important;border-bottom:1px solid #f1f5f9 !important;margin:0 !important}.jav-card-image{display:block !important;width:100% !important;height:100% !important;max-height:none !important;object-fit:cover !important;object-position:center center !important;background:#f8fafc !important;border:0 !important;transition:opacity .18s ease !important}.jav-card-title{display:block !important;width:100% !important;max-width:none !important;height:auto !important;max-height:none !important;box-sizing:border-box !important;flex:1 1 auto !important;min-height:0 !important;margin:0 !important;padding:7px 8px 9px !important;overflow:visible !important;color:inherit !important;font-size:var(--jav-card-title-size,15px) !important;line-height:var(--jav-card-title-line-height,1.5) !important;text-align:left !important;white-space:normal !important;word-break:break-word !important}.javbus-card-grid{position:static !important;--jav-card-columns:5;box-sizing:border-box !important}#waterfall.javbus-card-grid{display:grid !important;grid-template-columns:repeat(var(--jav-card-columns,5),minmax(0,1fr)) !important;gap:14px !important;align-items:stretch !important;min-height:0 !important}body .container-fluid{padding-left:28px !important;padding-right:28px !important;box-sizing:border-box !important}#waterfall.javbus-card-grid>.item,.javbus-card-grid .item.javbus-grid-card{position:static !important;width:auto !important;float:none !important;margin:0 !important;top:auto !important;left:auto !important}.javbus-card-grid .item .jav-card-link.javbus-card-link{width:100% !important;min-width:0 !important;margin:0 !important;padding:0 !important;background:#fff !important;box-shadow:none !important;border-radius:0 !important;overflow:hidden !important}.javbus-card-grid .item .javbus-cover-frame.photo-frame{margin:0 !important;height:auto !important}.javbus-card-grid .item .javbus-card-image{height:100% !important;margin:0 !important}.javbus-card-title>span{display:block !important}.javbus-card-title .video-title{display:-webkit-box !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:var(--jav-card-title-lines,2) !important;line-clamp:var(--jav-card-title-lines,2) !important;height:calc(var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em) !important;max-height:calc(var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em) !important;min-height:calc(var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em) !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:normal !important;word-break:break-word !important;color:inherit !important;font-size:var(--jav-card-title-size,15px) !important;line-height:var(--jav-card-title-line-height,1.5) !important;margin-bottom:6px !important}.javbus-card-grid .item .javbus-card-title .jav-pan115-badge{display:inline-flex !important;width:auto !important;max-width:max-content !important;float:none !important;vertical-align:middle !important;margin:0 6px 4px 0 !important}.javbus-card-title .item-tag{margin:6px 0 4px !important}.javbus-card-title date{color:#94a3b8 !important;font-size:12px !important}.javbus-card-title date.javbus-card-code{display:inline-block !important;color:inherit !important;font-size:15px !important;font-weight:800 !important;margin-top:2px !important}@media (max-width:1100px){.javbus-card-grid{--jav-card-columns:4}}@media (max-width:820px){.javbus-card-grid{--jav-card-columns:3}}@media (max-width:560px){.javbus-card-grid{--jav-card-columns:2;gap:10px !important}}`);
+                GM_addStyle(`.jav-card-grid{--jav-card-title-size:15px;--jav-card-title-line-height:1.5;--jav-card-title-lines:2;display:grid !important;grid-template-columns:repeat(var(--jav-card-columns,5),minmax(0,1fr))!important;gap:14px !important;align-items:stretch !important;width:100% !important;height:auto !important;box-sizing:border-box !important}.jav-card{position:static !important;float:none !important;display:block !important;width:auto !important;height:100% !important;max-height:none !important;min-width:0 !important;margin:0 !important;padding:0 !important;box-sizing:border-box !important;text-align:left !important;background:#fff !important;border:1px solid #e5e7eb !important;border-radius:6px !important;overflow:hidden !important;box-shadow:0 1px 4px rgba(15,23,42,.08)!important;transform:translateZ(0)!important;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease !important;will-change:transform !important}.jav-card:hover{border-color:rgba(37,99,235,.35)!important;box-shadow:0 10px 24px rgba(15,23,42,.16)!important;transform:translateY(-4px)scale(1.018)!important;z-index:2 !important}.jav-card-link{display:flex !important;flex-direction:column !important;height:100% !important;max-height:none !important;overflow:hidden !important;color:#2563eb !important;text-decoration:none !important}.jav-card-link:visited{color:#7c3aed !important}.jav-card-cover{display:block !important;width:100% !important;height:auto !important;aspect-ratio:800 / 538 !important;overflow:hidden !important;background:#f8fafc !important;border-bottom:1px solid #f1f5f9 !important;margin:0 !important}.jav-card-image{display:block !important;width:100% !important;height:100% !important;max-height:none !important;object-fit:cover !important;object-position:center center !important;background:#f8fafc !important;border:0 !important;transition:opacity .18s ease !important}.jav-card-title{display:block !important;width:100% !important;max-width:none !important;height:auto !important;max-height:none !important;box-sizing:border-box !important;flex:1 1 auto !important;min-height:0 !important;margin:0 !important;padding:7px 8px 9px !important;overflow:visible !important;color:inherit !important;font-size:var(--jav-card-title-size,15px)!important;line-height:var(--jav-card-title-line-height,1.5)!important;text-align:left !important;white-space:normal !important;word-break:break-word !important}.javbus-card-grid{position:static !important;--jav-card-columns:5;box-sizing:border-box !important}#waterfall.javbus-card-grid{display:grid !important;grid-template-columns:repeat(var(--jav-card-columns,5),minmax(0,1fr))!important;gap:14px !important;align-items:stretch !important;min-height:0 !important}body .container-fluid{padding-left:28px !important;padding-right:28px !important;box-sizing:border-box !important}#waterfall.javbus-card-grid>.item,.javbus-card-grid .item.javbus-grid-card{position:static !important;width:auto !important;float:none !important;margin:0 !important;top:auto !important;left:auto !important}.javbus-card-grid .item .jav-card-link.javbus-card-link{width:100% !important;min-width:0 !important;margin:0 !important;padding:0 !important;background:#fff !important;box-shadow:none !important;border-radius:0 !important;overflow:hidden !important}.javbus-card-grid .item .javbus-cover-frame.photo-frame{margin:0 !important;height:auto !important}.javbus-card-grid .item .javbus-card-image{height:100% !important;margin:0 !important}.javbus-card-title>span{display:block !important}.javbus-card-title .video-title{display:-webkit-box !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:var(--jav-card-title-lines,2)!important;line-clamp:var(--jav-card-title-lines,2)!important;height:calc(var(--jav-card-title-line-height,1.5)* var(--jav-card-title-lines,2)* 1em)!important;max-height:calc(var(--jav-card-title-line-height,1.5)* var(--jav-card-title-lines,2)* 1em)!important;min-height:calc(var(--jav-card-title-line-height,1.5)* var(--jav-card-title-lines,2)* 1em)!important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:normal !important;word-break:break-word !important;color:inherit !important;font-size:var(--jav-card-title-size,15px)!important;line-height:var(--jav-card-title-line-height,1.5)!important;margin-bottom:6px !important}.javbus-card-grid .item .javbus-card-title .jav-pan115-badge{display:inline-flex !important;width:auto !important;max-width:max-content !important;float:none !important;vertical-align:middle !important;margin:0 6px 4px 0 !important}.javbus-card-title .item-tag{margin:6px 0 4px !important}.javbus-card-title date{color:#94a3b8 !important;font-size:12px !important}.javbus-card-title date.javbus-card-code{display:inline-block !important;color:inherit !important;font-size:15px !important;font-weight:800 !important;margin-top:2px !important}@media(max-width:1100px){.javbus-card-grid{--jav-card-columns:4}}@media(max-width:820px){.javbus-card-grid{--jav-card-columns:3}}@media(max-width:560px){.javbus-card-grid{--jav-card-columns:2;gap:10px !important}}`);
             }
             setTimeout(() => {
                 Runtime.refreshListPage();
@@ -2080,6 +2571,7 @@
             }, 450);
         },
     };
+
     const SiteJavDB = {
         match() {
             return location.hostname.includes('javdb');
@@ -2113,6 +2605,7 @@
             }
             this._insertCopyButton(avid);
             this._hideDownloadCorrectionBlock();
+
             GM_addStyle(`.container{max-width:100% !important}.movie-panel-info{overflow:hidden;word-break:break-word}.movie-panel-info .panel-block{flex-wrap:wrap}.movie-panel-info .value{overflow:hidden;word-break:break-word}.review-buttons>.panel-block:has(a[href="#magnet-links"]),.review-buttons>.panel-block:has(a[href*="/corrections/new"]){display:none !important}`);
             this._ensureDetailLayout();
             this._insertMagnet(avid);
@@ -2160,7 +2653,7 @@
         _ensureDarkThemeStyle() {
             if (document.documentElement.dataset.laosijiJavdbDarkStyle === '1') return;
             document.documentElement.dataset.laosijiJavdbDarkStyle = '1';
-            GM_addStyle(`html[data-theme="dark"] .jav-card{background:#252525 !important;border-color:#3f3f46 !important;box-shadow:0 1px 4px rgba(0,0,0,.34) !important}html[data-theme="dark"] .jav-card:hover{border-color:rgba(96,165,250,.58) !important;box-shadow:0 12px 26px rgba(0,0,0,.38) !important}html[data-theme="dark"] .jav-card-link,html[data-theme="dark"] .javdb-card-grid .item .javdb-card-link.box{background:#252525 !important;color:#8ab4ff !important}html[data-theme="dark"] .jav-card-link:visited{color:#c4a7ff !important}html[data-theme="dark"] .jav-card-cover,html[data-theme="dark"] .jav-card-image{background:#18181b !important;border-color:#3f3f46 !important}html[data-theme="dark"] .javdb-card-score{color:#cbd5e1 !important}html[data-theme="dark"] .javdb-card-meta{color:#94a3b8 !important}html[data-theme="dark"] .javdb-card-tags .tag:not(.is-success):not(.is-info):not(.is-primary):not(.is-warning):not(.is-danger){background:#333333 !important;color:#d1d5db !important}html[data-theme="dark"] .jav-nong-wrapper{background:transparent !important;color:#d1d5db !important}html[data-theme="dark"] #jav-nong-table{background:#2f2f2f !important;color:#d1d5db !important}html[data-theme="dark"] #jav-nong-table th,html[data-theme="dark"] #jav-nong-table td{background:#262626 !important;border-color:#3f3f46 !important;color:#d1d5db !important}html[data-theme="dark"] #jav-nong-table .nong-head-row th{background:#303030 !important;color:#e5e7eb !important}html[data-theme="dark"] #jav-nong-table .nong-magnet-name>a{color:#8ab4ff !important}html[data-theme="dark"] #jav-nong-notice,html[data-theme="dark"] #jav-nong-refresh{color:#cbd5e1 !important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] article.message.video-panel,html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] article.message.video-panel .message-body{background:#252525 !important;border-color:#3f3f46 !important;color:#e5e7eb !important}html[data-theme="dark"] .javdb-api-review,html[data-theme="dark"] .javdb-api-related{background:#252525 !important;border-bottom-color:#3f3f46 !important}html[data-theme="dark"] .javdb-api-review-head,html[data-theme="dark"] .javdb-api-related-head,html[data-theme="dark"] .javdb-api-review-content,html[data-theme="dark"] .javdb-api-related-desc{color:#e5e7eb !important}html[data-theme="dark"] .javdb-api-related-meta,html[data-theme="dark"] .javdb-api-tab-loading,html[data-theme="dark"] .javdb-api-tab-empty,html[data-theme="dark"] .javdb-api-tab-end{color:#cbd5e1 !important}html[data-theme="dark"] .javdb-api-tab-error{color:#fb7185 !important}html[data-theme="dark"] .javdb-api-review-toggle,html[data-theme="dark"] .javdb-api-review-collapse,html[data-theme="dark"] .javdb-api-tab-load-more{background:#2f3b4f !important;border-color:#4b5f80 !important;color:#dbeafe !important}html[data-theme="dark"] .javdb-api-review-toggle::before{color:#93c5fd !important}html[data-theme="dark"] .javdb-api-tab-badge{background:#1e3a5f !important;border-color:#3b82f6 !important;color:#dbeafe !important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .item{background:#252525 !important;border-color:#3f3f46 !important;color:#e5e7eb !important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .item.odd{background:#2a2a2a !important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .magnet-name a,html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links a{color:#8ab4ff !important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .meta,html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .date{color:#94a3b8 !important}html[data-theme="dark"] .jav-stills-shell{background:#252525 !important;border-color:#3f3f46 !important;box-shadow:0 8px 18px rgba(0,0,0,.28) !important}html[data-theme="dark"] .jav-stills-rail>a,html[data-theme="dark"] .jav-stills-rail>.tile-item,html[data-theme="dark"] .jav-stills-rail>.preview-video-container{background:#1f2937 !important;border-color:#4b5563 !important;box-shadow:none !important}html[data-theme="dark"] .jav-stills-arrow{background:rgba(39,39,42,.92) !important;border-color:#52525b !important;color:#e5e7eb !important}html[data-theme="dark"] .jav-stills-arrow:hover{background:#303030 !important;border-color:rgba(96,165,250,.58) !important}`);
+            GM_addStyle(`html[data-theme="dark"] .jav-card{background:#252525 !important;border-color:#3f3f46 !important;box-shadow:0 1px 4px rgba(0,0,0,.34)!important}html[data-theme="dark"] .jav-card:hover{border-color:rgba(96,165,250,.58)!important;box-shadow:0 12px 26px rgba(0,0,0,.38)!important}html[data-theme="dark"] .jav-card-link,html[data-theme="dark"] .javdb-card-grid .item .javdb-card-link.box{background:#252525 !important;color:#8ab4ff !important}html[data-theme="dark"] .jav-card-link:visited{color:#c4a7ff !important}html[data-theme="dark"] .jav-card-cover,html[data-theme="dark"] .jav-card-image{background:#18181b !important;border-color:#3f3f46 !important}html[data-theme="dark"] .javdb-card-score{color:#cbd5e1 !important}html[data-theme="dark"] .javdb-card-meta{color:#94a3b8 !important}html[data-theme="dark"] .javdb-card-tags .tag:not(.is-success):not(.is-info):not(.is-primary):not(.is-warning):not(.is-danger){background:#333333 !important;color:#d1d5db !important}html[data-theme="dark"] .jav-nong-wrapper{background:transparent !important;color:#d1d5db !important}html[data-theme="dark"] #jav-nong-table{background:#2f2f2f !important;color:#d1d5db !important}html[data-theme="dark"] #jav-nong-table th,html[data-theme="dark"] #jav-nong-table td{background:#262626 !important;border-color:#3f3f46 !important;color:#d1d5db !important}html[data-theme="dark"] #jav-nong-table .nong-head-row th{background:#303030 !important;color:#e5e7eb !important}html[data-theme="dark"] #jav-nong-table .nong-magnet-name>a{color:#8ab4ff !important}html[data-theme="dark"] #jav-nong-notice,html[data-theme="dark"] #jav-nong-refresh{color:#cbd5e1 !important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] article.message.video-panel,html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] article.message.video-panel .message-body{background:#252525 !important;border-color:#3f3f46 !important;color:#e5e7eb !important}html[data-theme="dark"] .javdb-api-review,html[data-theme="dark"] .javdb-api-related{background:#252525 !important;border-bottom-color:#3f3f46 !important}html[data-theme="dark"] .javdb-api-review-head,html[data-theme="dark"] .javdb-api-related-head,html[data-theme="dark"] .javdb-api-review-content,html[data-theme="dark"] .javdb-api-related-desc{color:#e5e7eb !important}html[data-theme="dark"] .javdb-api-related-meta,html[data-theme="dark"] .javdb-api-tab-loading,html[data-theme="dark"] .javdb-api-tab-empty,html[data-theme="dark"] .javdb-api-tab-end{color:#cbd5e1 !important}html[data-theme="dark"] .javdb-api-tab-error{color:#fb7185 !important}html[data-theme="dark"] .javdb-api-review-toggle,html[data-theme="dark"] .javdb-api-review-collapse,html[data-theme="dark"] .javdb-api-tab-load-more{background:#2f3b4f !important;border-color:#4b5f80 !important;color:#dbeafe !important}html[data-theme="dark"] .javdb-api-review-toggle::before{color:#93c5fd !important}html[data-theme="dark"] .javdb-api-tab-badge{background:#1e3a5f !important;border-color:#3b82f6 !important;color:#dbeafe !important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .item{background:#252525 !important;border-color:#3f3f46 !important;color:#e5e7eb !important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .item.odd{background:#2a2a2a !important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .magnet-name a,html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links a{color:#8ab4ff !important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .meta,html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .date{color:#94a3b8 !important}html[data-theme="dark"] .jav-stills-shell{background:#252525 !important;border-color:#3f3f46 !important;box-shadow:0 8px 18px rgba(0,0,0,.28)!important}html[data-theme="dark"] .jav-stills-rail>a,html[data-theme="dark"] .jav-stills-rail>.tile-item,html[data-theme="dark"] .jav-stills-rail>.preview-video-container{background:#1f2937 !important;border-color:#4b5563 !important;box-shadow:none !important}html[data-theme="dark"] .jav-stills-arrow{background:rgba(39,39,42,.92)!important;border-color:#52525b !important;color:#e5e7eb !important}html[data-theme="dark"] .jav-stills-arrow:hover{background:#303030 !important;border-color:rgba(96,165,250,.58)!important}`);
         },
         _dismissOver18Modal() {
             if (!this.match()) return;
@@ -2292,12 +2785,22 @@
                     item?.cnsub ? '<span class="tag is-warning is-small is-light">字幕</span>' : '',
                 ].filter(Boolean).join('');
                 const pikpak = item?.pikpak_url ? `<a class="button is-info is-small" href="${this._escapeHtml(item.pikpak_url)}" target="_blank" rel="noopener noreferrer">&nbsp;下載&nbsp;</a>` : '';
-                return `<div class="item columns is-desktop${index % 2 === 0 ? 'odd' : ''}">
+                return `
+                    <div class="item columns is-desktop ${index % 2 === 0 ? 'odd' : ''}">
                         <div class="magnet-name column is-four-fifths">
                             <a href="${this._escapeHtml(magnet)}" title="右鍵點擊並選擇「複製鏈接地址」">
-                                <span class="name">${this._escapeHtml(name)}</span>${meta ? `<br><span class="meta">${this._escapeHtml(meta)}</span>` : ''}
-                                ${tags ? `<br><div class="tags">${tags}</div>` : ''}</a></div><div class="buttons column"><button class="button is-info is-small copy-to-clipboard" data-clipboard-text="${this._escapeHtml(magnet)}" type="button">&nbsp;複製&nbsp;</button>
-                            ${pikpak}</div><div class="date column"><span class="time">${this._escapeHtml(this._formatApiDate(item?.created_at))}</span></div></div>`;
+                                <span class="name">${this._escapeHtml(name)}</span>
+                                ${meta ? `<br><span class="meta">${this._escapeHtml(meta)}</span>` : ''}
+                                ${tags ? `<br><div class="tags">${tags}</div>` : ''}
+                            </a>
+                        </div>
+                        <div class="buttons column">
+                            <button class="button is-info is-small copy-to-clipboard" data-clipboard-text="${this._escapeHtml(magnet)}" type="button">&nbsp;複製&nbsp;</button>
+                            ${pikpak}
+                        </div>
+                        <div class="date column"><span class="time">${this._escapeHtml(this._formatApiDate(item?.created_at))}</span></div>
+                    </div>
+                `;
             }).filter(Boolean).join('');
         },
         _renderApiMagnets(magnets) {
@@ -2325,7 +2828,20 @@
             const list = Array.isArray(lists) ? lists : [];
             return list.map((item, index) => {
                 const href = `/lists/${encodeURIComponent(item?.id || '')}`;
-                return `<div class="javdb-api-related"><div class="javdb-api-related-head"><span><strong>#${offset + index + 1}</strong><a href="${this._escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${this._escapeHtml(item?.name || '未命名清單')}</a></span><span>${this._escapeHtml(this._formatApiDate(item?.created_at))}</span></div>${item?.description ? `<div class="javdb-api-related-desc">${this._renderApiLinkedText(item.description)}</div>` : ''}<div class="javdb-api-related-meta"><span>影片:${this._escapeHtml(item?.movies_count ?? '-')}</span><span>收藏:${this._escapeHtml(item?.collections_count ?? '-')}</span><span>浏览:${this._escapeHtml(item?.views_count ?? '-')}</span></div></div>`;
+                return `
+                    <div class="javdb-api-related">
+                        <div class="javdb-api-related-head">
+                            <span><strong>#${offset + index + 1}</strong> <a href="${this._escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${this._escapeHtml(item?.name || '未命名清單')}</a></span>
+                            <span>${this._escapeHtml(this._formatApiDate(item?.created_at))}</span>
+                        </div>
+                        ${item?.description ? `<div class="javdb-api-related-desc">${this._renderApiLinkedText(item.description)}</div>` : ''}
+                        <div class="javdb-api-related-meta">
+                            <span>影片:${this._escapeHtml(item?.movies_count ?? '-')}</span>
+                            <span>收藏:${this._escapeHtml(item?.collections_count ?? '-')}</span>
+                            <span>浏览:${this._escapeHtml(item?.views_count ?? '-')}</span>
+                        </div>
+                    </div>
+                `;
             }).join('');
         },
         _renderApiRelatedLists(lists, page, limit) {
@@ -2421,6 +2937,7 @@
             tabsContainer.dataset.laosijiApiMovieTabs = movieId;
             this._ensureApiMovieTabStyle();
             this._ensureApiMovieTabBadge();
+
             const tabLinks = {
                 magnets: document.querySelector('[data-movie-tab-target="magnetTab"] a'),
                 reviews: document.querySelector('[data-movie-tab-target="reviewTab"] a'),
@@ -2432,6 +2949,7 @@
                 link.removeAttribute('data-action');
                 link.removeAttribute('data-url');
             });
+
             const root = tabsContainer.closest('.columns') || tabsContainer;
             root.addEventListener('click', e => {
                 if (e.target?.closest?.('.javdb-api-tab-badge-item')) {
@@ -2439,6 +2957,7 @@
                     e.stopImmediatePropagation();
                     return;
                 }
+
                 const copyBtn = e.target?.closest?.('.copy-to-clipboard[data-clipboard-text]');
                 if (copyBtn && tabsContainer.contains(copyBtn)) {
                     e.preventDefault();
@@ -2449,6 +2968,7 @@
                     setTimeout(() => { copyBtn.textContent = oldText; }, 900);
                     return;
                 }
+
                 const loadMore = e.target?.closest?.('.javdb-api-tab-load-more[data-laosiji-api-load-tab]');
                 if (loadMore && tabsContainer.contains(loadMore)) {
                     e.preventDefault();
@@ -2463,6 +2983,7 @@
                     this._loadApiMovieTab(movieId, tab, nextPage, true, pageSize, shownCount, loadLimit);
                     return;
                 }
+
                 const expandReviews = e.target?.closest?.('[data-laosiji-api-expand-reviews]');
                 if (expandReviews && tabsContainer.contains(expandReviews)) {
                     e.preventDefault();
@@ -2470,6 +2991,7 @@
                     this._loadApiMovieTab(movieId, 'reviews');
                     return;
                 }
+
                 const collapseReviews = e.target?.closest?.('[data-laosiji-api-collapse-reviews]');
                 if (collapseReviews && tabsContainer.contains(collapseReviews)) {
                     e.preventDefault();
@@ -2478,6 +3000,7 @@
                     reviewsPane.innerHTML = this._renderApiReviewCollapsed();
                     return;
                 }
+
                 const tabLink = e.target?.closest?.('[data-laosiji-api-tab]');
                 if (!tabLink || !root.contains(tabLink)) return;
                 e.preventDefault();
@@ -2495,13 +3018,14 @@
                     }
                 }
             }, true);
+
             this._setApiMovieTab('reviews');
             reviewsPane.innerHTML = this._renderApiReviewCollapsed();
         },
         _ensurePaginationJumpStyle() {
             if (document.documentElement.dataset.laosijiJavdbPaginationJumpStyle === '1') return;
             document.documentElement.dataset.laosijiJavdbPaginationJumpStyle = '1';
-            GM_addStyle(`.javdb-pagination-jump{display:flex !important;align-items:center !important;gap:.25rem !important;margin:0 !important;flex-wrap:nowrap !important}.pagination-list .javdb-pagination-jump-item{display:list-item !important;margin-left:.25rem !important}.javdb-pagination-jump .pagination-link{margin:0 !important}.javdb-pagination-jump input.pagination-link{width:4.5em !important;min-width:4.5em !important;text-align:center !important;box-shadow:none !important;appearance:textfield !important}.javdb-pagination-jump input.pagination-link::-webkit-outer-spin-button,.javdb-pagination-jump input.pagination-link::-webkit-inner-spin-button{-webkit-appearance:none !important;margin:0 !important}.javdb-pagination-jump button.pagination-link{cursor:pointer !important;font-weight:400 !important}@media (max-width:640px){.pagination-list .javdb-pagination-jump-item{flex-basis:100% !important;margin-left:.25rem !important}}`);
+            GM_addStyle(`.javdb-pagination-jump{display:flex !important;align-items:center !important;gap:.25rem !important;margin:0 !important;flex-wrap:nowrap !important}.pagination-list .javdb-pagination-jump-item{display:list-item !important;margin-left:.25rem !important}.javdb-pagination-jump .pagination-link{margin:0 !important}.javdb-pagination-jump input.pagination-link{width:4.5em !important;min-width:4.5em !important;text-align:center !important;box-shadow:none !important;appearance:textfield !important}.javdb-pagination-jump input.pagination-link::-webkit-outer-spin-button,.javdb-pagination-jump input.pagination-link::-webkit-inner-spin-button{-webkit-appearance:none !important;margin:0 !important}.javdb-pagination-jump button.pagination-link{cursor:pointer !important;font-weight:400 !important}@media(max-width:640px){.pagination-list .javdb-pagination-jump-item{flex-basis:100% !important;margin-left:.25rem !important}}`);
         },
         _paginationCurrentPage(nav) {
             const params = new URLSearchParams(location.search);
@@ -2527,7 +3051,10 @@
                 host.className = list ? 'javdb-pagination-jump-item' : 'javdb-pagination-jump-item pagination-link';
                 const form = document.createElement('form');
                 form.className = 'javdb-pagination-jump';
-                form.innerHTML = `<input class="pagination-link" type="number" min="1" step="1" inputmode="numeric" aria-label="跳转页码" placeholder="页码" value="${this._escapeHtml(this._paginationCurrentPage(nav))}"><button class="pagination-link" type="submit">跳转</button>`;
+                form.innerHTML = `
+                    <input class="pagination-link" type="number" min="1" step="1" inputmode="numeric" aria-label="跳转页码" placeholder="页码" value="${this._escapeHtml(this._paginationCurrentPage(nav))}">
+                    <button class="pagination-link" type="submit">跳转</button>
+                `;
                 form.addEventListener('submit', e => {
                     e.preventDefault();
                     const input = form.querySelector('input');
@@ -2755,7 +3282,10 @@
                         const href = this._apiRankingShellUrl('top', { category: modeInfo.category, year: value, page: 1 });
                         return `<a class="${active ? 'is-active' : ''}" href="${href}">${value}</a>`;
                     }).join('');
-                return `<div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">分类</span>${categoryLinks}</div><div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">年份</span>${allYearLink}${yearLinks}</div>`;
+                return `
+                    <div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">分类</span>${categoryLinks}</div>
+                    <div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">年份</span>${allYearLink}${yearLinks}</div>
+                `;
             }
             const items = [
                 ['daily', '日榜'],
@@ -2784,7 +3314,10 @@
                 });
                 return `<a class="${active ? 'is-active' : ''}" href="${href}">${label}</a>`;
             }).join('');
-            return `<div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">周期</span>${periodLinks}</div><div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">排序</span>${filterLinks}</div>`;
+            return `
+                <div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">周期</span>${periodLinks}</div>
+                <div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">排序</span>${filterLinks}</div>
+            `;
         },
         _renderApiRankingPagination(modeInfo, hasNext) {
             const page = modeInfo.page;
@@ -2800,9 +3333,13 @@
             const pages = modeInfo.mode === 'top'
                 ? [1, 2, 3, 4, 5].map(item => `<a class="${item === page ? 'is-active' : ''}" href="${href(item)}">${item}</a>`).join('')
                 : `<span>第 ${page} 页</span>`;
-            return `<div class="javdb-api-shell-pagination">${page > 1 ? `<a href="${href(page - 1)}">上一页</a>` : ''}
+            return `
+                <div class="javdb-api-shell-pagination">
+                    ${page > 1 ? `<a href="${href(page - 1)}">上一页</a>` : ''}
                     ${pages}
-                    ${hasNext ? `<a href="${href(page + 1)}">下一页</a>` : ''}</div>`;
+                    ${hasNext ? `<a href="${href(page + 1)}">下一页</a>` : ''}
+                </div>
+            `;
         },
         _renderApiRankingMovies(movies) {
             const updateCover = value => String(value || '').replace(/https:\/\/.*?\/rhe951l4q/g, 'https://c0.jdbstatic.com');
@@ -2819,11 +3356,19 @@
                 const href = /^FC2[-_]/i.test(String(item?.number || ''))
                     ? this._apiDetailShellUrl(item?.id || '')
                     : `/v/${this._escapeHtml(item?.id || '')}`;
-                return `<div class="item" data-javdb-api-shell-item="1"><a href="${this._escapeHtml(href)}" class="box" title="${this._escapeHtml(title)}">
+                return `
+                    <div class="item" data-javdb-api-shell-item="1">
+                        <a href="${this._escapeHtml(href)}" class="box" title="${this._escapeHtml(title)}">
                             <div class="cover ">
                                 <img loading="lazy" src="${this._escapeHtml(updateCover(item?.cover_url || item?.thumb_url || ''))}" alt="">
                             </div>
-                            <div class="video-title"><strong>${this._escapeHtml(item?.number || '')}</strong>${this._escapeHtml(title)}</div><div class="score">${score}</div><div class="meta">${this._escapeHtml(item?.release_date || '')}</div><div class="tags has-addons">${tags}</div></a></div>`;
+                            <div class="video-title"><strong>${this._escapeHtml(item?.number || '')}</strong> ${this._escapeHtml(title)}</div>
+                            <div class="score">${score}</div>
+                            <div class="meta">${this._escapeHtml(item?.release_date || '')}</div>
+                            <div class="tags has-addons">${tags}</div>
+                        </a>
+                    </div>
+                `;
             }).join('');
         },
         _ensureApiDetailShellStyle() {
@@ -2853,7 +3398,8 @@
                 const large = updateCover(item?.large_url || item?.url || item?.thumb_url || '');
                 const thumb = updateCover(item?.thumb_url || item?.large_url || item?.url || '');
                 if (!large || !thumb) return '';
-                return `<a class="tile-item" href="${this._escapeHtml(large)}" data-fancybox="gallery" data-caption="预览图 ${index + 1}">
+                return `
+                    <a class="tile-item" href="${this._escapeHtml(large)}" data-fancybox="gallery" data-caption="预览图 ${index + 1}">
                         <img src="${this._escapeHtml(thumb)}" loading="lazy" alt="预览图 ${index + 1}">
                     </a>`;
             }).filter(Boolean).join('');
@@ -2874,7 +3420,16 @@
             const title = movie?.origin_title || movie?.title || '';
             const actors = (Array.isArray(movie?.actors) ? movie.actors : []).map(item => item?.name || item).filter(Boolean);
             const cover = updateCover(movie?.cover_url || movie?.thumb_url || '');
-            return `<div class="video-detail javdb-api-detail" data-javdb-api-detail="1"><h2 class="title is-4 javdb-api-detail-title"><strong>${this._escapeHtml(number)}</strong><strong class="current-title">${this._escapeHtml(title)}</strong></h2><div class="video-meta-panel"><div class="columns is-desktop"><div class="column column-video-cover"><a data-fancybox="gallery" href="${this._escapeHtml(cover)}">
+            return `
+                <div class="video-detail javdb-api-detail" data-javdb-api-detail="1">
+                    <h2 class="title is-4 javdb-api-detail-title">
+                        <strong>${this._escapeHtml(number)} </strong>
+                        <strong class="current-title">${this._escapeHtml(title)}</strong>
+                    </h2>
+                    <div class="video-meta-panel">
+                        <div class="columns is-desktop">
+                            <div class="column column-video-cover">
+                                <a data-fancybox="gallery" href="${this._escapeHtml(cover)}">
                                     <img src="${this._escapeHtml(cover)}" class="video-cover" alt="${this._escapeHtml(title)}">
                                 </a>
                             </div>
@@ -2889,7 +3444,14 @@
                                     ${this._renderApiDetailField('系列', movie?.series_name)}
                                     ${this._renderApiDetailField('導演', movie?.director_name)}
                                     ${this._renderApiDetailField('演員', actors)}
-                                    ${this._renderApiDetailTags(movie?.tags)}</nav></div></div></div>${this._renderApiDetailImages(movie?.preview_images)}</div>`;
+                                    ${this._renderApiDetailTags(movie?.tags)}
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                    ${this._renderApiDetailImages(movie?.preview_images)}
+                </div>
+            `;
         },
         async _initApiDetailShellPage() {
             const modeInfo = this._getApiDetailShellMode();
@@ -2931,7 +3493,17 @@
                 : modeInfo.mode === 'playback'
                     ? '热播'
                     : 'FC2 排行榜';
-            container.innerHTML = `<div class="javdb-api-shell"><div class="javdb-api-shell-head"><div class="javdb-api-shell-title">${title}</div></div><div class="javdb-api-shell-toolbar">${this._renderApiRankingToolbar(modeInfo)}</div><div class="javdb-api-shell-status">正在加载 API 数据...</div><div class="movie-list h cols-4 vcols-8"></div><div class="javdb-api-shell-pagination-wrap"></div></div>`;
+            container.innerHTML = `
+                <div class="javdb-api-shell">
+                    <div class="javdb-api-shell-head">
+                        <div class="javdb-api-shell-title">${title}</div>
+                    </div>
+                    <div class="javdb-api-shell-toolbar">${this._renderApiRankingToolbar(modeInfo)}</div>
+                    <div class="javdb-api-shell-status">正在加载 API 数据...</div>
+                    <div class="movie-list h cols-4 vcols-8"></div>
+                    <div class="javdb-api-shell-pagination-wrap"></div>
+                </div>
+            `;
             const status = container.querySelector('.javdb-api-shell-status');
             const list = container.querySelector('.movie-list');
             const pagination = container.querySelector('.javdb-api-shell-pagination-wrap');
@@ -2995,14 +3567,16 @@
             const needStyle = list.dataset.laosijiGrid !== '1';
             const cards = [...list.querySelectorAll(':scope > .item:not([data-laosiji-grid-card="1"])')];
             if (!cards.length && !needStyle) return;
+
             list.dataset.laosijiGrid = '1';
             list.classList.add('jav-card-grid', 'javdb-card-grid');
             CardColumns.apply('javdb');
             cards.forEach(card => this._decorateCard(card));
             this._rewriteFc2DetailLinks(list);
             PortraitCards.syncImages();
+
             if (needStyle) {
-                GM_addStyle(`.jav-card-grid{--jav-card-title-size:15px;--jav-card-title-line-height:1.5;--jav-card-title-lines:2;display:grid !important;grid-template-columns:repeat(var(--jav-card-columns,5),minmax(0,1fr)) !important;gap:14px !important;align-items:stretch !important;width:100% !important;box-sizing:border-box !important}.jav-card{float:none !important;display:block !important;width:auto !important;height:100% !important;max-height:none !important;min-width:0 !important;margin:0 !important;padding:0 !important;box-sizing:border-box !important;text-align:left !important;background:#fff !important;border:1px solid #e5e7eb !important;border-radius:6px !important;overflow:hidden !important;box-shadow:0 1px 4px rgba(15,23,42,.08) !important;transform:translateZ(0) !important;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease !important;will-change:transform !important}.jav-card:hover{border-color:rgba(37,99,235,.35) !important;box-shadow:0 10px 24px rgba(15,23,42,.16) !important;transform:translateY(-4px) scale(1.018) !important;z-index:2 !important}.jav-card-link{display:flex !important;flex-direction:column !important;height:100% !important;max-height:none !important;overflow:hidden !important;color:#2563eb !important;text-decoration:none !important}.jav-card-link:visited{color:#7c3aed !important}.jav-card-cover{display:block !important;width:100% !important;height:auto !important;aspect-ratio:800 / 538 !important;overflow:hidden !important;background:#f8fafc !important;border-bottom:1px solid #f1f5f9 !important}.jav-card-image{display:block !important;width:100% !important;height:100% !important;max-height:none !important;object-fit:cover !important;object-position:center center !important;background:#f8fafc !important;border:0 !important}.jav-card-title{display:block !important;width:100% !important;max-width:none !important;height:calc((var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em)+16px) !important;max-height:calc((var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em)+16px) !important;box-sizing:border-box !important;flex:0 0 auto !important;min-height:calc((var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em)+16px) !important;margin:0 !important;padding:7px 8px 9px !important;overflow:hidden !important;color:inherit !important;font-size:var(--jav-card-title-size,15px) !important;line-height:var(--jav-card-title-line-height,1.5) !important;text-align:left !important;white-space:normal !important;word-break:break-word !important}.javdb-card-headline{display:-webkit-box !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:var(--jav-card-title-lines,2) !important;line-clamp:var(--jav-card-title-lines,2) !important;max-height:calc(var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em) !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:normal !important;word-break:break-word !important}.jav-card-title strong{color:inherit !important;font-size:16px !important;font-weight:800 !important}.javdb-card-grid{--jav-card-columns:5}.javdb-card-grid .item.javdb-grid-card{position:static !important;width:auto !important;float:none !important;margin:0 !important}.javdb-card-grid .item .javdb-card-link.box{width:100% !important;min-width:0 !important;margin:0 !important;padding:0 !important;background:#fff !important;box-shadow:none !important;border-radius:0 !important;overflow:hidden !important}.javdb-card-grid .item .javdb-cover-frame.cover{margin:0 !important;height:auto !important}.javdb-card-grid .item .javdb-card-image{height:100% !important;margin:0 !important}.javdb-card-grid .item .javdb-card-title .jav-pan115-badge{display:inline-flex !important;width:auto !important;max-width:max-content !important;float:none !important;vertical-align:middle !important;margin:0 6px 4px 0 !important}.javdb-card-score,.javdb-card-meta,.javdb-card-tags{padding-left:8px !important;padding-right:8px !important}.javdb-card-score{margin-top:2px !important;color:#64748b !important;font-size:12px !important;line-height:1.45 !important}.javdb-card-score .value{color:inherit !important;font-size:inherit !important}.javdb-card-meta{margin-top:4px !important;color:#94a3b8 !important;font-size:12px !important;line-height:1.45 !important}.javdb-card-tags{display:flex !important;flex-wrap:wrap !important;gap:6px !important;margin-top:auto !important;padding-top:8px !important;padding-bottom:10px !important}.javdb-card-tags .tag{margin:0 !important}@media (max-width:1100px){.javdb-card-grid{--jav-card-columns:4}}@media (max-width:820px){.javdb-card-grid{--jav-card-columns:3}}@media (max-width:560px){.javdb-card-grid{--jav-card-columns:2;gap:10px !important}}`);
+                GM_addStyle(`.jav-card-grid{--jav-card-title-size:15px;--jav-card-title-line-height:1.5;--jav-card-title-lines:2;display:grid !important;grid-template-columns:repeat(var(--jav-card-columns,5),minmax(0,1fr))!important;gap:14px !important;align-items:stretch !important;width:100% !important;box-sizing:border-box !important}.jav-card{float:none !important;display:block !important;width:auto !important;height:100% !important;max-height:none !important;min-width:0 !important;margin:0 !important;padding:0 !important;box-sizing:border-box !important;text-align:left !important;background:#fff !important;border:1px solid #e5e7eb !important;border-radius:6px !important;overflow:hidden !important;box-shadow:0 1px 4px rgba(15,23,42,.08)!important;transform:translateZ(0)!important;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease !important;will-change:transform !important}.jav-card:hover{border-color:rgba(37,99,235,.35)!important;box-shadow:0 10px 24px rgba(15,23,42,.16)!important;transform:translateY(-4px)scale(1.018)!important;z-index:2 !important}.jav-card-link{display:flex !important;flex-direction:column !important;height:100% !important;max-height:none !important;overflow:hidden !important;color:#2563eb !important;text-decoration:none !important}.jav-card-link:visited{color:#7c3aed !important}.jav-card-cover{display:block !important;width:100% !important;height:auto !important;aspect-ratio:800 / 538 !important;overflow:hidden !important;background:#f8fafc !important;border-bottom:1px solid #f1f5f9 !important}.jav-card-image{display:block !important;width:100% !important;height:100% !important;max-height:none !important;object-fit:cover !important;object-position:center center !important;background:#f8fafc !important;border:0 !important}.jav-card-title{display:block !important;width:100% !important;max-width:none !important;height:calc((var(--jav-card-title-line-height,1.5)* var(--jav-card-title-lines,2)* 1em)+16px)!important;max-height:calc((var(--jav-card-title-line-height,1.5)* var(--jav-card-title-lines,2)* 1em)+16px)!important;box-sizing:border-box !important;flex:0 0 auto !important;min-height:calc((var(--jav-card-title-line-height,1.5)* var(--jav-card-title-lines,2)* 1em)+16px)!important;margin:0 !important;padding:7px 8px 9px !important;overflow:hidden !important;color:inherit !important;font-size:var(--jav-card-title-size,15px)!important;line-height:var(--jav-card-title-line-height,1.5)!important;text-align:left !important;white-space:normal !important;word-break:break-word !important}.javdb-card-headline{display:-webkit-box !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:var(--jav-card-title-lines,2)!important;line-clamp:var(--jav-card-title-lines,2)!important;max-height:calc(var(--jav-card-title-line-height,1.5)* var(--jav-card-title-lines,2)* 1em)!important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:normal !important;word-break:break-word !important}.jav-card-title strong{color:inherit !important;font-size:16px !important;font-weight:800 !important}.javdb-card-grid{--jav-card-columns:5}.javdb-card-grid .item.javdb-grid-card{position:static !important;width:auto !important;float:none !important;margin:0 !important}.javdb-card-grid .item .javdb-card-link.box{width:100% !important;min-width:0 !important;margin:0 !important;padding:0 !important;background:#fff !important;box-shadow:none !important;border-radius:0 !important;overflow:hidden !important}.javdb-card-grid .item .javdb-cover-frame.cover{margin:0 !important;height:auto !important}.javdb-card-grid .item .javdb-card-image{height:100% !important;margin:0 !important}.javdb-card-grid .item .javdb-card-title .jav-pan115-badge{display:inline-flex !important;width:auto !important;max-width:max-content !important;float:none !important;vertical-align:middle !important;margin:0 6px 4px 0 !important}.javdb-card-score,.javdb-card-meta,.javdb-card-tags{padding-left:8px !important;padding-right:8px !important}.javdb-card-score{margin-top:2px !important;color:#64748b !important;font-size:12px !important;line-height:1.45 !important}.javdb-card-score .value{color:inherit !important;font-size:inherit !important}.javdb-card-meta{margin-top:4px !important;color:#94a3b8 !important;font-size:12px !important;line-height:1.45 !important}.javdb-card-tags{display:flex !important;flex-wrap:wrap !important;gap:6px !important;margin-top:auto !important;padding-top:8px !important;padding-bottom:10px !important}.javdb-card-tags .tag{margin:0 !important}@media(max-width:1100px){.javdb-card-grid{--jav-card-columns:4}}@media(max-width:820px){.javdb-card-grid{--jav-card-columns:3}}@media(max-width:560px){.javdb-card-grid{--jav-card-columns:2;gap:10px !important}}`);
             }
             setTimeout(() => {
                 Runtime.refreshListPage();
@@ -3020,14 +3594,17 @@
                 card.dataset.laosijiGridCard = '1';
                 card.classList.add('jav-card', 'javdb-grid-card');
             }
+
             const anchor = card.querySelector(':scope > a.box[href], :scope > a[href].box, a.box[href]');
             anchor?.classList.add('jav-card-link', 'javdb-card-link');
             if (anchor && !anchor.querySelector('.jav-pan115-badge')) {
                 delete anchor.dataset.pan115Checked;
                 delete anchor.dataset.pan115HasBadge;
             }
+
             const cover = card.querySelector('.cover');
             cover?.classList.add('jav-card-cover', 'javdb-cover-frame');
+
             const img = cover?.querySelector('img[src]') || card.querySelector('img[src]');
             if (img) {
                 img.removeAttribute('width');
@@ -3042,6 +3619,7 @@
                     img.dataset.laosijiLandscapeSrc = img.dataset.laosijiLandscapeSrc || src.replace(/\/thumbs\//i, '/covers/');
                 }
             }
+
             const titleEl = card.querySelector('.video-title');
             titleEl?.classList.add('jav-card-title', 'javdb-card-title');
             if (titleEl && !titleEl.querySelector('.javdb-card-headline')) {
@@ -3050,10 +3628,13 @@
                 while (titleEl.firstChild) headline.appendChild(titleEl.firstChild);
                 titleEl.appendChild(headline);
             }
+
             const scoreEl = card.querySelector('.score');
             scoreEl?.classList.add('javdb-card-score');
+
             const metaEl = card.querySelector('.meta');
             metaEl?.classList.add('javdb-card-meta');
+
             const tagsEl = card.querySelector('.tags');
             tagsEl?.classList.add('javdb-card-tags');
             ListPreview.attach(card);
@@ -3061,6 +3642,7 @@
         _insertTopSettingsButton() {
             const navbarEnd = document.querySelector('#navbar-menu-user .navbar-end');
             if (!navbarEnd || navbarEnd.querySelector('.javdb-top-settings-btn')) return;
+
             const btn = document.createElement('a');
             btn.href = 'javascript:void(0)';
             btn.className = 'navbar-item javdb-top-settings-btn';
@@ -3071,15 +3653,18 @@
                 e.stopPropagation();
                 QuickSettingsPanel.open(e.currentTarget);
             });
+
             const userMenu = navbarEnd.querySelector('a[href="/users/profile"]')?.closest('.navbar-item.has-dropdown');
             navbarEnd.insertBefore(btn, userMenu || null);
+
             if (document.documentElement.dataset.laosijiJavdbTopSettingsStyle === '1') return;
             document.documentElement.dataset.laosijiJavdbTopSettingsStyle = '1';
-            GM_addStyle(`#navbar-menu-user .javdb-top-settings-btn{color:#2563eb !important;font-weight:700 !important}#navbar-menu-user .javdb-top-settings-btn:hover{color:#1d4ed8 !important;background:rgba(37,99,235,.08) !important}`);
+            GM_addStyle(`#navbar-menu-user .javdb-top-settings-btn{color:#2563eb !important;font-weight:700 !important}#navbar-menu-user .javdb-top-settings-btn:hover{color:#1d4ed8 !important;background:rgba(37,99,235,.08)!important}`);
         },
         _insertCopyButton(avid) {
             const infoPanel = document.querySelector('.movie-panel-info');
             if (!infoPanel || !avid) return;
+
             const nativeCopy = infoPanel.querySelector('.copy-to-clipboard, [data-clipboard-text]');
             const anchor = nativeCopy?.closest('.panel-block')?.querySelector('.value')
                 || [...infoPanel.querySelectorAll('.panel-block .value')].find(el => {
@@ -3091,10 +3676,12 @@
             const coverCol  = document.querySelector('.column.column-video-cover');
             const infoPanel = document.querySelector('.movie-panel-info');
             if (!coverCol || !infoPanel) return null;
+
             const infoCol = infoPanel.closest('.column') || infoPanel;
             const currentContainer = coverCol.closest('.jav-flex-container');
             const parent = currentContainer || coverCol.parentElement;
             if (!parent) return null;
+
             let flexContainer = currentContainer || parent.querySelector(':scope > .jav-flex-container');
             if (!flexContainer) {
                 flexContainer = document.createElement('div');
@@ -3118,6 +3705,7 @@
             flexContainer.style.setProperty('--javdb-cover-flex', flexContainer.style.getPropertyValue('--javdb-cover-flex') || detailDefaults.cover);
             flexContainer.style.setProperty('--javdb-info-flex', flexContainer.style.getPropertyValue('--javdb-info-flex') || detailDefaults.info);
             flexContainer.style.setProperty('--javdb-magnet-flex', flexContainer.style.getPropertyValue('--javdb-magnet-flex') || detailDefaults.magnet);
+
             coverCol.style.setProperty('flex', 'var(--javdb-cover-flex) 1 0', 'important');
             coverCol.style.setProperty('width', 'auto', 'important');
             coverCol.style.setProperty('max-width', 'none', 'important');
@@ -3131,6 +3719,7 @@
             infoPanel.style.setProperty('width', '100%', 'important');
             infoPanel.style.setProperty('max-width', '100%', 'important');
             infoPanel.style.setProperty('box-sizing', 'border-box', 'important');
+
             const coverBox = coverCol.querySelector('.cover, .box');
             if (coverBox) {
                 coverBox.style.setProperty('width', '100%', 'important');
@@ -3150,6 +3739,7 @@
             document.querySelectorAll('.jav-nong-slot').forEach(el => el.remove());
             const flexContainer = this._ensureDetailLayout();
             if (!flexContainer) return;
+
             const slot = document.createElement('div');
             slot.className = 'jav-nong-slot';
             slot.style.setProperty('flex', 'var(--javdb-magnet-flex) 1 0', 'important');
@@ -3161,6 +3751,7 @@
             flexContainer.appendChild(slot);
         },
     };
+
     const SiteJavLib = {
         match() {
             return /(javlibrary|javlib|r86m|s87n)/i.test(location.hostname);
@@ -3189,9 +3780,12 @@
                 return;
             }
             if (!avid) return;
+
             document.querySelector('.socialmedia')?.remove();
             this._insertCopyButton(avid);
+
             GM_addStyle(`#leftmenu{display:none}#rightcolumn{margin:0 !important;width:100% !important;float:none !important}#content{padding-top:0;width:100%;margin:0 !important}#video_title h3.post-title.text,#video_title h3.post-title.text a{font-size:20px !important;line-height:1.45 !important}#video_jacket img{max-width:100%;height:auto}#video_info{text-align:left;font:14px Arial;overflow:hidden;word-break:break-word;margin:0 !important;width:100% !important;float:none !important}#video_info .item,#video_info table,#video_info tr,#video_info td,#video_info .header,#video_info .text{text-align:left !important}#video_info table{margin-left:0 !important;margin-right:auto !important}#video_info .jav-jump-btn-group{justify-content:flex-start !important}#video_reviews,#video_comments,#video_review_edit,#video_comment_edit{width:100% !important;max-width:100% !important;box-sizing:border-box !important;overflow-x:hidden !important}#video_reviews .comment,#video_comments .comment{width:100% !important;max-width:100% !important;table-layout:fixed !important;box-sizing:border-box !important}#video_reviews .comment td,#video_comments .comment td{box-sizing:border-box !important;vertical-align:top !important}#video_reviews .comment td.info,#video_comments .comment td.info{width:132px !important}#video_reviews .comment td.scores,#video_comments .comment td.scores{width:92px !important}#video_reviews .comment td.t,#video_comments .comment td.t{width:auto !important;min-width:0 !important;overflow:hidden !important}#video_reviews .comment td.t .text,#video_comments .comment td.t .text,#video_reviews .comment td.t textarea,#video_comments .comment td.t textarea{width:auto !important;max-width:100% !important;box-sizing:border-box !important;white-space:normal !important;word-break:break-word !important;overflow-wrap:anywhere !important}.jav-nong-slot .jav-nong-wrapper{width:560px;max-width:100%;margin-top:16px}`);
+
             this._ensureDetailLayout();
             this._insertMagnet(avid);
         },
@@ -3201,6 +3795,7 @@
             const needStyle = list.dataset.laosijiGrid !== '1';
             const cards = [...list.querySelectorAll(':scope > .video:not([data-laosiji-grid-card="1"])')];
             if (!cards.length && !needStyle) return;
+
             list.dataset.laosijiGrid = '1';
             list.classList.add('jav-card-grid', 'javlib-card-grid');
             CardColumns.apply('javlib');
@@ -3277,8 +3872,9 @@
                     img.closest('.javlib-cover-frame')?.classList.add('jav-card-cover');
                 }
             });
+
             if (needStyle) {
-                GM_addStyle(`.jav-card-grid{--jav-card-title-size:15px;--jav-card-title-line-height:1.5;--jav-card-title-lines:2;display:grid !important;grid-template-columns:repeat(var(--jav-card-columns,5),minmax(0,1fr)) !important;gap:14px !important;align-items:stretch !important;width:100% !important;box-sizing:border-box !important}.jav-card{float:none !important;display:block !important;width:auto !important;height:100% !important;max-height:none !important;min-width:0 !important;margin:0 !important;padding:0 !important;box-sizing:border-box !important;text-align:left !important;background:#fff !important;border:1px solid #e5e7eb !important;border-radius:6px !important;overflow:hidden !important;box-shadow:0 1px 4px rgba(15,23,42,.08) !important;transform:translateZ(0) !important;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease !important;will-change:transform !important}.jav-card:hover{border-color:rgba(37,99,235,.35) !important;box-shadow:0 10px 24px rgba(15,23,42,.16) !important;transform:translateY(-4px) scale(1.018) !important;z-index:2 !important}.jav-card-link{display:flex !important;flex-direction:column !important;height:100% !important;max-height:none !important;overflow:hidden !important;color:#2563eb !important;text-decoration:none !important}.jav-card-link:visited{color:#7c3aed !important}.javlib-card-link:visited .jav-card-title{background:#fbf7ff !important}.javlib-card-link:visited .javlib-card-code{background:#f3e8ff !important}.jav-card-cover{display:block !important;width:100% !important;height:auto !important;aspect-ratio:800 / 538 !important;overflow:hidden !important;background:#f8fafc !important;border-bottom:1px solid #f1f5f9 !important}.jav-card-image{display:block !important;width:100% !important;height:100% !important;max-height:none !important;object-fit:cover !important;object-position:center center !important;background:#f8fafc !important;border:0 !important;transition:opacity .18s ease !important}.javlib-cover-swapping{opacity:.42 !important}.jav-card-title{--javlib-title-line-height:22px;display:flex !important;flex-direction:column !important;gap:6px !important;width:100% !important;max-width:none !important;height:calc((var(--javlib-title-line-height) * var(--jav-card-title-lines,2))+54px) !important;max-height:calc((var(--javlib-title-line-height) * var(--jav-card-title-lines,2))+54px) !important;box-sizing:border-box !important;flex:0 0 auto !important;min-height:calc((var(--javlib-title-line-height) * var(--jav-card-title-lines,2))+54px) !important;margin:0 !important;padding:9px 10px 10px !important;overflow:hidden !important;text-overflow:ellipsis !important;color:inherit !important;font-size:var(--jav-card-title-size,15px) !important;line-height:var(--javlib-title-line-height) !important;text-align:left !important;white-space:normal !important;word-break:break-word !important}.jav-card-title:has(.javlib-card-footer>*){height:calc((var(--javlib-title-line-height) * var(--jav-card-title-lines,2))+82px) !important;max-height:calc((var(--javlib-title-line-height) * var(--jav-card-title-lines,2))+82px) !important;min-height:calc((var(--javlib-title-line-height) * var(--jav-card-title-lines,2))+82px) !important}.javlib-card-code-row{display:flex !important;align-items:center !important;flex:0 0 22px !important;height:22px !important;max-height:22px !important;min-height:22px !important;overflow:hidden !important}.javlib-card-headline{display:-webkit-box !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:var(--jav-card-title-lines,2) !important;line-clamp:var(--jav-card-title-lines,2) !important;height:calc(var(--javlib-title-line-height) * var(--jav-card-title-lines,2)) !important;max-height:calc(var(--javlib-title-line-height) * var(--jav-card-title-lines,2)) !important;min-height:calc(var(--javlib-title-line-height) * var(--jav-card-title-lines,2)) !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:normal !important;word-break:break-word !important;color:inherit !important;flex:0 0 calc(var(--javlib-title-line-height) * var(--jav-card-title-lines,2)) !important;line-height:var(--javlib-title-line-height) !important}.javlib-card-code{display:inline-flex !important;align-items:center !important;max-width:100% !important;padding:2px 7px !important;border-radius:999px !important;background:#eef2ff !important;color:inherit !important;font-size:14px !important;line-height:1.35 !important;font-weight:800 !important;letter-spacing:0 !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:nowrap !important}.javlib-card-footer{display:none !important;align-items:center !important;gap:6px !important;min-height:0 !important;margin-top:auto !important;overflow:hidden !important}.javlib-card-footer:not(:empty){display:flex !important;flex:0 0 22px !important;height:22px !important;max-height:22px !important;min-height:22px !important}.videothumblist{width:100% !important}.videothumblist .videos.javlib-card-grid{--jav-card-columns:5}.videothumblist .video.javlib-grid-card .id{display:none !important}.videothumblist .video.javlib-grid-card .toolbar{display:none !important}@media (max-width:1100px){.videothumblist .videos.javlib-card-grid{--jav-card-columns:4}}@media (max-width:820px){.videothumblist .videos.javlib-card-grid{--jav-card-columns:3}}@media (max-width:560px){.videothumblist .videos.javlib-card-grid{--jav-card-columns:2;gap:10px !important}}`);
+                GM_addStyle(`.jav-card-grid{--jav-card-title-size:15px;--jav-card-title-line-height:1.5;--jav-card-title-lines:2;display:grid !important;grid-template-columns:repeat(var(--jav-card-columns,5),minmax(0,1fr))!important;gap:14px !important;align-items:stretch !important;width:100% !important;box-sizing:border-box !important}.jav-card{float:none !important;display:block !important;width:auto !important;height:100% !important;max-height:none !important;min-width:0 !important;margin:0 !important;padding:0 !important;box-sizing:border-box !important;text-align:left !important;background:#fff !important;border:1px solid #e5e7eb !important;border-radius:6px !important;overflow:hidden !important;box-shadow:0 1px 4px rgba(15,23,42,.08)!important;transform:translateZ(0)!important;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease !important;will-change:transform !important}.jav-card:hover{border-color:rgba(37,99,235,.35)!important;box-shadow:0 10px 24px rgba(15,23,42,.16)!important;transform:translateY(-4px)scale(1.018)!important;z-index:2 !important}.jav-card-link{display:flex !important;flex-direction:column !important;height:100% !important;max-height:none !important;overflow:hidden !important;color:#2563eb !important;text-decoration:none !important}.jav-card-link:visited{color:#7c3aed !important}.javlib-card-link:visited .jav-card-title{background:#fbf7ff !important}.javlib-card-link:visited .javlib-card-code{background:#f3e8ff !important}.jav-card-cover{display:block !important;width:100% !important;height:auto !important;aspect-ratio:800 / 538 !important;overflow:hidden !important;background:#f8fafc !important;border-bottom:1px solid #f1f5f9 !important}.jav-card-image{display:block !important;width:100% !important;height:100% !important;max-height:none !important;object-fit:cover !important;object-position:center center !important;background:#f8fafc !important;border:0 !important;transition:opacity .18s ease !important}.javlib-cover-swapping{opacity:.42 !important}.jav-card-title{--javlib-title-line-height:22px;display:flex !important;flex-direction:column !important;gap:6px !important;width:100% !important;max-width:none !important;height:calc((var(--javlib-title-line-height)* var(--jav-card-title-lines,2))+54px)!important;max-height:calc((var(--javlib-title-line-height)* var(--jav-card-title-lines,2))+54px)!important;box-sizing:border-box !important;flex:0 0 auto !important;min-height:calc((var(--javlib-title-line-height)* var(--jav-card-title-lines,2))+54px)!important;margin:0 !important;padding:9px 10px 10px !important;overflow:hidden !important;text-overflow:ellipsis !important;color:inherit !important;font-size:var(--jav-card-title-size,15px)!important;line-height:var(--javlib-title-line-height)!important;text-align:left !important;white-space:normal !important;word-break:break-word !important}.jav-card-title:has(.javlib-card-footer>*){height:calc((var(--javlib-title-line-height)* var(--jav-card-title-lines,2))+82px)!important;max-height:calc((var(--javlib-title-line-height)* var(--jav-card-title-lines,2))+82px)!important;min-height:calc((var(--javlib-title-line-height)* var(--jav-card-title-lines,2))+82px)!important}.javlib-card-code-row{display:flex !important;align-items:center !important;flex:0 0 22px !important;height:22px !important;max-height:22px !important;min-height:22px !important;overflow:hidden !important}.javlib-card-headline{display:-webkit-box !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:var(--jav-card-title-lines,2)!important;line-clamp:var(--jav-card-title-lines,2)!important;height:calc(var(--javlib-title-line-height)* var(--jav-card-title-lines,2))!important;max-height:calc(var(--javlib-title-line-height)* var(--jav-card-title-lines,2))!important;min-height:calc(var(--javlib-title-line-height)* var(--jav-card-title-lines,2))!important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:normal !important;word-break:break-word !important;color:inherit !important;flex:0 0 calc(var(--javlib-title-line-height)* var(--jav-card-title-lines,2))!important;line-height:var(--javlib-title-line-height)!important}.javlib-card-code{display:inline-flex !important;align-items:center !important;max-width:100% !important;padding:2px 7px !important;border-radius:999px !important;background:#eef2ff !important;color:inherit !important;font-size:14px !important;line-height:1.35 !important;font-weight:800 !important;letter-spacing:0 !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:nowrap !important}.javlib-card-footer{display:none !important;align-items:center !important;gap:6px !important;min-height:0 !important;margin-top:auto !important;overflow:hidden !important}.javlib-card-footer:not(:empty){display:flex !important;flex:0 0 22px !important;height:22px !important;max-height:22px !important;min-height:22px !important}.videothumblist{width:100% !important}.videothumblist .videos.javlib-card-grid{--jav-card-columns:5}.videothumblist .video.javlib-grid-card .id{display:none !important}.videothumblist .video.javlib-grid-card .toolbar{display:none !important}@media(max-width:1100px){.videothumblist .videos.javlib-card-grid{--jav-card-columns:4}}@media(max-width:820px){.videothumblist .videos.javlib-card-grid{--jav-card-columns:3}}@media(max-width:560px){.videothumblist .videos.javlib-card-grid{--jav-card-columns:2;gap:10px !important}}`);
             }
             setTimeout(() => {
                 Runtime.refreshListDecorations();
@@ -3288,21 +3884,24 @@
             if (document.body.dataset.laosijiJavlibHome === '1') return;
             document.body.dataset.laosijiJavlibHome = '1';
             document.body.classList.add('javlib-home-page');
+
             const rightColumn = document.querySelector('#rightcolumn');
             rightColumn?.querySelectorAll(':scope > .titlebox, :scope > table.about').forEach(el => {
                 el.style.setProperty('display', 'none', 'important');
             });
+
             GM_addStyle(`body.javlib-home-page #rightcolumn>.videothumblist{height:auto !important;max-height:none !important;overflow:visible !important}`);
         },
         _insertTopNavigationDropdown() {
             const source = document.querySelector('#leftmenu .menul1');
             const advSearch = document.querySelector('#topmenu .advsearch');
             if (!source || !advSearch || advSearch.querySelector('.javlib-top-nav-menu')) return;
+
             const lang = String(document.documentElement.lang || '').toLowerCase();
             const label = lang.startsWith('en') ? 'Site Nav' : lang.startsWith('ja') ? 'ナビ' : /tw|zh$/.test(lang) ? '站點導航' : '站点导航';
             const menu = document.createElement('span');
             menu.className = 'javlib-top-nav-menu';
-            menu.innerHTML = `<a class="javlib-top-nav-trigger" href="javascript:void(0)">${label}▾</a><div class="javlib-top-nav-dropdown" role="menu"></div>`;
+            menu.innerHTML = `<a class="javlib-top-nav-trigger" href="javascript:void(0)">${label} ▾</a><div class="javlib-top-nav-dropdown" role="menu"></div>`;
             menu.addEventListener('mousedown', e => {
                 if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
                     e.preventDefault();
@@ -3331,13 +3930,15 @@
             }
             if (!dropdown.children.length) return;
             advSearch.append(document.createTextNode(' '), menu);
+
             if (document.documentElement.dataset.laosijiJavlibTopNavStyle === '1') return;
             document.documentElement.dataset.laosijiJavlibTopNavStyle = '1';
-            GM_addStyle(`#leftmenu{display:none !important}#rightcolumn{margin:0 !important;width:100% !important;float:none !important}#topmenu .advsearch{position:relative !important;white-space:nowrap !important}.javlib-top-nav-menu{position:relative !important;display:inline-block !important;vertical-align:middle !important;margin-left:8px !important;z-index:10010 !important}.javlib-top-nav-trigger{display:inline-flex !important;align-items:center !important;height:24px !important;padding:0 10px !important;border:1px solid #93c5fd !important;border-radius:999px !important;background:#eff6ff !important;color:#1d4ed8 !important;font-size:14px !important;font-weight:800 !important;line-height:24px !important;text-decoration:none !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.82),0 3px 9px rgba(37,99,235,.12) !important}.javlib-top-nav-menu:hover .javlib-top-nav-trigger,.javlib-top-nav-menu:focus-within .javlib-top-nav-trigger{background:#dbeafe !important;border-color:#60a5fa !important;color:#1e40af !important}.javlib-top-nav-dropdown{position:absolute !important;top:100% !important;left:0 !important;display:none !important;min-width:280px !important;max-width:min(560px,86vw) !important;padding:18px 10px 10px !important;border:1px solid #cbd5e1 !important;border-radius:8px !important;background:linear-gradient(to bottom,rgba(255,255,255,0) 0,rgba(255,255,255,0) 8px,rgba(255,255,255,.98) 8px) !important;box-shadow:0 16px 36px rgba(15,23,42,.18) !important;box-sizing:border-box !important;white-space:normal !important;background-clip:padding-box !important}.javlib-top-nav-menu:hover .javlib-top-nav-dropdown,.javlib-top-nav-menu:focus-within .javlib-top-nav-dropdown{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr)) !important;gap:10px !important}.javlib-top-nav-title{margin-bottom:6px !important;color:#0f172a !important;font-size:14px !important;font-weight:900 !important}.javlib-top-nav-links{display:grid !important;gap:4px !important}.javlib-top-nav-link{display:block !important;min-height:22px !important;padding:3px 7px !important;border-radius:6px !important;color:#2563eb !important;font-size:14px !important;line-height:1.35 !important;text-decoration:none !important}.javlib-top-nav-link:hover{background:#eff6ff !important;color:#1d4ed8 !important;text-decoration:none !important}@media (max-width:720px){.javlib-top-nav-menu:hover .javlib-top-nav-dropdown,.javlib-top-nav-menu:focus-within .javlib-top-nav-dropdown{grid-template-columns:1fr !important}}`);
+            GM_addStyle(`#leftmenu{display:none !important}#rightcolumn{margin:0 !important;width:100% !important;float:none !important}#topmenu .advsearch{position:relative !important;white-space:nowrap !important}.javlib-top-nav-menu{position:relative !important;display:inline-block !important;vertical-align:middle !important;margin-left:8px !important;z-index:10010 !important}.javlib-top-nav-trigger{display:inline-flex !important;align-items:center !important;height:24px !important;padding:0 10px !important;border:1px solid #93c5fd !important;border-radius:999px !important;background:#eff6ff !important;color:#1d4ed8 !important;font-size:14px !important;font-weight:800 !important;line-height:24px !important;text-decoration:none !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.82),0 3px 9px rgba(37,99,235,.12)!important}.javlib-top-nav-menu:hover .javlib-top-nav-trigger,.javlib-top-nav-menu:focus-within .javlib-top-nav-trigger{background:#dbeafe !important;border-color:#60a5fa !important;color:#1e40af !important}.javlib-top-nav-dropdown{position:absolute !important;top:100% !important;left:0 !important;display:none !important;min-width:280px !important;max-width:min(560px,86vw)!important;padding:18px 10px 10px !important;border:1px solid #cbd5e1 !important;border-radius:8px !important;background:linear-gradient(to bottom,rgba(255,255,255,0)0,rgba(255,255,255,0)8px,rgba(255,255,255,.98)8px)!important;box-shadow:0 16px 36px rgba(15,23,42,.18)!important;box-sizing:border-box !important;white-space:normal !important;background-clip:padding-box !important}.javlib-top-nav-menu:hover .javlib-top-nav-dropdown,.javlib-top-nav-menu:focus-within .javlib-top-nav-dropdown{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px !important}.javlib-top-nav-title{margin-bottom:6px !important;color:#0f172a !important;font-size:14px !important;font-weight:900 !important}.javlib-top-nav-links{display:grid !important;gap:4px !important}.javlib-top-nav-link{display:block !important;min-height:22px !important;padding:3px 7px !important;border-radius:6px !important;color:#2563eb !important;font-size:14px !important;line-height:1.35 !important;text-decoration:none !important}.javlib-top-nav-link:hover{background:#eff6ff !important;color:#1d4ed8 !important;text-decoration:none !important}@media(max-width:720px){.javlib-top-nav-menu:hover .javlib-top-nav-dropdown,.javlib-top-nav-menu:focus-within .javlib-top-nav-dropdown{grid-template-columns:1fr !important}}`);
         },
         _insertTopSettingsButton() {
             const menu = document.querySelector('#topmenu .menutext, .menutext');
             if (!menu || menu.querySelector('.javlib-top-settings-btn')) return;
+
             const btn = document.createElement('a');
             btn.href = 'javascript:void(0)';
             btn.className = 'javlib-top-settings-btn';
@@ -3348,6 +3949,7 @@
                 e.stopPropagation();
                 QuickSettingsPanel.open(e.currentTarget);
             });
+
             const accountLink = menu.querySelector('a[href*="myaccount.php"]');
             const sep = document.createTextNode(' | ');
             if (accountLink) {
@@ -3355,6 +3957,7 @@
             } else {
                 menu.append(sep, btn);
             }
+
             if (document.documentElement.dataset.laosijiJavlibTopSettingsStyle === '1') return;
             document.documentElement.dataset.laosijiJavlibTopSettingsStyle = '1';
             GM_addStyle(`#topmenu .menutext .javlib-top-settings-btn,.menutext .javlib-top-settings-btn{color:#2563eb !important;font-weight:700 !important;text-decoration:none !important}#topmenu .menutext .javlib-top-settings-btn:hover,.menutext .javlib-top-settings-btn:hover{color:#1d4ed8 !important;text-decoration:underline !important}`);
@@ -3368,6 +3971,7 @@
             if (!table) return null;
             const row = table.querySelector('tr');
             if (!row) return null;
+
             table.style.setProperty('width', '100%', 'important');
             table.style.setProperty('display', 'block', 'important');
             row.style.setProperty('display', 'flex', 'important');
@@ -3378,6 +3982,7 @@
             row.style.setProperty('--javlib-cover-flex', row.style.getPropertyValue('--javlib-cover-flex') || detailDefaults.cover);
             row.style.setProperty('--javlib-info-flex', row.style.getPropertyValue('--javlib-info-flex') || detailDefaults.info);
             row.style.setProperty('--javlib-magnet-flex', row.style.getPropertyValue('--javlib-magnet-flex') || detailDefaults.magnet);
+
             const tds = row.querySelectorAll('td');
             if (tds[0]) {
                 tds[0].style.setProperty('flex', 'var(--javlib-cover-flex) 1 0', 'important');
@@ -3391,6 +3996,7 @@
                 tds[1].style.setProperty('overflow', 'hidden', 'important');
                 tds[1].style.setProperty('word-break', 'break-word', 'important');
             }
+
             const jacketImg = document.getElementById('video_jacket_img');
             if (jacketImg) {
                 jacketImg.removeAttribute('width');
@@ -3406,17 +4012,21 @@
             document.querySelectorAll('.jav-nong-slot').forEach(el => el.remove());
             const row = this._ensureDetailLayout();
             if (!row) return;
+
             const magnetTd = document.createElement('td');
             magnetTd.className = 'jav-nong-slot javlib-nong-slot';
             magnetTd.style.cssText = 'flex:var(--javlib-magnet-flex) 1 0;min-width:0;vertical-align:top;align-self:flex-start;';
+
             const innerWrap = document.createElement('div');
             innerWrap.style.cssText = 'display:inline-block;';
+
             const widget = Magnet.createMagnetWidget(avid);
             innerWrap.appendChild(widget);
             magnetTd.appendChild(innerWrap);
             row.appendChild(magnetTd);
         },
     };
+
     const SiteAdapters = [SiteJavBus, SiteJavDB, SiteJavLib];
     const SiteManager = {
         list: SiteAdapters,
@@ -3466,12 +4076,13 @@
             if (SiteJavBus.match()) {
                 if (SiteJavBus.isActorIndexPage(baseUrl)) return null;
                 const container = this.getInfiniteScrollContainer('javbus', doc);
-                const next = doc.querySelector('a#next[href]');
-                if (!container || !next) return null;
+                if (!container) return null;
+                const { nextUrl } = SiteJavBus._resolveListNext(doc, baseUrl);
+                if (!nextUrl) return null;
                 return {
                     site: 'javbus',
                     container,
-                    nextUrl: new URL(next.getAttribute('href'), baseUrl).href,
+                    nextUrl,
                     itemSelector: '#waterfall > .item',
                     paginationSelector: '.pagination',
                 };
@@ -3746,18 +4357,23 @@
         initCurrent() {
             const site = this.current();
             if (!site) return;
+
             const avid = site.getVid();
             log('匹配站点:', site.constructor?.name || '未知', '| 番号:', avid);
+
             site.initPage(avid);
             PageZoom.applyCurrent();
             DetailFlex.apply();
         },
     };
+
     const ListOpenNewTab = (() => {
         const MARK = 'laosijiListNewTab';
+
         function enabled() {
             return CFG.listOpenNewTab;
         }
+
         function isSafeHref(anchor) {
             const href = anchor?.getAttribute?.('href') || '';
             if (!href || /^(?:javascript:|#|magnet:|mailto:|tel:)/i.test(href)) return false;
@@ -3768,9 +4384,11 @@
                 return false;
             }
         }
+
         function collectAnchors() {
             if (SiteManager.isDetailPage()) return [];
             if (SiteJavBus.match() && SiteJavBus.isActorIndexPage()) return [];
+
             let selectors = [];
             if (SiteJavBus.match()) {
                 selectors = [
@@ -3790,6 +4408,7 @@
                 ];
             }
             if (!selectors.length) return [];
+
             const seen = new Set();
             return selectors.flatMap(selector => [...document.querySelectorAll(selector)])
                 .filter(anchor => {
@@ -3798,6 +4417,7 @@
                     return true;
                 });
         }
+
         function remember(anchor) {
             if (anchor.dataset[MARK] === '1') return;
             anchor.dataset[MARK] = '1';
@@ -3806,14 +4426,18 @@
             anchor.dataset.laosijiOriginalTarget = anchor.getAttribute('target') || '';
             anchor.dataset.laosijiOriginalRel = anchor.getAttribute('rel') || '';
         }
+
         function applyAnchor(anchor) {
+            if (anchor.dataset.laosijiNewTabApplied === '1') return;
             remember(anchor);
             const rel = new Set((anchor.getAttribute('rel') || '').split(/\s+/).filter(Boolean));
             rel.add('noopener');
             rel.add('noreferrer');
             anchor.setAttribute('target', '_blank');
             anchor.setAttribute('rel', [...rel].join(' '));
+            anchor.dataset.laosijiNewTabApplied = '1';
         }
+
         function restoreAnchor(anchor) {
             if (anchor.dataset[MARK] !== '1') return;
             if (anchor.dataset.laosijiHadTarget === '1') {
@@ -3831,12 +4455,15 @@
             delete anchor.dataset.laosijiHadRel;
             delete anchor.dataset.laosijiOriginalTarget;
             delete anchor.dataset.laosijiOriginalRel;
+            delete anchor.dataset.laosijiNewTabApplied;
         }
+
         function clearExcept(active = new Set()) {
             document.querySelectorAll('a[data-laosiji-list-new-tab="1"]').forEach(anchor => {
                 if (!active.has(anchor)) restoreAnchor(anchor);
             });
         }
+
         function sync() {
             if (!enabled()) {
                 clearExcept();
@@ -3847,16 +4474,20 @@
             anchors.forEach(applyAnchor);
             clearExcept(active);
         }
+
         return { sync, clear: () => clearExcept() };
     })();
     Core.expose('__LAOSIJI_LIST_OPEN_NEW_TAB__', ListOpenNewTab);
+
     const StillsGallery = (() => {
         let activeViewerClose = null;
+
         function ensureStyle() {
             if (document.documentElement.dataset.laosijiStillsGalleryStyle === '1') return;
             document.documentElement.dataset.laosijiStillsGalleryStyle = '1';
-            GM_addStyle(`.jav-stills-shell{position:relative !important;width:100% !important;inline-size:100% !important;max-width:100% !important;min-width:0 !important;box-sizing:border-box !important;margin:16px 0 18px !important;padding:12px 44px !important;border:1px solid #d9e2ec !important;border-radius:8px !important;background:#ffffff !important;box-shadow:0 8px 18px rgba(15,23,42,.06) !important;overflow:hidden !important}.jav-stills-stage{position:relative !important;width:100% !important;max-width:100% !important;min-width:0 !important;box-sizing:border-box !important;overflow:hidden !important}.jav-stills-rail{display:flex !important;flex-wrap:nowrap !important;align-items:stretch !important;gap:10px !important;width:100% !important;inline-size:100% !important;max-width:100% !important;min-width:0 !important;box-sizing:border-box !important;margin:0 !important;padding:2px 0 10px !important;overflow-x:auto !important;overflow-y:hidden !important;scroll-behavior:smooth !important;overscroll-behavior-inline:contain !important;scrollbar-width:thin !important;scrollbar-color:rgba(100,116,139,.44) transparent !important}.jav-stills-rail::-webkit-scrollbar{height:8px !important}.jav-stills-rail::-webkit-scrollbar-thumb{border-radius:999px !important;background:rgba(100,116,139,.36) !important}.jav-stills-rail::-webkit-scrollbar-track{background:transparent !important}.jav-stills-arrow{position:absolute !important;top:50% !important;z-index:3 !important;display:grid !important;place-items:center !important;width:34px !important;height:42px !important;border:1px solid rgba(148,163,184,.42) !important;border-radius:8px !important;background:rgba(255,255,255,.92) !important;color:#172033 !important;font-size:24px !important;line-height:1 !important;font-weight:800 !important;cursor:pointer !important;transform:translateY(-50%) !important;box-shadow:0 8px 18px rgba(15,23,42,.14) !important;transition:transform .18s ease,background .18s ease,border-color .18s ease !important;touch-action:manipulation !important}.jav-stills-arrow:hover{background:#ffffff !important;border-color:rgba(37,99,235,.45) !important;transform:translateY(-50%) scale(1.04) !important}.jav-stills-arrow-prev{left:8px !important}.jav-stills-arrow-next{right:8px !important}.jav-stills-rail>a,.jav-stills-rail>.tile-item,.jav-stills-rail>.preview-video-container{flex:0 0 auto !important;display:block !important;position:relative !important;width:172px !important;height:104px !important;margin:0 !important;padding:0 !important;border:1px solid rgba(148,163,184,.28) !important;border-radius:8px !important;background:#e2e8f0 !important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.45) !important;overflow:hidden !important;box-sizing:border-box !important;text-decoration:none !important}.jav-stills-rail img{display:block !important;width:100% !important;height:100% !important;max-width:none !important;object-fit:cover !important;object-position:center !important;border:0 !important}.jav-stills-rail .photo-frame{width:100% !important;height:100% !important;margin:0 !important;padding:0 !important;box-sizing:border-box !important;overflow:hidden !important}.jav-stills-rail>video,.jav-stills-rail video[style*="display:none"],.jav-stills-rail video[style*="display:none"]{display:none !important;flex:0 0 auto !important}.jav-stills-javdb .preview-video-container span{position:absolute !important;left:8px !important;bottom:7px !important;z-index:2 !important;padding:3px 7px !important;border-radius:6px !important;background:rgba(15,23,42,.68) !important;color:#ffffff !important;font-size:11px !important;line-height:1 !important;font-weight:800 !important}.jav-stills-javlib .jav-stills-rail>a{width:150px !important;height:100px !important}.javdb-stills-column-clean,.javdb-stills-panel-clean,.javdb-stills-panel-clean>.message-body,.javdb-stills-body-clean{width:100% !important;max-width:100% !important;min-width:0 !important;box-sizing:border-box !important;padding:0 !important;border:0 !important;background:transparent !important;box-shadow:none !important}.javdb-stills-column-clean{flex:1 1 0 !important;overflow:hidden !important;padding-left:.75rem !important;padding-right:.75rem !important}.javdb-stills-panel-clean{margin:16px 0 18px !important}.jav-stills-javdb{width:auto !important;max-width:min(100%,calc(100vw - 34px)) !important;max-inline-size:min(100%,calc(100vw - 34px)) !important}.javdb-stills-panel-clean .jav-stills-shell{margin:0 !important}.jav-stills-viewer{position:fixed !important;inset:0 !important;z-index:2147483647 !important;display:grid !important;grid-template-rows:auto minmax(0,1fr) auto !important;background:rgba(8,13,25,.9) !important;backdrop-filter:blur(5px) !important;color:#ffffff !important;cursor:zoom-out !important}.jav-stills-viewer-top{display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;min-height:54px !important;padding:12px 16px !important;box-sizing:border-box !important;pointer-events:none !important}.jav-stills-viewer-count{min-width:64px !important;padding:6px 10px !important;border-radius:8px !important;background:rgba(15,23,42,.72) !important;color:#e5edf8 !important;font-size:13px !important;font-weight:800 !important;text-align:center !important;pointer-events:auto !important}.jav-stills-viewer-close,.jav-stills-viewer-nav{display:grid !important;place-items:center !important;border:1px solid rgba(226,232,240,.22) !important;background:rgba(15,23,42,.72) !important;color:#ffffff !important;cursor:pointer !important;box-shadow:0 12px 26px rgba(0,0,0,.24) !important;touch-action:manipulation !important}.jav-stills-viewer-close{width:38px !important;height:38px !important;border-radius:10px !important;font-size:24px !important;line-height:1 !important;pointer-events:auto !important}.jav-stills-viewer-close:hover,.jav-stills-viewer-nav:hover{background:rgba(30,41,59,.88) !important;border-color:rgba(255,255,255,.36) !important}.jav-stills-viewer-body{position:relative !important;display:grid !important;place-items:center !important;min-width:0 !important;min-height:0 !important;padding:0 68px !important;box-sizing:border-box !important;overflow:auto !important}.jav-stills-viewer-img{display:block !important;max-width:100% !important;max-height:calc(100vh - 118px) !important;width:auto !important;height:auto !important;object-fit:contain !important;border-radius:6px !important;background:#111827 !important;box-shadow:0 18px 46px rgba(0,0,0,.45) !important;cursor:zoom-in !important}.jav-stills-viewer-img.is-zoomed{max-width:none !important;max-height:none !important;cursor:zoom-out !important}.jav-stills-viewer-nav{position:fixed !important;top:50% !important;z-index:2147483647 !important;width:44px !important;height:58px !important;border-radius:12px !important;font-size:30px !important;line-height:1 !important;transform:translateY(-50%) !important}.jav-stills-viewer-prev{left:18px !important}.jav-stills-viewer-next{right:18px !important}.jav-stills-viewer-caption{min-height:42px !important;padding:9px 18px 16px !important;box-sizing:border-box !important;color:rgba(226,232,240,.86) !important;font-size:13px !important;line-height:1.45 !important;text-align:center !important;pointer-events:none !important}@media (max-width:720px){.jav-stills-shell{padding:10px 40px !important}.jav-stills-rail>a,.jav-stills-rail>.tile-item,.jav-stills-rail>.preview-video-container{width:150px !important;height:92px !important}.jav-stills-javlib .jav-stills-rail>a{width:138px !important;height:92px !important}.jav-stills-viewer-body{padding:0 52px !important}.jav-stills-viewer-nav{width:38px !important;height:52px !important}.jav-stills-viewer-prev{left:8px !important}.jav-stills-viewer-next{right:8px !important}}`);
+            GM_addStyle(`.jav-stills-shell{position:relative !important;width:100% !important;inline-size:100% !important;max-width:100% !important;min-width:0 !important;box-sizing:border-box !important;margin:16px 0 18px !important;padding:12px 44px !important;border:1px solid #d9e2ec !important;border-radius:8px !important;background:#ffffff !important;box-shadow:0 8px 18px rgba(15,23,42,.06)!important;overflow:hidden !important}.jav-stills-stage{position:relative !important;width:100% !important;max-width:100% !important;min-width:0 !important;box-sizing:border-box !important;overflow:hidden !important}.jav-stills-rail{display:flex !important;flex-wrap:nowrap !important;align-items:stretch !important;gap:10px !important;width:100% !important;inline-size:100% !important;max-width:100% !important;min-width:0 !important;box-sizing:border-box !important;margin:0 !important;padding:2px 0 10px !important;overflow-x:auto !important;overflow-y:hidden !important;scroll-behavior:smooth !important;overscroll-behavior-inline:contain !important;scrollbar-width:thin !important;scrollbar-color:rgba(100,116,139,.44)transparent !important}.jav-stills-rail::-webkit-scrollbar{height:8px !important}.jav-stills-rail::-webkit-scrollbar-thumb{border-radius:999px !important;background:rgba(100,116,139,.36)!important}.jav-stills-rail::-webkit-scrollbar-track{background:transparent !important}.jav-stills-arrow{position:absolute !important;top:50% !important;z-index:3 !important;display:grid !important;place-items:center !important;width:34px !important;height:42px !important;border:1px solid rgba(148,163,184,.42)!important;border-radius:8px !important;background:rgba(255,255,255,.92)!important;color:#172033 !important;font-size:24px !important;line-height:1 !important;font-weight:800 !important;cursor:pointer !important;transform:translateY(-50%)!important;box-shadow:0 8px 18px rgba(15,23,42,.14)!important;transition:transform .18s ease,background .18s ease,border-color .18s ease !important;touch-action:manipulation !important}.jav-stills-arrow:hover{background:#ffffff !important;border-color:rgba(37,99,235,.45)!important;transform:translateY(-50%)scale(1.04)!important}.jav-stills-arrow-prev{left:8px !important}.jav-stills-arrow-next{right:8px !important}.jav-stills-rail>a,.jav-stills-rail>.tile-item,.jav-stills-rail>.preview-video-container{flex:0 0 auto !important;display:block !important;position:relative !important;width:172px !important;height:104px !important;margin:0 !important;padding:0 !important;border:1px solid rgba(148,163,184,.28)!important;border-radius:8px !important;background:#e2e8f0 !important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.45)!important;overflow:hidden !important;box-sizing:border-box !important;text-decoration:none !important}.jav-stills-rail img{display:block !important;width:100% !important;height:100% !important;max-width:none !important;object-fit:cover !important;object-position:center !important;border:0 !important}.jav-stills-rail .photo-frame{width:100% !important;height:100% !important;margin:0 !important;padding:0 !important;box-sizing:border-box !important;overflow:hidden !important}.jav-stills-rail>video,.jav-stills-rail video[style*="display:none"],.jav-stills-rail video[style*="display: none"]{display:none !important;flex:0 0 auto !important}.jav-stills-javdb .preview-video-container span{position:absolute !important;left:8px !important;bottom:7px !important;z-index:2 !important;padding:3px 7px !important;border-radius:6px !important;background:rgba(15,23,42,.68)!important;color:#ffffff !important;font-size:11px !important;line-height:1 !important;font-weight:800 !important}.jav-stills-javlib .jav-stills-rail>a{width:150px !important;height:100px !important}.javdb-stills-column-clean,.javdb-stills-panel-clean,.javdb-stills-panel-clean>.message-body,.javdb-stills-body-clean{width:100% !important;max-width:100% !important;min-width:0 !important;box-sizing:border-box !important;padding:0 !important;border:0 !important;background:transparent !important;box-shadow:none !important}.javdb-stills-column-clean{flex:1 1 0 !important;overflow:hidden !important;padding-left:.75rem !important;padding-right:.75rem !important}.javdb-stills-panel-clean{margin:16px 0 18px !important}.jav-stills-javdb{width:auto !important;max-width:min(100%,calc(100vw - 34px))!important;max-inline-size:min(100%,calc(100vw - 34px))!important}.javdb-stills-panel-clean .jav-stills-shell{margin:0 !important}.jav-stills-viewer{position:fixed !important;inset:0 !important;z-index:2147483647 !important;display:grid !important;grid-template-rows:auto minmax(0,1fr)auto !important;background:rgba(8,13,25,.9)!important;backdrop-filter:blur(5px)!important;color:#ffffff !important;cursor:zoom-out !important}.jav-stills-viewer-top{display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;min-height:54px !important;padding:12px 16px !important;box-sizing:border-box !important;pointer-events:none !important}.jav-stills-viewer-count{min-width:64px !important;padding:6px 10px !important;border-radius:8px !important;background:rgba(15,23,42,.72)!important;color:#e5edf8 !important;font-size:13px !important;font-weight:800 !important;text-align:center !important;pointer-events:auto !important}.jav-stills-viewer-close,.jav-stills-viewer-nav{display:grid !important;place-items:center !important;border:1px solid rgba(226,232,240,.22)!important;background:rgba(15,23,42,.72)!important;color:#ffffff !important;cursor:pointer !important;box-shadow:0 12px 26px rgba(0,0,0,.24)!important;touch-action:manipulation !important}.jav-stills-viewer-close{width:38px !important;height:38px !important;border-radius:10px !important;font-size:24px !important;line-height:1 !important;pointer-events:auto !important}.jav-stills-viewer-close:hover,.jav-stills-viewer-nav:hover{background:rgba(30,41,59,.88)!important;border-color:rgba(255,255,255,.36)!important}.jav-stills-viewer-body{position:relative !important;display:grid !important;place-items:center !important;min-width:0 !important;min-height:0 !important;padding:0 68px !important;box-sizing:border-box !important;overflow:auto !important}.jav-stills-viewer-img{display:block !important;max-width:100% !important;max-height:calc(100vh - 118px)!important;width:auto !important;height:auto !important;object-fit:contain !important;border-radius:6px !important;background:#111827 !important;box-shadow:0 18px 46px rgba(0,0,0,.45)!important;cursor:zoom-in !important}.jav-stills-viewer-img.is-zoomed{max-width:none !important;max-height:none !important;cursor:zoom-out !important}.jav-stills-viewer-nav{position:fixed !important;top:50% !important;z-index:2147483647 !important;width:44px !important;height:58px !important;border-radius:12px !important;font-size:30px !important;line-height:1 !important;transform:translateY(-50%)!important}.jav-stills-viewer-prev{left:18px !important}.jav-stills-viewer-next{right:18px !important}.jav-stills-viewer-caption{min-height:42px !important;padding:9px 18px 16px !important;box-sizing:border-box !important;color:rgba(226,232,240,.86)!important;font-size:13px !important;line-height:1.45 !important;text-align:center !important;pointer-events:none !important}@media(max-width:720px){.jav-stills-shell{padding:10px 40px !important}.jav-stills-rail>a,.jav-stills-rail>.tile-item,.jav-stills-rail>.preview-video-container{width:150px !important;height:92px !important}.jav-stills-javlib .jav-stills-rail>a{width:138px !important;height:92px !important}.jav-stills-viewer-body{padding:0 52px !important}.jav-stills-viewer-nav{width:38px !important;height:52px !important}.jav-stills-viewer-prev{left:8px !important}.jav-stills-viewer-next{right:8px !important}}`);
         }
+
         function scrollRail(rail, dir) {
             const maxLeft = Math.max(0, rail.scrollWidth - rail.clientWidth);
             if (maxLeft <= 1) return;
@@ -3871,6 +4502,7 @@
             }
             rail.scrollBy({ left: dir * Math.max(220, rail.clientWidth * .72), behavior: 'smooth' });
         }
+
         function button(text, className, rail, dir) {
             const btn = document.createElement('button');
             btn.type = 'button';
@@ -3884,6 +4516,7 @@
             });
             return btn;
         }
+
         function toAbsUrl(value) {
             try {
                 return new URL(value, location.href).href;
@@ -3891,10 +4524,12 @@
                 return '';
             }
         }
+
         function isImageHref(value) {
             const url = String(value || '').split('#')[0].split('?')[0];
             return /\.(?:jpe?g|png|webp|gif|bmp)$/i.test(url);
         }
+
         function collectImages(rail) {
             return [...rail.querySelectorAll(':scope > a[href]')].map(anchor => {
                 const href = anchor.getAttribute('href') || '';
@@ -3908,6 +4543,7 @@
                 return { anchor, url, title: title.trim() };
             }).filter(Boolean);
         }
+
         function openViewer(items, startIndex = 0) {
             if (!items.length) return;
             activeViewerClose?.();
@@ -3915,9 +4551,11 @@
             const originalBodyOverflow = document.body.style.overflow;
             document.documentElement.style.overflow = 'hidden';
             document.body.style.overflow = 'hidden';
+
             let index = startIndex;
             const overlay = document.createElement('div');
             overlay.className = 'jav-stills-viewer';
+
             const top = document.createElement('div');
             top.className = 'jav-stills-viewer-top';
             const count = document.createElement('div');
@@ -3928,11 +4566,13 @@
             close.textContent = '×';
             close.setAttribute('aria-label', '关闭剧照预览');
             top.append(count, close);
+
             const body = document.createElement('div');
             body.className = 'jav-stills-viewer-body';
             const img = document.createElement('img');
             img.className = 'jav-stills-viewer-img';
             body.appendChild(img);
+
             const prev = document.createElement('button');
             prev.type = 'button';
             prev.className = 'jav-stills-viewer-nav jav-stills-viewer-prev';
@@ -3943,8 +4583,10 @@
             next.className = 'jav-stills-viewer-nav jav-stills-viewer-next';
             next.textContent = '›';
             next.setAttribute('aria-label', '下一张剧照');
+
             const caption = document.createElement('div');
             caption.className = 'jav-stills-viewer-caption';
+
             const show = nextIndex => {
                 index = (nextIndex + items.length) % items.length;
                 const item = items[index];
@@ -3954,6 +4596,7 @@
                 count.textContent = `${index + 1} / ${items.length}`;
                 caption.textContent = item.title || '';
             };
+
             const closeViewer = (event = null) => {
                 if (event) {
                     event.preventDefault();
@@ -3966,6 +4609,7 @@
                 document.removeEventListener('keydown', keyHandler, true);
                 if (activeViewerClose === closeViewer) activeViewerClose = null;
             };
+
             const keyHandler = e => {
                 if (e.key === 'Escape') {
                     closeViewer(e);
@@ -3978,6 +4622,7 @@
                     show(index + (e.key === 'ArrowRight' ? 1 : -1));
                 }
             };
+
             close.addEventListener('click', closeViewer, true);
             prev.addEventListener('click', e => {
                 e.preventDefault();
@@ -4001,11 +4646,13 @@
                 if (e.target === overlay || e.target === body) closeViewer(e);
             }, true);
             document.addEventListener('keydown', keyHandler, true);
+
             overlay.append(top, body, prev, next, caption);
             document.body.appendChild(overlay);
             activeViewerClose = closeViewer;
             show(index);
         }
+
         function bindViewer(rail) {
             if (rail.dataset.laosijiStillsViewerBound === '1') return;
             rail.dataset.laosijiStillsViewerBound = '1';
@@ -4021,6 +4668,7 @@
                 openViewer(items, index);
             }, true);
         }
+
         function findConfig() {
             if (SiteJavBus.match()) {
                 const container = document.querySelector('#sample-waterfall');
@@ -4040,12 +4688,14 @@
             }
             return null;
         }
+
         function cleanSiteShell(config) {
             if (config.site !== 'javdb') return;
             config.container.closest('.column')?.classList.add('javdb-stills-column-clean');
             config.container.closest('.message.video-panel, article.message')?.classList.add('javdb-stills-panel-clean');
             config.container.closest('.message-body')?.classList.add('javdb-stills-body-clean');
         }
+
         function sync() {
             const config = findConfig();
             if (!config?.container) return;
@@ -4056,16 +4706,20 @@
             const shell = document.createElement('div');
             shell.className = `jav-stills-shell jav-stills-${config.site}`;
             shell.dataset.laosijiStills = '1';
+
             const stage = document.createElement('div');
             stage.className = 'jav-stills-stage';
+
             config.container.classList.add('jav-stills-rail', `jav-stills-rail-${config.site}`);
             config.container.dataset.laosijiStillsRail = '1';
+
             const ref = config.heading || config.container;
             ref.parentNode?.insertBefore(shell, ref);
             if (config.heading) {
                 config.heading.dataset.laosijiStillsHidden = '1';
                 config.heading.style.display = 'none';
             }
+
             stage.append(
                 button('‹', 'jav-stills-arrow-prev', config.container, -1),
                 config.container,
@@ -4073,41 +4727,53 @@
             );
             shell.append(stage);
         }
+
         return { sync };
     })();
+
     Core.expose('__LAOSIJI_SITE_MANAGER__', SiteManager);
     Core.expose('__LAOSIJI_SITE_JAVBUS__', SiteJavBus);
     Core.expose('__LAOSIJI_SITE_JAVDB__', SiteJavDB);
     Core.expose('__LAOSIJI_SITE_JAVLIB__', SiteJavLib);
     Core.expose('__LAOSIJI_STILLS_GALLERY__', StillsGallery);
+
     function mainRun() {
         SiteManager.initCurrent();
     }
-    GM_addStyle(`.preview-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2147483647;display:flex;overflow:auto;cursor:zoom-out;backdrop-filter:blur(5px)}.preview-img{border-radius:4px;margin:auto;cursor:zoom-in;max-width:95vw;max-height:95vh;object-fit:contain;display:block;box-shadow:0 0 20px rgba(0,0,0,0.5)}.preview-img.zoomed{max-width:none;max-height:none;cursor:zoom-out}a:focus:not(:focus-visible),button:focus:not(:focus-visible),[role="button"]:focus:not(:focus-visible),input[type="button"]:focus:not(:focus-visible),input[type="submit"]:focus:not(:focus-visible){outline:none !important}.jav-jump-btn-group{margin-top:8px;margin-bottom:4px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}.emby-fix{width:100% !important;flex-basis:100% !important;clear:both !important;margin-top:8px !important;margin-bottom:4px !important}.mini-switch{width:40px;height:20px;appearance:none;background:#e0e0e0;border-radius:20px;position:relative;cursor:pointer;outline:none;transition:background 0.2s}.mini-switch:checked{background:#4CAF50}.mini-switch::before{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:white;top:2px;left:2px;transition:left 0.2s}.mini-switch:checked::before{left:calc(100% - 18px)}@keyframes btnSlideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}.jav-jump-btn-group a{transition:background .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;animation:btnSlideIn 0.3s ease-out}.jav-jump-btn-group a:hover{background:var(--jav-btn-hover-bg,#f8fafc) !important;transform:translateY(-1px) !important;filter:none !important;box-shadow:0 5px 14px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.76) !important;text-decoration:none !important}@keyframes menuFadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}.search-menu{position:relative;display:inline-block;border-radius:4px}.search-main-btn{padding-right:28px !important}.search-toggle-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:16px;height:16px;padding:0 !important;margin:0 !important;display:inline-flex !important;align-items:center;justify-content:center;flex-shrink:0;font-size:10px !important;line-height:1;opacity:1;background:color-mix(in srgb,var(--jav-btn-accent,#64748b) 18%,#ffffff) !important;color:inherit !important;border:1px solid color-mix(in srgb,var(--jav-btn-accent,#64748b) 26%,#ffffff) !important;border-radius:999px !important;box-shadow:0 1px 2px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.7) !important;cursor:pointer}.search-toggle-btn:hover{filter:none;background:color-mix(in srgb,var(--jav-btn-accent,#64748b) 26%,#ffffff) !important}.search-toggle-btn .search-arrow{display:inline-block;transform:translateY(-1px);pointer-events:none}.search-submenu{position:absolute;top:calc(100%+4px);left:0;display:none;flex-direction:column;gap:4px;padding:4px;background:rgba(255,255,255,0.95);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:10000;min-width:120px;backdrop-filter:blur(5px)}.search-submenu.is-open{display:flex}.search-submenu a{transition:all 0.2s ease;box-shadow:0 2px 4px rgba(0,0,0,0.1) !important}.search-submenu a:hover{transform:translateX(5px) scale(1.02);filter:brightness(1.1)}.jav-pan115-badge{display:inline-flex;align-items:center;justify-content:center;min-width:58px;height:22px !important;padding:0 7px;margin-right:6px;position:static !important;top:auto !important;transform:none !important;border-radius:6px;background:#bbf7d0;border:1px solid #22c55e;color:#065f46;font-size:12px !important;font-weight:800;line-height:22px !important;text-decoration:none;box-sizing:border-box;vertical-align:middle;box-shadow:inset 0 1px 0 rgba(255,255,255,0.72)}.jav-pan115-badge:hover{background:#86efac;color:#064e3b;text-decoration:none;box-shadow:0 4px 12px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.76)}span.jav-pan115-badge{cursor:pointer}.jav-infinite-sentinel{width:100%;padding:14px 0;color:#64748b;font-size:13px;font-weight:700;text-align:center;clear:both}.jav-infinite-sentinel.is-loading{color:#2563eb}.jav-infinite-sentinel.is-done{color:#94a3b8}.jav-infinite-sentinel.is-error{color:#dc2626;cursor:pointer}.preview-toolbar{position:fixed;top:20px;right:20px;display:flex;gap:8px;z-index:2147483648;background:rgba(30,30,30,0.75);backdrop-filter:blur(10px);padding:6px 12px;border-radius:30px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 6px 18px rgba(0,0,0,0.25)}.preview-btn{border:none;color:#eee;font-size:13px;font-weight:450;cursor:pointer;padding:6px 14px;border-radius:24px;transition:all 0.2s ease;display:inline-flex;align-items:center;gap:6px;background:rgba(100,100,120,0.3);border:1px solid rgba(255,255,255,0.05);box-shadow:0 2px 4px rgba(0,0,0,0.1);letter-spacing:0.2px}.preview-btn:hover{background:rgba(140,140,160,0.4);transform:translateY(-2px);box-shadow:0 6px 12px rgba(0,0,0,0.2)}.preview-btn.javfree.active{background:#2ecc71;color:white;border-color:rgba(255,255,255,0.3);box-shadow:0 0 16px rgba(46,204,113,0.6);font-weight:500}.preview-btn.javstore.active{background:#e74c3c;color:white;border-color:rgba(255,255,255,0.3);box-shadow:0 0 16px rgba(231,76,60,0.6);font-weight:500}.preview-btn.action{background:rgba(100,100,120,0.3)}.preview-btn.action:hover{background:rgba(140,140,160,0.5)}.preview-btn:active{transform:translateY(0);box-shadow:0 2px 4px rgba(0,0,0,0.15)}.trailer-overlay{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:34px;background:radial-gradient(circle at 50% 18%,rgba(56,189,248,0.16),transparent 32%),linear-gradient(180deg,rgba(5,7,12,0.88),rgba(0,0,0,0.96));backdrop-filter:blur(16px) saturate(0.85);cursor:default}.trailer-modal{width:min(1120px,94vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;color:#f8fafc;background:#05070c;border:1px solid rgba(255,255,255,0.12);border-radius:8px;box-shadow:0 30px 80px rgba(0,0,0,0.68),0 0 0 1px rgba(255,255,255,0.04) inset;cursor:default;animation:trailerFadeIn .18s ease-out}@keyframes trailerFadeIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}.trailer-header{position:absolute;top:0;left:0;right:0;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px 34px;background:linear-gradient(180deg,rgba(0,0,0,0.66),rgba(0,0,0,0));border:0;pointer-events:none;opacity:1;transition:opacity .18s ease,transform .18s ease}.trailer-title{min-width:0;display:flex;align-items:center;gap:10px;font:700 15px/1.3 Arial,"Microsoft YaHei",sans-serif;pointer-events:auto}.trailer-code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.4px}.trailer-source{flex-shrink:0;padding:3px 9px;border-radius:999px;color:rgba(255,255,255,0.82);background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);font-size:12px;font-weight:500;backdrop-filter:blur(12px)}.jav-player-close{width:34px;height:34px;border:0;border-radius:50%;color:#fff;background:rgba(255,255,255,0.14);cursor:pointer;font-size:18px;line-height:34px;pointer-events:auto;box-shadow:0 8px 20px rgba(0,0,0,0.22);transition:transform .15s ease,background .15s ease,box-shadow .15s ease}.jav-player-close:hover{transform:scale(1.08);background:rgba(248,113,113,0.34);box-shadow:0 10px 24px rgba(0,0,0,0.28)}.trailer-screen{position:relative;aspect-ratio:16 / 9;width:100%;max-height:82vh;overflow:hidden;background:radial-gradient(circle at center,rgba(31,41,55,.75),#000 62%),#000}.trailer-screen:fullscreen{width:100vw;height:100vh;max-height:none;aspect-ratio:auto;display:flex;align-items:center;justify-content:center;background:#000}.trailer-screen:-webkit-full-screen{width:100vw;height:100vh;max-height:none;aspect-ratio:auto;display:flex;align-items:center;justify-content:center;background:#000}.trailer-screen::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,0.52),rgba(0,0,0,0) 30%),linear-gradient(0deg,rgba(0,0,0,0.62),rgba(0,0,0,0) 36%)}.trailer-screen.is-iframe::before{display:none}.trailer-screen video,.trailer-screen iframe{position:absolute;inset:0;width:100%;height:100%;display:block;border:0;background:#000;object-fit:contain}.trailer-volume-indicator{position:absolute;top:62px;right:26px;z-index:5;color:#f8fafc;font:750 24px/1 Arial,"Microsoft YaHei",sans-serif;text-shadow:0 2px 8px rgba(0,0,0,0.82);opacity:0;pointer-events:none;transition:opacity .14s ease}.trailer-volume-indicator.is-visible{opacity:1}.trailer-fallback-status{position:absolute;left:18px;top:58px;z-index:5;max-width:min(520px,calc(100% - 36px));padding:7px 10px;border-radius:8px;color:rgba(255,255,255,0.9);background:rgba(10,14,22,0.68);border:1px solid rgba(255,255,255,0.16);box-shadow:0 12px 28px rgba(0,0,0,0.28);backdrop-filter:blur(14px);font:12px/1.45 Arial,"Microsoft YaHei",sans-serif;opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .16s ease,transform .16s ease}.trailer-fallback-status.is-visible{opacity:1;transform:translateY(0)}.trailer-quality-bar{display:flex;align-items:center;gap:8px;padding:0;background:transparent;border:none;border-radius:0;backdrop-filter:none}.trailer-quality-select{min-width:78px;max-width:140px;height:30px;padding:0 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.12);color:#f8fafc;outline:none;font-size:12px;line-height:28px;text-align:center;text-align-last:center;appearance:none;cursor:pointer}.trailer-quality-select option{background:#0b1020;color:#f8fafc}.trailer-footer{position:absolute;left:16px;right:16px;bottom:16px;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;color:rgba(255,255,255,0.78);background:rgba(10,14,22,0.62);border:1px solid rgba(255,255,255,0.16);border-radius:8px;box-shadow:0 18px 40px rgba(0,0,0,0.32);backdrop-filter:blur(16px) saturate(1.08);font:12px/1.4 Arial,"Microsoft YaHei",sans-serif;opacity:1;transform:translateY(0);transition:opacity .18s ease,transform .18s ease}.trailer-screen.is-controls-hidden{cursor:none}.trailer-screen.is-controls-hidden .trailer-header{opacity:0;transform:translateY(-8px);pointer-events:none}.trailer-screen.is-controls-hidden .trailer-footer{opacity:0;transform:translateY(10px);pointer-events:none}.trailer-control-left,.trailer-control-right{display:flex;align-items:center;gap:9px;min-width:0}.trailer-control-left{flex:1 1 auto}.trailer-control-right{flex:0 0 auto}.trailer-control-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;padding:0;border:0;border-radius:999px;color:#fff;background:rgba(255,255,255,0.14);cursor:pointer;font:700 13px/1 Arial,"Microsoft YaHei",sans-serif;transition:background .15s ease,transform .15s ease}.trailer-control-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px)}.trailer-volume-wrap{position:relative;display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center}.trailer-volume-wrap::before{content:"";position:absolute;left:50%;bottom:100%;width:46px;height:14px;transform:translateX(-50%)}.trailer-volume-popover{position:absolute;left:50%;bottom:calc(100%+8px);width:34px;height:118px;display:flex;align-items:center;justify-content:center;padding:10px 0;border-radius:999px;background:rgba(10,14,22,0.76);border:1px solid rgba(255,255,255,0.16);box-shadow:0 14px 32px rgba(0,0,0,0.34);backdrop-filter:blur(16px) saturate(1.08);opacity:0;pointer-events:none;transform:translate(-50%,6px);transition:opacity .15s ease,transform .15s ease}.trailer-volume-wrap:hover .trailer-volume-popover{opacity:1;pointer-events:auto;transform:translate(-50%,0)}.trailer-volume-rail{position:absolute;left:50%;top:14px;bottom:14px;width:4px;transform:translateX(-50%);border-radius:999px;background:rgba(255,255,255,0.32);pointer-events:none}.trailer-volume-fill{position:absolute;left:0;right:0;bottom:0;height:var(--volume-percent,35%);border-radius:999px;background:#38bdf8}.trailer-volume-thumb{position:absolute;left:50%;bottom:var(--volume-percent,35%);width:16px;height:16px;transform:translate(-50%,50%);border-radius:50%;background:#38bdf8;border:2px solid rgba(255,255,255,0.92);box-shadow:0 2px 8px rgba(0,0,0,0.38)}.trailer-volume-slider{position:absolute;top:8px;bottom:8px;left:50%;width:16px;height:calc(100% - 16px);margin:0;transform:translateX(-50%);appearance:none;-webkit-appearance:none;writing-mode:vertical-lr;direction:rtl;background:transparent;cursor:pointer}.trailer-volume-slider::-webkit-slider-runnable-track{width:100%;height:100%;background:transparent}.trailer-volume-slider::-moz-range-track{width:100%;height:100%;background:transparent}.trailer-volume-slider::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:16px;background:transparent;border:0;box-shadow:none}.trailer-volume-slider::-moz-range-thumb{width:24px;height:16px;background:transparent;border:0;box-shadow:none}.trailer-time{flex:0 0 auto;min-width:36px;color:rgba(255,255,255,0.78);font:11px/1.3 Arial,"Microsoft YaHei",sans-serif;white-space:nowrap;text-align:center}.trailer-progress{flex:1 1 160px;min-width:120px;height:4px;margin:0;border-radius:999px;accent-color:#38bdf8;cursor:pointer}.jav-jump-toast{position:fixed;left:50%;top:72px;z-index:2147483647;display:flex;align-items:flex-start;gap:12px;width:min(420px,calc(100vw - 32px));padding:14px 16px;color:#f8fafc;background:rgba(15,23,42,0.94);border:1px solid rgba(148,163,184,0.28);border-left:4px solid #38bdf8;border-radius:12px;box-shadow:0 18px 44px rgba(0,0,0,0.34),0 0 0 1px rgba(255,255,255,0.04) inset;backdrop-filter:blur(14px) saturate(1.1);font-family:Arial,"Microsoft YaHei",sans-serif;transform:translate(-50%,-12px);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}.jav-jump-toast.show{opacity:1;transform:translate(-50%,0)}.jav-jump-toast.hide{opacity:0;transform:translate(-50%,-12px)}.jav-jump-toast-icon{flex:0 0 auto;width:24px;height:24px;border-radius:999px;color:#082f49;background:#7dd3fc;font-size:16px;font-weight:800;line-height:24px;text-align:center}.jav-jump-toast-title{margin:0 0 4px;font-size:14px;font-weight:700;line-height:1.35}.jav-jump-toast-message{margin:0;color:#cbd5e1;font-size:13px;line-height:1.45}@media (max-width:720px){.trailer-overlay{padding:12px}.trailer-modal{width:100%;border-radius:8px}.trailer-header{padding:12px 12px 30px}.trailer-title{gap:7px;font-size:13px}.trailer-source{max-width:42vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.trailer-footer{left:8px;right:8px;bottom:8px;flex-direction:column;align-items:stretch;gap:7px;padding:8px}.trailer-control-left,.trailer-control-right{width:100%;justify-content:center}.trailer-progress{min-width:80px}.jav-jump-toast{top:18px;width:calc(100vw - 24px);padding:13px 14px}}`);
+
+    GM_addStyle(`.preview-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2147483647;display:flex;overflow:auto;cursor:zoom-out;backdrop-filter:blur(5px)}.preview-img{border-radius:4px;margin:auto;cursor:zoom-in;max-width:95vw;max-height:95vh;object-fit:contain;display:block;box-shadow:0 0 20px rgba(0,0,0,0.5)}.preview-img.zoomed{max-width:none;max-height:none;cursor:zoom-out}a:focus:not(:focus-visible),button:focus:not(:focus-visible),[role="button"]:focus:not(:focus-visible),input[type="button"]:focus:not(:focus-visible),input[type="submit"]:focus:not(:focus-visible){outline:none !important}.jav-jump-btn-group{margin-top:8px;margin-bottom:4px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}.emby-fix{width:100% !important;flex-basis:100% !important;clear:both !important;margin-top:8px !important;margin-bottom:4px !important}.mini-switch{width:40px;height:20px;appearance:none;background:#e0e0e0;border-radius:20px;position:relative;cursor:pointer;outline:none;transition:background 0.2s}.mini-switch:checked{background:#4CAF50}.mini-switch::before{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:white;top:2px;left:2px;transition:left 0.2s}.mini-switch:checked::before{left:calc(100% - 18px)}@keyframes btnSlideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}.jav-jump-btn-group a{transition:background .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;animation:btnSlideIn 0.3s ease-out}.jav-jump-btn-group a:hover{background:var(--jav-btn-hover-bg,#f8fafc)!important;transform:translateY(-1px)!important;filter:none !important;box-shadow:0 5px 14px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.76)!important;text-decoration:none !important}@keyframes menuFadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}.search-menu{position:relative;display:inline-block;border-radius:4px}.search-main-btn{padding-right:28px !important}.search-toggle-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:16px;height:16px;padding:0 !important;margin:0 !important;display:inline-flex !important;align-items:center;justify-content:center;flex-shrink:0;font-size:10px !important;line-height:1;opacity:1;background:color-mix(in srgb,var(--jav-btn-accent,#64748b)18%,#ffffff)!important;color:inherit !important;border:1px solid color-mix(in srgb,var(--jav-btn-accent,#64748b)26%,#ffffff)!important;border-radius:999px !important;box-shadow:0 1px 2px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.7)!important;cursor:pointer}.search-toggle-btn:hover{filter:none;background:color-mix(in srgb,var(--jav-btn-accent,#64748b)26%,#ffffff)!important}.search-toggle-btn .search-arrow{display:inline-block;transform:translateY(-1px);pointer-events:none}.search-submenu{position:absolute;top:calc(100%+4px);left:0;display:none;flex-direction:column;gap:4px;padding:4px;background:rgba(255,255,255,0.95);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:10000;min-width:120px;backdrop-filter:blur(5px)}.search-submenu.is-open{display:flex}.search-submenu a{transition:all 0.2s ease;box-shadow:0 2px 4px rgba(0,0,0,0.1)!important}.search-submenu a:hover{transform:translateX(5px)scale(1.02);filter:brightness(1.1)}.jav-pan115-badge{display:inline-flex;align-items:center;justify-content:center;min-width:58px;height:22px !important;padding:0 7px;margin-right:6px;position:static !important;top:auto !important;transform:none !important;border-radius:6px;background:#bbf7d0;border:1px solid #22c55e;color:#065f46;font-size:12px !important;font-weight:800;line-height:22px !important;text-decoration:none;box-sizing:border-box;vertical-align:middle;box-shadow:inset 0 1px 0 rgba(255,255,255,0.72)}.jav-pan115-badge:hover{background:#86efac;color:#064e3b;text-decoration:none;box-shadow:0 4px 12px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.76)}span.jav-pan115-badge{cursor:pointer}.jav-infinite-sentinel{width:100%;padding:14px 0;color:#64748b;font-size:13px;font-weight:700;text-align:center;clear:both}.jav-infinite-sentinel.is-loading{color:#2563eb}.jav-infinite-sentinel.is-done{color:#94a3b8}.jav-infinite-sentinel.is-error{color:#dc2626;cursor:pointer}.preview-toolbar{position:fixed;top:20px;right:20px;display:flex;gap:8px;z-index:2147483648;background:rgba(30,30,30,0.75);backdrop-filter:blur(10px);padding:6px 12px;border-radius:30px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 6px 18px rgba(0,0,0,0.25)}.preview-btn{border:none;color:#eee;font-size:13px;font-weight:450;cursor:pointer;padding:6px 14px;border-radius:24px;transition:all 0.2s ease;display:inline-flex;align-items:center;gap:6px;background:rgba(100,100,120,0.3);border:1px solid rgba(255,255,255,0.05);box-shadow:0 2px 4px rgba(0,0,0,0.1);letter-spacing:0.2px}.preview-btn:hover{background:rgba(140,140,160,0.4);transform:translateY(-2px);box-shadow:0 6px 12px rgba(0,0,0,0.2)}.preview-btn.javfree.active{background:#2ecc71;color:white;border-color:rgba(255,255,255,0.3);box-shadow:0 0 16px rgba(46,204,113,0.6);font-weight:500}.preview-btn.javstore.active{background:#e74c3c;color:white;border-color:rgba(255,255,255,0.3);box-shadow:0 0 16px rgba(231,76,60,0.6);font-weight:500}.preview-btn.action{background:rgba(100,100,120,0.3)}.preview-btn.action:hover{background:rgba(140,140,160,0.5)}.preview-btn:active{transform:translateY(0);box-shadow:0 2px 4px rgba(0,0,0,0.15)}.trailer-overlay{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:34px;background:radial-gradient(circle at 50% 18%,rgba(56,189,248,0.16),transparent 32%),linear-gradient(180deg,rgba(5,7,12,0.88),rgba(0,0,0,0.96));backdrop-filter:blur(16px)saturate(0.85);cursor:default}.trailer-modal{width:min(1120px,94vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;color:#f8fafc;background:#05070c;border:1px solid rgba(255,255,255,0.12);border-radius:8px;box-shadow:0 30px 80px rgba(0,0,0,0.68),0 0 0 1px rgba(255,255,255,0.04)inset;cursor:default;animation:trailerFadeIn .18s ease-out}@keyframes trailerFadeIn{from{opacity:0;transform:translateY(14px)scale(.985)}to{opacity:1;transform:translateY(0)scale(1)}}.trailer-header{position:absolute;top:0;left:0;right:0;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px 34px;background:linear-gradient(180deg,rgba(0,0,0,0.66),rgba(0,0,0,0));border:0;pointer-events:none;opacity:1;transition:opacity .18s ease,transform .18s ease}.trailer-title{min-width:0;display:flex;align-items:center;gap:10px;font:700 15px/1.3 Arial,"Microsoft YaHei",sans-serif;pointer-events:auto}.trailer-code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.4px}.trailer-source{flex-shrink:0;padding:3px 9px;border-radius:999px;color:rgba(255,255,255,0.82);background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);font-size:12px;font-weight:500;backdrop-filter:blur(12px)}.jav-player-close{width:34px;height:34px;border:0;border-radius:50%;color:#fff;background:rgba(255,255,255,0.14);cursor:pointer;font-size:18px;line-height:34px;pointer-events:auto;box-shadow:0 8px 20px rgba(0,0,0,0.22);transition:transform .15s ease,background .15s ease,box-shadow .15s ease}.jav-player-close:hover{transform:scale(1.08);background:rgba(248,113,113,0.34);box-shadow:0 10px 24px rgba(0,0,0,0.28)}.trailer-screen{position:relative;aspect-ratio:16 / 9;width:100%;max-height:82vh;overflow:hidden;background:radial-gradient(circle at center,rgba(31,41,55,.75),#000 62%),#000}.trailer-screen:fullscreen{width:100vw;height:100vh;max-height:none;aspect-ratio:auto;display:flex;align-items:center;justify-content:center;background:#000}.trailer-screen:-webkit-full-screen{width:100vw;height:100vh;max-height:none;aspect-ratio:auto;display:flex;align-items:center;justify-content:center;background:#000}.trailer-screen::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,0.52),rgba(0,0,0,0)30%),linear-gradient(0deg,rgba(0,0,0,0.62),rgba(0,0,0,0)36%)}.trailer-screen.is-iframe::before{display:none}.trailer-screen video,.trailer-screen iframe{position:absolute;inset:0;width:100%;height:100%;display:block;border:0;background:#000;object-fit:contain}.trailer-volume-indicator{position:absolute;top:62px;right:26px;z-index:5;color:#f8fafc;font:750 24px/1 Arial,"Microsoft YaHei",sans-serif;text-shadow:0 2px 8px rgba(0,0,0,0.82);opacity:0;pointer-events:none;transition:opacity .14s ease}.trailer-volume-indicator.is-visible{opacity:1}.trailer-fallback-status{position:absolute;left:18px;top:58px;z-index:5;max-width:min(520px,calc(100% - 36px));padding:7px 10px;border-radius:8px;color:rgba(255,255,255,0.9);background:rgba(10,14,22,0.68);border:1px solid rgba(255,255,255,0.16);box-shadow:0 12px 28px rgba(0,0,0,0.28);backdrop-filter:blur(14px);font:12px/1.45 Arial,"Microsoft YaHei",sans-serif;opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .16s ease,transform .16s ease}.trailer-fallback-status.is-visible{opacity:1;transform:translateY(0)}.trailer-quality-bar{display:flex;align-items:center;gap:8px;padding:0;background:transparent;border:none;border-radius:0;backdrop-filter:none}.trailer-quality-select{min-width:78px;max-width:140px;height:30px;padding:0 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.12);color:#f8fafc;outline:none;font-size:12px;line-height:28px;text-align:center;text-align-last:center;appearance:none;cursor:pointer}.trailer-quality-select option{background:#0b1020;color:#f8fafc}.trailer-footer{position:absolute;left:16px;right:16px;bottom:16px;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;color:rgba(255,255,255,0.78);background:rgba(10,14,22,0.62);border:1px solid rgba(255,255,255,0.16);border-radius:8px;box-shadow:0 18px 40px rgba(0,0,0,0.32);backdrop-filter:blur(16px)saturate(1.08);font:12px/1.4 Arial,"Microsoft YaHei",sans-serif;opacity:1;transform:translateY(0);transition:opacity .18s ease,transform .18s ease}.trailer-screen.is-controls-hidden{cursor:none}.trailer-screen.is-controls-hidden .trailer-header{opacity:0;transform:translateY(-8px);pointer-events:none}.trailer-screen.is-controls-hidden .trailer-footer{opacity:0;transform:translateY(10px);pointer-events:none}.trailer-control-left,.trailer-control-right{display:flex;align-items:center;gap:9px;min-width:0}.trailer-control-left{flex:1 1 auto}.trailer-control-right{flex:0 0 auto}.trailer-control-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;padding:0;border:0;border-radius:999px;color:#fff;background:rgba(255,255,255,0.14);cursor:pointer;font:700 13px/1 Arial,"Microsoft YaHei",sans-serif;transition:background .15s ease,transform .15s ease}.trailer-control-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px)}.trailer-volume-wrap{position:relative;display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center}.trailer-volume-wrap::before{content:"";position:absolute;left:50%;bottom:100%;width:46px;height:14px;transform:translateX(-50%)}.trailer-volume-popover{position:absolute;left:50%;bottom:calc(100%+8px);width:34px;height:118px;display:flex;align-items:center;justify-content:center;padding:10px 0;border-radius:999px;background:rgba(10,14,22,0.76);border:1px solid rgba(255,255,255,0.16);box-shadow:0 14px 32px rgba(0,0,0,0.34);backdrop-filter:blur(16px)saturate(1.08);opacity:0;pointer-events:none;transform:translate(-50%,6px);transition:opacity .15s ease,transform .15s ease}.trailer-volume-wrap:hover .trailer-volume-popover{opacity:1;pointer-events:auto;transform:translate(-50%,0)}.trailer-volume-rail{position:absolute;left:50%;top:14px;bottom:14px;width:4px;transform:translateX(-50%);border-radius:999px;background:rgba(255,255,255,0.32);pointer-events:none}.trailer-volume-fill{position:absolute;left:0;right:0;bottom:0;height:var(--volume-percent,35%);border-radius:999px;background:#38bdf8}.trailer-volume-thumb{position:absolute;left:50%;bottom:var(--volume-percent,35%);width:16px;height:16px;transform:translate(-50%,50%);border-radius:50%;background:#38bdf8;border:2px solid rgba(255,255,255,0.92);box-shadow:0 2px 8px rgba(0,0,0,0.38)}.trailer-volume-slider{position:absolute;top:8px;bottom:8px;left:50%;width:16px;height:calc(100% - 16px);margin:0;transform:translateX(-50%);appearance:none;-webkit-appearance:none;writing-mode:vertical-lr;direction:rtl;background:transparent;cursor:pointer}.trailer-volume-slider::-webkit-slider-runnable-track{width:100%;height:100%;background:transparent}.trailer-volume-slider::-moz-range-track{width:100%;height:100%;background:transparent}.trailer-volume-slider::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:16px;background:transparent;border:0;box-shadow:none}.trailer-volume-slider::-moz-range-thumb{width:24px;height:16px;background:transparent;border:0;box-shadow:none}.trailer-time{flex:0 0 auto;min-width:36px;color:rgba(255,255,255,0.78);font:11px/1.3 Arial,"Microsoft YaHei",sans-serif;white-space:nowrap;text-align:center}.trailer-progress{flex:1 1 160px;min-width:120px;height:4px;margin:0;border-radius:999px;accent-color:#38bdf8;cursor:pointer}.jav-jump-toast{position:fixed;left:50%;top:72px;z-index:2147483647;display:flex;align-items:flex-start;gap:12px;width:min(420px,calc(100vw - 32px));padding:14px 16px;color:#f8fafc;background:rgba(15,23,42,0.94);border:1px solid rgba(148,163,184,0.28);border-left:4px solid #38bdf8;border-radius:12px;box-shadow:0 18px 44px rgba(0,0,0,0.34),0 0 0 1px rgba(255,255,255,0.04)inset;backdrop-filter:blur(14px)saturate(1.1);font-family:Arial,"Microsoft YaHei",sans-serif;transform:translate(-50%,-12px);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}.jav-jump-toast.show{opacity:1;transform:translate(-50%,0)}.jav-jump-toast.hide{opacity:0;transform:translate(-50%,-12px)}.jav-jump-toast-icon{flex:0 0 auto;width:24px;height:24px;border-radius:999px;color:#082f49;background:#7dd3fc;font-size:16px;font-weight:800;line-height:24px;text-align:center}.jav-jump-toast-title{margin:0 0 4px;font-size:14px;font-weight:700;line-height:1.35}.jav-jump-toast-message{margin:0;color:#cbd5e1;font-size:13px;line-height:1.45}@media(max-width:720px){.trailer-overlay{padding:12px}.trailer-modal{width:100%;border-radius:8px}.trailer-header{padding:12px 12px 30px}.trailer-title{gap:7px;font-size:13px}.trailer-source{max-width:42vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.trailer-footer{left:8px;right:8px;bottom:8px;flex-direction:column;align-items:stretch;gap:7px;padding:8px}.trailer-control-left,.trailer-control-right{width:100%;justify-content:center}.trailer-progress{min-width:80px}.jav-jump-toast{top:18px;width:calc(100vw - 24px);padding:13px 14px}}`);
+
     const Utils = {
         normalizeCode(code) {
             const raw = String(code || '').trim();
             if (!raw) return '';
+
             const normalized = raw
                 .replace(/\s+/g, '-')
                 .replace(/^FC2[-_]?PPV[-_]?/i, 'FC2-')
                 .toUpperCase();
+
             const uncensoredNumeric = normalized.match(/(\d{6})[-_](\d{2,3})/);
             if (uncensoredNumeric) {
                 const sep = uncensoredNumeric[0].includes('_') ? '_' : '-';
                 return `${uncensoredNumeric[1]}${sep}${uncensoredNumeric[2]}`;
             }
+
             const compact = normalized.match(/^([A-Z]{2,10})(\d{3,6})$/);
             if (compact) {
                 const number = compact[2].replace(/^0+(?=\d{3})/, '');
                 return `${compact[1]}-${number}`;
             }
+
             const trimmed = normalized.match(/^([A-Z0-9]{2,15}[-_]\d{2,9})/);
             if (trimmed) return trimmed[1];
+
             return normalized;
         },
+
         extractCode(text, options = {}) {
             if (!text) return null;
+
             const uncensoredHit = String(text).match(/(?:(PACOPACOMAMA|PACO|10MUSUME|10MU|1PONDO|CARIBBEANCOM|CARIB|HEYZO)[-_\s]*)?(\d{6})([-_])(\d{2,3})/i);
             if (uncensoredHit) {
                 const code = Utils.normalizeCode(`${uncensoredHit[2]}${uncensoredHit[3]}${uncensoredHit[4]}`);
@@ -4116,10 +4782,12 @@
                 }
                 return code;
             }
+
             const mgstageFull = String(text).match(/\b(\d{3}[A-Z]{2,10})[-_\s](\d{2,6})\b/i);
             if (mgstageFull) {
                 return Utils.normalizeCode(`${mgstageFull[1]}-${mgstageFull[2]}`);
             }
+
             const patterns = [
                 { regex: /([A-Z]{2,15})[-_\s]([A-Z]{1,2}\d{2,10})/i, type: 'alphanum' },
                 { regex: /FC2[-\s_]?(?:PPV)?[-\s_]?(\d{6,9})/i, type: 'fc2' },
@@ -4128,11 +4796,14 @@
                 { regex: /\b([A-Z]{2,10})(\d{3,6})\b/i, type: 'compactStandard' },
                 { regex: /([A-Z]{1,2})(\d{3,4})/i, type: 'compact' }
             ];
+
             const ignoreList = ['FULLHD', 'H264', 'H265', '1080P', '720P', 'PART', 'DISC', '10BIT'];
+
             for (let i = 0; i < patterns.length; i++) {
                 const { regex, type } = patterns[i];
                 const match = text.match(regex);
                 if (!match) continue;
+
                 if (type === 'alphanum') {
                     return Utils.normalizeCode(match[0].trim());
                 } else if (type === 'standard') {
@@ -4155,6 +4826,7 @@
             }
             return null;
         },
+
         hexToRgb(color) {
             const hex = String(color || '').trim().replace(/^#/, '');
             if (!/^[0-9a-f]{3}([0-9a-f]{3})?$/i.test(hex)) return { r: 100, g: 116, b: 139 };
@@ -4165,12 +4837,14 @@
                 b: parseInt(full.slice(4, 6), 16),
             };
         },
+
         mixColor(color, target = '#ffffff', weight = 0.12) {
             const from = Utils.hexToRgb(color);
             const to = Utils.hexToRgb(target);
             const mix = key => Math.round(from[key] * weight + to[key] * (1 - weight));
             return `rgb(${mix('r')}, ${mix('g')}, ${mix('b')})`;
         },
+
         getModernBtnStyle(color) {
             const accent = color || '#64748b';
             const bg = Utils.mixColor(accent, '#ffffff', 0.10);
@@ -4200,6 +4874,7 @@
                 'box-sizing:border-box',
             ].join(';');
         },
+
         createLinkBtn(text, color, url) {
             const btn = document.createElement('a');
             btn.textContent = text;
@@ -4209,6 +4884,7 @@
             btn.style.cssText = Utils.getModernBtnStyle(color);
             return btn;
         },
+
         createJumpLinkBtn(text, color, url) {
             const btn = Utils.createLinkBtn(text, color, url);
             btn.addEventListener('click', e => {
@@ -4216,6 +4892,7 @@
             }, true);
             return btn;
         },
+
         createBtn(text, color, handler, useCapture = false) {
             const btn = document.createElement('a');
             btn.textContent = text;
@@ -4234,6 +4911,7 @@
             }
             return btn;
         },
+
         request(url) {
             return new Promise((resolve) => {
                 GM_xmlhttpRequest({
@@ -4244,45 +4922,59 @@
                 });
             });
         },
+
         showToast(title, message = '', duration = 2000) {
             document.querySelector('.jav-jump-toast')?.remove();
+
             const toast = document.createElement('div');
             toast.className = 'jav-jump-toast';
+
             const icon = document.createElement('div');
             icon.className = 'jav-jump-toast-icon';
             icon.textContent = '!';
+
             const body = document.createElement('div');
+
             const titleEl = document.createElement('p');
             titleEl.className = 'jav-jump-toast-title';
             titleEl.textContent = title;
+
             const messageEl = document.createElement('p');
             messageEl.className = 'jav-jump-toast-message';
             messageEl.textContent = message;
+
             body.appendChild(titleEl);
             if (message) body.appendChild(messageEl);
             toast.appendChild(icon);
             toast.appendChild(body);
             document.body.appendChild(toast);
+
             requestAnimationFrame(() => toast.classList.add('show'));
+
             setTimeout(() => {
                 toast.classList.remove('show');
                 toast.classList.add('hide');
                 setTimeout(() => toast.remove(), 220);
             }, duration);
         },
+
         showOverlay(imgUrl, code, source = null) {
             const originalHtmlOverflow = document.documentElement.style.overflow;
             const originalBodyOverflow = document.body.style.overflow;
+
             document.documentElement.style.overflow = 'hidden';
             document.body.style.overflow = 'hidden';
+
             const container = document.createElement('div');
             container.className = 'preview-overlay';
+
             const img = document.createElement('img');
             img.className = 'preview-img zoomed';
             img.onclick = (e) => {
                 e.stopPropagation();
                 img.classList.toggle('zoomed');
             };
+
             let currentBlobUrl = null;
             const loadImg = (url, src) => {
                 if (currentBlobUrl) {
@@ -4311,7 +5003,9 @@
                     img.src = url;
                 }
             };
+
             loadImg(imgUrl, source);
+
             const toolbar = document.createElement('div');
             toolbar.className = 'preview-toolbar';
             toolbar.style.cssText = `
@@ -4322,53 +5016,64 @@
                 gap: 12px;
                 z-index: 2147483648;
             `;
+
             const createButton = (text, icon, className, onClick) => {
                 const btn = document.createElement('button');
                 btn.className = `preview-btn ${className}`;
-                btn.innerHTML = `${icon}${text}`;
+                btn.innerHTML = `${icon} ${text}`;
                 btn.onclick = onClick;
                 return btn;
             };
+
             const setActiveSource = (activeSource) => {
                 javfreeBtn.classList.toggle('active', activeSource === 'javfree');
                 projectjavBtn.classList.toggle('active', activeSource === 'projectjav');
                 javstoreBtn.classList.toggle('active', activeSource === 'javstore');
             };
+
             const javfreeBtn = createButton('javfree', '🟢', 'javfree', async (e) => {
                 e.stopPropagation();
                 const newUrl = await Thumbnail.javfree(code);
                 if (newUrl) { loadImg(newUrl, 'javfree'); setActiveSource('javfree'); }
                 else alert('javfree 未找到预览图');
             });
+
             const projectjavBtn = createButton('projectjav', '🟡', 'javstore', async (e) => {
                 e.stopPropagation();
                 const newUrl = await Thumbnail.projectjav(code);
                 if (newUrl) { loadImg(newUrl, 'projectjav'); setActiveSource('projectjav'); }
                 else alert('projectjav 未找到预览图');
             });
+
             const javstoreBtn = createButton('javstore', '🔴', 'javstore', async (e) => {
                 e.stopPropagation();
                 const newUrl = await Thumbnail.javstore(code);
                 if (newUrl) { loadImg(newUrl, 'javstore'); setActiveSource('javstore'); }
                 else alert('javstore 未找到预览图');
             });
+
             const newWindowBtn = createButton('新窗口', '🌐', 'action', (e) => {
                 e.stopPropagation();
                 window.open(img.src);
             });
+
             const downloadBtn = createButton('下载', '⬇️', 'action', (e) => {
                 e.stopPropagation();
                 GM_download(img.src, `${code}.jpg`);
             });
+
             if (source === 'javfree') javfreeBtn.classList.add('active');
             else if (source === 'projectjav') projectjavBtn.classList.add('active');
             else if (source === 'javstore') javstoreBtn.classList.add('active');
+
             toolbar.appendChild(javfreeBtn);
             toolbar.appendChild(projectjavBtn);
             toolbar.appendChild(javstoreBtn);
             toolbar.appendChild(newWindowBtn);
             toolbar.appendChild(downloadBtn);
+
             container.appendChild(img);
+
             const closeOverlay = () => {
                 if (container.parentNode) {
                     container.remove();
@@ -4381,7 +5086,9 @@
                     }
                 }
             };
+
             container.onclick = closeOverlay;
+
             const escHandler = (e) => {
                 if (e.key === 'Escape') {
                     closeOverlay();
@@ -4389,33 +5096,47 @@
                 }
             };
             document.addEventListener('keydown', escHandler);
+
             document.body.appendChild(container);
             document.body.appendChild(toolbar);
         },
+
         showTrailerOverlay({ code, url, type = 'video', source = '预告片', qualities = null, quality = null, urls = null, fallbackResolver = null, javxySource = null }) {
             document.querySelector('.trailer-overlay')?.remove();
             const isIframe = type === 'iframe';
+
             const originalHtmlOverflow = document.documentElement.style.overflow;
             const originalBodyOverflow = document.body.style.overflow;
             document.documentElement.style.overflow = 'hidden';
             document.body.style.overflow = 'hidden';
+
             const overlay = document.createElement('div');
             overlay.className = 'trailer-overlay';
+
             const modal = document.createElement('div');
             modal.className = 'trailer-modal';
             modal.onclick = (e) => e.stopPropagation();
+
             const header = document.createElement('div');
             header.className = 'trailer-header';
+
             const title = document.createElement('div');
             title.className = 'trailer-title';
-            title.innerHTML = `<span>🎞️</span><span class="trailer-code">${code}</span><span class="trailer-source">${source}</span>`;
+            title.innerHTML = `
+                <span>🎞️</span>
+                <span class="trailer-code">${code}</span>
+                <span class="trailer-source">${source}</span>
+            `;
             const sourceBadge = title.querySelector('.trailer-source');
+
             const closeBtn = document.createElement('button');
             closeBtn.className = 'jav-player-close';
             closeBtn.type = 'button';
             closeBtn.textContent = '×';
+
             header.appendChild(title);
             header.appendChild(closeBtn);
+
             const screen = document.createElement('div');
             screen.className = 'trailer-screen';
             if (isIframe) screen.classList.add('is-iframe');
@@ -4524,6 +5245,7 @@
                     syncTrailerControls();
                 }
             };
+
             const setFallbackStatus = (message, autoHide = false) => {
                 clearTimeout(fallbackStatusTimer);
                 fallbackStatus.textContent = message || '';
@@ -4534,17 +5256,20 @@
                     }, 1800);
                 }
             };
+
             const markPlaybackReady = () => {
                 playbackStarted = true;
                 clearTimeout(playbackReadyTimer);
                 setFallbackStatus('', false);
             };
+
             const destroyActiveHls = () => {
                 if (video?._hls) {
                     try { video._hls.destroy(); } catch {}
                     video._hls = null;
                 }
             };
+
             const normalizedSourceName = (value = activeJavxySource) => {
                 const raw = String(value || '').trim().toLowerCase();
                 if (raw.includes('mgstage')) return 'MGStage';
@@ -4554,6 +5279,7 @@
                 if (raw.includes('dmm')) return 'DMM';
                 return String(value || activeSource || '').replace(/^Javxy\s*\|\s*/i, '').trim();
             };
+
             const schedulePlaybackGuard = (reason = 'timeout') => {
                 clearTimeout(playbackReadyTimer);
                 const timeout = /\.m3u8(?:[?#].*)?$/i.test(activeUrl) || activeType === 'hls' ? 8000 : 4000;
@@ -4562,6 +5288,7 @@
                     handlePlaybackFailure(reason);
                 }, timeout);
             };
+
             const useResultSource = (result) => {
                 activeUrl = result.url;
                 activeType = result.type || 'video';
@@ -4578,6 +5305,7 @@
                 if (sourceBadge) sourceBadge.textContent = activeSource;
                 if (qualityBar) qualityBar.style.display = 'none';
             };
+
             const handlePlaybackFailure = async (reason = 'error') => {
                 if (overlayClosed || !video || sourceFallbackInProgress) return;
                 if (playbackStarted && reason !== 'timeout') return;
@@ -4619,6 +5347,7 @@
                     sourceFallbackInProgress = false;
                 }
             };
+
             const formatTime = (seconds) => {
                 if (!Number.isFinite(seconds) || seconds < 0) return '00:00';
                 const total = Math.floor(seconds);
@@ -4629,6 +5358,7 @@
                     ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
                     : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
             };
+
             const syncTrailerControls = () => {
                 if (!video) return;
                 playBtn.textContent = video.paused ? '▶' : '⏸';
@@ -4641,6 +5371,7 @@
                     progress.value = String(Math.round(((video.currentTime || 0) / video.duration) * 1000));
                 }
             };
+
             const showVolumeIndicator = () => {
                 if (!video) return;
                 volumeIndicator.textContent = `${Math.round(video.volume * 100)}%`;
@@ -4650,6 +5381,7 @@
                     volumeIndicator.classList.remove('is-visible');
                 }, 820);
             };
+
             const showTrailerControls = () => {
                 screen.classList.remove('is-controls-hidden');
                 clearTimeout(controlsHideTimer);
@@ -4660,6 +5392,7 @@
                     }
                 }, 2000);
             };
+
             const scheduleHideTrailerControls = () => {
                 clearTimeout(controlsHideTimer);
                 if (!video || video.paused) {
@@ -4670,10 +5403,12 @@
                     screen.classList.add('is-controls-hidden');
                 }, 2000);
             };
+
             const toggleTrailerFullscreen = () => {
                 if (document.fullscreenElement) document.exitFullscreen?.();
                 else screen.requestFullscreen?.();
             };
+
             const isM3U8 = /\.m3u8(?:[?#].*)?$/i.test(url);
             const HLS_SCRIPT_URL = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js';
             const getHlsClass = () => {
@@ -4685,6 +5420,7 @@
                 const readyHls = getHlsClass();
                 if (readyHls) return Promise.resolve(readyHls);
                 if (hlsLoadPromise) return hlsLoadPromise;
+
                 const loadByGm = () => new Promise(resolve => {
                     GM_xmlhttpRequest({
                         method: 'GET',
@@ -4704,6 +5440,7 @@
                         ontimeout: () => resolve(getHlsClass())
                     });
                 });
+
                 hlsLoadPromise = new Promise(resolve => {
                     const existing = document.querySelector('script[data-laosiji-hls="1"]');
                     if (existing) {
@@ -4714,6 +5451,7 @@
                         }, 4000);
                         return;
                     }
+
                     const hlsScript = document.createElement('script');
                     hlsScript.src = HLS_SCRIPT_URL;
                     hlsScript.async = true;
@@ -4725,6 +5463,7 @@
                     if (!HlsClass) hlsLoadPromise = null;
                     return HlsClass;
                 });
+
                 return hlsLoadPromise;
             };
             const createHlsLoader = () => class GMHlsLoader {
@@ -4829,10 +5568,12 @@
                     });
                 }
             };
+
             const attachMp4Src = (src) => {
                 if (!src) return;
                 video.src = src;
             };
+
             const attachM3u8Src = (src) => {
                 if (!src) return;
                 const HlsClass = getHlsClass();
@@ -4886,6 +5627,7 @@
                 hls.attachMedia(video);
                 video._hls = hls;
             };
+
             const attachVideoSrc = (src) => {
                 if (!src) return;
                 setFallbackStatus(`正在加载 ${normalizedSourceName() || '预告片'}...`);
@@ -4893,6 +5635,7 @@
                 else attachMp4Src(src);
                 schedulePlaybackGuard('timeout');
             };
+
             const initTrailerVideo = (src) => {
                 if (isM3U8 && !getHlsClass()) {
                     loadHlsLibrary().then(HlsClass => {
@@ -4904,6 +5647,7 @@
                     attachVideoSrc(src);
                 }
             };
+
             if (isIframe) {
                 const iframe = document.createElement('iframe');
                 iframe.src = url;
@@ -4920,8 +5664,10 @@
                 const savedMuted = GM_getValue('trailer_muted', false);
                 video.volume = Number.isFinite(savedVolume) ? Math.min(1, Math.max(0, savedVolume)) : 0.35;
                 video.muted = Boolean(savedMuted);
+
                 initTrailerVideo(fallbackUrls[fallbackIndex] || url);
                 video.preload = 'auto';
+
                 video.addEventListener('volumechange', () => {
                     GM_setValue('trailer_volume', video.volume);
                     GM_setValue('trailer_muted', video.muted);
@@ -5018,6 +5764,7 @@
                     scheduleHideTrailerControls();
                 }, 120);
             }
+
             qualityBar = document.createElement('div');
             const qualityMap = qualities && typeof qualities === 'object' ? qualities : null;
             if (!isIframe && qualityMap && Object.keys(qualityMap).length > 1) {
@@ -5032,20 +5779,25 @@
                 const sortedKeys = Object.keys(qualityMap)
                     .filter(key => qualityMap[key])
                     .sort((a, b) => qualityOrder.indexOf(a) - qualityOrder.indexOf(b));
+
                 qualityBar.className = 'trailer-quality-bar';
+
                 const select = document.createElement('select');
                 select.className = 'trailer-quality-select';
+
                 const setActiveQuality = (key) => {
                     activeQuality = key;
                     activeUrl = qualityMap[key];
                     select.value = key;
                 };
+
                 sortedKeys.forEach(key => {
                     const opt = document.createElement('option');
                     opt.value = key;
                     opt.textContent = qualityLabels[key] || key;
                     select.appendChild(opt);
                 });
+
                 select.addEventListener('change', async () => {
                     const key = select.value;
                     if (!video || !qualityMap[key] || activeQuality === key) return;
@@ -5066,9 +5818,11 @@
                         await video.play().catch(() => {});
                     }
                 });
+
                 qualityBar.appendChild(select);
                 setActiveQuality(activeQuality && qualityMap[activeQuality] ? activeQuality : sortedKeys[0]);
             }
+
             const footer = document.createElement('div');
             footer.className = 'trailer-footer';
             const footerLeft = document.createElement('div');
@@ -5086,6 +5840,7 @@
             footer.appendChild(footerLeft);
             footerRight.appendChild(fullscreenBtn);
             footer.appendChild(footerRight);
+
             modal.appendChild(screen);
             screen.appendChild(header);
             if (!isIframe) screen.appendChild(footer);
@@ -5102,6 +5857,7 @@
                 });
                 footer.addEventListener('mouseleave', scheduleHideTrailerControls);
             }
+
             const closeOverlay = (event = null) => {
                 if (event) {
                     event.preventDefault();
@@ -5132,6 +5888,7 @@
                 clearTimeout(fallbackStatusTimer);
                 clearTimeout(playbackReadyTimer);
             };
+
             const overlayCloseGuard = (event) => {
                 if (!overlay.contains(event.target)) return;
                 const shouldClose = event.target === overlay || event.target.closest('.jav-player-close');
@@ -5143,6 +5900,7 @@
                 event.stopPropagation();
                 event.stopImmediatePropagation?.();
             };
+
             const escHandler = (e) => {
                 if (e.key === 'Escape') {
                     closeOverlay();
@@ -5181,6 +5939,7 @@
                     showVolumeIndicator();
                 }
             };
+
             closeBtn.addEventListener('click', closeOverlay, true);
             overlay.addEventListener('click', e => {
                 if (e.target === overlay) closeOverlay(e);
@@ -5191,8 +5950,10 @@
             document.addEventListener('keydown', escHandler, true);
             document.body.appendChild(overlay);
         },
+
         getJavBusUrl(code) {
             const codeLower = code.toLowerCase();
+
             const isUncensored =
                 /^\d{6}[-_\s]\d{3}$/.test(code) ||
                 codeLower.startsWith('heyzo') ||
@@ -5212,22 +5973,27 @@
                 /^n\d{4}$/.test(codeLower) ||
                 codeLower.startsWith('k_') ||
                 /^k\d{4}$/.test(codeLower);
+
             if (isUncensored) {
                 return `https://www.javbus.com/uncensored/search/${encodeURIComponent(code)}&type=1`;
             }
             return `https://www.javbus.com/search/${encodeURIComponent(code)}&type=&parent=ce`;
         }
     };
+
     const Thumbnail = {
         sources: ['javfree', 'projectjav', 'javstore'],
+
         cacheKey(code) {
             return `thumb_cache_v3_${code}`;
         },
+
         lookupCode(code) {
             const text = String(code || '').trim();
             const fc2 = text.match(/^(?:FC2[-_\s]?(?:PPV[-_\s]?)?)?(\d{6,9})$/i);
             return fc2 ? fc2[1] : text;
         },
+
         sourceOrder() {
             const savedOrder = Settings.getSourceOrder();
             const ordered = Array.isArray(savedOrder) ? savedOrder : [];
@@ -5238,6 +6004,7 @@
                 return true;
             });
         },
+
         async fetchFromSource(source, code) {
             try {
                 return await this[source](this.lookupCode(code));
@@ -5246,14 +6013,17 @@
                 return null;
             }
         },
+
         normalizeForCompare(text) {
             return String(text || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         },
+
         isCodeMatched(text, code) {
             const normalizedText = this.normalizeForCompare(text);
             const normalizedCode = this.normalizeForCompare(code);
             return !!normalizedCode && normalizedText.includes(normalizedCode);
         },
+
         isDetailMatched(doc, url, code) {
             const title = doc?.querySelector('title')?.textContent || '';
             const headings = [...(doc?.querySelectorAll('h1,h2,h3,.entry-title,.movie-title,.post-title') || [])]
@@ -5262,6 +6032,7 @@
             const bodyText = (doc?.body?.textContent || '').slice(0, 5000);
             return this.isCodeMatched([url, title, headings, bodyText].join(' '), code);
         },
+
         normalizePreviewUrl(url, baseUrl = '') {
             if (!url) return '';
             const absolute = /^https?:\/\//i.test(url)
@@ -5269,6 +6040,7 @@
                 : (baseUrl ? new URL(url, baseUrl).href : url);
             return absolute.replace(/^http:/, 'https:');
         },
+
         isJavfreePreviewImage(url, code) {
             const cleanUrl = String(url || '').split('?')[0];
             const lookupCode = this.lookupCode(code);
@@ -5282,6 +6054,7 @@
                     (isFc2Numeric && fc2ShotPattern.test(cleanUrl))
                 );
         },
+
         selectJavfreePreviewUrl(doc, detailUrl, code) {
             const urls = [...doc.querySelectorAll('p > img[src]')]
                 .map(img => this.normalizePreviewUrl(img.getAttribute('src') || img.src || '', detailUrl))
@@ -5291,6 +6064,7 @@
                 urls.find(url => /_1\.(?:jpe?g|png|webp)$/i.test(url)) ||
                 '';
         },
+
         async javfree(code) {
             code = this.lookupCode(code);
             const cacheKey = this.cacheKey(code);
@@ -5299,16 +6073,19 @@
                 const cached = sessionStorage.getItem(cacheKey);
                 if (cached) return cached;
             }
+
             try {
                 const html = await Utils.request(`https://javfree.me/search/${code}`);
                 const doc = new DOMParser().parseFromString(html, 'text/html');
                 const link = [...doc.querySelectorAll('.entry-title>a')]
                     .find(a => this.isCodeMatched([a.href, a.textContent].join(' '), code))?.href;
                 if (!link) return null;
+
                 const dHtml = await Utils.request(link);
                 const dDoc = new DOMParser().parseFromString(dHtml, 'text/html');
                 if (!this.isDetailMatched(dDoc, link, code)) return null;
                 const url = this.selectJavfreePreviewUrl(dDoc, link, code);
+
                 if (url && cacheEnabled) {
                     sessionStorage.setItem(cacheKey, url);
                     return url;
@@ -5319,14 +6096,17 @@
                 return null;
             }
         },
+
         async javstore(code) {
             code = this.lookupCode(code);
             try {
                 const normalizedCode = code.replace(/^fc2-?/i, '').replace(/-/g, '').toLowerCase();
                 console.log(`javstore: searching for code=${code}, normalized=${normalizedCode}`);
+
                 const searchUrl = `https://javstore.net/search?q=${encodeURIComponent(code)}`;
                 const searchHtml = await Utils.request(searchUrl);
                 const searchDoc = new DOMParser().parseFromString(searchHtml, 'text/html');
+
                 const candidateLinks = searchDoc.querySelectorAll('a[href*="/"]');
                 const detailUrls = [];
                 for (const link of candidateLinks) {
@@ -5345,10 +6125,12 @@
                         console.log(`javstore: 候选链接 [${detailUrls.length}]: ${fullUrl}`);
                     }
                 }
+
                 if (detailUrls.length === 0) {
                     console.warn('javstore: 未找到匹配的详情页');
                     return null;
                 }
+
                 for (const detailUrl of detailUrls) {
                     console.log(`javstore: 尝试详情页: ${detailUrl}`);
                     const imgUrl = await this._extractImgFromDetail(detailUrl, code);
@@ -5358,6 +6140,7 @@
                     }
                     console.log(`javstore: 该页无预览图，尝试下一个`);
                 }
+
                 console.warn('javstore: 所有候选页均无预览图');
                 return null;
             } catch (e) {
@@ -5365,6 +6148,7 @@
                 return null;
             }
         },
+
         async _extractImgFromDetail(detailUrl, code) {
             try {
                 const detailHtml = await Utils.request(detailUrl);
@@ -5373,24 +6157,28 @@
                     console.warn('javstore: 详情页番号不匹配，跳过', detailUrl);
                     return null;
                 }
+
                 for (const link of detailDoc.querySelectorAll('a')) {
                     if (link.textContent.includes('CLICK HERE')) {
                         const imgUrl = link.href || link.getAttribute('href') || '';
                         if (imgUrl) return this.normalizePreviewUrl(imgUrl, detailUrl);
                     }
                 }
+
                 const img = detailDoc.querySelector('img[src*="_s.jpg"]');
                 if (img) {
                     let src = img.getAttribute('src') || '';
                     if (!src.startsWith('http')) src = new URL(src, detailUrl).href;
                     return this.normalizePreviewUrl(src.replace(/_s\.jpg$/, '_l.jpg'), detailUrl);
                 }
+
                 return null;
             } catch (e) {
                 console.warn('javstore: 详情页请求失败', detailUrl, e.message);
                 return null;
             }
         },
+
         async projectjav(code) {
             code = this.lookupCode(code);
             try {
@@ -5413,12 +6201,14 @@
                         ontimeout: () => { console.warn('[projectjav] 请求超时'); reject(new Error('请求超时')); }
                     });
                 });
+
                 const searchUrl = `https://projectjav.com/?searchTerm=${encodeURIComponent(code)}`;
                 console.log('[projectjav] 搜索页:', searchUrl);
                 const searchRes = await request(searchUrl);
                 const searchHtml = searchRes.responseText || '';
                 const finalSearchUrl = searchRes.finalUrl || searchUrl;
                 const searchDoc = new DOMParser().parseFromString(searchHtml, 'text/html');
+
                 let detailUrl = /\/movie\//i.test(new URL(finalSearchUrl).pathname)
                     ? finalSearchUrl
                     : '';
@@ -5439,6 +6229,7 @@
                 const detailHtml = detailRes.responseText || '';
                 const finalDetailUrl = detailRes.finalUrl || detailUrl;
                 const detailDoc = new DOMParser().parseFromString(detailHtml, 'text/html');
+
                 const screenshotLink = [...detailDoc.querySelectorAll('.col-md-12.thumbnail a[data-featherlight="image"], .thumbnail a[data-featherlight="image"]')]
                     .find(a => this.isCodeMatched([
                         a.outerHTML,
@@ -5455,6 +6246,7 @@
                         if (src) return this.normalizePreviewUrl(src, finalDetailUrl);
                     }
                 }
+
                 console.warn('[projectjav] 详情页未找到图片，页面标题:', detailDoc.title);
                 return null;
             } catch (e) {
@@ -5462,6 +6254,7 @@
                 return null;
             }
         },
+
         async get(code) {
             const cacheEnabled = Settings.getPreviewCacheEnabled();
             const cacheKey = this.cacheKey(code);
@@ -5469,18 +6262,22 @@
                 const cached = sessionStorage.getItem(cacheKey);
                 if (cached) return { url: cached, source: null };
             }
+
             let url = null, source = null;
+
             for (const src of this.sourceOrder()) {
                 url = await this.fetchFromSource(src, code);
                 if (url) { source = src; break; }
                 console.log(`${src} 无结果，尝试下一个来源`);
             }
+
             console.log('预览图最终结果:', url ? `有图 (${source})` : '无图');
             if (url && cacheEnabled) {
                 sessionStorage.setItem(cacheKey, url);
             }
             return { url, source };
         },
+
         async show(code) {
             const result = await this.get(code);
             if (result.url) {
@@ -5490,19 +6287,24 @@
             }
         }
     };
+
     const ListPreview = (() => {
         let styleReady = false;
+
         function enabled() {
             return GM_getValue('list_preview_quick_enabled', true);
         }
+
         function ensureStyle() {
             if (styleReady) return;
             styleReady = true;
-            GM_addStyle(`.jav-card-cover{position:relative !important}.jav-list-preview-btn{position:absolute;right:8px;bottom:8px;z-index:3;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.28);border-radius:999px;background:rgba(15,23,42,.56);color:#fff;backdrop-filter:blur(8px);box-shadow:0 4px 12px rgba(0,0,0,.24);cursor:pointer;user-select:none;transition:transform .16s ease,background .16s ease,border-color .16s ease,box-shadow .16s ease}.jav-list-preview-btn:hover{transform:translateY(-1px) scale(1.04);background:rgba(37,99,235,.78);border-color:rgba(255,255,255,.42);box-shadow:0 8px 18px rgba(15,23,42,.28)}.jav-list-preview-btn:active{transform:scale(.96)}.jav-list-preview-btn:focus-visible{outline:2px solid rgba(191,219,254,.95);outline-offset:2px}.jav-list-preview-icon{width:16px;height:16px;display:block;background-repeat:no-repeat;background-position:center;background-size:contain;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z'/%3E%3Ccircle cx='12' cy='12' r='2.9'/%3E%3C/svg%3E");opacity:.96}`);
+            GM_addStyle(`.jav-card-cover{position:relative !important}.jav-list-preview-btn{position:absolute;right:8px;bottom:8px;z-index:3;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.28);border-radius:999px;background:rgba(15,23,42,.56);color:#fff;backdrop-filter:blur(8px);box-shadow:0 4px 12px rgba(0,0,0,.24);cursor:pointer;user-select:none;transition:transform .16s ease,background .16s ease,border-color .16s ease,box-shadow .16s ease}.jav-list-preview-btn:hover{transform:translateY(-1px)scale(1.04);background:rgba(37,99,235,.78);border-color:rgba(255,255,255,.42);box-shadow:0 8px 18px rgba(15,23,42,.28)}.jav-list-preview-btn:active{transform:scale(.96)}.jav-list-preview-btn:focus-visible{outline:2px solid rgba(191,219,254,.95);outline-offset:2px}.jav-list-preview-icon{width:16px;height:16px;display:block;background-repeat:no-repeat;background-position:center;background-size:contain;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z'/%3E%3Ccircle cx='12' cy='12' r='2.9'/%3E%3C/svg%3E");opacity:.96}`);
         }
+
         function isListPage() {
             return !SiteManager.isDetailPage();
         }
+
         function attachToCard(card) {
             if (!card) return;
             const cover = SiteManager.getCardCover(card);
@@ -5529,6 +6331,7 @@
             btn.tabIndex = 0;
             btn.title = `预览图 ${code}`;
             btn.innerHTML = '<span class="jav-list-preview-icon" aria-hidden="true"></span>';
+
             const openPreview = async e => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -5554,9 +6357,11 @@
             }, true);
             cover.appendChild(btn);
         }
+
         function removeAll() {
             document.querySelectorAll('.jav-list-preview-btn').forEach(el => el.remove());
         }
+
         function sync() {
             if (!isListPage()) {
                 removeAll();
@@ -5569,24 +6374,30 @@
             }
             SiteManager.getListCards().forEach(attachToCard);
         }
+
         return { sync, removeAll, attach: attachToCard };
     })();
     Core.expose('__LAOSIJI_LIST_PREVIEW__', ListPreview);
+
     const DetailPreviewInline = (() => {
         let styleReady = false;
         let lastToken = 0;
         let state = { code: '', status: '' };
+
         function enabled() {
             return GM_getValue('detail_preview_inline_enabled', true);
         }
+
         function ensureStyle() {
             if (styleReady) return;
             styleReady = true;
-            GM_addStyle(`.jav-nong-slot.has-detail-preview-inline{display:flex !important;align-items:flex-start !important;gap:12px !important;overflow:visible !important}.jav-detail-preview-standalone{display:flex !important;align-items:flex-start !important;gap:12px !important;min-width:0 !important;align-self:flex-start !important;overflow:visible !important}.row.movie>.jav-detail-preview-standalone{flex:0 0 180px !important}.jav-flex-container>.jav-detail-preview-standalone{flex:0 0 180px !important}#video_jacket_info tr>.jav-detail-preview-standalone{flex:0 0 180px !important;min-width:160px !important;vertical-align:top !important}.javlib-nong-slot.has-detail-preview-inline{width:100% !important}.jav-nong-slot.has-detail-preview-inline .jav-nong-wrapper{flex:1 1 auto !important;min-width:0 !important}.javlib-nong-slot.has-detail-preview-inline>div:not(.jav-detail-preview-wrap){flex:1 1 0 !important;min-width:0 !important;display:block !important}.javlib-nong-slot.has-detail-preview-inline>.jav-detail-preview-wrap{flex:0 0 180px !important;width:180px !important;max-width:180px !important;min-width:160px !important;height:480px !important;max-height:480px !important;overflow:hidden !important;display:block !important}.jav-detail-preview-wrap{flex:0 0 180px;width:180px;max-width:180px;min-width:150px;align-self:flex-start;position:relative;box-sizing:border-box;overflow:hidden}.jav-detail-preview-inline{display:block;width:100%;height:auto;max-width:100%;max-height:480px;object-fit:contain;border-radius:6px;cursor:zoom-in}.javlib-nong-slot.has-detail-preview-inline .jav-detail-preview-inline{width:100% !important;height:100% !important;max-width:100% !important;max-height:100% !important;object-fit:contain !important}.jav-detail-preview-loading{position:absolute;inset:0;display:grid;place-items:center;color:#475569;font-size:12px;font-weight:700;white-space:nowrap;pointer-events:none}@media (max-width:900px){.jav-nong-slot.has-detail-preview-inline{flex-wrap:wrap !important}.jav-detail-preview-standalone{flex-basis:100% !important}.jav-detail-preview-wrap{flex-basis:100%;width:100%;max-width:100%}.jav-detail-preview-inline{max-width:100%;max-height:480px;margin:0 auto}.javlib-nong-slot.has-detail-preview-inline>.jav-detail-preview-wrap{flex-basis:100% !important;width:100% !important;max-width:100% !important;height:480px !important;max-height:480px !important}}`);
+            GM_addStyle(`.jav-nong-slot.has-detail-preview-inline{display:flex !important;align-items:flex-start !important;gap:12px !important;overflow:visible !important}.jav-detail-preview-standalone{display:flex !important;align-items:flex-start !important;gap:12px !important;min-width:0 !important;align-self:flex-start !important;overflow:visible !important}.row.movie>.jav-detail-preview-standalone{flex:0 0 180px !important}.jav-flex-container>.jav-detail-preview-standalone{flex:0 0 180px !important}#video_jacket_info tr>.jav-detail-preview-standalone{flex:0 0 180px !important;min-width:160px !important;vertical-align:top !important}.javlib-nong-slot.has-detail-preview-inline{width:100% !important}.jav-nong-slot.has-detail-preview-inline .jav-nong-wrapper{flex:1 1 auto !important;min-width:0 !important}.javlib-nong-slot.has-detail-preview-inline>div:not(.jav-detail-preview-wrap){flex:1 1 0 !important;min-width:0 !important;display:block !important}.javlib-nong-slot.has-detail-preview-inline>.jav-detail-preview-wrap{flex:0 0 180px !important;width:180px !important;max-width:180px !important;min-width:160px !important;height:480px !important;max-height:480px !important;overflow:hidden !important;display:block !important}.jav-detail-preview-wrap{flex:0 0 180px;width:180px;max-width:180px;min-width:150px;align-self:flex-start;position:relative;box-sizing:border-box;overflow:hidden}.jav-detail-preview-inline{display:block;width:100%;height:auto;max-width:100%;max-height:480px;object-fit:contain;border-radius:6px;cursor:zoom-in}.javlib-nong-slot.has-detail-preview-inline .jav-detail-preview-inline{width:100% !important;height:100% !important;max-width:100% !important;max-height:100% !important;object-fit:contain !important}.jav-detail-preview-loading{position:absolute;inset:0;display:grid;place-items:center;color:#475569;font-size:12px;font-weight:700;white-space:nowrap;pointer-events:none}@media(max-width:900px){.jav-nong-slot.has-detail-preview-inline{flex-wrap:wrap !important}.jav-detail-preview-standalone{flex-basis:100% !important}.jav-detail-preview-wrap{flex-basis:100%;width:100%;max-width:100%}.jav-detail-preview-inline{max-width:100%;max-height:480px;margin:0 auto}.javlib-nong-slot.has-detail-preview-inline>.jav-detail-preview-wrap{flex-basis:100% !important;width:100% !important;max-width:100% !important;height:480px !important;max-height:480px !important}}`);
         }
+
         function remove() {
             SiteManager.clearDetailPreviewInline();
         }
+
         async function sync() {
             if (!enabled() || !SiteManager.isDetailPage()) {
                 lastToken++;
@@ -5594,7 +6405,9 @@
                 state = { code: '', status: '' };
                 return;
             }
+
             ensureStyle();
+
             const code = SiteManager.getDetailCode();
             if (!code) {
                 lastToken++;
@@ -5603,16 +6416,20 @@
                 return;
             }
             if (state.code === code && state.status === 'missing') return;
+
             const existingWrap = document.querySelector('.jav-detail-preview-wrap');
             if (existingWrap?.dataset.code === code && existingWrap.dataset.state === 'loaded') return;
             if (existingWrap?.dataset.code === code && existingWrap.dataset.state === 'loading') return;
+
             const token = ++lastToken;
             state = { code, status: 'loading' };
             if (existingWrap && existingWrap.dataset.code !== code) existingWrap.remove();
+
             const target = SiteManager.getDetailPreviewTarget();
             if (!target) {
                 return;
             }
+
             if (!target.standalone) target.slot.classList.add('has-detail-preview-inline');
             let wrap = document.querySelector('.jav-detail-preview-wrap');
             if (!wrap) {
@@ -5634,14 +6451,17 @@
                 wrap.dataset.state = 'loading';
                 wrap.innerHTML = '<span class="jav-detail-preview-loading">预览图加载中...</span>';
             }
+
             const result = await Thumbnail.get(code);
             if (token !== lastToken || !wrap.isConnected) return;
+
             if (!result?.url) {
                 wrap.remove();
                 if (!target.standalone) target.slot.classList.remove('has-detail-preview-inline');
                 state = { code, status: 'missing' };
                 return;
             }
+
             state = { code, status: 'loaded' };
             wrap.dataset.state = 'loaded';
             wrap.innerHTML = '';
@@ -5659,28 +6479,35 @@
             });
             wrap.appendChild(img);
         }
+
         return { sync, remove };
     })();
     Core.expose('__LAOSIJI_DETAIL_PREVIEW_INLINE__', DetailPreviewInline);
+
     const Trailer = {
         normalize(code) {
             return Utils.normalizeCode(code);
         },
+
         cacheKey(code) {
             return `trailer_cache_v10_${this.normalize(code)}`;
         },
+
         isDynamicTrailer(result) {
             const url = String(result?.url || '');
             return String(result?.type || '').toLowerCase() === 'hls' || /\.m3u8(?:[?#].*)?$/i.test(url);
         },
+
         debug(...args) {
             console.log('[TrailerResolver]', ...args);
         },
+
         resolverChain() {
             return [
                 'fromJavxyCcCd'
             ].map(name => ({ name, fn: this[name] })).filter(item => typeof item.fn === 'function');
         },
+
         async show(code) {
             const result = await this.get(code);
             if (result?.url) {
@@ -5707,6 +6534,7 @@
                 Utils.showToast('未找到可用的视频源。', '节点不可用，请将DMM域名分流到日本ip', 3000);
             }
         },
+
         async get(code) {
             const rawCode = String(code || '').trim();
             const id = this.normalize(code);
@@ -5735,6 +6563,7 @@
                     sessionStorage.removeItem(this.cacheKey(id));
                 }
             }
+
             for (const resolver of this.resolverChain()) {
                 const resolverName = resolver.name || 'anonymous';
                 try {
@@ -5755,6 +6584,7 @@
             }
             return null;
         },
+
         request(url, options = {}) {
             return new Promise((resolve) => {
                 GM_xmlhttpRequest({
@@ -5769,10 +6599,13 @@
                 });
             });
         },
+
         javxyToken() {
-            const k = [91,37,114,16,73,5,126];
-            return [8,119,39,114,13,78,71,42,124,22,121,10,97,75,51,109,23,103,57,115,24,34,125,59,102,45,92,48,42,104,16,97,125,92,45,3,104,95,72,12,80,60,99,18,5,102,59,116].map((v, i) => String.fromCharCode(v ^ k[i % k.length])).join('');
+            return [118,119,112,71,97,110,28,84,124,65,76,102,65,16,77,109,64,82,85,83,67,92,125,108,83,65,124,107,84,104,71,84,17,124,118,125,104,8,125,96,112,103,29,18,82,83,87,84]
+                .map(v => String.fromCharCode(v ^ 0x25))
+                .join('');
         },
+
         normalizeJavxySource(value) {
             const raw = String(value || '').trim().toLowerCase();
             if (raw.includes('mgstage')) return 'MGStage';
@@ -5782,9 +6615,11 @@
             if (raw.includes('dmm')) return 'DMM';
             return String(value || '').trim();
         },
+
         jpSourceFailedKey(source = 'DMM') {
             return `javxy_jp_source_failed_until_${String(source || '').toUpperCase()}`;
         },
+
         isJpSourceTemporarilyFailed(source = 'DMM') {
             const until = Number(sessionStorage.getItem(this.jpSourceFailedKey(source)) || 0);
             if (!Number.isFinite(until) || until <= Date.now()) {
@@ -5793,9 +6628,11 @@
             }
             return true;
         },
+
         markJpSourceTemporarilyFailed(source = 'DMM') {
             sessionStorage.setItem(this.jpSourceFailedKey(source), String(Date.now() + 30 * 60 * 1000));
         },
+
         async fallbackJavxyResult(code, rawCode = '', failedSources = [], options = {}) {
             const skip = [...new Set((failedSources || []).map(source => this.normalizeJavxySource(source)).filter(Boolean))];
             if (!skip.length) return null;
@@ -5808,6 +6645,7 @@
             }
             return this.fromJavxyCcCd(code, rawCode, { skip });
         },
+
         installFallbackDebugHelper() {
             const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : globalThis;
             targetWindow.__javxyFailDMMFor30m = globalThis.__javxyFailDMMFor30m = () => {
@@ -5819,9 +6657,11 @@
                 this.debug('已清除 DMM 跳过标记');
             };
         },
+
         result(url, source, type = 'video', extra = {}) {
             return { url, source, type, ...extra };
         },
+
         qualityOptions: [
             { quality: '4k', text: '4K' },
             { quality: 'hhb', text: '1080p' },
@@ -5836,15 +6676,18 @@
             { quality: '360p', text: '360p' },
             { quality: '240p', text: '240p' }
         ],
+
         selectHighestQuality(qualityMap) {
             return this.sortQualityKeys(qualityMap)[0] || null;
         },
+
         sortQualityKeys(qualityMap) {
             const rank = new Map(this.qualityOptions.map((item, index) => [item.quality, index]));
             return Object.keys(qualityMap || {})
                 .filter(key => qualityMap[key])
                 .sort((a, b) => (rank.get(a) ?? -1) - (rank.get(b) ?? -1));
         },
+
         javxySourceLabels: {
             DMM: 'Javxy | dmm',
             JavDB: 'Javxy | Javdb',
@@ -5854,24 +6697,27 @@
             Caribbean: 'Javxy | 加勒比',
             '1Pondo': 'Javxy | 一本道'
         },
+
         async fromJavxyCcCd(id, rawCode = '', options = {}) {
             const query = String(id || rawCode || '').trim();
             if (!query) {
-                this.debug('Javxy skip empty query');
+                this.debug('Javxy 跳过：查询词为空');
                 return null;
             }
+
             const $j = (a, k) => a.map(v => String.fromCharCode(v ^ k)).join('');
             const endpoints = [
                 { host: $j([35,40,63,49,48,103,42,42,103,42,45], 73), label: $j([85,126,105,103,102], 31) },
                 { host: $j([35,59,38,63,49,38,122,62,53,34,44,45,122,55,55,122,55,48], 84), label: $j([96,75,92,82,83,10,125,69,88,65,79,88], 42) }
             ];
+
             for (const endpoint of endpoints) {
                 const params = new URLSearchParams({ [$j([70,73,76,64,75,81], 37)]: $j([46,35,45,49,43,40,43,111,44,39,53], 66) });
                 if (Array.isArray(options.skip) && options.skip.length) params.set($j([73,81,83,74], 58), options.skip.join(','));
                 if (Array.isArray(options.prefer) && options.prefer.length) params.set($j([99,97,118,117,118,97], 19), options.prefer.join(','));
                 if (Array.isArray(options.source) && options.source.length) params.set($j([24,4,30,25,8,14], 107), options.source.join(','));
                 const apiUrl = (endpoint.protocol || $j([116,104,104,108,111], 28)) + '://' + endpoint.host + '/' + $j([21,19,0,8,13,4,19,18], 97) + '/' + encodeURIComponent(query) + '?' + params;
-                this.debug('Javxy request API', { query, apiUrl, endpoint: endpoint.label });
+                this.debug('Javxy 请求 API', { query, apiUrl, endpoint: endpoint.label });
                 const r = await this.request(apiUrl, {
                     timeout: 15000,
                     headers: {
@@ -5880,42 +6726,46 @@
                     }
                 });
                 if (!r) {
-                    this.debug('Javxy API network failed, try next endpoint', { endpoint: endpoint.label });
+                    this.debug('Javxy API 网络失败，尝试下一个节点', { endpoint: endpoint.label });
                     continue;
                 }
                 if (r.status >= 500 || r.status === 0) {
-                    this.debug('Javxy API service failed, try next endpoint', { endpoint: endpoint.label, status: r.status });
+                    this.debug('Javxy API 服务异常，尝试下一个节点', { endpoint: endpoint.label, status: r.status });
                     continue;
                 }
                 if ([401, 403, 429].includes(r.status)) {
-                    this.debug('Javxy API rejected, try next endpoint', { endpoint: endpoint.label, status: r.status });
+                    this.debug('Javxy API 被拒绝或限流，尝试下一个节点', { endpoint: endpoint.label, status: r.status });
                     continue;
                 }
                 if (r.status < 200 || r.status >= 400) {
-                    this.debug('Javxy API no result, stop', { endpoint: endpoint.label, status: r.status });
+                    this.debug('Javxy API 无结果，停止查询', { endpoint: endpoint.label, status: r.status });
                     return null;
                 }
                 if (!r.responseText) {
-                    this.debug('Javxy API empty response, stop', { endpoint: endpoint.label, status: r.status });
+                    this.debug('Javxy API 响应为空，停止查询', { endpoint: endpoint.label, status: r.status });
                     return null;
                 }
+
                 let data;
                 try {
                     data = JSON.parse(r.responseText);
                 } catch {
-                    this.debug('Javxy JSON parse failed, try next endpoint', { endpoint: endpoint.label });
+                    this.debug('Javxy JSON 解析失败，尝试下一个节点', { endpoint: endpoint.label });
                     continue;
                 }
+
                 const trailerUrl = String(data?.trailer || '').trim();
                 if (!trailerUrl) {
-                    this.debug('Javxy no trailer field, stop', { endpoint: endpoint.label, keys: Object.keys(data || {}) });
+                    this.debug('Javxy 无 trailer 字段，停止查询', { endpoint: endpoint.label, keys: Object.keys(data || {}) });
                     return null;
                 }
+
                 const qualityMap = data?.qualities && typeof data.qualities === 'object' ? data.qualities : {};
                 const quality = data?.quality && qualityMap[data.quality] ? data.quality : this.selectHighestQuality(qualityMap);
                 const sourceBase = this.javxySourceLabels[data?.source] || ($j([77,102,113,127,126,39,123,39], 7) + (data?.source || $j([111,102,102], 11)));
                 const source = sourceBase;
-                this.debug('Javxy result', { endpoint: endpoint.label, source: data?.source, quality, qualities: Object.keys(qualityMap) });
+                this.debug('Javxy 返回结果', { endpoint: endpoint.label, source: data?.source, quality, qualities: Object.keys(qualityMap) });
+
                 const resultType = String(data?.type || '').trim() || 'video';
                 return this.result(qualityMap[quality] || trailerUrl, source, resultType, {
                     qualities: qualityMap,
@@ -5934,9 +6784,11 @@
                         : this.sortQualityKeys(qualityMap).map(key => qualityMap[key])
                 });
             }
+
             return null;
         },
     };
+
     const Settings = {
         getPreviewCacheEnabled() {
             return true;
@@ -5944,20 +6796,25 @@
         getTrailerCacheEnabled() {
             return true;
         },
+
         getDefaultSearchEngine() {
             const index = GM_getValue('default_search_engine', 2);
             return SearchEngines[index] || SearchEngines[0];
         },
+
         getDefaultVideoEngine() {
             return GM_getValue('default_video_engine', 'missav');
         },
+
         getVideoEngines() {
             return VIDEO_ENGINES;
         },
+
         getSourceOrder() {
             return GM_getValue('thumb_source_order', ['javfree', 'projectjav', 'javstore']);
         }
     };
+
     const SearchEngines = [
         { name: 'BTDigg', color: '#F60', url: (code) => `https://btdig.com/search?q=${code}` },
         { name: 'Taocili', color: '#DE5833', url: (code) => `https://taocili.com/search?q=${code}` },
@@ -5965,6 +6822,7 @@
         { name: 'Bing', color: '#008373', url: (code) => `https://www.bing.com/search?q=${code}` },
         { name: 'DuckGo', color: '#DE5833', url: (code) => `https://duckduckgo.com/?q=${code}` }
     ];
+
     const Pan115 = {
         api: 'https://webapi.115.com/files/search',
         videoExts: new Set(['mp4', 'mkv', 'avi', 'wmv', 'mov', 'm4v', 'ts', 'flv', 'rmvb', 'webm']),
@@ -6209,11 +7067,13 @@
             return task;
         },
     };
+
     function closeAllJumpMenus(exceptMenu = null) {
         document.querySelectorAll('.search-submenu.is-open').forEach(menu => {
             if (menu !== exceptMenu) menu.classList.remove('is-open');
         });
     }
+
     function bindJumpMenu(menuDiv, toggleBtn, subMenu, mainBtn = null) {
         let closeTimer = null;
         const clearCloseTimer = () => {
@@ -6230,6 +7090,7 @@
             clearCloseTimer();
             if (subMenu.classList.contains('is-open')) closeTimer = setTimeout(closeMenu, 1000);
         };
+
         toggleBtn.addEventListener('click', e => {
             e.preventDefault();
             e.stopPropagation();
@@ -6249,12 +7110,14 @@
             if (!menuDiv.contains(e.target)) closeMenu();
         });
     }
+
     function addNyaaBtn(code, container, useCapture = false) {
         if (!GM_getValue('btn_show_nyaa', true)) return;
         if (/sukebei\.nyaa/i.test(location.hostname)) return;
         const btn = Utils.createJumpLinkBtn('🔍 Sukebei', '#17a2b8', `https://sukebei.nyaa.si/?f=0&c=0_0&q=${encodeURIComponent(code)}`);
         container.appendChild(btn);
     }
+
     function addJavbusBtn(code, container, useCapture = false) {
         if (!GM_getValue('btn_show_javbus', true)) return;
         if (/javbus\.com/i.test(location.hostname)) return;
@@ -6262,15 +7125,18 @@
         const btn = Utils.createJumpLinkBtn('🎬 JavBus', '#007bff', url);
         container.appendChild(btn);
     }
+
     function addJavdbBtn(code, container, useCapture = false) {
         if (!GM_getValue('btn_show_javdb', true)) return;
         if (/javdb\.com/i.test(location.hostname)) return;
         const btn = Utils.createJumpLinkBtn('📀 JavDB', '#6f42c1', `https://javdb.com/search?q=${encodeURIComponent(code)}`);
         container.appendChild(btn);
     }
+
     function addMissAVBtn(code, container, useCapture = false) {
         const showMissav = GM_getValue('btn_show_missav', true);
         if (!showMissav) return;
+
         const codeLower = code.toLowerCase();
         const codeCompactLower = codeLower.replace(/-/g, '');
         const videoUrlMap = {
@@ -6289,26 +7155,32 @@
             .map(item => ({ ...item, url: videoUrlMap[item.key] }))
             .filter(item => item.url);
         if (!videoButtons.length) return;
+
         const defaultKey = Settings.getDefaultVideoEngine();
         const mainItem = videoButtons.find(item => item.key === defaultKey) || videoButtons[0];
         const subItems = videoButtons.filter(item => item !== mainItem);
         const createVideoBtn = item => Utils.createJumpLinkBtn(`🎬 ${item.label}`, item.color, item.url);
+
         if (!subItems.length) {
             container.appendChild(createVideoBtn(mainItem));
             return;
         }
+
         const menuDiv = document.createElement('div');
         menuDiv.className = 'search-menu missav-menu';
         menuDiv.style.setProperty('--jav-btn-accent', mainItem.color);
+
         const mainBtn = createVideoBtn(mainItem);
         mainBtn.classList.add('search-main-btn');
         menuDiv.appendChild(mainBtn);
+
         const toggleBtn = document.createElement('button');
         toggleBtn.type = 'button';
         toggleBtn.className = 'search-toggle-btn';
         toggleBtn.title = '展开同类站点';
         toggleBtn.innerHTML = '<span class="search-arrow">▼</span>';
         menuDiv.appendChild(toggleBtn);
+
         const subMenu = document.createElement('div');
         subMenu.className = 'search-submenu';
         subItems.forEach(item => {
@@ -6319,9 +7191,12 @@
             subMenu.appendChild(subBtn);
         });
         menuDiv.appendChild(subMenu);
+
         bindJumpMenu(menuDiv, toggleBtn, subMenu, mainBtn);
+
         container.appendChild(menuDiv);
     }
+
     function addDmmBtn(code, container, useCapture = false) {
         if (!GM_getValue('btn_show_fanza', true)) return;
         const btn = Utils.createBtn('▶ FANZA', '#c0392b', () => {
@@ -6329,6 +7204,7 @@
         }, useCapture);
         container.appendChild(btn);
     }
+
     function addTrailerBtn(code, container, useCapture = false) {
         if (!GM_getValue('btn_show_trailer', true)) return;
         const btn = Utils.createBtn('🎞️ 预告片', '#111827', async () => {
@@ -6347,6 +7223,7 @@
         btn.classList.add('jav-trailer-btn');
         container.appendChild(btn);
     }
+
     function addPreviewBtn(code, container, useCapture = false) {
         if (!GM_getValue('btn_show_preview', true)) return;
         const btn = Utils.createBtn('🖼️ 预览图', '#28a745', async () => {
@@ -6355,6 +7232,7 @@
         btn.classList.add('jav-preview-btn');
         container.appendChild(btn);
     }
+
     function addPan115PlayBtn(code, container, useCapture = false) {
         if (!Pan115.enabled() || !code || !container) return;
         const normalized = Pan115.normalizeKeepSeparator(code);
@@ -6377,27 +7255,34 @@
             marker.remove();
         });
     }
+
     function addSearchMenu(code, container, useCapture = false) {
         if (!GM_getValue('btn_show_search', true)) return;
         const defaultEngine = Settings.getDefaultSearchEngine();
+
         const menuDiv = document.createElement('div');
         menuDiv.className = 'search-menu';
         menuDiv.style.setProperty('--jav-btn-accent', defaultEngine.color);
+
         const mainBtn = Utils.createBtn(`🔍 ${defaultEngine.name}`, defaultEngine.color, () => {
             window.open(defaultEngine.url(code));
         }, useCapture);
         mainBtn.classList.add('search-main-btn');
         menuDiv.appendChild(mainBtn);
+
         const toggleBtn = document.createElement('button');
         toggleBtn.type = 'button';
         toggleBtn.className = 'search-toggle-btn';
         toggleBtn.title = '展开搜索引擎';
         toggleBtn.innerHTML = '<span class="search-arrow">▼</span>';
         menuDiv.appendChild(toggleBtn);
+
         const subMenu = document.createElement('div');
         subMenu.className = 'search-submenu';
+
         SearchEngines.forEach(engine => {
             if (engine.name === defaultEngine.name) return;
+
             const subBtn = Utils.createBtn(`🔍 ${engine.name}`, engine.color, () => {
                 window.open(engine.url(code));
                 subMenu.classList.remove('is-open');
@@ -6407,10 +7292,14 @@
             subBtn.style.textAlign = 'left';
             subMenu.appendChild(subBtn);
         });
+
         menuDiv.appendChild(subMenu);
+
         bindJumpMenu(menuDiv, toggleBtn, subMenu, mainBtn);
+
         container.appendChild(menuDiv);
     }
+
     function addSettingsBtn(container, useCapture = false) {
         if (!container || container.querySelector('.jav-settings-btn')) return;
         const btn = Utils.createBtn('⚙️ 设置', '#475569', () => {
@@ -6420,6 +7309,7 @@
         btn.title = '打开老司机设置';
         container.appendChild(btn);
     }
+
     function createPan115Badge(hit, code, asAnchor = true) {
         const url = Pan115.playUrl(hit.pickcode);
         const badge = document.createElement(asAnchor ? 'a' : 'span');
@@ -6449,6 +7339,7 @@
         }
         return badge;
     }
+
     let pan115ListRunning = false;
     async function renderPan115ListBadges() {
         if (!Pan115.enabled() || pan115ListRunning || SiteManager.isDetailPage()) return;
@@ -6473,6 +7364,7 @@
             if (Pan115.enabled() && SiteManager.collectPan115ListTargets().length) schedulePan115ListBadges();
         }
     }
+
     function removePan115Ui() {
         clearTimeout(pan115ListTimer);
         document.querySelectorAll('.jav-pan115-badge, .jav-pan115-play-btn').forEach(el => el.remove());
@@ -6484,12 +7376,14 @@
             delete el.dataset.pan115PlayCode;
         });
     }
+
     function refreshPan115PlayerLinks() {
         document.querySelectorAll('.jav-pan115-badge[data-pickcode], .jav-pan115-play-btn[data-pickcode]').forEach(el => {
             const url = Pan115.playUrl(el.dataset.pickcode);
             if (el.tagName === 'A') el.href = url;
         });
     }
+
     function forceRenderPan115Ui() {
         refreshPan115PlayerLinks();
         if (SiteManager.isDetailPage()) {
@@ -6498,6 +7392,7 @@
             schedulePan115ListBadges();
         }
     }
+
     function syncPan115AfterSettingsSave(enabled = Pan115.enabled()) {
         if (!enabled) {
             removePan115Ui();
@@ -6506,12 +7401,14 @@
         setTimeout(forceRenderPan115Ui, 0);
     }
     Core.expose('__LAOSIJI_SYNC_PAN115__', syncPan115AfterSettingsSave);
+
     function addJumpLineBreak(container) {
         const lineBreak = document.createElement('span');
         lineBreak.className = 'jav-jump-line-break';
         lineBreak.style.cssText = 'flex-basis:100%;height:0;padding:0;margin:0;';
         container.appendChild(lineBreak);
     }
+
     const JumpSites = [
         {
             id: 'sukebei',
@@ -6600,23 +7497,28 @@
         }
     ];
     Core.expose('__LAOSIJI_JUMP_SITES__', JumpSites);
+
     const TitleTranslate = (() => {
         const CACHE_PREFIX = 'title_translate_pa_v1_';
         let styleReady = false;
+
         function ensureStyle() {
             if (styleReady) return;
             styleReady = true;
             GM_addStyle(`.jav-title-translation{margin:6px 0 8px !important;padding:7px 10px !important;border-left:3px solid #60a5fa !important;background:#eff6ff !important;color:#1e3a8a !important;font-size:20px !important;font-weight:700 !important;line-height:1.5 !important;word-break:break-word !important;border-radius:0 6px 6px 0 !important}.jav-title-translation.is-loading{color:#64748b !important;background:#f8fafc !important;border-left-color:#cbd5e1 !important}.jav-title-translation.is-error{color:#be123c !important;background:#fff1f2 !important;border-left-color:#fb7185 !important}#video_title .jav-title-translation{margin-right:72px !important}`);
         }
+
         function escapeRegExp(value) {
             return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
+
         function titleWithoutCode(text) {
             const raw = String(text || '').replace(/\s+/g, ' ').trim();
             const code = Utils.extractCode(raw);
             if (!code) return raw;
             return raw.replace(new RegExp(`^\\s*${escapeRegExp(code)}\\s*`, 'i'), '').trim() || raw;
         }
+
         function getInfo() {
             const site = SiteManager.getJumpSite();
             if (!site || !['javdb', 'javbus', 'javlibrary'].includes(site.id)) return null;
@@ -6635,6 +7537,7 @@
             if (!title) return null;
             return { site: site.id, text: titleWithoutCode(title.textContent), anchor: title.closest('h3') || title };
         }
+
         function readJavbusLang() {
             const pageWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
             const direct = pageWindow?.lang || window.lang || '';
@@ -6645,6 +7548,7 @@
             }
             return '';
         }
+
         function targetLanguage(siteId) {
             let lang = '';
             if (siteId === 'javdb') {
@@ -6672,6 +7576,7 @@
             }
             return 'zh-CN';
         }
+
         function translateMessage(target, type) {
             const lang = String(target || '').toLowerCase();
             if (lang === 'en') return type === 'error' ? 'Title translation failed' : 'Translating title...';
@@ -6679,9 +7584,11 @@
             if (lang === 'zh-tw') return type === 'error' ? '翻譯標題失敗' : '翻譯標題中...';
             return type === 'error' ? '翻译标题失败' : '翻译标题中...';
         }
+
         function cacheKey(text, target) {
             return `${CACHE_PREFIX}${target || 'zh-CN'}_${encodeURIComponent(String(text || '').slice(0, 180))}`;
         }
+
         async function translate(text, target) {
             const key = cacheKey(text, target);
             const cached = sessionStorage.getItem(key);
@@ -6702,9 +7609,11 @@
             sessionStorage.setItem(key, result);
             return result;
         }
+
         function clear() {
             document.querySelectorAll('.jav-title-translation').forEach(el => el.remove());
         }
+
         async function sync() {
             if (!CFG.titleTranslate) {
                 clear();
@@ -6747,15 +7656,18 @@
                 console.warn('[老司机] 翻译标题失败:', err);
             }
         }
+
         return { sync, clear };
     })();
     Core.expose('__LAOSIJI_TITLE_TRANSLATE__', TitleTranslate);
+
     function isCurrentDetailPage() {
         if (/javbus\.com/i.test(location.hostname)) {
             return /^\/(?:[a-z]{2}\/)?(?:[A-Z]{2,15}-?\d{2,10}(?:-\d{1,3})?|[A-Z]{2,10}\d{3,6}|FC2(?:-PPV)?-\d{6,9})\/?$/i.test(location.pathname);
         }
         return JumpSites.some(site => site.match(window.location.href));
     }
+
     function isElemVisible(el) {
         if (!el) return false;
         if (el.closest('.hide, [hidden], [aria-hidden="true"]')) return false;
@@ -6765,7 +7677,9 @@
         if (cs.display === 'none' || cs.visibility === 'hidden') return false;
         return true;
     }
+
     function resolveEmbyTitleElem() {
+
         const nodes = Array.from(document.querySelectorAll(
             'h1, h2, h3.itemName, .itemName-primary, .pageTitle, .nameContainer h3, [class*="itemName"]'
         ));
@@ -6779,20 +7693,25 @@
         }
         return firstVisible;
     }
+
     function renderButtonsForCurrentPage() {
         const site = SiteManager.getJumpSite();
         if (!site) return;
+
         let titleElem = SiteManager.getJumpTitleElement(site);
         if (!titleElem) return;
         if (site.id === 'emby' && !Utils.extractCode(titleElem.textContent || '')) return;
+
         const existingBtnGroup = document.querySelector('.jav-jump-btn-group[data-laosiji-jump="1"]');
         if (site.id === 'emby') {
             const renderKey = SiteManager.getEmbyRenderKey(titleElem);
             const existingKey = existingBtnGroup?.dataset.embyRenderKey || '';
             if (existingBtnGroup) {
+
                 if ((existingKey && existingKey !== renderKey) || !existingBtnGroup.isConnected) {
                     existingBtnGroup.remove();
                 } else {
+
                     const anchor = SiteManager.getEmbyInsertAnchor(titleElem);
                     if (anchor.nextElementSibling !== existingBtnGroup) {
                         anchor.insertAdjacentElement('afterend', existingBtnGroup);
@@ -6804,6 +7723,7 @@
         }
         if (existingBtnGroup) {
             if (site.id === 'emby') {
+
             } else {
             const code = Utils.extractCode(titleElem.textContent);
             const pan115Code = Pan115.extractCode(titleElem.textContent, code);
@@ -6813,15 +7733,19 @@
             return;
             }
         }
+
         if (titleElem.dataset.enhanced === '1') return;
         titleElem.dataset.enhanced = '1';
+
         const titleText = titleElem.textContent;
         const code = Utils.extractCode(titleText);
         if (!code) return;
         const trailerCode = Utils.extractCode(titleText, { keepUncensoredSource: true }) || code;
+
         const btnGroup = document.createElement('div');
         btnGroup.className = 'jav-jump-btn-group';
         btnGroup.dataset.laosijiJump = '1';
+
         if (site.id === 'javlibrary') {
             addNyaaBtn(code, btnGroup);
             addJavbusBtn(code, btnGroup);
@@ -6834,31 +7758,37 @@
             addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
             addSettingsBtn(btnGroup);
+
             btnGroup.querySelectorAll('a').forEach(btn => {
                 let style = btn.getAttribute('style') || '';
                 style = style.replace(/background:\s*([^;]+);/g, 'background: $1 !important;');
                 style = style.replace(/color:\s*([^;]+);/g, 'color: $1 !important;');
                 btn.setAttribute('style', style);
             });
+
             placeJumpButtonGroup(site, titleElem, btnGroup);
         } else if (site.id === 'missav') {
             addNyaaBtn(code, btnGroup);
             addJavbusBtn(code, btnGroup);
             addJavdbBtn(code, btnGroup);
             addMissAVBtn(code, btnGroup);
+
             const defaultEngine = Settings.getDefaultSearchEngine();
             const searchMenuDiv = document.createElement('div');
             searchMenuDiv.className = 'search-menu';
             searchMenuDiv.style.setProperty('--jav-btn-accent', defaultEngine.color);
+
             const mainSearchBtn = Utils.createLinkBtn(`🔍 ${defaultEngine.name}`, defaultEngine.color, defaultEngine.url(code));
             mainSearchBtn.classList.add('search-main-btn');
             searchMenuDiv.appendChild(mainSearchBtn);
+
             const toggleBtn = document.createElement('button');
             toggleBtn.type = 'button';
             toggleBtn.className = 'search-toggle-btn';
             toggleBtn.title = '展开搜索引擎';
             toggleBtn.innerHTML = '<span class="search-arrow">▼</span>';
             searchMenuDiv.appendChild(toggleBtn);
+
             const subMenu = document.createElement('div');
             subMenu.className = 'search-submenu';
             SearchEngines.forEach(engine => {
@@ -6868,12 +7798,15 @@
                 subMenu.appendChild(subBtn);
             });
             searchMenuDiv.appendChild(subMenu);
+
             bindJumpMenu(searchMenuDiv, toggleBtn, subMenu, mainSearchBtn);
             btnGroup.appendChild(searchMenuDiv);
+
             addPan115PlayBtn(Pan115.extractCode(titleText, code), btnGroup);
             addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
             addSettingsBtn(btnGroup);
+
             btnGroup.style.cssText = `
                 margin: 10px 0 6px 0;
                 display: flex;
@@ -6883,6 +7816,7 @@
                 position: relative;
                 z-index: 9999;
             `;
+
             placeJumpButtonGroup(site, titleElem, btnGroup);
         } else {
             addNyaaBtn(code, btnGroup);
@@ -6896,7 +7830,9 @@
             addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
             addSettingsBtn(btnGroup);
+
             if (site.id === 'emby') {
+
                 btnGroup.classList.add('emby-fix');
                 btnGroup.dataset.embyRenderKey = SiteManager.getEmbyRenderKey(titleElem);
                 SiteManager.getEmbyInsertAnchor(titleElem).insertAdjacentElement('afterend', btnGroup);
@@ -6905,12 +7841,14 @@
             }
         }
     }
+
     function getJhsLikeJumpTarget(site) {
         if (site.id === 'javdb') return document.querySelector('.movie-panel-info');
         if (site.id === 'javbus') return document.querySelector('.container .info');
         if (site.id === 'javlibrary') return document.querySelector('#video_info');
         return null;
     }
+
     function placeJumpButtonGroup(site, titleElem, btnGroup) {
         if (site.id === 'supjav') {
             btnGroup.style.marginTop = '8px';
@@ -6940,6 +7878,7 @@
             titleElem.insertAdjacentElement('afterend', btnGroup);
         }
     }
+
     function allowJumpMenuOverflow(target) {
         const elements = [
             target,
@@ -6954,17 +7893,20 @@
             target.closest('.video-info'),
             target.closest('.info-header')
         ];
+
         [...new Set(elements.filter(Boolean))].forEach(el => {
             el.style.setProperty('overflow', 'visible', 'important');
             el.style.setProperty('overflow-x', 'visible', 'important');
             el.style.setProperty('overflow-y', 'visible', 'important');
         });
     }
+
     const JumpButtons = {
         render: renderButtonsForCurrentPage,
         refresh: renderButtonsForCurrentPage,
     };
     Core.expose('__LAOSIJI_JUMP_BUTTONS__', JumpButtons);
+
     const InfiniteScroll = {
         cachePrefix: 'laosiji_infinite_v1_',
         maxSnapshotItems: 240,
@@ -6981,6 +7923,7 @@
                 ...config,
                 loading: false,
                 done: false,
+                emptyStreak: 0,
                 seen: new Set([...config.container.querySelectorAll('a[href]')].map(a => a.href)),
             };
             this.restoreSnapshot(this.state);
@@ -7148,6 +8091,7 @@
         },
         appendItems(doc) {
             const items = [...doc.querySelectorAll(this.state.itemSelector)];
+
             let container = this.state.container;
             const live = SiteManager.getInfiniteScrollContainer(this.state.site);
             if (live) container = this.state.container = live;
@@ -7160,6 +8104,11 @@
                     item.dataset.laosijiInfiniteItem = '1';
                     const adopted = document.adoptNode(item);
                     container.appendChild(adopted);
+                    try {
+                        const imgs = adopted.matches?.('img') ? [adopted] : adopted.querySelectorAll?.('img') || [];
+                        imgs.forEach(img => { if (!img.getAttribute('loading')) img.setAttribute('loading', 'lazy'); });
+                    } catch (e) {}
+
                     SiteManager.decorateInfiniteScrollItem(this.state.site, adopted);
                     added += 1;
                 } catch (err) {
@@ -7179,7 +8128,8 @@
                 const added = this.appendItems(doc);
                 const nextConfig = this.getConfig(doc, currentUrl);
                 if (!this.state) return;
-                this.state.nextUrl = nextConfig?.nextUrl || '';
+                const resolvedNext = nextConfig?.nextUrl || '';
+                this.state.nextUrl = (resolvedNext && resolvedNext !== currentUrl) ? resolvedNext : '';
                 this.hidePagination();
                 this.reflow();
                 Runtime.refreshListDecorations();
@@ -7187,7 +8137,8 @@
                 setTimeout(() => {
                     Runtime.refreshListPage();
                 }, 80);
-                if (!added || !this.state.nextUrl) {
+                this.state.emptyStreak = added ? 0 : (this.state.emptyStreak + 1);
+                if (!this.state.nextUrl || this.state.emptyStreak >= 3) {
                     this.state.done = true;
                     this.state.observer?.disconnect();
                     this.setStatus('已经到底了', 'is-done');
@@ -7212,6 +8163,7 @@
         },
     };
     Core.expose('__LAOSIJI_INFINITE_SCROLL__', InfiniteScroll);
+
     let pan115ListTimer = null;
     function schedulePan115ListBadges() {
         if (!Pan115.enabled() || SiteManager.isDetailPage()) return;
@@ -7220,6 +8172,7 @@
     }
     Core.expose('__LAOSIJI_SCHEDULE_PAN115__', schedulePan115ListBadges);
     Core.expose('__LAOSIJI_RENDER_BUTTONS__', () => JumpButtons.render());
+
     const Runtime = {
         refresh(options = {}) {
             const {
@@ -7282,25 +8235,74 @@
         syncPortraitCards(enabled = CFG.portraitCards) {
             PortraitCards.set(enabled);
         },
+        syncCardFx(enabled = CFG.cardFx) {
+            CardFx.apply(enabled);
+        },
     };
     Core.expose('__LAOSIJI_RUNTIME__', Runtime);
+
+    const CardFx = (() => {
+        let styleReady = false;
+        function ensureStyle() {
+            if (styleReady) return;
+            styleReady = true;
+            GM_addStyle(`html[data-laosiji-card-fx="off"] .jav-card{transition:none !important;will-change:auto !important;transform:none !important}html[data-laosiji-card-fx="off"] .jav-card:hover{transform:none !important;box-shadow:0 1px 4px rgba(15,23,42,.08)!important;border-color:rgba(148,163,184,.35)!important}.jav-card{content-visibility:auto;contain-intrinsic-size:auto 320px}.jav-card-cover .jav-card-image{transition:transform .22s ease,opacity .18s ease !important}.jav-card-cover:hover .jav-card-image{transform:scale(1.06)!important}`);
+        }
+        function apply(enabled = CFG.cardFx) {
+            ensureStyle();
+            const root = document.documentElement;
+            if (enabled) root.removeAttribute('data-laosiji-card-fx');
+            else root.setAttribute('data-laosiji-card-fx', 'off');
+        }
+        return { apply };
+    })();
+    Core.expose('__LAOSIJI_CARD_FX__', CardFx);
+
     function resetEmbyButtonState() {
         if (!SiteManager.isEmbyPage()) return;
         document.querySelectorAll('.jav-jump-btn-group[data-laosiji-jump="1"]').forEach(el => el.remove());
         document.querySelectorAll('h1[data-enhanced="1"]').forEach(el => delete el.dataset.enhanced);
     }
+
     let mutationSyncTimer = null;
-    const observer = new MutationObserver(() => {
+    const runIdle = window.requestIdleCallback
+        ? (fn) => window.requestIdleCallback(fn, { timeout: 600 })
+        : (fn) => setTimeout(fn, 0);
+    const isOwnNode = (node) => {
+        if (!node || node.nodeType !== 1) return false;
+        try {
+            return !!(node.matches?.('[class*="jav-"],[class*="laosiji"],[data-laosiji-grid-card],[data-laosiji-jump]')
+                || node.closest?.('[class*="jav-"],[data-laosiji-grid-card]'));
+        } catch (e) {
+            return false;
+        }
+    };
+    const hasMeaningfulMutation = (records) => {
+        try {
+            return records.some(r => {
+                for (const n of r.addedNodes) { if (!isOwnNode(n)) return true; }
+                for (const n of r.removedNodes) { if (!isOwnNode(n)) return true; }
+                return false;
+            });
+        } catch (e) {
+            return true;
+        }
+    };
+    const observer = new MutationObserver((records) => {
+        if (!hasMeaningfulMutation(records)) return;
         clearTimeout(mutationSyncTimer);
         mutationSyncTimer = setTimeout(() => {
-            Runtime.refresh();
-        }, 120);
+            runIdle(() => Runtime.refresh());
+        }, 350);
     });
+
     let lastEmbyLoc = location.href;
+
     function embyButtonsPresent() {
         const g = document.querySelector('.jav-jump-btn-group[data-laosiji-jump="1"]');
         return !!(g && g.isConnected);
     }
+
     let embyRetryTimers = [];
     function clearEmbyRetries() {
         embyRetryTimers.forEach(t => clearTimeout(t));
@@ -7308,6 +8310,7 @@
     }
     function embyRenderWithRetry() {
         clearEmbyRetries();
+
         const delays = [0, 80, 200, 400, 700, 1100, 1700, 2500, 3500, 5000, 6500];
         delays.forEach(d => {
             embyRetryTimers.push(setTimeout(() => {
@@ -7316,6 +8319,7 @@
             }, d));
         });
     }
+
     function onEmbyNavigate() {
         if (location.href === lastEmbyLoc) return;
         lastEmbyLoc = location.href;
@@ -7327,6 +8331,7 @@
             JumpButtons.render();
         }
     }
+
     const App = {
         started: false,
         observerReady: false,
@@ -7353,6 +8358,7 @@
                     if (typeof orig !== 'function') return;
                     history[type] = function () {
                         const ret = orig.apply(this, arguments);
+
                         setTimeout(onEmbyNavigate, 0);
                         return ret;
                     };
@@ -7364,6 +8370,7 @@
         init() {
             if (this.started) return;
             this.started = true;
+            CardFx.apply();
             Trailer.installFallbackDebugHelper();
             this.initRuntimeObserver();
             this.initNavigationHooks();
@@ -7378,10 +8385,11 @@
                 Runtime.refresh({ jump: false });
             } else {
                 Runtime.refresh();
+                [600, 1500, 3000].forEach(d => setTimeout(() => Runtime.refresh(), d));
             }
         },
     };
     Core.expose('__LAOSIJI_APP__', App);
     App.init();
-})();
 
+})();
