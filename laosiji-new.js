@@ -39,10 +39,13 @@
 // @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @downloadURL  https://github.com/ZiPenOk/scripts/raw/refs/heads/main/laosiji-new.js
 // @updateURL    https://github.com/ZiPenOk/scripts/raw/refs/heads/main/laosiji-new.js
+
 // ==/UserScript==
 (function () {
     'use strict';
     const SCRIPT_VERSION = '2.6.6.1';
+    const DEBUG_LOG = false;
+    const ERROR_LOG = true;
     const PAGE_ZOOM_DEFAULT = 86;
     const JAVDB_REVIEW_INITIAL_LIMIT = 6;
     const JAVDB_REVIEW_MORE_LIMIT = 20;
@@ -452,11 +455,19 @@
         }
         return { LIMITS, DEFAULTS, clamp, detectCurrentSite, get, set, apply, hasMagnet, hasLayout, defaultCss };
     })();
-    const log = (...args) => console.log('[老司机]', ...args);
+    const debugLog = (...args) => {
+        if (DEBUG_LOG) console.log('[老司机]', ...args);
+    };
+    const errorLog = (...args) => {
+        if (ERROR_LOG) console.warn('[老司机]', ...args);
+    };
+    const log = debugLog;
     const Core = {
         version: SCRIPT_VERSION,
         cfg: CFG,
         log,
+        debugLog,
+        errorLog,
         notify,
         parseHTML,
         gmFetch,
@@ -527,6 +538,13 @@
     Core.expose('__LAOSIJI_UI__', Ui);
     function notify(title, text, url) {
         GM_notification({ title, text, onclick: () => url && window.open(url) });
+    }
+    function addJavdbApiLoginStyles() {
+        if (document.getElementById('javdb-api-login-style')) return;
+        const style = document.createElement('style');
+        style.id = 'javdb-api-login-style';
+        style.textContent =`#javdb-api-login-overlay{position:fixed;inset:0;z-index:10000030;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.48);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}#javdb-api-login-overlay .javdb-api-login-panel{width:min(360px,92vw);padding:22px;border-radius:12px;background:#fff;color:#111827;box-shadow:0 22px 60px rgba(15,23,42,.26);border:1px solid rgba(148,163,184,.38);}#javdb-api-login-overlay .javdb-api-login-title{margin-bottom:16px;font-size:18px;font-weight:800;}#javdb-api-login-overlay .javdb-api-login-input{width:100%;height:40px;margin-bottom:12px;padding:0 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#111827;font-size:14px;outline:none;box-sizing:border-box;}#javdb-api-login-overlay .javdb-api-login-input:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12);}#javdb-api-login-overlay .javdb-api-login-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:4px;}#javdb-api-login-overlay button,.javdb-api-login-inline{min-height:34px;padding:0 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#111827;font-size:13px;font-weight:800;cursor:pointer;}#javdb-api-login-overlay .javdb-api-login-submit,.javdb-api-login-inline{border-color:#2563eb;background:#2563eb;color:#fff;}#javdb-api-login-overlay button:disabled{cursor:wait;opacity:.72;}#javdb-api-login-overlay .javdb-api-login-tip{margin-top:12px;color:#64748b;font-size:12px;line-height:1.6;}`;
+        document.head.appendChild(style);
     }
     function parseHTML(str) {
         return new DOMParser().parseFromString(str, 'text/html');
@@ -603,7 +621,7 @@
             overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
             const panel = document.createElement('div');
             panel.id = 'jav-settings-panel';
-            panel.innerHTML = `<div class="sp-header"><div><div class="sp-title">老司机设置</div></div><button class="sp-close" type="button" title="关闭">×</button></div><div class="sp-body"><section class="sp-card sp-card-magnet"><div class="sp-card-title">磁力搜索</div><div class="sp-grid"><label class="sp-field"><span class="sp-label">默认磁力引擎</span><select class="sp-select" id="sp-default-engine"></select></label><div class="sp-engine-row"><label class="sp-field"><span class="sp-label">编辑引擎</span><select class="sp-select" id="sp-engine-picker"></select></label><label class="sp-field"><span class="sp-label">域名</span><input class="sp-input" id="sp-engine-domain"></label></div></div></section><section class="sp-card sp-card-defaults"><div class="sp-card-title">默认组跳转入口</div><div class="sp-grid"><label class="sp-field"><span class="sp-label">默认搜索入口</span><select class="sp-select" id="sp-jump-engine"></select></label><label class="sp-field"><span class="sp-label">默认视频入口</span><select class="sp-select" id="sp-video-engine"></select></label></div></section><div class="sp-feature-order-row"><section class="sp-card sp-card-features"><div class="sp-card-title">功能项开关</div><div class="sp-feature-grid"><div class="sp-feature-item"><div><div class="sp-label">磁力引擎</div></div><label class="sp-toggle"><input id="sp-magnet-table" type="checkbox"><span class="sp-toggle-track"></span></label></div><div class="sp-feature-item sp-cache-clean"><div><div class="sp-label">预览图缓存</div><div class="sp-desc">清理本页会话缓存</div></div><button class="sp-cache-clear-btn" id="sp-clear-preview-cache" type="button" title="清理预览图缓存"><span class="sp-cache-clear-icon">↻</span></button></div><div class="sp-feature-item sp-cache-clean"><div><div class="sp-label">预告片缓存</div><div class="sp-desc">清理解析结果缓存</div></div><button class="sp-cache-clear-btn" id="sp-clear-trailer-cache" type="button" title="清理预告片缓存"><span class="sp-cache-clear-icon">↻</span></button></div><label class="sp-feature-select"><div><div class="sp-label">115播放器</div></div><select class="sp-select" id="sp-pan115-player"><option value="official">官方</option><option value="115master">Master</option></select></label></div></section><section class="sp-card sp-card-order"><div class="sp-card-title">预览图来源顺序</div><div class="sp-order-list" id="sp-thumb-order"></div></section></div><section class="sp-card sp-card-jump" style="--card-color:#6366f1;"><style> #jav-settings-panel .sp-chip-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;} #jav-settings-panel .sp-chip input{display:none;} #jav-settings-panel .sp-chip-label{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;border:0.5px solid var(--color-border-secondary,#cbd5e1);background:var(--color-background-secondary,#f8fafc);color:var(--color-text-secondary,#64748b);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;user-select:none;} #jav-settings-panel .sp-chip input:checked + .sp-chip-label{border-color:#6366f1;background:#eef2ff;color:#4338ca;} #jav-settings-panel .sp-chip-label:hover{border-color:#a5b4fc;background:#f0f4ff;color:#4338ca;} #jav-settings-panel .sp-chip-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:0.6;flex:0 0 auto;} </style><div class="sp-card-title">跳转按钮控制</div><div class="sp-chip-group"><label class="sp-chip"><input id="sp-btn-nyaa" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>Sukebei</span></label><label class="sp-chip"><input id="sp-btn-javbus" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavBus</span></label><label class="sp-chip"><input id="sp-btn-javdb" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavDB</span></label><label class="sp-chip"><input id="sp-btn-missav" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>视频组</span></label><label class="sp-chip"><input id="sp-btn-fanza" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>FANZA</span></label><label class="sp-chip"><input id="sp-btn-search" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>搜索组</span></label><label class="sp-chip"><input id="sp-btn-trailer" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>预告片</span></label><label class="sp-chip"><input id="sp-btn-preview" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>预览图</span></label></div></section></div><div class="sp-footer"><div class="sp-cache-actions"><div class="sp-footer-links"><a class="sp-footer-link" href="https://github.com/ZiPenOk/scripts" target="_blank" rel="noopener noreferrer">Github</a><span class="sp-footer-sep"></span><a class="sp-footer-link" href="https://sleazyfork.org/zh-CN/scripts/576375-jav%E8%80%81%E5%8F%B8%E6%9C%BA-%E6%96%B0/feedback" target="_blank" rel="noopener noreferrer">反馈</a><span class="sp-footer-sep"></span><span class="sp-footer-link" style="cursor:default;color:#94a3b8;">v${SCRIPT_VERSION}</span></div><button class="sp-btn sp-btn-clear" id="sp-clear-cache" type="button">清空缓存</button><span class="sp-cache-feedback" id="sp-cache-feedback"></span></div><button class="sp-btn sp-btn-cancel" type="button">取消</button><button class="sp-btn sp-btn-save" type="button">保存设置</button></div>`;
+            panel.innerHTML =`<div class="sp-header"><div><div class="sp-title">老司机设置</div></div><button class="sp-close" type="button" title="关闭">×</button></div><div class="sp-body"><section class="sp-card sp-card-magnet"><div class="sp-card-title">磁力搜索</div><div class="sp-grid"><label class="sp-field"><span class="sp-label">默认磁力引擎</span><select class="sp-select" id="sp-default-engine"></select></label><div class="sp-engine-row"><label class="sp-field"><span class="sp-label">编辑引擎</span><select class="sp-select" id="sp-engine-picker"></select></label><label class="sp-field"><span class="sp-label">域名</span><input class="sp-input" id="sp-engine-domain"></label></div></div></section><section class="sp-card sp-card-defaults"><div class="sp-card-title">默认组跳转入口</div><div class="sp-grid"><label class="sp-field"><span class="sp-label">默认搜索入口</span><select class="sp-select" id="sp-jump-engine"></select></label><label class="sp-field"><span class="sp-label">默认视频入口</span><select class="sp-select" id="sp-video-engine"></select></label></div></section><div class="sp-feature-order-row"><section class="sp-card sp-card-features"><div class="sp-card-title">功能项开关</div><div class="sp-feature-grid"><div class="sp-feature-item"><div><div class="sp-label">磁力引擎</div></div><label class="sp-toggle"><input id="sp-magnet-table" type="checkbox"><span class="sp-toggle-track"></span></label></div><div class="sp-feature-item sp-cache-clean"><div><div class="sp-label">预览图缓存</div><div class="sp-desc">清理本页会话缓存</div></div><button class="sp-cache-clear-btn" id="sp-clear-preview-cache" type="button" title="清理预览图缓存"><span class="sp-cache-clear-icon">↻</span></button></div><div class="sp-feature-item sp-cache-clean"><div><div class="sp-label">预告片缓存</div><div class="sp-desc">清理解析结果缓存</div></div><button class="sp-cache-clear-btn" id="sp-clear-trailer-cache" type="button" title="清理预告片缓存"><span class="sp-cache-clear-icon">↻</span></button></div><label class="sp-feature-select"><div><div class="sp-label">115播放器</div></div><select class="sp-select" id="sp-pan115-player"><option value="official">官方</option><option value="115master">Master</option></select></label></div></section><section class="sp-card sp-card-order"><div class="sp-card-title">预览图来源顺序</div><div class="sp-order-list" id="sp-thumb-order"></div></section></div><section class="sp-card sp-card-jump" style="--card-color:#6366f1;"><style>#jav-settings-panel .sp-chip-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}#jav-settings-panel .sp-chip input{display:none;}#jav-settings-panel .sp-chip-label{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;border:0.5px solid var(--color-border-secondary,#cbd5e1);background:var(--color-background-secondary,#f8fafc);color:var(--color-text-secondary,#64748b);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;user-select:none;}#jav-settings-panel .sp-chip input:checked + .sp-chip-label{border-color:#6366f1;background:#eef2ff;color:#4338ca;}#jav-settings-panel .sp-chip-label:hover{border-color:#a5b4fc;background:#f0f4ff;color:#4338ca;}#jav-settings-panel .sp-chip-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:0.6;flex:0 0 auto;}</style><div class="sp-card-title">跳转按钮控制</div><div class="sp-chip-group"><label class="sp-chip"><input id="sp-btn-nyaa" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>Sukebei</span></label><label class="sp-chip"><input id="sp-btn-javbus" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavBus</span></label><label class="sp-chip"><input id="sp-btn-javdb" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavDB</span></label><label class="sp-chip"><input id="sp-btn-missav" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>视频组</span></label><label class="sp-chip"><input id="sp-btn-fanza" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>FANZA</span></label><label class="sp-chip"><input id="sp-btn-search" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>搜索组</span></label><label class="sp-chip"><input id="sp-btn-trailer" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>预告片</span></label><label class="sp-chip"><input id="sp-btn-preview" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>预览图</span></label></div></section></div><div class="sp-footer"><div class="sp-cache-actions"><div class="sp-footer-links"><a class="sp-footer-link" href="https://github.com/ZiPenOk/scripts" target="_blank" rel="noopener noreferrer">Github</a><span class="sp-footer-sep"></span><a class="sp-footer-link" href="https://sleazyfork.org/zh-CN/scripts/576375-jav%E8%80%81%E5%8F%B8%E6%9C%BA-%E6%96%B0/feedback" target="_blank" rel="noopener noreferrer">反馈</a><span class="sp-footer-sep"></span><span class="sp-footer-link" style="cursor:default;color:#94a3b8;">v${SCRIPT_VERSION}</span></div><button class="sp-btn sp-btn-clear" id="sp-clear-cache" type="button">清空缓存</button><span class="sp-cache-feedback" id="sp-cache-feedback"></span></div><button class="sp-btn sp-btn-cancel" type="button">取消</button><button class="sp-btn sp-btn-save" type="button">保存设置</button></div>`;
             overlay.appendChild(panel);
             document.body.appendChild(overlay);
             const defaultSelect = panel.querySelector('#sp-default-engine');
@@ -692,7 +710,7 @@
                     const item = document.createElement('div');
                     item.className = 'sp-order-item';
                     item.dataset.src = src;
-                    item.innerHTML = `<div><div class="sp-order-name">${meta.label}</div></div><span class="sp-dot" style="background:${meta.color}"></span><div class="sp-order-actions"><button class="sp-order-btn" type="button" data-dir="-1" title="上移"${index === 0 ? 'disabled' : ''}>↑</button><button class="sp-order-btn" type="button" data-dir="1" title="下移"${index === currentOrder.length - 1 ? 'disabled' : ''}>↓</button></div>`;
+                    item.innerHTML =`<div><div class="sp-order-name">${meta.label}</div></div><span class="sp-dot" style="background:${meta.color}"></span><div class="sp-order-actions"><button class="sp-order-btn" type="button" data-dir="-1" title="上移" ${index === 0 ? 'disabled':''}>↑</button><button class="sp-order-btn" type="button" data-dir="1" title="下移" ${index === currentOrder.length - 1 ? 'disabled':''}>↓</button></div>`;
                     orderList.appendChild(item);
                 });
             };
@@ -827,7 +845,7 @@
             }
             const panel = document.createElement('div');
             panel.id = 'jav-quick-settings-popover';
-            panel.innerHTML = `<div class="qs-head"><div><div class="qs-title">快捷设置</div><div class="qs-site">${siteLabelMap[site] || '当前站点'}</div></div><button class="qs-close" type="button" title="关闭">×</button></div><div class="qs-row"><div class="qs-name">卡片列数</div><input class="qs-range" id="qs-columns" type="range" min="2" max="10" step="1"><span class="qs-value" id="qs-columns-value">5</span></div><div class="qs-row"><div class="qs-name">页面宽度</div><input class="qs-range" id="qs-zoom" type="range" min="60" max="100" step="1"><span class="qs-value" id="qs-zoom-value">100%</span></div><div class="qs-detail-flex" id="qs-detail-flex"><div class="qs-section-title">详情比例</div><div class="qs-row" data-detail-flex-row="cover"><div class="qs-name">封面</div><input class="qs-range" id="qs-detail-cover" type="range" min="50" max="200" step="5"><span class="qs-value" id="qs-detail-cover-value">1.0</span></div><div class="qs-row" data-detail-flex-row="info"><div class="qs-name">信息</div><input class="qs-range" id="qs-detail-info" type="range" min="50" max="200" step="5"><span class="qs-value" id="qs-detail-info-value">1.0</span></div><div class="qs-row" data-detail-flex-row="magnet"><div class="qs-name">磁力</div><input class="qs-range" id="qs-detail-magnet" type="range" min="50" max="200" step="5"><span class="qs-value" id="qs-detail-magnet-value">关闭</span></div></div><div class="qs-switch-grid"><div class="qs-switch-row"><div class="qs-name">115匹配</div><label class="qs-toggle"><input id="qs-pan115" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">瀑布流</div><label class="qs-toggle"><input id="qs-infinite-scroll" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">卡片特效</div><label class="qs-toggle"><input id="qs-card-fx" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">翻译标题</div><label class="qs-toggle"><input id="qs-title-translate" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">竖图模式</div><label class="qs-toggle"><input id="qs-portrait-cards" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">新标签打开页面</div><label class="qs-toggle"><input id="qs-list-open-new-tab" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">快捷预览图</div><label class="qs-toggle"><input id="qs-list-preview" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">预览图直显</div><label class="qs-toggle"><input id="qs-detail-preview-inline" type="checkbox"><span class="qs-toggle-track"></span></label></div></div><div class="qs-footer"><button class="qs-more" type="button">更多设置</button></div>`;
+            panel.innerHTML =`<div class="qs-head"><div><div class="qs-title">快捷设置</div><div class="qs-site">${siteLabelMap[site] || '当前站点'}</div></div><button class="qs-close" type="button" title="关闭">×</button></div><div class="qs-row"><div class="qs-name">卡片列数</div><input class="qs-range" id="qs-columns" type="range" min="2" max="10" step="1"><span class="qs-value" id="qs-columns-value">5</span></div><div class="qs-row"><div class="qs-name">页面宽度</div><input class="qs-range" id="qs-zoom" type="range" min="60" max="100" step="1"><span class="qs-value" id="qs-zoom-value">100%</span></div><div class="qs-detail-flex" id="qs-detail-flex"><div class="qs-section-title">详情比例</div><div class="qs-row" data-detail-flex-row="cover"><div class="qs-name">封面</div><input class="qs-range" id="qs-detail-cover" type="range" min="50" max="200" step="5"><span class="qs-value" id="qs-detail-cover-value">1.0</span></div><div class="qs-row" data-detail-flex-row="info"><div class="qs-name">信息</div><input class="qs-range" id="qs-detail-info" type="range" min="50" max="200" step="5"><span class="qs-value" id="qs-detail-info-value">1.0</span></div><div class="qs-row" data-detail-flex-row="magnet"><div class="qs-name">磁力</div><input class="qs-range" id="qs-detail-magnet" type="range" min="50" max="200" step="5"><span class="qs-value" id="qs-detail-magnet-value">关闭</span></div></div><div class="qs-switch-grid"><div class="qs-switch-row"><div class="qs-name">115匹配</div><label class="qs-toggle"><input id="qs-pan115" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">瀑布流</div><label class="qs-toggle"><input id="qs-infinite-scroll" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">卡片特效</div><label class="qs-toggle"><input id="qs-card-fx" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">翻译标题</div><label class="qs-toggle"><input id="qs-title-translate" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">竖图模式</div><label class="qs-toggle"><input id="qs-portrait-cards" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">新标签打开页面</div><label class="qs-toggle"><input id="qs-list-open-new-tab" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">快捷预览图</div><label class="qs-toggle"><input id="qs-list-preview" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">预览图直显</div><label class="qs-toggle"><input id="qs-detail-preview-inline" type="checkbox"><span class="qs-toggle-track"></span></label></div></div><div class="qs-footer"><button class="qs-more" type="button">更多设置</button></div>`;
             document.body.appendChild(panel);
             const close = () => panel.remove();
             const columnsInput = panel.querySelector('#qs-columns');
@@ -1093,10 +1111,86 @@
             }).filter(Boolean);
             return { url: detailUrl, data };
         }
+        function normalizeJavdbApiToken(value) {
+            return String(value || '').trim().replace(/^Bearer\s+/i, '');
+        }
         function javdbApiToken() {
-            return localStorage.getItem('jhs_appAuthorization') ||
-                localStorage.getItem('javdb_appAuthorization') ||
-                GM_getValue('javdb_app_authorization', '');
+            const candidates = [
+                GM_getValue('laosiji_javdb_app_authorization', ''),
+                localStorage.getItem('laosiji_javdb_app_authorization'),
+            ];
+            const token = normalizeJavdbApiToken(candidates.find(Boolean));
+            if (token) {
+                GM_setValue('laosiji_javdb_app_authorization', token);
+                try {
+                    localStorage.setItem('laosiji_javdb_app_authorization', token);
+                } catch {}
+            }
+            return token;
+        }
+        function setJavdbApiToken(token) {
+            const normalized = normalizeJavdbApiToken(token);
+            if (normalized) {
+                GM_setValue('laosiji_javdb_app_authorization', normalized);
+                try {
+                    localStorage.setItem('laosiji_javdb_app_authorization', normalized);
+                } catch {}
+            } else {
+                GM_setValue('laosiji_javdb_app_authorization', '');
+                try {
+                    localStorage.removeItem('laosiji_javdb_app_authorization');
+                } catch {}
+            }
+            return normalized;
+        }
+        async function javdbApiLogin(username, password) {
+            const account = String(username || '').trim();
+            const secret = String(password || '');
+            if (!account || !secret) throw new Error('请输入 JavDB 用户名和密码');
+            const params = new URLSearchParams({
+                username: account,
+                password: secret,
+                device_uuid: '04b9534d-5118-53de-9f87-2ddded77111e',
+                device_name: 'iPhone',
+                device_model: 'iPhone',
+                platform: 'ios',
+                system_version: '17.4',
+                app_version: 'official',
+                app_version_number: '1.9.29',
+                app_channel: 'official',
+            });
+            const signature = buildJavdbSignature();
+            const url = `${JAVDB_API_BASE}/v1/sessions?${params.toString()}`;
+            const headers = {
+                'user-agent': 'Dart/3.5 (dart:io)',
+                'accept-language': 'zh-TW',
+                host: 'jdforrepam.com',
+                'content-type': 'multipart/form-data; boundary=--dio-boundary-2210433284',
+                jdsignature: signature,
+            };
+            const attempts = [
+                { method: 'POST', data: 'null', headers, timeout: 20000 },
+                { method: 'POST', data: undefined, headers, timeout: 20000 },
+            ];
+            let r = null;
+            let lastJson = null;
+            for (const opts of attempts) {
+                r = await gmFetch(url, opts);
+                if (!r.loadstuts || r.status < 200 || r.status >= 400) continue;
+                const maybeJson = parseJson(r.responseText);
+                if (maybeJson) lastJson = maybeJson;
+                if (maybeJson?.success === 1 && maybeJson?.data?.token) break;
+            }
+            if (!r.loadstuts || r.status < 200 || r.status >= 400) {
+                throw new Error(`JavDB App API 登录失败: HTTP ${r.status || 0}`);
+            }
+            const json = lastJson || parseJson(r.responseText);
+            if (!json) throw new Error('JavDB App API 登录返回异常');
+            if (json.success !== 1 || !json?.data?.token) {
+                debugLog('JavDB App API 登录失败返回:', json);
+                throw new Error(json?.message || json?.action || 'JavDB App API 登录失败');
+            }
+            return setJavdbApiToken(json.data.token);
         }
         function javdbAuthHeader() {
             const token = javdbApiToken();
@@ -1125,6 +1219,8 @@
         }
         const javdbApi = {
             token: javdbApiToken,
+            setToken: setJavdbApiToken,
+            login: javdbApiLogin,
             async top250({ category = 'all', year = '', page = 1, limit = 50 } = {}) {
                 const params = {
                     start_rank: 1,
@@ -1418,7 +1514,7 @@
             overlay.className = 'whatslink-overlay';
             const modal = document.createElement('section');
             modal.className = `whatslink-modal${shots.length ? '' : ' no-shots'}`;
-            modal.innerHTML = `<div class="whatslink-viewer"><div class="whatslink-stage"><button class="whatslink-nav whatslink-prev" type="button">‹</button><img class="whatslink-hero" alt="截图预览"><button class="whatslink-nav whatslink-next" type="button">›</button><div class="whatslink-counter"></div><div class="whatslink-empty"><div class="whatslink-empty-icon">?</div><div class="whatslink-empty-title">暂无截图</div><p class="whatslink-empty-text">WhatsLink 已返回资源基础信息，但没有可展示的截图。可以通过名称、大小和文件数量先做基础判断。</p></div></div><div class="whatslink-thumbs"></div></div><aside class="whatslink-info"><div class="whatslink-head"><div><div class="whatslink-kicker">磁力验车</div><h2 class="whatslink-title"></h2><span class="whatslink-tag"></span></div><button class="whatslink-close" type="button">×</button></div><div class="whatslink-meta"><div class="whatslink-metric"><b>${formatBytes(payload?.size)}</b><span>资源大小</span></div><div class="whatslink-metric"><b>${payload?.count ?? '-'}</b><span>文件数量</span></div><div class="whatslink-metric"><b>${resourceType}</b><span>资源结构</span></div><div class="whatslink-metric"><b>${shots.length}</b><span>截图数量</span></div><div class="whatslink-metric"><b>${payload?.error ? '异常' : '无错误'}</b><span>接口状态</span></div></div><div class="whatslink-section"><h3>磁力链接</h3><div class="whatslink-magnet"></div></div><div class="whatslink-summary"><div class="whatslink-summary-card"><strong>验车结论</strong><p>${shots.length ? 'WhatsLink 已返回截图，优先用左侧大图确认内容是否匹配番号。' : '当前没有截图，建议结合资源名称、大小和文件数量判断。'}</p></div></div></aside>`;
+            modal.innerHTML =`<div class="whatslink-viewer"><div class="whatslink-stage"><button class="whatslink-nav whatslink-prev" type="button">‹</button><img class="whatslink-hero" alt="截图预览"><button class="whatslink-nav whatslink-next" type="button">›</button><div class="whatslink-counter"></div><div class="whatslink-empty"><div class="whatslink-empty-icon">?</div><div class="whatslink-empty-title">暂无截图</div><p class="whatslink-empty-text">WhatsLink 已返回资源基础信息，但没有可展示的截图。可以通过名称、大小和文件数量先做基础判断。</p></div></div><div class="whatslink-thumbs"></div></div><aside class="whatslink-info"><div class="whatslink-head"><div><div class="whatslink-kicker">磁力验车</div><h2 class="whatslink-title"></h2><span class="whatslink-tag"></span></div><button class="whatslink-close" type="button">×</button></div><div class="whatslink-meta"><div class="whatslink-metric"><b>${formatBytes(payload?.size)}</b><span>资源大小</span></div><div class="whatslink-metric"><b>${payload?.count ?? '-'}</b><span>文件数量</span></div><div class="whatslink-metric"><b>${resourceType}</b><span>资源结构</span></div><div class="whatslink-metric"><b>${shots.length}</b><span>截图数量</span></div><div class="whatslink-metric"><b>${payload?.error ? '异常':'无错误'}</b><span>接口状态</span></div></div><div class="whatslink-section"><h3>磁力链接</h3><div class="whatslink-magnet"></div></div><div class="whatslink-summary"><div class="whatslink-summary-card"><strong>验车结论</strong><p>${shots.length ? 'WhatsLink 已返回截图，优先用左侧大图确认内容是否匹配番号。':'当前没有截图，建议结合资源名称、大小和文件数量判断。'}</p></div></div></aside>`;
             overlay.appendChild(modal);
             document.body.appendChild(overlay);
             modal.querySelector('.whatslink-title').textContent = payload?.name || '未知资源';
@@ -1437,7 +1533,7 @@
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'whatslink-thumb';
-                btn.innerHTML = `<img src="${url}" alt="截图${i + 1}">`;
+                btn.innerHTML =`<img src="${url}" alt="截图${i + 1}">`;
                 btn.addEventListener('click', () => { index = i; render(); });
                 thumbs.appendChild(btn);
             });
@@ -1547,7 +1643,7 @@
                 const emptyRow = document.createElement('tr');
                 const td = document.createElement('td');
                 td.colSpan = 4;
-                td.innerHTML = `无搜索结果 <a href="${engineUrl}" target="_blank" style="color:red">前往查看</a>`;
+                td.innerHTML =`无搜索结果<a href="${engineUrl}" target="_blank" style="color:red">前往查看</a>`;
                 const refresh = document.createElement('a');
                 refresh.href = '#';
                 refresh.textContent = ' 🔄 刷新';
@@ -1701,7 +1797,7 @@
                 fillTable(table, data, url);
             } catch(e) {
                 clearTimeout(timer);
-                log('磁力搜索出错:', e);
+                errorLog('磁力搜索出错:', e);
                 loadText.textContent = '搜索出错 ';
                 refreshBtn.style.display = 'inline';
             }
@@ -1735,6 +1831,54 @@
         }
         return { createMagnetWidget, javdbApi };
     })();
+    Core.expose('__LAOSIJI_MAGNET__', Magnet);
+    function openJavdbApiLoginDialog(nextUrl = '') {
+        addJavdbApiLoginStyles();
+        document.querySelector('#javdb-api-login-overlay')?.remove();
+        const overlay = document.createElement('div');
+        overlay.id = 'javdb-api-login-overlay';
+        overlay.innerHTML =`<div class="javdb-api-login-panel"><div class="javdb-api-login-title">登录 JavDB</div><input class="javdb-api-login-input" id="javdb-api-login-account" type="text" autocomplete="username" placeholder="用户名 / 邮箱"><input class="javdb-api-login-input" id="javdb-api-login-password" type="password" autocomplete="current-password" placeholder="密码"><div class="javdb-api-login-actions"><button class="javdb-api-login-cancel" type="button">取消</button><button class="javdb-api-login-submit" type="button">登录</button></div></div>`;
+        document.body.appendChild(overlay);
+        const close = () => overlay.remove();
+        const submit = overlay.querySelector('.javdb-api-login-submit');
+        const accountInput = overlay.querySelector('#javdb-api-login-account');
+        const passwordInput = overlay.querySelector('#javdb-api-login-password');
+        overlay.addEventListener('click', event => {
+            if (event.target === overlay || event.target.closest('.javdb-api-login-cancel')) close();
+        });
+        overlay.addEventListener('keydown', event => {
+            if (event.key === 'Escape') close();
+            if (event.key === 'Enter') submit.click();
+        });
+        submit.addEventListener('click', async () => {
+            const account = accountInput.value.trim();
+            const password = passwordInput.value;
+            if (!account || !password) {
+                notify('JavDB App API', '请输入用户名和密码');
+                return;
+            }
+            submit.disabled = true;
+            submit.textContent = '登录中...';
+            try {
+                await Magnet.javdbApi.login(account, password);
+                notify('JavDB App API', '登录成功，已保存授权');
+                close();
+                if (nextUrl) location.href = nextUrl;
+                else if (location.hostname.includes('javdb') && /rankings|advanced_search/.test(location.pathname + location.search)) location.reload();
+            } catch (err) {
+                notify('JavDB App API', err?.message || '登录失败');
+                submit.disabled = false;
+                submit.textContent = '登录';
+            }
+        });
+        setTimeout(() => accountInput.focus(), 0);
+    }
+    function renderJavdbApiLoginRequired(status, message = 'Top250 需要登录 JavDB API。可使用 JavDB 账号密码登录一次，脚本会在本地保存授权。') {
+        addJavdbApiLoginStyles();
+        status.classList.add('is-error');
+        status.innerHTML =`<span>${message}</span><button class="javdb-api-login-inline" type="button">登录 JavDB</button>`;
+        status.querySelector('.javdb-api-login-inline')?.addEventListener('click', () => openJavdbApiLoginDialog());
+    }
     const SiteJavBus = {
         match() {
             return location.hostname.includes('javbus');
@@ -1752,8 +1896,10 @@
             return normalizeAvid(kw.split(',')[0].trim());
         },
         isDetailPage() {
-            return !!document.querySelector('.row.movie') &&
-                   !document.querySelector('#waterfall div.item');
+            return (
+                !!document.querySelector('.row.movie') &&
+                !document.querySelector('#waterfall div.item')
+            );
         },
         initPage(avid) {
             document.querySelector('.ad-box')?.remove();
@@ -1764,7 +1910,6 @@
                 this._initListPage();
                 return;
             }
-
             this._insertCopyButton(avid);
             const detailDefaults = DetailFlex.defaultCss('javbus');
             GM_addStyle(`.container{max-width:100%!important;width:100%!important;padding-left:20px!important;padding-right:20px!important}.row.movie{display:flex!important;gap:20px!important;align-items:flex-start!important;flex-wrap:nowrap!important;margin:0!important}.row.movie{--javbus-cover-flex:${detailDefaults.cover};--javbus-info-flex:${detailDefaults.info};--javbus-magnet-flex:${detailDefaults.magnet}}.col-md-9.screencap{flex:var(--javbus-cover-flex) 1 0!important;min-width:0!important;width:auto!important;float:none!important;padding:0!important}.col-md-3.info{flex:var(--javbus-info-flex) 1 0!important;min-width:0!important;width:auto!important;float:none!important;overflow:hidden!important;word-break:break-word!important}.jav-nong-slot{flex:var(--javbus-magnet-flex) 1 0!important;min-width:0!important;align-self:flex-start!important;overflow:hidden!important}.jav-nong-wrapper{width:560px;max-width:100%}.screencap img{width:100%;max-width:100%}.footer{padding:20px 0}`);
@@ -1780,7 +1925,7 @@
             });
             const settingsNav = document.createElement('ul');
             settingsNav.className = 'nav navbar-nav navbar-right javbus-top-settings-nav';
-            settingsNav.innerHTML = `<li><a href="javascript:void(0)" class="javbus-top-settings-btn" title="\u6253\u5f00\u8001\u53f8\u673a\u8bbe\u7f6e"><span class="glyphicon glyphicon-cog" style="font-size:12px;"></span><span class="hidden-md hidden-sm">\u8001\u53f8\u673a\u8bbe\u7f6e</span></a></li>`;
+            settingsNav.innerHTML =`<li><a href="javascript:void(0)" class="javbus-top-settings-btn" title="\u6253\u5f00\u8001\u53f8\u673a\u8bbe\u7f6e"><span class="glyphicon glyphicon-cog" style="font-size:12px;"></span><span class="hidden-md hidden-sm">\u8001\u53f8\u673a\u8bbe\u7f6e</span></a></li>`;
             settingsNav.querySelector('.javbus-top-settings-btn')?.addEventListener('click', e => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1825,17 +1970,21 @@
             return [...document.querySelectorAll('h4')].find(h4 => {
                 const text = (h4.textContent || '').trim();
                 if (!/推薦|推荐/.test(text)) return false;
-                return h4.querySelector('#urad2') ||
-                       /bootstr\s*\(\s*1\s*\)/i.test(h4.innerHTML || '') ||
-                       /^推薦|^推荐/.test(text);
+                return (
+                    h4.querySelector('#urad2') ||
+                    /bootstr\s*\(\s*1\s*\)/i.test(h4.innerHTML || '') ||
+                    /^推薦|^推荐/.test(text)
+                );
             });
         },
         _isRecommendContainer(node) {
             if (!node || node.nodeType !== 1) return false;
             const mark = `${node.id || ''} ${node.className || ''}`;
             if (/sample/i.test(mark)) return false;
-            return /waterfall|recommend|related|masonry/i.test(mark) ||
-                   !!node.querySelector?.('.movie-box, .item, .masonry-brick');
+            return (
+                /waterfall|recommend|related|masonry/i.test(mark) ||
+                !!node.querySelector?.('.movie-box, .item, .masonry-brick')
+            );
         },
         _replaceRecommendWithJavdbReviews(avid) {
             if (!avid) return;
@@ -1853,15 +2002,19 @@
             const panel = document.createElement('section');
             panel.className = 'javbus-javdb-reviews';
             panel.dataset.avid = avid;
-            panel.innerHTML = `<div class="javbus-javdb-reviews-head"><button type="button" class="javbus-javdb-reviews-toggle" aria-expanded="false">JavDB 短评<span class="javbus-javdb-reviews-badge" title="此区块已由 JAV 老司机脚本替换">老司机</span></button><a class="javbus-javdb-reviews-link" href="https://javdb.com/search?q=${encodeURIComponent(avid)}" target="_blank" rel="noopener noreferrer">JavDB</a></div><div class="javbus-javdb-reviews-body" hidden><div class="javdb-api-tab-loading">正在读取短评...</div></div>`;
+            panel.innerHTML =`<div class="javbus-javdb-reviews-head"><button type="button" class="javbus-javdb-reviews-toggle" aria-expanded="false">JavDB 短评<span class="javbus-javdb-reviews-badge" title="此区块已由 JAV 老司机脚本替换">老司机</span></button><a class="javbus-javdb-reviews-link" href="https://javdb.com/search?q= ${encodeURIComponent(avid)}" target="_blank" rel="noopener noreferrer">JavDB</a></div><div class="javbus-javdb-reviews-body" hidden><div class="javdb-api-tab-loading">正在读取短评...</div></div>`;
             heading.replaceWith(panel);
             if (this._isRecommendContainer(next)) next.remove();
             this._bindJavbusReviewLoadMore(panel);
         },
         _renderJavbusReviewFooter(hasMore, shownCount) {
-            return `<div class="javdb-api-tab-footer javbus-javdb-reviews-footer">${hasMore
-                ? `<button type="button" class="javdb-api-tab-load-more javbus-javdb-reviews-load-more" data-shown-count="${shownCount}" data-load-limit="${JAVDB_REVIEW_MORE_LIMIT}">加载更多短评</button>`
-                : `<div class="javdb-api-tab-end">已加载全部短评</div>`}</div>`;
+            return `
+                <div class="javdb-api-tab-footer javbus-javdb-reviews-footer">
+                ${hasMore
+                                ? `<button type="button" class="javdb-api-tab-load-more javbus-javdb-reviews-load-more" data-shown-count="${shownCount}" data-load-limit="${JAVDB_REVIEW_MORE_LIMIT}">加载更多短评</button>`
+                                : `<div class="javdb-api-tab-end">已加载全部短评</div>`}
+                </div>
+`;
         },
         _renderJavbusReviewCollapseBar() {
             return '<div class="javdb-api-review-collapse-bar javbus-javdb-reviews-collapse-bar"><button type="button" class="javdb-api-review-collapse javbus-javdb-reviews-collapse" data-javbus-reviews-collapse="1">收起短评</button></div>';
@@ -1869,7 +2022,17 @@
         _renderJavbusReviews(reviews, offset = 0, hasMore = false) {
             const list = Array.isArray(reviews) ? reviews.slice(0, JAVDB_REVIEW_MORE_LIMIT) : [];
             const items = list.length ? SiteJavDB._renderApiReviewItems(list, offset, JAVDB_REVIEW_MORE_LIMIT) : '<div class="javdb-api-tab-empty">暂无短评</div>';
-            return `<article class="message video-panel"><div class="message-body">${this._renderJavbusReviewCollapseBar()}<div class="javdb-api-tab-items">${items}</div>${this._renderJavbusReviewFooter(hasMore, offset + list.length)}</div></article>`;
+            return `
+                <article class="message video-panel">
+                    <div class="message-body">
+                ${this._renderJavbusReviewCollapseBar()}
+                <div class="javdb-api-tab-items">
+                ${items}
+                </div>
+                ${this._renderJavbusReviewFooter(hasMore, offset + list.length)}
+                </div>
+                </article>
+`;
         },
         _bindJavbusReviewLoadMore(panel) {
             if (!panel || panel.dataset.reviewsLoadMoreBound === '1') return;
@@ -1916,7 +2079,7 @@
             try {
                 const movie = await Magnet.javdbApi.searchMovieByNumber(avid, { limit: 5 });
                 if (!movie?.id) {
-                    body.innerHTML = `<div class="javdb-api-tab-empty">JavDB 未找到${SiteJavDB._escapeHtml(avid)}的短评</div>`;
+                    body.innerHTML =`<div class="javdb-api-tab-empty">JavDB 未找到 ${SiteJavDB._escapeHtml(avid)}的短评</div>`;
                     return;
                 }
                 const link = panel.querySelector('.javbus-javdb-reviews-link');
@@ -1929,8 +2092,8 @@
                     ? this._renderJavbusReviews(reviews, 0, allReviews.length > JAVDB_REVIEW_INITIAL_LIMIT)
                     : '<div class="javdb-api-tab-empty">暂无短评</div>';
             } catch (err) {
-                console.warn('[老司机] JavBus JavDB 短评读取失败:', err);
-                body.innerHTML = `<div class="javdb-api-tab-error">${SiteJavDB._escapeHtml(err.message || '短评读取失败')}</div>`;
+                errorLog('JavBus JavDB 短评读取失败:', err);
+                body.innerHTML =`<div class="javdb-api-tab-error">${SiteJavDB._escapeHtml(err.message || '短评读取失败')}</div>`;
             }
         },
         async _loadMoreJavdbReviewsForJavbus(panel, btn) {
@@ -1957,7 +2120,7 @@
                 const hasMore = allReviews.length > nextShown;
                 if (footer) footer.outerHTML = this._renderJavbusReviewFooter(hasMore, nextShown);
             } catch (err) {
-                console.warn('[老司机] JavBus JavDB 更多短评读取失败:', err);
+                errorLog('JavBus JavDB 更多短评读取失败:', err);
                 btn.textContent = '加载失败，点击重试';
                 btn.disabled = false;
                 return;
@@ -2071,8 +2234,10 @@
             });
         },
         _getGridContainer() {
-            return document.querySelector('#waterfall.jav-card-grid') ||
-                   document.querySelector('#waterfall');
+            return (
+                document.querySelector('#waterfall.jav-card-grid') ||
+                document.querySelector('#waterfall')
+            );
         },
         _listPageNo(url = location.href) {
             try {
@@ -2119,8 +2284,9 @@
                 } else if (/\/\d+$/.test(path)) {
                     path = path.replace(/\/\d+$/, page <= 1 ? '' : `/${page}`);
                 } else {
-                    path = path === '' ? (page <= 1 ? '' : `/page/${page}`)
-                                       : (page <= 1 ? path : `${path}/${page}`);
+                    path = path === ''
+                        ? (page <= 1 ? '' : `/page/${page}`)
+                        : (page <= 1 ? path : `${path}/${page}`);
                 }
                 u.pathname = path || '/';
                 return u.href;
@@ -2177,11 +2343,11 @@
             this._initPaginationJump();
             if (this._redirectCurrentApiRankingEntry()) return;
             if (this._getApiRankingShellMode()) {
-                this._initApiRankingShellPage().catch(err => console.warn('[老司机] JavDB API 榜单渲染失败:', err));
+                this._initApiRankingShellPage().catch(err => errorLog('JavDB API 榜单渲染失败:', err));
                 return;
             }
             if (this._getApiDetailShellMode()) {
-                this._initApiDetailShellPage().catch(err => console.warn('[老司机] JavDB API 详情渲染失败:', err));
+                this._initApiDetailShellPage().catch(err => errorLog('JavDB API 详情渲染失败:', err));
                 return;
             }
             if (!location.pathname.startsWith('/v/')) {
@@ -2303,7 +2469,11 @@
         },
         _renderApiStars(score) {
             const value = Math.max(0, Math.min(5, parseInt(score, 10) || 0));
-            return `<span class="score-stars">${Array.from({ length: 5 }, (_, index) => `<i class="icon-star${index < value ? '' : ' gray'}"></i>`).join('')}</span>`;
+            return `
+                <span class="score-stars">
+                ${Array.from({ length: 5 }, (_, index) => `<i class="icon-star${index < value ? '' : ' gray'}"></i>`).join('')}
+                </span>
+`;
         },
         _ensureApiMovieTabStyle() {
             if (document.documentElement.dataset.laosijiJavdbApiMovieTabStyle === '1') return;
@@ -2336,10 +2506,26 @@
             }
         },
         _renderApiTabLoading(text = '读取中...') {
-            return `<article class="message video-panel"><div class="message-body"><div class="javdb-api-tab-loading">${this._escapeHtml(text)}</div></div></article>`;
+            return `
+                <article class="message video-panel">
+                    <div class="message-body">
+                        <div class="javdb-api-tab-loading">
+                ${this._escapeHtml(text)}
+                </div>
+                </div>
+                </article>
+`;
         },
         _renderApiTabError(text) {
-            return `<article class="message video-panel"><div class="message-body"><div class="javdb-api-tab-error">${this._escapeHtml(text || '读取失败')}</div></div></article>`;
+            return `
+                <article class="message video-panel">
+                    <div class="message-body">
+                        <div class="javdb-api-tab-error">
+                ${this._escapeHtml(text || '读取失败')}
+                </div>
+                </div>
+                </article>
+`;
         },
         _renderApiReviewCollapsed() {
             return '<article class="message video-panel"><div class="message-body"><button type="button" class="javdb-api-review-toggle" data-laosiji-api-expand-reviews="1">展开短评</button></div></article>';
@@ -2348,9 +2534,13 @@
             return '<div class="javdb-api-review-collapse-bar"><button type="button" class="javdb-api-review-collapse" data-laosiji-api-collapse-reviews="1">收起短评</button></div>';
         },
         _renderApiTabFooter(tab, nextPage, hasNext, doneText, moreText, pageSize = 20, shownCount = 0, loadLimit = pageSize) {
-            return `<div class="javdb-api-tab-footer">${hasNext
-                ? `<button type="button" class="javdb-api-tab-load-more" data-laosiji-api-load-tab="${tab}" data-next-page="${nextPage}" data-page-size="${pageSize}" data-shown-count="${shownCount}" data-load-limit="${loadLimit}">${this._escapeHtml(moreText)}</button>`
-                : `<div class="javdb-api-tab-end">${this._escapeHtml(doneText)}</div>`}</div>`;
+            return `
+                <div class="javdb-api-tab-footer">
+                ${hasNext
+                                ? `<button type="button" class="javdb-api-tab-load-more" data-laosiji-api-load-tab="${tab}" data-next-page="${nextPage}" data-page-size="${pageSize}" data-shown-count="${shownCount}" data-load-limit="${loadLimit}">${this._escapeHtml(moreText)}</button>`
+                                : `<div class="javdb-api-tab-end">${this._escapeHtml(doneText)}</div>`}
+                </div>
+`;
         },
         _renderApiMagnetRows(magnets) {
             const list = Array.isArray(magnets) ? magnets : [];
@@ -2369,11 +2559,35 @@
                     item?.cnsub ? '<span class="tag is-warning is-small is-light">字幕</span>' : '',
                 ].filter(Boolean).join('');
                 const pikpak = item?.pikpak_url ? `<a class="button is-info is-small" href="${this._escapeHtml(item.pikpak_url)}" target="_blank" rel="noopener noreferrer">&nbsp;下載&nbsp;</a>` : '';
-                return `<div class="item columns is-desktop${index % 2 === 0 ? 'odd' : ''}"><div class="magnet-name column is-four-fifths"><a href="${this._escapeHtml(magnet)}" title="右鍵點擊並選擇「複製鏈接地址」"><span class="name">${this._escapeHtml(name)}</span>${meta ? `<br><span class="meta">${this._escapeHtml(meta)}</span>` : ''}${tags ? `<br><div class="tags">${tags}</div>` : ''}</a></div><div class="buttons column"><button class="button is-info is-small copy-to-clipboard" data-clipboard-text="${this._escapeHtml(magnet)}" type="button">&nbsp;複製&nbsp;</button>${pikpak}</div><div class="date column"><span class="time">${this._escapeHtml(this._formatApiDate(item?.created_at))}</span></div></div>`;
+                return `
+                    <div class="item columns is-desktop ${index % 2 === 0 ? 'odd' : ''}">
+                        <div class="magnet-name column is-four-fifths">
+                            <a href="${this._escapeHtml(magnet)}" title="右鍵點擊並選擇「複製鏈接地址」">
+                                <span class="name">${this._escapeHtml(name)}</span>
+                                ${meta ? `<br><span class="meta">${this._escapeHtml(meta)}</span>` : ''}${tags ? `<br><div class="tags">${tags}</div>` : ''}
+                            </a>
+                        </div>
+                        <div class="buttons column">
+                            <button class="button is-info is-small copy-to-clipboard" data-clipboard-text="${this._escapeHtml(magnet)}" type="button">&nbsp;複製&nbsp;</button>
+                            ${pikpak}
+                        </div>
+                        <div class="date column">
+                            <span class="time">${this._escapeHtml(this._formatApiDate(item?.created_at))}</span>
+                        </div>
+                    </div>
+`;
             }).filter(Boolean).join('');
         },
         _renderApiMagnets(magnets) {
-            return `<article class="message video-panel"><div class="message-body"><div id="magnets-content" class="magnet-links" data-laosiji-api-source="1">${this._renderApiMagnetRows(magnets)}</div></div></article>`;
+            return `
+                <article class="message video-panel">
+                    <div class="message-body">
+                        <div id="magnets-content" class="magnet-links" data-laosiji-api-source="1">
+                ${this._renderApiMagnetRows(magnets)}
+                </div>
+                </div>
+                </article>
+`;
         },
         _renderApiReviewItems(reviews, offset = 0, limit = JAVDB_REVIEW_MORE_LIMIT) {
             const size = Math.max(1, parseInt(limit, 10) || JAVDB_REVIEW_MORE_LIMIT);
@@ -2391,19 +2605,54 @@
         _renderApiReviews(reviews, page, limit) {
             const list = Array.isArray(reviews) ? reviews.slice(0, limit) : [];
             const items = list.length ? this._renderApiReviewItems(list, (page - 1) * limit, limit) : '<div class="javdb-api-tab-empty">暂无短评</div>';
-            return `<article class="message video-panel"><div class="message-body">${this._renderApiReviewCollapseBar()}<div class="javdb-api-tab-items">${items}</div>${this._renderApiTabFooter('reviews', page + 1, list.length >= limit, '已加载全部短评', '加载更多短评', limit, list.length, JAVDB_REVIEW_MORE_LIMIT)}</div></article>`;
+            return `
+                <article class="message video-panel">
+                    <div class="message-body">
+                ${this._renderApiReviewCollapseBar()}
+                <div class="javdb-api-tab-items">
+                ${items}
+                </div>
+                ${this._renderApiTabFooter('reviews', page + 1, list.length >= limit, '已加载全部短评', '加载更多短评', limit, list.length, JAVDB_REVIEW_MORE_LIMIT)}
+                </div>
+                </article>
+`;
         },
         _renderApiRelatedItems(lists, offset = 0) {
             const list = Array.isArray(lists) ? lists : [];
             return list.map((item, index) => {
                 const href = `/lists/${encodeURIComponent(item?.id || '')}`;
-                return `<div class="javdb-api-related"><div class="javdb-api-related-head"><span><strong>#${offset + index + 1}</strong><a href="${this._escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${this._escapeHtml(item?.name || '未命名清單')}</a></span><span>${this._escapeHtml(this._formatApiDate(item?.created_at))}</span></div>${item?.description ? `<div class="javdb-api-related-desc">${this._renderApiLinkedText(item.description)}</div>` : ''}<div class="javdb-api-related-meta"><span>影片:${this._escapeHtml(item?.movies_count ?? '-')}</span><span>收藏:${this._escapeHtml(item?.collections_count ?? '-')}</span><span>浏览:${this._escapeHtml(item?.views_count ?? '-')}</span></div></div>`;
+                return `
+                    <div class="javdb-api-related">
+                        <div class="javdb-api-related-head">
+                            <span>
+                                <strong>#${offset + index + 1}</strong>
+                                <a href="${this._escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${this._escapeHtml(item?.name || '未命名清單')}</a>
+                            </span>
+                            <span>${this._escapeHtml(this._formatApiDate(item?.created_at))}</span>
+                        </div>
+                        ${item?.description ? `<div class="javdb-api-related-desc">${this._renderApiLinkedText(item.description)}</div>` : ''}
+                        <div class="javdb-api-related-meta">
+                            <span>影片:${this._escapeHtml(item?.movies_count ?? '-')}</span>
+                            <span>收藏:${this._escapeHtml(item?.collections_count ?? '-')}</span>
+                            <span>浏览:${this._escapeHtml(item?.views_count ?? '-')}</span>
+                        </div>
+                    </div>
+`;
             }).join('');
         },
         _renderApiRelatedLists(lists, page, limit) {
             const list = Array.isArray(lists) ? lists : [];
             const items = list.length ? this._renderApiRelatedItems(list, (page - 1) * limit) : '<div class="javdb-api-tab-empty">暂无相关清单</div>';
-            return `<article class="message video-panel"><div class="message-body"><div class="javdb-api-tab-items">${items}</div>${this._renderApiTabFooter('lists', page + 1, list.length >= limit, '已加载全部清单', '加载更多清单')}</div></article>`;
+            return `
+                <article class="message video-panel">
+                    <div class="message-body">
+                        <div class="javdb-api-tab-items">
+                ${items}
+                </div>
+                ${this._renderApiTabFooter('lists', page + 1, list.length >= limit, '已加载全部清单', '加载更多清单')}
+                </div>
+                </article>
+`;
         },
         _setApiMovieTab(active) {
             const tabs = {
@@ -2474,7 +2723,7 @@
                     pane.dataset.laosijiApiLoaded = '1';
                 }
             } catch (err) {
-                console.warn('[老司机] JavDB API tab 读取失败:', tab, err);
+                errorLog('JavDB API tab 读取失败:', tab, err);
                 if (append) {
                     this._updateApiTabFooter(pane, tab, page, true, '', '加载失败，点击重试');
                 } else {
@@ -2599,7 +2848,7 @@
                 host.className = list ? 'javdb-pagination-jump-item' : 'javdb-pagination-jump-item pagination-link';
                 const form = document.createElement('form');
                 form.className = 'javdb-pagination-jump';
-                form.innerHTML = `<input class="pagination-link" type="number" min="1" step="1" inputmode="numeric" aria-label="跳转页码" placeholder="页码" value="${this._escapeHtml(this._paginationCurrentPage(nav))}"><button class="pagination-link" type="submit">跳转</button>`;
+                form.innerHTML =`<input class="pagination-link" type="number" min="1" step="1" inputmode="numeric" aria-label="跳转页码" placeholder="页码" value="${this._escapeHtml(this._paginationCurrentPage(nav))}"><button class="pagination-link" type="submit">跳转</button>`;
                 form.addEventListener('submit', e => {
                     e.preventDefault();
                     const input = form.querySelector('input');
@@ -2680,6 +2929,14 @@
                 }
             } catch {}
             return '';
+        },
+        _isTopRankingShellUrl(href) {
+            try {
+                const url = new URL(href, location.href);
+                return url.pathname.replace(/\/+$/, '') === '/advanced_search'
+                    && new URLSearchParams(url.search).get('laosiji_rank') === 'top';
+            } catch {}
+            return false;
         },
         _movieIdFromJavdbHref(href) {
             try {
@@ -2766,6 +3023,10 @@
                 if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || link.target === '_blank') return;
                 e.preventDefault();
                 e.stopPropagation();
+                if (this._isTopRankingShellUrl(shellUrl) && !Magnet.javdbApi.token()) {
+                    openJavdbApiLoginDialog(shellUrl);
+                    return;
+                }
                 location.href = shellUrl;
             }, true);
             this._rewriteApiRankingLinks();
@@ -2815,7 +3076,9 @@
                 const categoryLinks = items.map(([category, label]) => {
                     const active = modeInfo.category === category;
                     const href = this._apiRankingShellUrl('top', { category, year: modeInfo.year, page: 1 });
-                    return `<a class="${active ? 'is-active' : ''}" href="${href}">${label}</a>`;
+                    return `
+                        <a class="${active ? 'is-active' : ''}" href="${href}">${label}</a>
+`;
                 }).join('');
                 const currentYear = new Date().getFullYear();
                 const allYearActive = !modeInfo.year;
@@ -2825,9 +3088,20 @@
                         const value = String(year);
                         const active = modeInfo.year === value;
                         const href = this._apiRankingShellUrl('top', { category: modeInfo.category, year: value, page: 1 });
-                        return `<a class="${active ? 'is-active' : ''}" href="${href}">${value}</a>`;
+                        return `
+                            <a class="${active ? 'is-active' : ''}" href="${href}">${value}</a>
+`;
                     }).join('');
-                return `<div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">分类</span>${categoryLinks}</div><div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">年份</span>${allYearLink}${yearLinks}</div>`;
+                return `
+                    <div class="javdb-api-shell-toolbar-group">
+                        <span class="javdb-api-shell-toolbar-label">分类</span>
+                    ${categoryLinks}
+                    </div>
+                    <div class="javdb-api-shell-toolbar-group">
+                        <span class="javdb-api-shell-toolbar-label">年份</span>
+                    ${allYearLink}${yearLinks}
+                    </div>
+`;
             }
             const items = [
                 ['daily', '日榜'],
@@ -2841,7 +3115,9 @@
                     filterBy: modeInfo.filterBy,
                     page: 1,
                 });
-                return `<a class="${active ? 'is-active' : ''}" href="${href}">${label}</a>`;
+                return `
+                    <a class="${active ? 'is-active' : ''}" href="${href}">${label}</a>
+`;
             }).join('');
             if (modeInfo.mode !== 'playback') return periodLinks;
             const filters = [
@@ -2854,9 +3130,20 @@
                     filterBy,
                     page: 1,
                 });
-                return `<a class="${active ? 'is-active' : ''}" href="${href}">${label}</a>`;
+                return `
+                    <a class="${active ? 'is-active' : ''}" href="${href}">${label}</a>
+`;
             }).join('');
-            return `<div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">周期</span>${periodLinks}</div><div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">排序</span>${filterLinks}</div>`;
+            return `
+                <div class="javdb-api-shell-toolbar-group">
+                    <span class="javdb-api-shell-toolbar-label">周期</span>
+                ${periodLinks}
+                </div>
+                <div class="javdb-api-shell-toolbar-group">
+                    <span class="javdb-api-shell-toolbar-label">排序</span>
+                ${filterLinks}
+                </div>
+`;
         },
         _renderApiRankingPagination(modeInfo, hasNext) {
             const page = modeInfo.page;
@@ -2872,7 +3159,11 @@
             const pages = modeInfo.mode === 'top'
                 ? [1, 2, 3, 4, 5].map(item => `<a class="${item === page ? 'is-active' : ''}" href="${href(item)}">${item}</a>`).join('')
                 : `<span>第 ${page} 页</span>`;
-            return `<div class="javdb-api-shell-pagination">${page > 1 ? `<a href="${href(page - 1)}">上一页</a>` : ''}${pages}${hasNext ? `<a href="${href(page + 1)}">下一页</a>` : ''}</div>`;
+            return `
+                <div class="javdb-api-shell-pagination">
+                ${page > 1 ? `<a href="${href(page - 1)}">上一页</a>` : ''}${pages}${hasNext ? `<a href="${href(page + 1)}">下一页</a>` : ''}
+                </div>
+`;
         },
         _renderApiRankingMovies(movies) {
             const updateCover = value => String(value || '').replace(/https:\/\/.*?\/rhe951l4q/g, 'https://c0.jdbstatic.com');
@@ -2889,7 +3180,19 @@
                 const href = /^FC2[-_]/i.test(String(item?.number || ''))
                     ? this._apiDetailShellUrl(item?.id || '')
                     : `/v/${this._escapeHtml(item?.id || '')}`;
-                return `<div class="item" data-javdb-api-shell-item="1"><a href="${this._escapeHtml(href)}" class="box" title="${this._escapeHtml(title)}"><div class="cover "><img loading="lazy" src="${this._escapeHtml(updateCover(item?.cover_url || item?.thumb_url || ''))}" alt=""></div><div class="video-title"><strong>${this._escapeHtml(item?.number || '')}</strong>${this._escapeHtml(title)}</div><div class="score">${score}</div><div class="meta">${this._escapeHtml(item?.release_date || '')}</div><div class="tags has-addons">${tags}</div></a></div>`;
+                return `
+                    <div class="item" data-javdb-api-shell-item="1">
+                        <a href="${this._escapeHtml(href)}" class="box" title="${this._escapeHtml(title)}">
+                            <div class="cover ">
+                                <img loading="lazy" src="${this._escapeHtml(updateCover(item?.cover_url || item?.thumb_url || ''))}" alt="">
+                            </div>
+                            <div class="video-title"><strong>${this._escapeHtml(item?.number || '')}</strong> ${this._escapeHtml(title)}</div>
+                            <div class="score">${score}</div>
+                            <div class="meta">${this._escapeHtml(item?.release_date || '')}</div>
+                            <div class="tags has-addons">${tags}</div>
+                        </a>
+                    </div>
+`;
             }).join('');
         },
         _ensureApiDetailShellStyle() {
@@ -2900,7 +3203,15 @@
         _renderApiDetailField(label, value) {
             const text = Array.isArray(value) ? value.filter(Boolean).join(' / ') : String(value || '');
             if (!text) return '';
-            return `<div class="panel-block"><strong>${this._escapeHtml(label)}:</strong>&nbsp;<span class="value">${this._escapeHtml(text)}</span></div>`;
+            return `
+                <div class="panel-block">
+                    <strong>
+                ${this._escapeHtml(label)}
+                :</strong>&nbsp;<span class="value">
+                ${this._escapeHtml(text)}
+                </span>
+                </div>
+`;
         },
         _renderApiDetailTags(items) {
             const list = Array.isArray(items) ? items : [];
@@ -2910,7 +3221,13 @@
                 return name ? `<span class="tag">${this._escapeHtml(name)}</span>` : '';
             }).filter(Boolean).join('');
             if (!tags) return '';
-            return `<div class="panel-block"><strong>標籤:</strong>&nbsp;<span class="value tags">${tags}</span></div>`;
+            return `
+                <div class="panel-block">
+                    <strong>標籤:</strong>&nbsp;<span class="value tags">
+                ${tags}
+                </span>
+                </div>
+`;
         },
         _renderApiDetailImages(images) {
             const list = Array.isArray(images) ? images : [];
@@ -2919,7 +3236,11 @@
                 const large = updateCover(item?.large_url || item?.url || item?.thumb_url || '');
                 const thumb = updateCover(item?.thumb_url || item?.large_url || item?.url || '');
                 if (!large || !thumb) return '';
-                return `<a class="tile-item" href="${this._escapeHtml(large)}" data-fancybox="gallery" data-caption="预览图${index + 1}"><img src="${this._escapeHtml(thumb)}" loading="lazy" alt="预览图${index + 1}"></a>`;
+                return `
+                    <a class="tile-item" href="${this._escapeHtml(large)}" data-fancybox="gallery" data-caption="预览图${index + 1}">
+                        <img src="${this._escapeHtml(thumb)}" loading="lazy" alt="预览图${index + 1}">
+                    </a>
+`;
             }).filter(Boolean).join('');
             return html ? `
                 <div class="columns javdb-api-detail-preview-columns">
@@ -2938,7 +3259,42 @@
             const title = movie?.origin_title || movie?.title || '';
             const actors = (Array.isArray(movie?.actors) ? movie.actors : []).map(item => item?.name || item).filter(Boolean);
             const cover = updateCover(movie?.cover_url || movie?.thumb_url || '');
-            return `<div class="video-detail javdb-api-detail" data-javdb-api-detail="1"><h2 class="title is-4 javdb-api-detail-title"><strong>${this._escapeHtml(number)}</strong><strong class="current-title">${this._escapeHtml(title)}</strong></h2><div class="video-meta-panel"><div class="columns is-desktop"><div class="column column-video-cover"><a data-fancybox="gallery" href="${this._escapeHtml(cover)}"><img src="${this._escapeHtml(cover)}" class="video-cover" alt="${this._escapeHtml(title)}"></a></div><div class="column"><nav class="panel movie-panel-info"><div class="panel-block first-block"><strong>番號:</strong>&nbsp;<span class="value">${this._escapeHtml(number)}</span>&nbsp;<a class="button is-white copy-to-clipboard" title="複製番號" data-clipboard-text="${this._escapeHtml(number)}"><span class="icon is-small"><i class="icon-copy"></i></span></a></div>${this._renderApiDetailField('標題', title)}${this._renderApiDetailField('日期', movie?.release_date)}${this._renderApiDetailField('時長', movie?.duration ? `${movie.duration} 分鐘` : '')}${this._renderApiDetailField('評分', movie?.score ? `${movie.score} / ${movie?.watched_count || 0} 人` : '')}${this._renderApiDetailField('片商', movie?.maker_name || movie?.publisher_name)}${this._renderApiDetailField('系列', movie?.series_name)}${this._renderApiDetailField('導演', movie?.director_name)}${this._renderApiDetailField('演員', actors)}${this._renderApiDetailTags(movie?.tags)}</nav></div></div></div>${this._renderApiDetailImages(movie?.preview_images)}</div>`;
+            return `
+                <div class="video-detail javdb-api-detail" data-javdb-api-detail="1">
+                    <h2 class="title is-4 javdb-api-detail-title">
+                        <strong>${this._escapeHtml(number)}</strong>
+                        <strong class="current-title">${this._escapeHtml(title)}</strong>
+                    </h2>
+                    <div class="video-meta-panel">
+                        <div class="columns is-desktop">
+                            <div class="column column-video-cover">
+                                <a data-fancybox="gallery" href="${this._escapeHtml(cover)}">
+                                    <img src="${this._escapeHtml(cover)}" class="video-cover" alt="${this._escapeHtml(title)}">
+                                </a>
+                            </div>
+                            <div class="column">
+                                <nav class="panel movie-panel-info">
+                                    <div class="panel-block first-block">
+                                        <strong>番號:</strong>&nbsp;<span class="value">${this._escapeHtml(number)}</span>&nbsp;<a class="button is-white copy-to-clipboard" title="複製番號" data-clipboard-text="${this._escapeHtml(number)}">
+                                            <span class="icon is-small"><i class="icon-copy"></i></span>
+                                        </a>
+                                    </div>
+                                    ${this._renderApiDetailField('標題', title)}
+                                    ${this._renderApiDetailField('日期', movie?.release_date)}
+                                    ${this._renderApiDetailField('時長', movie?.duration ? `${movie.duration} 分鐘` : '')}
+                                    ${this._renderApiDetailField('評分', movie?.score ? `${movie.score} / ${movie?.watched_count || 0} 人` : '')}
+                                    ${this._renderApiDetailField('片商', movie?.maker_name || movie?.publisher_name)}
+                                    ${this._renderApiDetailField('系列', movie?.series_name)}
+                                    ${this._renderApiDetailField('導演', movie?.director_name)}
+                                    ${this._renderApiDetailField('演員', actors)}
+                                    ${this._renderApiDetailTags(movie?.tags)}
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                    ${this._renderApiDetailImages(movie?.preview_images)}
+                </div>
+`;
         },
         async _initApiDetailShellPage() {
             const modeInfo = this._getApiDetailShellMode();
@@ -2963,7 +3319,7 @@
                 Runtime.refresh({ detailPreview: true, infiniteScroll: false });
                 return true;
             } catch (err) {
-                console.warn('[老司机] JavDB API 详情请求失败:', err);
+                errorLog('JavDB API 详情请求失败:', err);
                 status.classList.add('is-error');
                 status.textContent = err.message || 'JavDB API 详情请求失败';
                 return true;
@@ -2980,7 +3336,7 @@
                 : modeInfo.mode === 'playback'
                     ? '热播'
                     : 'FC2 排行榜';
-            container.innerHTML = `<div class="javdb-api-shell"><div class="javdb-api-shell-head"><div class="javdb-api-shell-title">${title}</div></div><div class="javdb-api-shell-toolbar">${this._renderApiRankingToolbar(modeInfo)}</div><div class="javdb-api-shell-status">正在加载 API 数据...</div><div class="movie-list h cols-4 vcols-8"></div><div class="javdb-api-shell-pagination-wrap"></div></div>`;
+            container.innerHTML =`<div class="javdb-api-shell"><div class="javdb-api-shell-head"><div class="javdb-api-shell-title">${title}</div></div><div class="javdb-api-shell-toolbar">${this._renderApiRankingToolbar(modeInfo)}</div><div class="javdb-api-shell-status">正在加载 API 数据...</div><div class="movie-list h cols-4 vcols-8"></div><div class="javdb-api-shell-pagination-wrap"></div></div>`;
             const status = container.querySelector('.javdb-api-shell-status');
             const list = container.querySelector('.movie-list');
             const pagination = container.querySelector('.javdb-api-shell-pagination-wrap');
@@ -2988,8 +3344,7 @@
                 let json;
                 if (modeInfo.mode === 'top') {
                     if (!Magnet.javdbApi.token()) {
-                        status.classList.add('is-error');
-                        status.textContent = 'Top250 API 需要 JavDB App token。本地未找到 jhs_appAuthorization / javdb_appAuthorization / javdb_app_authorization。';
+                        renderJavdbApiLoginRequired(status);
                         return true;
                     }
                     json = await Magnet.javdbApi.top250({
@@ -3030,7 +3385,12 @@
                 Runtime.refreshListPage();
                 return true;
             } catch (err) {
-                console.warn('[老司机] JavDB API 榜单请求失败:', err);
+                errorLog('JavDB API 榜单请求失败:', err);
+                if (/JWT|token|authorization|unauthorized/i.test(String(err?.message || ''))) {
+                    Magnet.javdbApi.setToken('');
+                    renderJavdbApiLoginRequired(status, 'JavDB App API 登录状态已失效，请重新登录一次。');
+                    return true;
+                }
                 status.classList.add('is-error');
                 status.textContent = err.message || 'JavDB API 请求失败';
                 return true;
@@ -3063,8 +3423,29 @@
                 if (/^(?:cols-|vcols-|h$|v$)/i.test(name)) list.classList.remove(name);
             });
         },
+        _repairCardStructure(card) {
+            if (!card) return;
+            const anchor = card.querySelector(':scope > a.box[href], :scope > a[href].box');
+            if (!anchor || anchor.querySelector('.cover, .video-title')) return;
+            const moveSelectors = ['.cover', '.video-title', '.score', '.meta', '.tags'];
+            let moved = false;
+            moveSelectors.forEach(selector => {
+                const node = card.querySelector(`:scope > ${selector}`);
+                if (!node) return;
+                node.querySelectorAll('.emby-badge, .emby-btn, .emby-button-group').forEach(el => el.remove());
+                anchor.appendChild(node);
+                moved = true;
+            });
+            if (moved) {
+                anchor.querySelectorAll('a[href]').forEach(child => {
+                    if (child === anchor) return;
+                    child.replaceWith(...child.childNodes);
+                });
+            }
+        },
         _decorateCard(card) {
             if (!card) return;
+            this._repairCardStructure(card);
             if (card.dataset.laosijiGridCard !== '1') {
                 card.dataset.laosijiGridCard = '1';
                 card.classList.add('jav-card', 'javdb-grid-card');
@@ -3213,13 +3594,17 @@
             return /(javlibrary|javlib|r86m|s87n)/i.test(location.hostname);
         },
         isDetailPage() {
-            return !!document.querySelector('#video_id .text') &&
-                   !!document.querySelector('meta[name="keywords"]');
+            return (
+                !!document.querySelector('#video_id .text') &&
+                !!document.querySelector('meta[name="keywords"]')
+            );
         },
         isHomePage() {
-            return document.body?.classList.contains('main') &&
-                   !this.isDetailPage() &&
-                   !!document.querySelector('#rightcolumn > .videothumblist .videos');
+            return (
+                document.body?.classList.contains('main') &&
+                !this.isDetailPage() &&
+                !!document.querySelector('#rightcolumn > .videothumblist .videos')
+            );
         },
         getVid() {
             const el = document.querySelector('#video_id .text');
@@ -3348,7 +3733,7 @@
             const label = lang.startsWith('en') ? 'Site Nav' : lang.startsWith('ja') ? 'ナビ' : /tw|zh$/.test(lang) ? '站點導航' : '站点导航';
             const menu = document.createElement('span');
             menu.className = 'javlib-top-nav-menu';
-            menu.innerHTML = `<a class="javlib-top-nav-trigger" href="javascript:void(0)">${label}▾</a><div class="javlib-top-nav-dropdown" role="menu"></div>`;
+            menu.innerHTML =`<a class="javlib-top-nav-trigger" href="javascript:void(0)">${label}▾</a><div class="javlib-top-nav-dropdown" role="menu"></div>`;
             menu.addEventListener('mousedown', e => {
                 if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
                     e.preventDefault();
@@ -4133,7 +4518,7 @@
     function mainRun() {
         SiteManager.initCurrent();
     }
-    GM_addStyle(`.preview-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2147483647;display:flex;overflow:auto;cursor:zoom-out;backdrop-filter:blur(5px)}.preview-img{border-radius:4px;margin:auto;cursor:zoom-in;max-width:95vw;max-height:95vh;object-fit:contain;display:block;box-shadow:0 0 20px rgba(0,0,0,0.5)}.preview-img.zoomed{max-width:none;max-height:none;cursor:zoom-out}a:focus:not(:focus-visible),button:focus:not(:focus-visible),[role="button"]:focus:not(:focus-visible),input[type="button"]:focus:not(:focus-visible),input[type="submit"]:focus:not(:focus-visible){outline:none!important}.jav-jump-btn-group{margin-top:8px;margin-bottom:4px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}.emby-fix{width:100%!important;flex-basis:100%!important;clear:both!important;margin-top:8px!important;margin-bottom:4px!important}.mini-switch{width:40px;height:20px;appearance:none;background:#e0e0e0;border-radius:20px;position:relative;cursor:pointer;outline:none;transition:background 0.2s}.mini-switch:checked{background:#4CAF50}.mini-switch::before{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:white;top:2px;left:2px;transition:left 0.2s}.mini-switch:checked::before{left:calc(100% - 18px)}@keyframes btnSlideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}.jav-jump-btn-group a{transition:background .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;animation:btnSlideIn 0.3s ease-out}.jav-jump-btn-group a:hover{background:var(--jav-btn-hover-bg,#f8fafc)!important;transform:translateY(-1px)!important;filter:none!important;box-shadow:0 5px 14px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.76)!important;text-decoration:none!important}@keyframes menuFadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}.search-menu{position:relative;display:inline-block;border-radius:4px}.search-main-btn{padding-right:28px!important}.search-toggle-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:16px;height:16px;padding:0!important;margin:0!important;display:inline-flex!important;align-items:center;justify-content:center;flex-shrink:0;font-size:10px!important;line-height:1;opacity:1;background:color-mix(in srgb,var(--jav-btn-accent,#64748b) 18%,#ffffff)!important;color:inherit!important;border:1px solid color-mix(in srgb,var(--jav-btn-accent,#64748b) 26%,#ffffff)!important;border-radius:999px!important;box-shadow:0 1px 2px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.7)!important;cursor:pointer}.search-toggle-btn:hover{filter:none;background:color-mix(in srgb,var(--jav-btn-accent,#64748b) 26%,#ffffff)!important}.search-toggle-btn .search-arrow{display:inline-block;transform:translateY(-1px);pointer-events:none}.search-submenu{position:absolute;top:calc(100%+4px);left:0;display:none;flex-direction:column;gap:4px;padding:4px;background:rgba(255,255,255,0.95);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:10000;min-width:120px;backdrop-filter:blur(5px)}.search-submenu.is-open{display:flex}.search-submenu a{transition:all 0.2s ease;box-shadow:0 2px 4px rgba(0,0,0,0.1)!important}.search-submenu a:hover{transform:translateX(5px) scale(1.02);filter:brightness(1.1)}.jav-pan115-badge{display:inline-flex;align-items:center;justify-content:center;min-width:58px;height:22px!important;padding:0 7px;margin-right:6px;position:static!important;top:auto!important;transform:none!important;border-radius:6px;background:#bbf7d0;border:1px solid #22c55e;color:#065f46;font-size:12px!important;font-weight:800;line-height:22px!important;text-decoration:none;box-sizing:border-box;vertical-align:middle;box-shadow:inset 0 1px 0 rgba(255,255,255,0.72)}.jav-pan115-badge:hover{background:#86efac;color:#064e3b;text-decoration:none;box-shadow:0 4px 12px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.76)}span.jav-pan115-badge{cursor:pointer}.jav-infinite-sentinel{width:100%;padding:14px 0;color:#64748b;font-size:13px;font-weight:700;text-align:center;clear:both}.jav-infinite-sentinel.is-loading{color:#2563eb}.jav-infinite-sentinel.is-done{color:#94a3b8}.jav-infinite-sentinel.is-error{color:#dc2626;cursor:pointer}.preview-toolbar{position:fixed;top:20px;right:20px;display:flex;gap:8px;z-index:2147483648;background:rgba(30,30,30,0.75);backdrop-filter:blur(10px);padding:6px 12px;border-radius:30px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 6px 18px rgba(0,0,0,0.25)}.preview-btn{border:none;color:#eee;font-size:13px;font-weight:450;cursor:pointer;padding:6px 14px;border-radius:24px;transition:all 0.2s ease;display:inline-flex;align-items:center;gap:6px;background:rgba(100,100,120,0.3);border:1px solid rgba(255,255,255,0.05);box-shadow:0 2px 4px rgba(0,0,0,0.1);letter-spacing:0.2px}.preview-btn:hover{background:rgba(140,140,160,0.4);transform:translateY(-2px);box-shadow:0 6px 12px rgba(0,0,0,0.2)}.preview-btn.javfree.active{background:#2ecc71;color:white;border-color:rgba(255,255,255,0.3);box-shadow:0 0 16px rgba(46,204,113,0.6);font-weight:500}.preview-btn.javstore.active{background:#e74c3c;color:white;border-color:rgba(255,255,255,0.3);box-shadow:0 0 16px rgba(231,76,60,0.6);font-weight:500}.preview-btn.action{background:rgba(100,100,120,0.3)}.preview-btn.action:hover{background:rgba(140,140,160,0.5)}.preview-btn:active{transform:translateY(0);box-shadow:0 2px 4px rgba(0,0,0,0.15)}.trailer-overlay{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:34px;background:radial-gradient(circle at 50% 18%,rgba(56,189,248,0.16),transparent 32%),linear-gradient(180deg,rgba(5,7,12,0.88),rgba(0,0,0,0.96));backdrop-filter:blur(16px) saturate(0.85);cursor:default}.trailer-modal{width:min(1120px,94vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;color:#f8fafc;background:#05070c;border:1px solid rgba(255,255,255,0.12);border-radius:8px;box-shadow:0 30px 80px rgba(0,0,0,0.68),0 0 0 1px rgba(255,255,255,0.04) inset;cursor:default;animation:trailerFadeIn .18s ease-out}@keyframes trailerFadeIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}.trailer-header{position:absolute;top:0;left:0;right:0;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px 34px;background:linear-gradient(180deg,rgba(0,0,0,0.66),rgba(0,0,0,0));border:0;pointer-events:none;opacity:1;transition:opacity .18s ease,transform .18s ease}.trailer-title{min-width:0;display:flex;align-items:center;gap:10px;font:700 15px/1.3 Arial,"Microsoft YaHei",sans-serif;pointer-events:auto}.trailer-code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.4px}.trailer-source{flex-shrink:0;padding:3px 9px;border-radius:999px;color:rgba(255,255,255,0.82);background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);font-size:12px;font-weight:500;backdrop-filter:blur(12px)}.jav-player-close{width:34px;height:34px;border:0;border-radius:50%;color:#fff;background:rgba(255,255,255,0.14);cursor:pointer;font-size:18px;line-height:34px;pointer-events:auto;box-shadow:0 8px 20px rgba(0,0,0,0.22);transition:transform .15s ease,background .15s ease,box-shadow .15s ease}.jav-player-close:hover{transform:scale(1.08);background:rgba(248,113,113,0.34);box-shadow:0 10px 24px rgba(0,0,0,0.28)}.trailer-screen{position:relative;aspect-ratio:16 / 9;width:100%;max-height:82vh;overflow:hidden;background:radial-gradient(circle at center,rgba(31,41,55,.75),#000 62%),#000}.trailer-screen:fullscreen{width:100vw;height:100vh;max-height:none;aspect-ratio:auto;display:flex;align-items:center;justify-content:center;background:#000}.trailer-screen:-webkit-full-screen{width:100vw;height:100vh;max-height:none;aspect-ratio:auto;display:flex;align-items:center;justify-content:center;background:#000}.trailer-screen::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,0.52),rgba(0,0,0,0) 30%),linear-gradient(0deg,rgba(0,0,0,0.62),rgba(0,0,0,0) 36%)}.trailer-screen.is-iframe::before{display:none}.trailer-screen video,.trailer-screen iframe{position:absolute;inset:0;width:100%;height:100%;display:block;border:0;background:#000;object-fit:contain}.trailer-volume-indicator{position:absolute;top:62px;right:26px;z-index:5;color:#f8fafc;font:750 24px/1 Arial,"Microsoft YaHei",sans-serif;text-shadow:0 2px 8px rgba(0,0,0,0.82);opacity:0;pointer-events:none;transition:opacity .14s ease}.trailer-volume-indicator.is-visible{opacity:1}.trailer-fallback-status{position:absolute;left:18px;top:58px;z-index:5;max-width:min(520px,calc(100% - 36px));padding:7px 10px;border-radius:8px;color:rgba(255,255,255,0.9);background:rgba(10,14,22,0.68);border:1px solid rgba(255,255,255,0.16);box-shadow:0 12px 28px rgba(0,0,0,0.28);backdrop-filter:blur(14px);font:12px/1.45 Arial,"Microsoft YaHei",sans-serif;opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .16s ease,transform .16s ease}.trailer-fallback-status.is-visible{opacity:1;transform:translateY(0)}.trailer-quality-bar{display:flex;align-items:center;gap:8px;padding:0;background:transparent;border:none;border-radius:0;backdrop-filter:none}.trailer-quality-select{min-width:78px;max-width:140px;height:30px;padding:0 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.12);color:#f8fafc;outline:none;font-size:12px;line-height:28px;text-align:center;text-align-last:center;appearance:none;cursor:pointer}.trailer-quality-select option{background:#0b1020;color:#f8fafc}.trailer-footer{position:absolute;left:16px;right:16px;bottom:16px;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;color:rgba(255,255,255,0.78);background:rgba(10,14,22,0.62);border:1px solid rgba(255,255,255,0.16);border-radius:8px;box-shadow:0 18px 40px rgba(0,0,0,0.32);backdrop-filter:blur(16px) saturate(1.08);font:12px/1.4 Arial,"Microsoft YaHei",sans-serif;opacity:1;transform:translateY(0);transition:opacity .18s ease,transform .18s ease}.trailer-screen.is-controls-hidden{cursor:none}.trailer-screen.is-controls-hidden .trailer-header{opacity:0;transform:translateY(-8px);pointer-events:none}.trailer-screen.is-controls-hidden .trailer-footer{opacity:0;transform:translateY(10px);pointer-events:none}.trailer-control-left,.trailer-control-right{display:flex;align-items:center;gap:9px;min-width:0}.trailer-control-left{flex:1 1 auto}.trailer-control-right{flex:0 0 auto}.trailer-control-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;padding:0;border:0;border-radius:999px;color:#fff;background:rgba(255,255,255,0.14);cursor:pointer;font:700 13px/1 Arial,"Microsoft YaHei",sans-serif;transition:background .15s ease,transform .15s ease}.trailer-control-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px)}.trailer-volume-wrap{position:relative;display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center}.trailer-volume-wrap::before{content:"";position:absolute;left:50%;bottom:100%;width:46px;height:14px;transform:translateX(-50%)}.trailer-volume-popover{position:absolute;left:50%;bottom:calc(100%+8px);width:34px;height:118px;display:flex;align-items:center;justify-content:center;padding:10px 0;border-radius:999px;background:rgba(10,14,22,0.76);border:1px solid rgba(255,255,255,0.16);box-shadow:0 14px 32px rgba(0,0,0,0.34);backdrop-filter:blur(16px) saturate(1.08);opacity:0;pointer-events:none;transform:translate(-50%,6px);transition:opacity .15s ease,transform .15s ease}.trailer-volume-wrap:hover .trailer-volume-popover{opacity:1;pointer-events:auto;transform:translate(-50%,0)}.trailer-volume-rail{position:absolute;left:50%;top:14px;bottom:14px;width:4px;transform:translateX(-50%);border-radius:999px;background:rgba(255,255,255,0.32);pointer-events:none}.trailer-volume-fill{position:absolute;left:0;right:0;bottom:0;height:var(--volume-percent,35%);border-radius:999px;background:#38bdf8}.trailer-volume-thumb{position:absolute;left:50%;bottom:var(--volume-percent,35%);width:16px;height:16px;transform:translate(-50%,50%);border-radius:50%;background:#38bdf8;border:2px solid rgba(255,255,255,0.92);box-shadow:0 2px 8px rgba(0,0,0,0.38)}.trailer-volume-slider{position:absolute;top:8px;bottom:8px;left:50%;width:16px;height:calc(100% - 16px);margin:0;transform:translateX(-50%);appearance:none;-webkit-appearance:none;writing-mode:vertical-lr;direction:rtl;background:transparent;cursor:pointer}.trailer-volume-slider::-webkit-slider-runnable-track{width:100%;height:100%;background:transparent}.trailer-volume-slider::-moz-range-track{width:100%;height:100%;background:transparent}.trailer-volume-slider::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:16px;background:transparent;border:0;box-shadow:none}.trailer-volume-slider::-moz-range-thumb{width:24px;height:16px;background:transparent;border:0;box-shadow:none}.trailer-time{flex:0 0 auto;min-width:36px;color:rgba(255,255,255,0.78);font:11px/1.3 Arial,"Microsoft YaHei",sans-serif;white-space:nowrap;text-align:center}.trailer-progress{flex:1 1 160px;min-width:120px;height:4px;margin:0;border-radius:999px;accent-color:#38bdf8;cursor:pointer}.jav-jump-toast{position:fixed;left:50%;top:72px;z-index:2147483647;display:flex;align-items:flex-start;gap:12px;width:min(420px,calc(100vw - 32px));padding:14px 16px;color:#f8fafc;background:rgba(15,23,42,0.94);border:1px solid rgba(148,163,184,0.28);border-left:4px solid #38bdf8;border-radius:12px;box-shadow:0 18px 44px rgba(0,0,0,0.34),0 0 0 1px rgba(255,255,255,0.04) inset;backdrop-filter:blur(14px) saturate(1.1);font-family:Arial,"Microsoft YaHei",sans-serif;transform:translate(-50%,-12px);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}.jav-jump-toast.show{opacity:1;transform:translate(-50%,0)}.jav-jump-toast.hide{opacity:0;transform:translate(-50%,-12px)}.jav-jump-toast-icon{flex:0 0 auto;width:24px;height:24px;border-radius:999px;color:#082f49;background:#7dd3fc;font-size:16px;font-weight:800;line-height:24px;text-align:center}.jav-jump-toast-title{margin:0 0 4px;font-size:14px;font-weight:700;line-height:1.35}.jav-jump-toast-message{margin:0;color:#cbd5e1;font-size:13px;line-height:1.45}@media (max-width:720px){.trailer-overlay{padding:12px}.trailer-modal{width:100%;border-radius:8px}.trailer-header{padding:12px 12px 30px}.trailer-title{gap:7px;font-size:13px}.trailer-source{max-width:42vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.trailer-footer{left:8px;right:8px;bottom:8px;flex-direction:column;align-items:stretch;gap:7px;padding:8px}.trailer-control-left,.trailer-control-right{width:100%;justify-content:center}.trailer-progress{min-width:80px}.jav-jump-toast{top:18px;width:calc(100vw - 24px);padding:13px 14px}}`);
+    GM_addStyle(`.preview-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2147483647;display:flex;overflow:auto;cursor:zoom-out;backdrop-filter:blur(5px)}.preview-img{border-radius:4px;margin:auto;cursor:zoom-in;max-width:95vw;max-height:95vh;object-fit:contain;display:block;box-shadow:0 0 20px rgba(0,0,0,0.5)}.preview-img.zoomed{max-width:none;max-height:none;cursor:zoom-out}a:focus:not(:focus-visible),button:focus:not(:focus-visible),[role="button"]:focus:not(:focus-visible),input[type="button"]:focus:not(:focus-visible),input[type="submit"]:focus:not(:focus-visible){outline:none!important}.jav-jump-btn-group{margin-top:8px;margin-bottom:4px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}.emby-fix{width:100%!important;flex-basis:100%!important;clear:both!important;margin-top:8px!important;margin-bottom:4px!important}.mini-switch{width:40px;height:20px;appearance:none;background:#e0e0e0;border-radius:20px;position:relative;cursor:pointer;outline:none;transition:background 0.2s}.mini-switch:checked{background:#4CAF50}.mini-switch::before{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:white;top:2px;left:2px;transition:left 0.2s}.mini-switch:checked::before{left:calc(100% - 18px)}@keyframes btnSlideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}.jav-jump-btn-group a{transition:background .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;animation:btnSlideIn 0.3s ease-out}.jav-jump-btn-group a:hover{background:var(--jav-btn-hover-bg,#f8fafc)!important;transform:translateY(-1px)!important;filter:none!important;box-shadow:0 5px 14px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.76)!important;text-decoration:none!important}@keyframes menuFadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}.search-menu{position:relative;display:inline-block;border-radius:4px}.search-main-btn{padding-right:28px!important}.search-toggle-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:16px;height:16px;padding:0!important;margin:0!important;display:inline-flex!important;align-items:center;justify-content:center;flex-shrink:0;font-size:10px!important;line-height:1;opacity:1;background:color-mix(in srgb,var(--jav-btn-accent,#64748b) 18%,#ffffff)!important;color:inherit!important;border:1px solid color-mix(in srgb,var(--jav-btn-accent,#64748b) 26%,#ffffff)!important;border-radius:999px!important;box-shadow:0 1px 2px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.7)!important;cursor:pointer}.search-toggle-btn:hover{filter:none;background:color-mix(in srgb,var(--jav-btn-accent,#64748b) 26%,#ffffff)!important}.search-toggle-btn .search-arrow{display:inline-block;transform:translateY(-1px);pointer-events:none}.search-submenu{position:absolute;top:calc(100% + 4px);left:0;display:none;flex-direction:column;gap:4px;padding:4px;background:rgba(255,255,255,0.95);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:10000;min-width:120px;backdrop-filter:blur(5px)}.search-submenu.is-open{display:flex}.search-submenu a{transition:all 0.2s ease;box-shadow:0 2px 4px rgba(0,0,0,0.1)!important}.search-submenu a:hover{transform:translateX(5px) scale(1.02);filter:brightness(1.1)}.jav-pan115-badge{display:inline-flex;align-items:center;justify-content:center;min-width:58px;height:22px!important;padding:0 7px;margin-right:6px;position:static!important;top:auto!important;transform:none!important;border-radius:6px;background:#bbf7d0;border:1px solid #22c55e;color:#065f46;font-size:12px!important;font-weight:800;line-height:22px!important;text-decoration:none;box-sizing:border-box;vertical-align:middle;box-shadow:inset 0 1px 0 rgba(255,255,255,0.72)}.jav-pan115-badge:hover{background:#86efac;color:#064e3b;text-decoration:none;box-shadow:0 4px 12px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.76)}span.jav-pan115-badge{cursor:pointer}.jav-infinite-sentinel{width:100%;padding:14px 0;color:#64748b;font-size:13px;font-weight:700;text-align:center;clear:both}.jav-infinite-sentinel.is-loading{color:#2563eb}.jav-infinite-sentinel.is-done{color:#94a3b8}.jav-infinite-sentinel.is-error{color:#dc2626;cursor:pointer}.preview-toolbar{position:fixed;top:20px;right:20px;display:flex;gap:8px;z-index:2147483648;background:rgba(30,30,30,0.75);backdrop-filter:blur(10px);padding:6px 12px;border-radius:30px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 6px 18px rgba(0,0,0,0.25)}.preview-btn{border:none;color:#eee;font-size:13px;font-weight:450;cursor:pointer;padding:6px 14px;border-radius:24px;transition:all 0.2s ease;display:inline-flex;align-items:center;gap:6px;background:rgba(100,100,120,0.3);border:1px solid rgba(255,255,255,0.05);box-shadow:0 2px 4px rgba(0,0,0,0.1);letter-spacing:0.2px}.preview-btn:hover{background:rgba(140,140,160,0.4);transform:translateY(-2px);box-shadow:0 6px 12px rgba(0,0,0,0.2)}.preview-btn.javfree.active{background:#2ecc71;color:white;border-color:rgba(255,255,255,0.3);box-shadow:0 0 16px rgba(46,204,113,0.6);font-weight:500}.preview-btn.javstore.active{background:#e74c3c;color:white;border-color:rgba(255,255,255,0.3);box-shadow:0 0 16px rgba(231,76,60,0.6);font-weight:500}.preview-btn.action{background:rgba(100,100,120,0.3)}.preview-btn.action:hover{background:rgba(140,140,160,0.5)}.preview-btn:active{transform:translateY(0);box-shadow:0 2px 4px rgba(0,0,0,0.15)}.trailer-overlay{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:34px;background:radial-gradient(circle at 50% 18%,rgba(56,189,248,0.16),transparent 32%),linear-gradient(180deg,rgba(5,7,12,0.88),rgba(0,0,0,0.96));backdrop-filter:blur(16px) saturate(0.85);cursor:default}.trailer-modal{width:min(1120px,94vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;color:#f8fafc;background:#05070c;border:1px solid rgba(255,255,255,0.12);border-radius:8px;box-shadow:0 30px 80px rgba(0,0,0,0.68),0 0 0 1px rgba(255,255,255,0.04) inset;cursor:default;animation:trailerFadeIn .18s ease-out}@keyframes trailerFadeIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}.trailer-header{position:absolute;top:0;left:0;right:0;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px 34px;background:linear-gradient(180deg,rgba(0,0,0,0.66),rgba(0,0,0,0));border:0;pointer-events:none;opacity:1;transition:opacity .18s ease,transform .18s ease}.trailer-title{min-width:0;display:flex;align-items:center;gap:10px;font:700 15px/1.3 Arial,"Microsoft YaHei",sans-serif;pointer-events:auto}.trailer-code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.4px}.trailer-source{flex-shrink:0;padding:3px 9px;border-radius:999px;color:rgba(255,255,255,0.82);background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);font-size:12px;font-weight:500;backdrop-filter:blur(12px)}.jav-player-close{width:34px;height:34px;border:0;border-radius:50%;color:#fff;background:rgba(255,255,255,0.14);cursor:pointer;font-size:18px;line-height:34px;pointer-events:auto;box-shadow:0 8px 20px rgba(0,0,0,0.22);transition:transform .15s ease,background .15s ease,box-shadow .15s ease}.jav-player-close:hover{transform:scale(1.08);background:rgba(248,113,113,0.34);box-shadow:0 10px 24px rgba(0,0,0,0.28)}.trailer-screen{position:relative;aspect-ratio:16 / 9;width:100%;max-height:82vh;overflow:hidden;background:radial-gradient(circle at center,rgba(31,41,55,.75),#000 62%),#000}.trailer-screen:fullscreen{width:100vw;height:100vh;max-height:none;aspect-ratio:auto;display:flex;align-items:center;justify-content:center;background:#000}.trailer-screen:-webkit-full-screen{width:100vw;height:100vh;max-height:none;aspect-ratio:auto;display:flex;align-items:center;justify-content:center;background:#000}.trailer-screen::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,0.52),rgba(0,0,0,0) 30%),linear-gradient(0deg,rgba(0,0,0,0.62),rgba(0,0,0,0) 36%)}.trailer-screen.is-iframe::before{display:none}.trailer-screen video,.trailer-screen iframe{position:absolute;inset:0;width:100%;height:100%;display:block;border:0;background:#000;object-fit:contain}.trailer-volume-indicator{position:absolute;top:62px;right:26px;z-index:5;color:#f8fafc;font:750 24px/1 Arial,"Microsoft YaHei",sans-serif;text-shadow:0 2px 8px rgba(0,0,0,0.82);opacity:0;pointer-events:none;transition:opacity .14s ease}.trailer-volume-indicator.is-visible{opacity:1}.trailer-fallback-status{position:absolute;left:18px;top:58px;z-index:5;max-width:min(520px,calc(100% - 36px));padding:7px 10px;border-radius:8px;color:rgba(255,255,255,0.9);background:rgba(10,14,22,0.68);border:1px solid rgba(255,255,255,0.16);box-shadow:0 12px 28px rgba(0,0,0,0.28);backdrop-filter:blur(14px);font:12px/1.45 Arial,"Microsoft YaHei",sans-serif;opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .16s ease,transform .16s ease}.trailer-fallback-status.is-visible{opacity:1;transform:translateY(0)}.trailer-quality-bar{display:flex;align-items:center;gap:8px;padding:0;background:transparent;border:none;border-radius:0;backdrop-filter:none}.trailer-quality-select{min-width:78px;max-width:140px;height:30px;padding:0 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.12);color:#f8fafc;outline:none;font-size:12px;line-height:28px;text-align:center;text-align-last:center;appearance:none;cursor:pointer}.trailer-quality-select option{background:#0b1020;color:#f8fafc}.trailer-footer{position:absolute;left:16px;right:16px;bottom:16px;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;color:rgba(255,255,255,0.78);background:rgba(10,14,22,0.62);border:1px solid rgba(255,255,255,0.16);border-radius:8px;box-shadow:0 18px 40px rgba(0,0,0,0.32);backdrop-filter:blur(16px) saturate(1.08);font:12px/1.4 Arial,"Microsoft YaHei",sans-serif;opacity:1;transform:translateY(0);transition:opacity .18s ease,transform .18s ease}.trailer-screen.is-controls-hidden{cursor:none}.trailer-screen.is-controls-hidden .trailer-header{opacity:0;transform:translateY(-8px);pointer-events:none}.trailer-screen.is-controls-hidden .trailer-footer{opacity:0;transform:translateY(10px);pointer-events:none}.trailer-control-left,.trailer-control-right{display:flex;align-items:center;gap:9px;min-width:0}.trailer-control-left{flex:1 1 auto}.trailer-control-right{flex:0 0 auto}.trailer-control-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;padding:0;border:0;border-radius:999px;color:#fff;background:rgba(255,255,255,0.14);cursor:pointer;font:700 13px/1 Arial,"Microsoft YaHei",sans-serif;transition:background .15s ease,transform .15s ease}.trailer-control-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px)}.trailer-volume-wrap{position:relative;display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center}.trailer-volume-wrap::before{content:"";position:absolute;left:50%;bottom:100%;width:46px;height:18px;transform:translateX(-50%)}.trailer-volume-popover{position:absolute;left:50%;bottom:calc(100% + 10px);width:36px;height:126px;display:flex;align-items:center;justify-content:center;padding:12px 0;border-radius:999px;background:rgba(10,14,22,0.76);border:1px solid rgba(255,255,255,0.16);box-shadow:0 14px 32px rgba(0,0,0,0.34);backdrop-filter:blur(16px) saturate(1.08);opacity:0;pointer-events:none;transform:translate(-50%,6px);transition:opacity .15s ease,transform .15s ease}.trailer-volume-wrap:hover .trailer-volume-popover{opacity:1;pointer-events:auto;transform:translate(-50%,0)}.trailer-volume-rail{position:absolute;left:50%;top:16px;bottom:16px;width:4px;transform:translateX(-50%);border-radius:999px;background:rgba(255,255,255,0.32);pointer-events:none}.trailer-volume-fill{position:absolute;left:0;right:0;bottom:0;height:var(--volume-percent,35%);border-radius:999px;background:#38bdf8}.trailer-volume-thumb{position:absolute;left:50%;bottom:var(--volume-percent,35%);width:16px;height:16px;transform:translate(-50%,50%);border-radius:50%;background:#38bdf8;border:2px solid rgba(255,255,255,0.92);box-shadow:0 2px 8px rgba(0,0,0,0.38)}.trailer-volume-slider{position:absolute;top:10px;bottom:10px;left:50%;width:16px;height:calc(100% - 20px);margin:0;transform:translateX(-50%);appearance:none;-webkit-appearance:none;writing-mode:vertical-lr;direction:rtl;background:transparent;cursor:pointer}.trailer-volume-slider::-webkit-slider-runnable-track{width:100%;height:100%;background:transparent}.trailer-volume-slider::-moz-range-track{width:100%;height:100%;background:transparent}.trailer-volume-slider::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:16px;background:transparent;border:0;box-shadow:none}.trailer-volume-slider::-moz-range-thumb{width:24px;height:16px;background:transparent;border:0;box-shadow:none}.trailer-time{flex:0 0 auto;min-width:36px;color:rgba(255,255,255,0.78);font:11px/1.3 Arial,"Microsoft YaHei",sans-serif;white-space:nowrap;text-align:center}.trailer-progress{flex:1 1 160px;min-width:120px;height:4px;margin:0;border-radius:999px;accent-color:#38bdf8;cursor:pointer}.jav-jump-toast{position:fixed;left:50%;top:72px;z-index:2147483647;display:flex;align-items:flex-start;gap:12px;width:min(420px,calc(100vw - 32px));padding:14px 16px;color:#f8fafc;background:rgba(15,23,42,0.94);border:1px solid rgba(148,163,184,0.28);border-left:4px solid #38bdf8;border-radius:12px;box-shadow:0 18px 44px rgba(0,0,0,0.34),0 0 0 1px rgba(255,255,255,0.04) inset;backdrop-filter:blur(14px) saturate(1.1);font-family:Arial,"Microsoft YaHei",sans-serif;transform:translate(-50%,-12px);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}.jav-jump-toast.show{opacity:1;transform:translate(-50%,0)}.jav-jump-toast.hide{opacity:0;transform:translate(-50%,-12px)}.jav-jump-toast-icon{flex:0 0 auto;width:24px;height:24px;border-radius:999px;color:#082f49;background:#7dd3fc;font-size:16px;font-weight:800;line-height:24px;text-align:center}.jav-jump-toast-title{margin:0 0 4px;font-size:14px;font-weight:700;line-height:1.35}.jav-jump-toast-message{margin:0;color:#cbd5e1;font-size:13px;line-height:1.45}@media (max-width:720px){.trailer-overlay{padding:12px}.trailer-modal{width:100%;border-radius:8px}.trailer-header{padding:12px 12px 30px}.trailer-title{gap:7px;font-size:13px}.trailer-source{max-width:42vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.trailer-footer{left:8px;right:8px;bottom:8px;flex-direction:column;align-items:stretch;gap:7px;padding:8px}.trailer-control-left,.trailer-control-right{width:100%;justify-content:center}.trailer-progress{min-width:80px}.jav-jump-toast{top:18px;width:calc(100vw - 24px);padding:13px 14px}}`);
     const Utils = {
         normalizeCode(code) {
             const raw = String(code || '').trim();
@@ -4375,7 +4760,7 @@
             const createButton = (text, icon, className, onClick) => {
                 const btn = document.createElement('button');
                 btn.className = `preview-btn ${className}`;
-                btn.innerHTML = `${icon}${text}`;
+                btn.innerHTML =`${icon}${text}`;
                 btn.onclick = onClick;
                 return btn;
             };
@@ -4458,7 +4843,7 @@
             header.className = 'trailer-header';
             const title = document.createElement('div');
             title.className = 'trailer-title';
-            title.innerHTML = `<span>🎞️</span><span class="trailer-code">${code}</span><span class="trailer-source">${source}</span>`;
+            title.innerHTML =`<span>🎞️</span><span class="trailer-code">${code}</span><span class="trailer-source">${source}</span>`;
             const sourceBadge = title.querySelector('.trailer-source');
             const closeBtn = document.createElement('button');
             closeBtn.className = 'jav-player-close';
@@ -4663,7 +5048,7 @@
                     video.play().catch(() => {});
                     schedulePlaybackGuard('fallback');
                 } catch (error) {
-                    console.warn('[TrailerResolver] 播放失败回落异常', error);
+                    errorLog('TrailerResolver 播放失败回落异常', error);
                     setFallbackStatus('备用来源切换失败', true);
                 } finally {
                     sourceFallbackInProgress = false;
@@ -4745,7 +5130,7 @@
                                 try {
                                     Function(`${r.responseText}\n//# sourceURL=${HLS_SCRIPT_URL}`).call(globalThis);
                                 } catch (err) {
-                                    console.warn('[TrailerResolver:HLS] hls.js 执行失败', err);
+                                    errorLog('TrailerResolver:HLS hls.js 执行失败', err);
                                 }
                             }
                             resolve(getHlsClass());
@@ -4921,7 +5306,7 @@
                 });
                 hls.on(HlsClass.Events.ERROR, (_, data) => {
                     if (!data?.fatal) return;
-                    console.warn('[TrailerResolver:HLS] 播放失败', data);
+                    errorLog('TrailerResolver:HLS 播放失败', data);
                     if (data.type === HlsClass.ErrorTypes.MEDIA_ERROR) {
                         if (playbackStarted || video?.readyState >= 2) {
                             try { hls.recoverMediaError?.(); } catch {}
@@ -5292,7 +5677,7 @@
             try {
                 return await this[source](this.lookupCode(code));
             } catch (e) {
-                console.warn(`Thumbnail[${source}] 异常:`, e.message);
+                debugLog(`Thumbnail[${source}] 异常:`, e.message);
                 return null;
             }
         },
@@ -5373,7 +5758,7 @@
             code = this.lookupCode(code);
             try {
                 const normalizedCode = code.replace(/^fc2-?/i, '').replace(/-/g, '').toLowerCase();
-                console.log(`javstore: searching for code=${code}, normalized=${normalizedCode}`);
+                debugLog(`javstore: searching for code=${code}, normalized=${normalizedCode}`);
                 const searchUrl = `https://javstore.net/search?q=${encodeURIComponent(code)}`;
                 const searchHtml = await Utils.request(searchUrl);
                 const searchDoc = new DOMParser().parseFromString(searchHtml, 'text/html');
@@ -5392,26 +5777,26 @@
                     const looksLikeDetail = /\.html$/i.test(urlObj.pathname) || /^\/\d+[-/]/.test(urlObj.pathname);
                     if (looksLikeDetail && normalizedPath.includes(normalizedCode) && !detailUrls.includes(fullUrl)) {
                         detailUrls.push(fullUrl);
-                        console.log(`javstore: 候选链接 [${detailUrls.length}]: ${fullUrl}`);
+                        debugLog(`javstore: 候选链接 [${detailUrls.length}]: ${fullUrl}`);
                     }
                 }
                 if (detailUrls.length === 0) {
-                    console.warn('javstore: 未找到匹配的详情页');
+                    debugLog('javstore: 未找到匹配的详情页');
                     return null;
                 }
                 for (const detailUrl of detailUrls) {
-                    console.log(`javstore: 尝试详情页: ${detailUrl}`);
+                    debugLog(`javstore: 尝试详情页: ${detailUrl}`);
                     const imgUrl = await this._extractImgFromDetail(detailUrl, code);
                     if (imgUrl) {
-                        console.log(`javstore: 找到预览图: ${imgUrl}`);
+                        debugLog(`javstore: 找到预览图: ${imgUrl}`);
                         return imgUrl;
                     }
-                    console.log(`javstore: 该页无预览图，尝试下一个`);
+                    debugLog(`javstore: 该页无预览图，尝试下一个`);
                 }
-                console.warn('javstore: 所有候选页均无预览图');
+                debugLog('javstore: 所有候选页均无预览图');
                 return null;
             } catch (e) {
-                console.warn('javstore 获取失败', e);
+                debugLog('javstore 获取失败', e);
                 return null;
             }
         },
@@ -5420,7 +5805,7 @@
                 const detailHtml = await Utils.request(detailUrl);
                 const detailDoc = new DOMParser().parseFromString(detailHtml, 'text/html');
                 if (!this.isDetailMatched(detailDoc, detailUrl, code)) {
-                    console.warn('javstore: 详情页番号不匹配，跳过', detailUrl);
+                    debugLog('javstore: 详情页番号不匹配，跳过', detailUrl);
                     return null;
                 }
                 for (const link of detailDoc.querySelectorAll('a')) {
@@ -5437,7 +5822,7 @@
                 }
                 return null;
             } catch (e) {
-                console.warn('javstore: 详情页请求失败', detailUrl, e.message);
+                debugLog('javstore: 详情页请求失败', detailUrl, e.message);
                 return null;
             }
         },
@@ -5455,16 +5840,16 @@
                             'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
                         },
                         onload: r => {
-                            console.log(`[projectjav] ${url} → HTTP ${r.status}, final=${r.finalUrl || url}, 长度 ${r.responseText?.length}`);
+                            debugLog(`[projectjav] ${url} → HTTP ${r.status}, final=${r.finalUrl || url}, 长度 ${r.responseText?.length}`);
                             if (r.status >= 200 && r.status < 400) resolve(r);
                             else reject(new Error(`HTTP ${r.status}`));
                         },
-                        onerror: (e) => { console.warn('[projectjav] 网络错误', e); reject(new Error('请求失败')); },
-                        ontimeout: () => { console.warn('[projectjav] 请求超时'); reject(new Error('请求超时')); }
+                        onerror: (e) => { debugLog('[projectjav] 网络错误', e); reject(new Error('请求失败')); },
+                        ontimeout: () => { debugLog('[projectjav] 请求超时'); reject(new Error('请求超时')); }
                     });
                 });
                 const searchUrl = `https://projectjav.com/?searchTerm=${encodeURIComponent(code)}`;
-                console.log('[projectjav] 搜索页:', searchUrl);
+                debugLog('[projectjav] 搜索页:', searchUrl);
                 const searchRes = await request(searchUrl);
                 const searchHtml = searchRes.responseText || '';
                 const finalSearchUrl = searchRes.finalUrl || searchUrl;
@@ -5474,17 +5859,17 @@
                     : '';
                 if (!detailUrl) {
                     const allMovieLinks = [...searchDoc.querySelectorAll('a[href*="/movie/"]')];
-                    console.log(`[projectjav] /movie/ 链接数: ${allMovieLinks.length}`);
-                    allMovieLinks.slice(0, 5).forEach(a => console.log('  ', a.getAttribute('href')));
+                    debugLog(`[projectjav] /movie/ 链接数: ${allMovieLinks.length}`);
+                    allMovieLinks.slice(0, 5).forEach(a => debugLog('  ', a.getAttribute('href')));
                     const firstLink = allMovieLinks[0]?.getAttribute('href') || '';
                     if (!firstLink) {
-                        console.warn('[projectjav] 无结果，页面标题:', searchDoc.title);
-                        console.warn('[projectjav] 页面前800字符:', searchHtml.slice(0, 800));
+                        debugLog('[projectjav] 无结果，页面标题:', searchDoc.title);
+                        debugLog('[projectjav] 页面前800字符:', searchHtml.slice(0, 800));
                         return null;
                     }
                     detailUrl = firstLink.startsWith('http') ? firstLink : `https://projectjav.com${firstLink}`;
                 }
-                console.log('[projectjav] 详情页:', detailUrl);
+                debugLog('[projectjav] 详情页:', detailUrl);
                 const detailRes = finalSearchUrl === detailUrl ? searchRes : await request(detailUrl);
                 const detailHtml = detailRes.responseText || '';
                 const finalDetailUrl = detailRes.finalUrl || detailUrl;
@@ -5495,7 +5880,7 @@
                         a.closest('.thumbnail')?.outerHTML,
                         finalDetailUrl
                     ].join(' '), code));
-                console.log('[projectjav] screenshotLink matched:', !!screenshotLink, 'href:', screenshotLink?.getAttribute('href'));
+                debugLog('[projectjav] screenshotLink matched:', !!screenshotLink, 'href:', screenshotLink?.getAttribute('href'));
                 if (screenshotLink) {
                     const thumbImg = screenshotLink.querySelector('img');
                     const href = screenshotLink.getAttribute('href') || '';
@@ -5505,10 +5890,10 @@
                         if (src) return this.normalizePreviewUrl(src, finalDetailUrl);
                     }
                 }
-                console.warn('[projectjav] 详情页未找到图片，页面标题:', detailDoc.title);
+                debugLog('[projectjav] 详情页未找到图片，页面标题:', detailDoc.title);
                 return null;
             } catch (e) {
-                console.warn('[projectjav] 异常:', e.message);
+                debugLog('[projectjav] 异常:', e.message);
                 return null;
             }
         },
@@ -5523,9 +5908,9 @@
             for (const src of this.sourceOrder()) {
                 url = await this.fetchFromSource(src, code);
                 if (url) { source = src; break; }
-                console.log(`${src} 无结果，尝试下一个来源`);
+                debugLog(`${src} 无结果，尝试下一个来源`);
             }
-            console.log('预览图最终结果:', url ? `有图 (${source})` : '无图');
+            debugLog('预览图最终结果:', url ? `有图 (${source})` : '无图');
             if (url && cacheEnabled) {
                 sessionStorage.setItem(cacheKey, url);
             }
@@ -5724,7 +6109,7 @@
             return String(result?.type || '').toLowerCase() === 'hls' || /\.m3u8(?:[?#].*)?$/i.test(url);
         },
         debug(...args) {
-            console.log('[TrailerResolver]', ...args);
+            if (DEBUG_LOG) console.log('[TrailerResolver]', ...args);
         },
         resolverChain() {
             return [
@@ -5775,8 +6160,8 @@
                                 this.debug('DMM 会话内已失败，跳过旧缓存', { source: cachedResult.source, url: cachedResult.url });
                                 sessionStorage.removeItem(this.cacheKey(id));
                             } else {
-                            this.debug('缓存命中', { source: cachedResult.source, url: cachedResult.url });
-                            return cachedResult;
+                                this.debug('缓存命中', { source: cachedResult.source, url: cachedResult.url });
+                                return cachedResult;
                             }
                         }
                     } catch {
@@ -5800,7 +6185,7 @@
                     }
                     this.debug('来源无结果', resolverName);
                 } catch (e) {
-                    console.warn(`[TrailerResolver] 来源异常: ${resolverName}`, e);
+                    errorLog(`TrailerResolver 来源异常: ${resolverName}`, e);
                 }
             }
             return null;
@@ -5908,7 +6293,7 @@
         async fromJavxyCcCd(id, rawCode = '', options = {}) {
             const query = String(id || rawCode || '').trim();
             if (!query) {
-                this.debug('Javxy 跳过：查询词为空');
+                this.debug('Javxy ????????');
                 return null;
             }
             const $j = (a, k) => a.map(v => String.fromCharCode(v ^ k)).join('');
@@ -5922,7 +6307,7 @@
                 if (Array.isArray(options.prefer) && options.prefer.length) params.set($j([99,97,118,117,118,97], 19), options.prefer.join(','));
                 if (Array.isArray(options.source) && options.source.length) params.set($j([24,4,30,25,8,14], 107), options.source.join(','));
                 const apiUrl = (endpoint.protocol || $j([116,104,104,108,111], 28)) + '://' + endpoint.host + '/' + $j([21,19,0,8,13,4,19,18], 97) + '/' + encodeURIComponent(query) + '?' + params;
-                this.debug('Javxy ??? API', { query, apiUrl, endpoint: endpoint.label });
+                this.debug('Javxy API', { query, apiUrl, endpoint: endpoint.label });
                 const r = await this.request(apiUrl, {
                     timeout: 15000,
                     headers: {
@@ -5931,42 +6316,42 @@
                     }
                 });
                 if (!r) {
-                    this.debug('Javxy API 网络失败，尝试下一个节点', { endpoint: endpoint.label });
+                    this.debug('Javxy API ????????????', { endpoint: endpoint.label });
                     continue;
                 }
                 if (r.status >= 500 || r.status === 0) {
-                    this.debug('Javxy API 服务异常，尝试下一个节点', { endpoint: endpoint.label, status: r.status });
+                    this.debug('Javxy API ????????????', { endpoint: endpoint.label, status: r.status });
                     continue;
                 }
                 if ([401, 403, 429].includes(r.status)) {
-                    this.debug('Javxy API 被拒绝或限流，尝试下一个节点', { endpoint: endpoint.label, status: r.status });
+                    this.debug('Javxy API ??????????????', { endpoint: endpoint.label, status: r.status });
                     continue;
                 }
                 if (r.status < 200 || r.status >= 400) {
-                    this.debug('Javxy API 无结果，停止查询', { endpoint: endpoint.label, status: r.status });
+                    this.debug('Javxy API ????????', { endpoint: endpoint.label, status: r.status });
                     return null;
                 }
                 if (!r.responseText) {
-                    this.debug('Javxy API 响应为空，停止查询', { endpoint: endpoint.label, status: r.status });
+                    this.debug('Javxy API ?????????', { endpoint: endpoint.label, status: r.status });
                     return null;
                 }
                 let data;
                 try {
                     data = JSON.parse(r.responseText);
                 } catch {
-                    this.debug('Javxy JSON 解析失败，尝试下一个节点', { endpoint: endpoint.label });
+                    this.debug('Javxy JSON ????????????', { endpoint: endpoint.label });
                     continue;
                 }
                 const trailerUrl = String(data?.trailer || '').trim();
                 if (!trailerUrl) {
-                    this.debug('Javxy 无 trailer 字段，停止查询', { endpoint: endpoint.label, keys: Object.keys(data || {}) });
+                    this.debug('Javxy ? trailer ???????', { endpoint: endpoint.label, keys: Object.keys(data || {}) });
                     return null;
                 }
                 const qualityMap = data?.qualities && typeof data.qualities === 'object' ? data.qualities : {};
                 const quality = data?.quality && qualityMap[data.quality] ? data.quality : this.selectHighestQuality(qualityMap);
                 const sourceBase = this.javxySourceLabels[data?.source] || `Javxy | ${data?.source || 'dmm'}`;
                 const source = sourceBase;
-                this.debug('Javxy 返回结果', { endpoint: endpoint.label, source: data?.source, quality, qualities: Object.keys(qualityMap) });
+                this.debug('Javxy ????', { endpoint: endpoint.label, source: data?.source, quality, qualities: Object.keys(qualityMap) });
                 const resultType = String(data?.type || '').trim() || 'video';
                 return this.result(qualityMap[quality] || trailerUrl, source, resultType, {
                     qualities: qualityMap,
@@ -6423,7 +6808,7 @@
             btn.title = hit.name || `115播放：${normalized}`;
             marker.parentNode.insertBefore(btn, marker);
         }).catch(err => {
-            console.warn('[老司机] 115自动查询失败:', err);
+            errorLog('115自动查询失败:', err);
         }).finally(() => {
             marker.remove();
         });
@@ -6514,11 +6899,11 @@
                     const hit = await Pan115.searchCached(code);
                     SiteManager.insertPan115ListBadge(anchor, hit, code);
                 } catch (err) {
-                    console.warn('[老司机] 115列表单项查询失败:', err);
+                    errorLog('115列表单项查询失败:', err);
                 }
             }));
         } catch (err) {
-            console.warn('[老司机] 115列表自动查询失败:', err);
+            errorLog('115列表自动查询失败:', err);
         } finally {
             pan115ListRunning = false;
             if (Pan115.enabled() && SiteManager.collectPan115ListTargets().length) schedulePan115ListBadges();
@@ -6795,7 +7180,7 @@
                 row.dataset.state = 'error';
                 row.className = 'jav-title-translation is-error';
                 row.textContent = translateMessage(target, 'error');
-                console.warn('[老司机] 翻译标题失败:', err);
+                errorLog('翻译标题失败:', err);
             }
         }
         return { sync, clear };
@@ -6841,11 +7226,9 @@
             const renderKey = SiteManager.getEmbyRenderKey(titleElem);
             const existingKey = existingBtnGroup?.dataset.embyRenderKey || '';
             if (existingBtnGroup) {
-
                 if ((existingKey && existingKey !== renderKey) || !existingBtnGroup.isConnected) {
                     existingBtnGroup.remove();
                 } else {
-
                     const anchor = SiteManager.getEmbyInsertAnchor(titleElem);
                     if (anchor.nextElementSibling !== existingBtnGroup) {
                         anchor.insertAdjacentElement('afterend', existingBtnGroup);
@@ -6950,8 +7333,6 @@
             addPreviewBtn(code, btnGroup);
             addSettingsBtn(btnGroup);
             if (site.id === 'emby') {
-
-
                 btnGroup.classList.add('emby-fix');
                 btnGroup.dataset.embyRenderKey = SiteManager.getEmbyRenderKey(titleElem);
                 SiteManager.getEmbyInsertAnchor(titleElem).insertAdjacentElement('afterend', btnGroup);
@@ -7084,6 +7465,15 @@
             const href = item?.querySelector?.('a[href]')?.getAttribute('href') || '';
             return href ? new URL(href, location.href).href : (item?.textContent || '').trim().slice(0, 80);
         },
+        sanitizeSnapshotItem(item) {
+            if (!item) return null;
+            const clone = item.cloneNode(true);
+            clone.querySelectorAll('.emby-badge, .emby-btn, .emby-button-group, .emby-javlibrary-list-badge').forEach(el => el.remove());
+            clone.querySelectorAll('a[href]').forEach(anchor => {
+                anchor.querySelectorAll('a[href]').forEach(child => child.replaceWith(...child.childNodes));
+            });
+            return clone;
+        },
         restoreSnapshot(config) {
             const snapshot = this.readSnapshot(config);
             if (!snapshot?.items?.length) return false;
@@ -7100,6 +7490,7 @@
                 if (!item || !key || liveKeys.has(key)) return;
                 liveKeys.add(key);
                 item.dataset.laosijiInfiniteItem = '1';
+                item = this.sanitizeSnapshotItem(item) || item;
                 SiteManager.decorateInfiniteScrollItem(config.site, item);
                 frag.appendChild(item);
                 restored += 1;
@@ -7126,7 +7517,7 @@
             const items = allItems
                 .filter(item => item.dataset.laosijiInfiniteItem === '1')
                 .slice(-this.maxSnapshotItems)
-                .map(item => item.outerHTML);
+                .map(item => this.sanitizeSnapshotItem(item)?.outerHTML || item.outerHTML);
             const payload = {
                 site: this.state.site,
                 nextUrl: this.state.nextUrl || '',
@@ -7138,7 +7529,7 @@
             try {
                 sessionStorage.setItem(key, JSON.stringify(payload));
             } catch (err) {
-                console.warn('[老司机] 瀑布流快照保存失败:', err);
+                errorLog('瀑布流快照保存失败:', err);
             }
         },
         scheduleSnapshotSave() {
@@ -7223,7 +7614,7 @@
                     SiteManager.decorateInfiniteScrollItem(this.state.site, adopted);
                     added += 1;
                 } catch (err) {
-                    console.warn('[老司机] 追加单项失败:', err);
+                    errorLog('追加单项失败:', err);
                 }
             });
             return added;
@@ -7258,7 +7649,7 @@
                     this.setStatus('继续滚动加载下一页');
                 }
             } catch (err) {
-                console.warn('[老司机] 瀑布流加载失败:', err);
+                errorLog('瀑布流加载失败:', err);
                 this.setStatus('加载失败，点击重试', 'is-error');
             } finally {
                 if (this.state) this.state.loading = false;
@@ -7268,7 +7659,7 @@
             try {
                 this.state.container = SiteManager.reflowInfiniteScroll(this.state.site, this.state.container);
             } catch (err) {
-                console.warn('[老司机] 瀑布流重排失败:', err);
+                errorLog('瀑布流重排失败:', err);
             }
             window.dispatchEvent(new Event('resize'));
         },
