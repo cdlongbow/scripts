@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         JAV老司机-新
 // @namespace    https://github.com/ZiPenOk/scripts
-// @version      2.6.6.1
+// @version      2.6.7
 // @description  增强 JavBus、JavDB、JavLibrary 等 JAV 站点的浏览与检索体验：提供磁力搜索表、BT 引擎聚合、115 匹配与播放入口、番号复制、跨站搜索/跳转、预告片解析播放、多源预览图、标题翻译、卡片布局、横竖图切换、列数与页面缩放、详情页比例调整、剧照浏览、瀑布流加载、JavDB 榜单/TOP250页面增强、FC2 页面渲染和统一设置面板；并在 Sukebei、SupJav、MissAV、Jable、Emby、Javrate、Sehuatang、HJD2048 等页面提供番号识别与快捷跳转入口。
 // @author       ZiPenOk
 // @icon         https://img.sh1nyan.fun/file/1778560196416_laosiji.png
@@ -43,88 +43,88 @@
 // ==/UserScript==
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '2.6.6.1';
+    const SCRIPT_VERSION = '2.6.7';
     const DEBUG_LOG = false;
     const ERROR_LOG = true;
     const PAGE_ZOOM_DEFAULT = 86;
     const JAVDB_REVIEW_INITIAL_LIMIT = 6;
     const JAVDB_REVIEW_MORE_LIMIT = 20;
-    const CFG = {
-        get javdbSearchUrl()   { return GM_getValue('cfg_javdb_search_url',  'javdb.com'); },
-        get ciligouUrl()       { return GM_getValue('cfg_ciligou_url',       'clg55.top'); },
-        get btdigUrl()         { return GM_getValue('cfg_btdig_url',         'btdig.com'); },
-        get btsearchUrl()      { return GM_getValue('cfg_btsearch_url',      'btsearch.love'); },
-        get sukebeiUrl()       { return GM_getValue('cfg_sukebei_url',       'sukebei.nyaa.si'); },
-        get sokittyUrl()       { return GM_getValue('cfg_sokitty_url',       'w1.sokitty.me'); },
-        get defaultEngine()    { return GM_getValue('cfg_default_engine', 'sukebei.nyaa.si'); },
-        get defaultVideoEngine() { return GM_getValue('default_video_engine', 'missav'); },
-        get pan115Player() { return GM_getValue('pan115_player_mode', 'official'); },
-        get javbusCardColumns() { return Math.min(10, Math.max(2, parseInt(GM_getValue('cfg_javbus_card_columns', 5), 10) || 5)); },
-        get javdbCardColumns()  { return Math.min(10, Math.max(2, parseInt(GM_getValue('cfg_javdb_card_columns', 5), 10) || 5)); },
-        get javlibCardColumns() { return Math.min(10, Math.max(2, parseInt(GM_getValue('cfg_javlib_card_columns', 5), 10) || 5)); },
-        get javbusPortraitCardColumns() { return Math.min(10, Math.max(2, parseInt(GM_getValue('cfg_javbus_portrait_card_columns', GM_getValue('cfg_javbus_card_columns', 5)), 10) || 5)); },
-        get javdbPortraitCardColumns()  { return Math.min(10, Math.max(2, parseInt(GM_getValue('cfg_javdb_portrait_card_columns',  GM_getValue('cfg_javdb_card_columns', 5)), 10) || 5)); },
-        get javlibPortraitCardColumns() { return Math.min(10, Math.max(2, parseInt(GM_getValue('cfg_javlib_portrait_card_columns', GM_getValue('cfg_javlib_card_columns', 5)), 10) || 5)); },
-        get javbusPageZoom() { return Math.min(100, Math.max(60, parseInt(GM_getValue('cfg_javbus_page_zoom', PAGE_ZOOM_DEFAULT), 10) || PAGE_ZOOM_DEFAULT)); },
-        get javdbPageZoom()  { return Math.min(100, Math.max(60, parseInt(GM_getValue('cfg_javdb_page_zoom', PAGE_ZOOM_DEFAULT), 10) || PAGE_ZOOM_DEFAULT)); },
-        get javlibPageZoom() { return Math.min(100, Math.max(60, parseInt(GM_getValue('cfg_javlib_page_zoom', PAGE_ZOOM_DEFAULT), 10) || PAGE_ZOOM_DEFAULT)); },
-        get listPreviewQuick() { return GM_getValue('list_preview_quick_enabled', true); },
-        get detailPreviewInline() { return GM_getValue('detail_preview_inline_enabled', true); },
-        get titleTranslate() { return GM_getValue('title_translate_enabled', true); },
-        get listOpenNewTab() { return GM_getValue('list_open_new_tab_enabled', false); },
-        get portraitCards() { return GM_getValue('portrait_cards_enabled', false); },
-        get thumbSourceOrder() { return GM_getValue('thumb_source_order', ['javfree', 'projectjav', 'javstore']); },
-        get detailFlex() { return GM_getValue('detail_flex_settings', {}); },
-        set javdbSearchUrl(v)   { GM_setValue('cfg_javdb_search_url', v); },
-        set ciligouUrl(v)       { GM_setValue('cfg_ciligou_url', v); },
-        set btdigUrl(v)         { GM_setValue('cfg_btdig_url', v); },
-        set btsearchUrl(v)      { GM_setValue('cfg_btsearch_url', v); },
-        set sukebeiUrl(v)       { GM_setValue('cfg_sukebei_url', v); },
-        set sokittyUrl(v)       { GM_setValue('cfg_sokitty_url', v); },
-        set defaultEngine(v)    { GM_setValue('cfg_default_engine', v); },
-        set defaultVideoEngine(v) { GM_setValue('default_video_engine', v); },
-        set pan115Player(v) { GM_setValue('pan115_player_mode', v); },
-        set javbusCardColumns(v) { GM_setValue('cfg_javbus_card_columns', Math.min(10, Math.max(2, parseInt(v, 10) || 5))); },
-        set javdbCardColumns(v)  { GM_setValue('cfg_javdb_card_columns', Math.min(10, Math.max(2, parseInt(v, 10) || 5))); },
-        set javlibCardColumns(v) { GM_setValue('cfg_javlib_card_columns', Math.min(10, Math.max(2, parseInt(v, 10) || 5))); },
-        set javbusPortraitCardColumns(v) { GM_setValue('cfg_javbus_portrait_card_columns', Math.min(10, Math.max(2, parseInt(v, 10) || 5))); },
-        set javdbPortraitCardColumns(v)  { GM_setValue('cfg_javdb_portrait_card_columns', Math.min(10, Math.max(2, parseInt(v, 10) || 5))); },
-        set javlibPortraitCardColumns(v) { GM_setValue('cfg_javlib_portrait_card_columns', Math.min(10, Math.max(2, parseInt(v, 10) || 5))); },
-        set javbusPageZoom(v) { GM_setValue('cfg_javbus_page_zoom', Math.min(100, Math.max(60, parseInt(v, 10) || 100))); },
-        set javdbPageZoom(v)  { GM_setValue('cfg_javdb_page_zoom', Math.min(100, Math.max(60, parseInt(v, 10) || 100))); },
-        set javlibPageZoom(v) { GM_setValue('cfg_javlib_page_zoom', Math.min(100, Math.max(60, parseInt(v, 10) || 100))); },
-        set listPreviewQuick(v) { GM_setValue('list_preview_quick_enabled', !!v); },
-        set detailPreviewInline(v) { GM_setValue('detail_preview_inline_enabled', !!v); },
-        set titleTranslate(v) { GM_setValue('title_translate_enabled', !!v); },
-        set listOpenNewTab(v) { GM_setValue('list_open_new_tab_enabled', !!v); },
-        set portraitCards(v) { GM_setValue('portrait_cards_enabled', !!v); },
-        set thumbSourceOrder(v) { GM_setValue('thumb_source_order', v); },
-        set detailFlex(v) { GM_setValue('detail_flex_settings', v || {}); },
-        get btnShowNyaa()    { return GM_getValue('btn_show_nyaa',    true); },
-        get btnShowJavbus()  { return GM_getValue('btn_show_javbus',  true); },
-        get btnShowJavdb()   { return GM_getValue('btn_show_javdb',   true); },
-        get btnShowMissav()  { return GM_getValue('btn_show_missav',  true); },
-        get btnShowFanza()   { return GM_getValue('btn_show_fanza',   true); },
-        get btnShowSearch()  { return GM_getValue('btn_show_search',  true); },
-        get btnShowTrailer() { return GM_getValue('btn_show_trailer', true); },
-        get btnShowPreview() { return GM_getValue('btn_show_preview', true); },
-        get btnShowPan115()  { return GM_getValue('btn_show_pan115',  false); },
-        get magnetTable()    { return GM_getValue('magnet_table_enabled', true); },
-        get infiniteScroll() { return GM_getValue('infinite_scroll_enabled', false); },
-        get cardFx()         { return GM_getValue('card_fx_enabled', true); },
-        set btnShowNyaa(v)    { GM_setValue('btn_show_nyaa',    v); },
-        set btnShowJavbus(v)  { GM_setValue('btn_show_javbus',  v); },
-        set btnShowJavdb(v)   { GM_setValue('btn_show_javdb',   v); },
-        set btnShowMissav(v)  { GM_setValue('btn_show_missav',  v); },
-        set btnShowFanza(v)   { GM_setValue('btn_show_fanza',   v); },
-        set btnShowSearch(v)  { GM_setValue('btn_show_search',  v); },
-        set btnShowTrailer(v) { GM_setValue('btn_show_trailer', v); },
-        set btnShowPreview(v) { GM_setValue('btn_show_preview', v); },
-        set btnShowPan115(v)  { GM_setValue('btn_show_pan115',  v); },
-        set magnetTable(v)    { GM_setValue('magnet_table_enabled', v); },
-        set infiniteScroll(v) { GM_setValue('infinite_scroll_enabled', v); },
-        set cardFx(v)         { GM_setValue('card_fx_enabled', !!v); },
+    const CFG = {};
+    const resolveCfgDefault = meta => typeof meta.def === 'function' ? meta.def() : meta.def;
+    const clampCfgNumber = (value, meta) => {
+        const fallback = resolveCfgDefault(meta);
+        const parsed = parseInt(value, 10);
+        const next = Number.isFinite(parsed) ? parsed : fallback;
+        return Math.min(meta.max, Math.max(meta.min, next));
     };
+    const normalizeCfgValue = (value, meta) => {
+        if (meta.normalize) return meta.normalize(value);
+        if (meta.bool) return !!value;
+        if (Number.isFinite(meta.min) && Number.isFinite(meta.max)) return clampCfgNumber(value, meta);
+        return value;
+    };
+    const CFG_MAP = {
+        javdbSearchUrl: { key: 'cfg_javdb_search_url', def: 'javdb.com' },
+        ciligouUrl: { key: 'cfg_ciligou_url', def: 'clg55.top' },
+        btdigUrl: { key: 'cfg_btdig_url', def: 'btdig.com' },
+        btsearchUrl: { key: 'cfg_btsearch_url', def: 'btsearch.love' },
+        sukebeiUrl: { key: 'cfg_sukebei_url', def: 'sukebei.nyaa.si' },
+        sokittyUrl: { key: 'cfg_sokitty_url', def: 'w1.sokitty.me' },
+        defaultEngine: { key: 'cfg_default_engine', def: 'sukebei.nyaa.si' },
+        defaultVideoEngine: { key: 'default_video_engine', def: 'missav' },
+        pan115Player: { key: 'pan115_player_mode', def: 'official' },
+        javbusCardColumns: { key: 'cfg_javbus_card_columns', def: 5, min: 2, max: 10 },
+        javdbCardColumns: { key: 'cfg_javdb_card_columns', def: 5, min: 2, max: 10 },
+        javlibCardColumns: { key: 'cfg_javlib_card_columns', def: 5, min: 2, max: 10 },
+        javbusPortraitCardColumns: { key: 'cfg_javbus_portrait_card_columns', def: () => CFG.javbusCardColumns, min: 2, max: 10 },
+        javdbPortraitCardColumns: { key: 'cfg_javdb_portrait_card_columns', def: () => CFG.javdbCardColumns, min: 2, max: 10 },
+        javlibPortraitCardColumns: { key: 'cfg_javlib_portrait_card_columns', def: () => CFG.javlibCardColumns, min: 2, max: 10 },
+        javbusPageZoom: { key: 'cfg_javbus_page_zoom', def: PAGE_ZOOM_DEFAULT, min: 60, max: 100 },
+        javdbPageZoom: { key: 'cfg_javdb_page_zoom', def: PAGE_ZOOM_DEFAULT, min: 60, max: 100 },
+        javlibPageZoom: { key: 'cfg_javlib_page_zoom', def: PAGE_ZOOM_DEFAULT, min: 60, max: 100 },
+        listPreviewQuick: { key: 'list_preview_quick_enabled', def: true, bool: true },
+        detailPreviewInline: { key: 'detail_preview_inline_enabled', def: true, bool: true },
+        titleTranslate: { key: 'title_translate_enabled', def: true, bool: true },
+        listOpenNewTab: { key: 'list_open_new_tab_enabled', def: false, bool: true },
+        portraitCards: { key: 'portrait_cards_enabled', def: false, bool: true },
+        thumbSourceOrder: { key: 'thumb_source_order', def: () => ['javfree', 'projectjav', 'javstore'] },
+        detailFlex: { key: 'detail_flex_settings', def: () => ({}), normalize: value => value || {} },
+        btnShowNyaa: { key: 'btn_show_nyaa', def: true, bool: true },
+        btnShowJavbus: { key: 'btn_show_javbus', def: true, bool: true },
+        btnShowJavdb: { key: 'btn_show_javdb', def: true, bool: true },
+        btnShowMissav: { key: 'btn_show_missav', def: true, bool: true },
+        btnShowFanza: { key: 'btn_show_fanza', def: true, bool: true },
+        btnShowSearch: { key: 'btn_show_search', def: true, bool: true },
+        btnShowTrailer: { key: 'btn_show_trailer', def: true, bool: true },
+        btnShowPreview: { key: 'btn_show_preview', def: true, bool: true },
+        btnShowPan115: { key: 'btn_show_pan115', def: false, bool: true },
+        magnetTable: { key: 'magnet_table_enabled', def: true, bool: true },
+        infiniteScroll: { key: 'infinite_scroll_enabled', def: false, bool: true },
+        cardFx: { key: 'card_fx_enabled', def: true, bool: true },
+        coverHoverPreview: { key: 'cover_hover_preview_enabled', def: false, bool: true },
+    };
+    Object.entries(CFG_MAP).forEach(([prop, meta]) => {
+        Object.defineProperty(CFG, prop, {
+            get() {
+                return normalizeCfgValue(GM_getValue(meta.key, resolveCfgDefault(meta)), meta);
+            },
+            set(value) {
+                GM_setValue(meta.key, normalizeCfgValue(value, meta));
+            },
+        });
+    });
+    function injectStyle(id, css, update = false) {
+        let style = document.getElementById(id);
+        if (style) {
+            if (update && style.textContent !== css) style.textContent = css;
+            return style;
+        }
+        style = document.createElement('style');
+        style.id = id;
+        style.textContent = css;
+        (document.head || document.documentElement).appendChild(style);
+        return style;
+    }
     function isPortraitCardsPageAllowed(siteId, href = location.href) {
         let url;
         try {
@@ -187,14 +187,11 @@
         return { LIMITS, clamp, get, set, apply, detectCurrentSite };
     })();
     const PortraitCards = (() => {
-        let styleReady = false;
         function enabled() {
             return !!CFG.portraitCards;
         }
         function ensureStyle() {
-            if (styleReady) return;
-            styleReady = true;
-            GM_addStyle(`html.jav-card-portrait-mode .jav-card-grid{gap:14px!important}html.jav-card-portrait-mode .jav-card-cover{aspect-ratio:380 / 538!important;background:#f1f5f9!important}html.jav-card-portrait-mode .jav-card-image{object-fit:cover!important;object-position:right center!important}html.jav-card-portrait-mode .javbus-card-title{min-height:calc((var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em)+58px)!important}html.jav-card-portrait-mode .javdb-card-title{height:calc((var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em)+16px)!important;max-height:calc((var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em)+16px)!important;min-height:calc((var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em)+16px)!important}html.jav-card-portrait-mode .javlib-card-title{min-height:calc((var(--javlib-title-line-height,22px) * var(--jav-card-title-lines,2))+54px)!important}`);
+            injectStyle('jav-portrait-cards-style', `html.jav-card-portrait-mode .jav-card-grid{gap:14px!important}html.jav-card-portrait-mode .jav-card-cover{aspect-ratio:380 / 538!important;background:#f1f5f9!important}html.jav-card-portrait-mode .jav-card-image{object-fit:cover!important;object-position:right center!important}html.jav-card-portrait-mode .javbus-card-title{min-height:calc((var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em)+58px)!important}html.jav-card-portrait-mode .javdb-card-title{height:calc((var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em)+16px)!important;max-height:calc((var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em)+16px)!important;min-height:calc((var(--jav-card-title-line-height,1.5) * var(--jav-card-title-lines,2) * 1em)+16px)!important}html.jav-card-portrait-mode .javlib-card-title{min-height:calc((var(--javlib-title-line-height,22px) * var(--jav-card-title-lines,2))+54px)!important}`);
         }
         function javbusCoverFromThumb(src) {
             let full = String(src || '').replace(/\/(imgs|pics)\/(thumb|thumbs)\//i, '/$1/cover/');
@@ -471,6 +468,7 @@
         notify,
         parseHTML,
         gmFetch,
+        injectStyle,
         expose(name, value) {
             window[name] = value;
             return value;
@@ -543,7 +541,7 @@
         if (document.getElementById('javdb-api-login-style')) return;
         const style = document.createElement('style');
         style.id = 'javdb-api-login-style';
-        style.textContent =`#javdb-api-login-overlay{position:fixed;inset:0;z-index:10000030;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.48);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}#javdb-api-login-overlay .javdb-api-login-panel{width:min(360px,92vw);padding:22px;border-radius:12px;background:#fff;color:#111827;box-shadow:0 22px 60px rgba(15,23,42,.26);border:1px solid rgba(148,163,184,.38);}#javdb-api-login-overlay .javdb-api-login-title{margin-bottom:16px;font-size:18px;font-weight:800;}#javdb-api-login-overlay .javdb-api-login-input{width:100%;height:40px;margin-bottom:12px;padding:0 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#111827;font-size:14px;outline:none;box-sizing:border-box;}#javdb-api-login-overlay .javdb-api-login-input:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12);}#javdb-api-login-overlay .javdb-api-login-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:4px;}#javdb-api-login-overlay button,.javdb-api-login-inline{min-height:34px;padding:0 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#111827;font-size:13px;font-weight:800;cursor:pointer;}#javdb-api-login-overlay .javdb-api-login-submit,.javdb-api-login-inline{border-color:#2563eb;background:#2563eb;color:#fff;}#javdb-api-login-overlay button:disabled{cursor:wait;opacity:.72;}#javdb-api-login-overlay .javdb-api-login-tip{margin-top:12px;color:#64748b;font-size:12px;line-height:1.6;}`;
+        style.textContent = `#javdb-api-login-overlay{position:fixed;inset:0;z-index:10000030;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.48);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}#javdb-api-login-overlay .javdb-api-login-panel{width:min(360px,92vw);padding:22px;border-radius:12px;background:#fff;color:#111827;box-shadow:0 22px 60px rgba(15,23,42,.26);border:1px solid rgba(148,163,184,.38)}#javdb-api-login-overlay .javdb-api-login-title{margin-bottom:16px;font-size:18px;font-weight:800}#javdb-api-login-overlay .javdb-api-login-input{width:100%;height:40px;margin-bottom:12px;padding:0 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#111827;font-size:14px;outline:none;box-sizing:border-box}#javdb-api-login-overlay .javdb-api-login-input:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}#javdb-api-login-overlay .javdb-api-login-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:4px}#javdb-api-login-overlay button,.javdb-api-login-inline{min-height:34px;padding:0 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#111827;font-size:13px;font-weight:800;cursor:pointer}#javdb-api-login-overlay .javdb-api-login-submit,.javdb-api-login-inline{border-color:#2563eb;background:#2563eb;color:#fff}#javdb-api-login-overlay button:disabled{cursor:wait;opacity:.72}#javdb-api-login-overlay .javdb-api-login-tip{margin-top:12px;color:#64748b;font-size:12px;line-height:1.6}`;
         document.head.appendChild(style);
     }
     function parseHTML(str) {
@@ -607,6 +605,16 @@
             { key: 'sokittyUrl',      label: 'SoKitty',      placeholder: 'w1.sokitty.me' },
         ];
         const JUMP_SEARCH_ENGINES = ['BTDigg', 'Taocili', 'Google', 'Bing', 'DuckGo'];
+        const BUTTON_TOGGLE_META = [
+            ['nyaa', 'btnShowNyaa'],
+            ['javbus', 'btnShowJavbus'],
+            ['javdb', 'btnShowJavdb'],
+            ['missav', 'btnShowMissav'],
+            ['fanza', 'btnShowFanza'],
+            ['search', 'btnShowSearch'],
+            ['trailer', 'btnShowTrailer'],
+            ['preview', 'btnShowPreview'],
+        ];
         const THUMB_META = {
             javfree:    { label: 'javfree.me',     color: '#16a34a' },
             projectjav: { label: 'projectjav.com', color: '#ca8a04' },
@@ -621,7 +629,7 @@
             overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
             const panel = document.createElement('div');
             panel.id = 'jav-settings-panel';
-            panel.innerHTML =`<div class="sp-header"><div><div class="sp-title">老司机设置</div></div><button class="sp-close" type="button" title="关闭">×</button></div><div class="sp-body"><section class="sp-card sp-card-magnet"><div class="sp-card-title">磁力搜索</div><div class="sp-grid"><label class="sp-field"><span class="sp-label">默认磁力引擎</span><select class="sp-select" id="sp-default-engine"></select></label><div class="sp-engine-row"><label class="sp-field"><span class="sp-label">编辑引擎</span><select class="sp-select" id="sp-engine-picker"></select></label><label class="sp-field"><span class="sp-label">域名</span><input class="sp-input" id="sp-engine-domain"></label></div></div></section><section class="sp-card sp-card-defaults"><div class="sp-card-title">默认组跳转入口</div><div class="sp-grid"><label class="sp-field"><span class="sp-label">默认搜索入口</span><select class="sp-select" id="sp-jump-engine"></select></label><label class="sp-field"><span class="sp-label">默认视频入口</span><select class="sp-select" id="sp-video-engine"></select></label></div></section><div class="sp-feature-order-row"><section class="sp-card sp-card-features"><div class="sp-card-title">功能项开关</div><div class="sp-feature-grid"><div class="sp-feature-item"><div><div class="sp-label">磁力引擎</div></div><label class="sp-toggle"><input id="sp-magnet-table" type="checkbox"><span class="sp-toggle-track"></span></label></div><div class="sp-feature-item sp-cache-clean"><div><div class="sp-label">预览图缓存</div><div class="sp-desc">清理本页会话缓存</div></div><button class="sp-cache-clear-btn" id="sp-clear-preview-cache" type="button" title="清理预览图缓存"><span class="sp-cache-clear-icon">↻</span></button></div><div class="sp-feature-item sp-cache-clean"><div><div class="sp-label">预告片缓存</div><div class="sp-desc">清理解析结果缓存</div></div><button class="sp-cache-clear-btn" id="sp-clear-trailer-cache" type="button" title="清理预告片缓存"><span class="sp-cache-clear-icon">↻</span></button></div><label class="sp-feature-select"><div><div class="sp-label">115播放器</div></div><select class="sp-select" id="sp-pan115-player"><option value="official">官方</option><option value="115master">Master</option></select></label></div></section><section class="sp-card sp-card-order"><div class="sp-card-title">预览图来源顺序</div><div class="sp-order-list" id="sp-thumb-order"></div></section></div><section class="sp-card sp-card-jump" style="--card-color:#6366f1;"><style>#jav-settings-panel .sp-chip-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}#jav-settings-panel .sp-chip input{display:none;}#jav-settings-panel .sp-chip-label{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;border:0.5px solid var(--color-border-secondary,#cbd5e1);background:var(--color-background-secondary,#f8fafc);color:var(--color-text-secondary,#64748b);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;user-select:none;}#jav-settings-panel .sp-chip input:checked + .sp-chip-label{border-color:#6366f1;background:#eef2ff;color:#4338ca;}#jav-settings-panel .sp-chip-label:hover{border-color:#a5b4fc;background:#f0f4ff;color:#4338ca;}#jav-settings-panel .sp-chip-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:0.6;flex:0 0 auto;}</style><div class="sp-card-title">跳转按钮控制</div><div class="sp-chip-group"><label class="sp-chip"><input id="sp-btn-nyaa" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>Sukebei</span></label><label class="sp-chip"><input id="sp-btn-javbus" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavBus</span></label><label class="sp-chip"><input id="sp-btn-javdb" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavDB</span></label><label class="sp-chip"><input id="sp-btn-missav" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>视频组</span></label><label class="sp-chip"><input id="sp-btn-fanza" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>FANZA</span></label><label class="sp-chip"><input id="sp-btn-search" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>搜索组</span></label><label class="sp-chip"><input id="sp-btn-trailer" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>预告片</span></label><label class="sp-chip"><input id="sp-btn-preview" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>预览图</span></label></div></section></div><div class="sp-footer"><div class="sp-cache-actions"><div class="sp-footer-links"><a class="sp-footer-link" href="https://github.com/ZiPenOk/scripts" target="_blank" rel="noopener noreferrer">Github</a><span class="sp-footer-sep"></span><a class="sp-footer-link" href="https://sleazyfork.org/zh-CN/scripts/576375-jav%E8%80%81%E5%8F%B8%E6%9C%BA-%E6%96%B0/feedback" target="_blank" rel="noopener noreferrer">反馈</a><span class="sp-footer-sep"></span><span class="sp-footer-link" style="cursor:default;color:#94a3b8;">v${SCRIPT_VERSION}</span></div><button class="sp-btn sp-btn-clear" id="sp-clear-cache" type="button">清空缓存</button><span class="sp-cache-feedback" id="sp-cache-feedback"></span></div><button class="sp-btn sp-btn-cancel" type="button">取消</button><button class="sp-btn sp-btn-save" type="button">保存设置</button></div>`;
+            panel.innerHTML = `<div class="sp-header"><div><div class="sp-title">老司机设置</div></div><button class="sp-close" type="button" title="关闭">×</button></div><div class="sp-body"><section class="sp-card sp-card-magnet"><div class="sp-card-title">磁力搜索</div><div class="sp-grid"><label class="sp-field"><span class="sp-label">默认磁力引擎</span><select class="sp-select" id="sp-default-engine"></select></label><div class="sp-engine-row"><label class="sp-field"><span class="sp-label">编辑引擎</span><select class="sp-select" id="sp-engine-picker"></select></label><label class="sp-field"><span class="sp-label">域名</span><input class="sp-input" id="sp-engine-domain"></label></div></div></section><section class="sp-card sp-card-defaults"><div class="sp-card-title">默认组跳转入口</div><div class="sp-grid"><label class="sp-field"><span class="sp-label">默认搜索入口</span><select class="sp-select" id="sp-jump-engine"></select></label><label class="sp-field"><span class="sp-label">默认视频入口</span><select class="sp-select" id="sp-video-engine"></select></label></div></section><div class="sp-feature-order-row"><section class="sp-card sp-card-features"><div class="sp-card-title">功能项开关</div><div class="sp-feature-grid"><div class="sp-feature-item"><div><div class="sp-label">磁力引擎</div></div><label class="sp-toggle"><input id="sp-magnet-table" type="checkbox"><span class="sp-toggle-track"></span></label></div><div class="sp-feature-item sp-cache-clean"><div><div class="sp-label">预览图缓存</div><div class="sp-desc">清理本页会话缓存</div></div><button class="sp-cache-clear-btn" id="sp-clear-preview-cache" type="button" title="清理预览图缓存"><span class="sp-cache-clear-icon">↻</span></button></div><div class="sp-feature-item sp-cache-clean"><div><div class="sp-label">预告片缓存</div><div class="sp-desc">清理解析结果缓存</div></div><button class="sp-cache-clear-btn" id="sp-clear-trailer-cache" type="button" title="清理预告片缓存"><span class="sp-cache-clear-icon">↻</span></button></div><label class="sp-feature-select"><div><div class="sp-label">115播放器</div></div><select class="sp-select" id="sp-pan115-player"><option value="official">官方</option><option value="115master">Master</option></select></label></div></section><section class="sp-card sp-card-order"><div class="sp-card-title">预览图来源顺序</div><div class="sp-order-list" id="sp-thumb-order"></div></section></div><section class="sp-card sp-card-jump" style="--card-color:#6366f1;"><style> #jav-settings-panel .sp-chip-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; } #jav-settings-panel .sp-chip input { display: none; } #jav-settings-panel .sp-chip-label { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 999px; border: 0.5px solid var(--color-border-secondary, #cbd5e1); background: var(--color-background-secondary, #f8fafc); color: var(--color-text-secondary, #64748b); font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; user-select: none; } #jav-settings-panel .sp-chip input:checked + .sp-chip-label { border-color: #6366f1; background: #eef2ff; color: #4338ca; } #jav-settings-panel .sp-chip-label:hover { border-color: #a5b4fc; background: #f0f4ff; color: #4338ca; } #jav-settings-panel .sp-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.6; flex: 0 0 auto; } </style><div class="sp-card-title">跳转按钮控制</div><div class="sp-chip-group"><label class="sp-chip"><input id="sp-btn-nyaa" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>Sukebei</span></label><label class="sp-chip"><input id="sp-btn-javbus" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavBus</span></label><label class="sp-chip"><input id="sp-btn-javdb" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>JavDB</span></label><label class="sp-chip"><input id="sp-btn-missav" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>视频组</span></label><label class="sp-chip"><input id="sp-btn-fanza" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>FANZA</span></label><label class="sp-chip"><input id="sp-btn-search" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>搜索组</span></label><label class="sp-chip"><input id="sp-btn-trailer" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>预告片</span></label><label class="sp-chip"><input id="sp-btn-preview" type="checkbox"><span class="sp-chip-label"><span class="sp-chip-dot"></span>预览图</span></label></div></section></div><div class="sp-footer"><div class="sp-cache-actions"><div class="sp-footer-links"><a class="sp-footer-link" href="https://github.com/ZiPenOk/scripts" target="_blank" rel="noopener noreferrer">Github</a><span class="sp-footer-sep"></span><a class="sp-footer-link" href="https://sleazyfork.org/zh-CN/scripts/576375-jav%E8%80%81%E5%8F%B8%E6%9C%BA-%E6%96%B0/feedback" target="_blank" rel="noopener noreferrer">反馈</a><span class="sp-footer-sep"></span><span class="sp-footer-link" style="cursor:default;color:#94a3b8;">v${SCRIPT_VERSION}</span></div><button class="sp-btn sp-btn-clear" id="sp-clear-cache" type="button">清空缓存</button><span class="sp-cache-feedback" id="sp-cache-feedback"></span></div><button class="sp-btn sp-btn-cancel" type="button">取消</button><button class="sp-btn sp-btn-save" type="button">保存设置</button></div>`;
             overlay.appendChild(panel);
             document.body.appendChild(overlay);
             const defaultSelect = panel.querySelector('#sp-default-engine');
@@ -655,19 +663,13 @@
                 defaultSelect.innerHTML = '';
                 MAGNET_ENGINES.forEach(item => {
                     const value = domainDraft[item.key];
-                    const opt = document.createElement('option');
-                    opt.value = value;
-                    opt.textContent = `${item.label} (${value})`;
-                    defaultSelect.appendChild(opt);
+                    defaultSelect.add(new Option(`${item.label} (${value})`, value));
                 });
                 defaultSelect.value = [...defaultSelect.options].some(opt => opt.value === current) ? current : CFG.defaultEngine;
                 if (![...defaultSelect.options].some(opt => opt.value === defaultSelect.value)) defaultSelect.selectedIndex = 0;
             };
             MAGNET_ENGINES.forEach(item => {
-                const opt = document.createElement('option');
-                opt.value = item.key;
-                opt.textContent = item.label;
-                picker.appendChild(opt);
+                picker.add(new Option(item.label, item.key));
             });
             const loadPickedDomain = () => {
                 const meta = MAGNET_ENGINES.find(item => item.key === picker.value);
@@ -680,29 +682,18 @@
                 syncDefaultOptions();
             });
             JUMP_SEARCH_ENGINES.forEach((name, index) => {
-                const opt = document.createElement('option');
-                opt.value = String(index);
-                opt.textContent = name;
-                jumpEngineSelect.appendChild(opt);
+                jumpEngineSelect.add(new Option(name, String(index)));
             });
             VIDEO_ENGINES.forEach(item => {
-                const opt = document.createElement('option');
-                opt.value = item.key;
-                opt.textContent = item.label;
-                videoEngineSelect.appendChild(opt);
+                videoEngineSelect.add(new Option(item.label, item.key));
             });
             jumpEngineSelect.value = String(GM_getValue('default_search_engine', 2));
             Ui.setSelectValue(videoEngineSelect, CFG.defaultVideoEngine, 'missav');
             if (pan115PlayerSelect) pan115PlayerSelect.value = CFG.pan115Player === '115master' ? '115master' : 'official';
             magnetTableCheckbox.checked = CFG.magnetTable;
-            btnToggles.nyaa.checked    = CFG.btnShowNyaa;
-            btnToggles.javbus.checked  = CFG.btnShowJavbus;
-            btnToggles.javdb.checked   = CFG.btnShowJavdb;
-            btnToggles.missav.checked  = CFG.btnShowMissav;
-            btnToggles.fanza.checked   = CFG.btnShowFanza;
-            btnToggles.search.checked  = CFG.btnShowSearch;
-            btnToggles.trailer.checked = CFG.btnShowTrailer;
-            btnToggles.preview.checked = CFG.btnShowPreview;
+            BUTTON_TOGGLE_META.forEach(([key, cfgKey]) => {
+                btnToggles[key].checked = CFG[cfgKey];
+            });
             const renderOrder = () => {
                 orderList.innerHTML = '';
                 currentOrder.forEach((src, index) => {
@@ -710,7 +701,7 @@
                     const item = document.createElement('div');
                     item.className = 'sp-order-item';
                     item.dataset.src = src;
-                    item.innerHTML =`<div><div class="sp-order-name">${meta.label}</div></div><span class="sp-dot" style="background:${meta.color}"></span><div class="sp-order-actions"><button class="sp-order-btn" type="button" data-dir="-1" title="上移" ${index === 0 ? 'disabled':''}>↑</button><button class="sp-order-btn" type="button" data-dir="1" title="下移" ${index === currentOrder.length - 1 ? 'disabled':''}>↓</button></div>`;
+                    item.innerHTML = `<div><div class="sp-order-name"> ${meta.label} </div></div><span class="sp-dot" style="background: ${meta.color} "></span><div class="sp-order-actions"><button class="sp-order-btn" type="button" data-dir="-1" title="上移" ${index === 0 ? 'disabled' : ''} >↑</button><button class="sp-order-btn" type="button" data-dir="1" title="下移" ${index === currentOrder.length - 1 ? 'disabled' : ''} >↓</button></div>`;
                     orderList.appendChild(item);
                 });
             };
@@ -769,16 +760,7 @@
                     },
                     magnetTable: CFG.magnetTable,
                     infiniteScroll: CFG.infiniteScroll,
-                    buttons: {
-                        nyaa: CFG.btnShowNyaa,
-                        javbus: CFG.btnShowJavbus,
-                        javdb: CFG.btnShowJavdb,
-                        missav: CFG.btnShowMissav,
-                        fanza: CFG.btnShowFanza,
-                        search: CFG.btnShowSearch,
-                        trailer: CFG.btnShowTrailer,
-                        preview: CFG.btnShowPreview,
-                    },
+                    buttons: Object.fromEntries(BUTTON_TOGGLE_META.map(([key, cfgKey]) => [key, CFG[cfgKey]])),
                     thumbOrder: GM_getValue('thumb_source_order', ['javfree', 'projectjav', 'javstore']),
                 });
                 const beforeNonPan115 = snapshotNonPan115();
@@ -790,14 +772,9 @@
                 CFG.defaultVideoEngine = videoEngineSelect.value || 'missav';
                 CFG.pan115Player = nextPan115Player;
                 CFG.magnetTable = magnetTableCheckbox.checked;
-                CFG.btnShowNyaa    = btnToggles.nyaa.checked;
-                CFG.btnShowJavbus  = btnToggles.javbus.checked;
-                CFG.btnShowJavdb   = btnToggles.javdb.checked;
-                CFG.btnShowMissav  = btnToggles.missav.checked;
-                CFG.btnShowFanza   = btnToggles.fanza.checked;
-                CFG.btnShowSearch  = btnToggles.search.checked;
-                CFG.btnShowTrailer = btnToggles.trailer.checked;
-                CFG.btnShowPreview = btnToggles.preview.checked;
+                BUTTON_TOGGLE_META.forEach(([key, cfgKey]) => {
+                    CFG[cfgKey] = btnToggles[key].checked;
+                });
                 GM_setValue('thumb_source_order', currentOrder);
                 const pan115Changed = beforePan115Player !== nextPan115Player;
                 const nonPan115Changed = beforeNonPan115 !== snapshotNonPan115();
@@ -819,9 +796,7 @@
             return CardColumns.detectCurrentSite() || PageZoom.detectCurrentSite();
         }
         function ensureStyle() {
-            if (document.documentElement.dataset.laosijiQuickSettingsStyle === '1') return;
-            document.documentElement.dataset.laosijiQuickSettingsStyle = '1';
-            GM_addStyle(`#jav-quick-settings-popover{position:fixed;z-index:10000030;width:286px;padding:10px;border:1px solid rgba(203,213,225,.85);border-radius:10px;background:rgba(255,255,255,.985);color:#0f172a;box-shadow:0 12px 28px rgba(15,23,42,.16);backdrop-filter:blur(6px);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-sizing:border-box}#jav-quick-settings-popover *{box-sizing:border-box}#jav-quick-settings-popover .qs-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}#jav-quick-settings-popover .qs-title{font-size:13px;font-weight:800;color:#1e293b}#jav-quick-settings-popover .qs-site{margin-top:1px;font-size:11px;font-weight:650;color:#64748b}#jav-quick-settings-popover .qs-close{width:24px;height:24px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#64748b;cursor:pointer;line-height:1;font-size:14px}#jav-quick-settings-popover .qs-close:hover{color:#1d4ed8;border-color:#93c5fd;background:#eff6ff}#jav-quick-settings-popover .qs-row{display:grid;grid-template-columns:72px 1fr 42px;align-items:center;gap:9px;padding:4px 0;border:0;border-radius:0;background:transparent}#jav-quick-settings-popover .qs-row+.qs-row{margin-top:4px}#jav-quick-settings-popover .qs-detail-flex{display:none;margin-top:8px;padding-top:7px;border-top:1px solid #e2e8f0}#jav-quick-settings-popover .qs-detail-flex.is-visible{display:block}#jav-quick-settings-popover .qs-section-title{margin-bottom:3px;font-size:12px;font-weight:850;color:#1e293b}#jav-quick-settings-popover .qs-row.is-disabled{opacity:.48}#jav-quick-settings-popover .qs-row.is-disabled .qs-range{cursor:not-allowed;background:#e2e8f0}#jav-quick-settings-popover .qs-row.is-disabled .qs-range::-webkit-slider-thumb{background:#94a3b8;cursor:not-allowed}#jav-quick-settings-popover .qs-row.is-disabled .qs-range::-moz-range-thumb{background:#94a3b8;cursor:not-allowed}#jav-quick-settings-popover .qs-switch-grid{display:grid;grid-template-columns:1fr;gap:6px;margin-top:6px}#jav-quick-settings-popover .qs-switch-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0;border:0;border-radius:0;background:transparent}#jav-quick-settings-popover .qs-name{font-size:12px;font-weight:750;color:#334155;white-space:nowrap}#jav-quick-settings-popover .qs-value{display:grid;place-items:center;min-width:34px;height:22px;border-radius:999px;background:#fff;color:#1d4ed8;font-size:12px;font-weight:800;border:1px solid #dbeafe}#jav-quick-settings-popover .qs-range{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:999px;background:linear-gradient(90deg,#93c5fd 0%,#dbeafe 100%);outline:none}#jav-quick-settings-popover .qs-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;border:2px solid #fff;background:#2563eb;box-shadow:0 3px 8px rgba(37,99,235,.22);cursor:pointer}#jav-quick-settings-popover .qs-range::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:#2563eb;box-shadow:0 3px 8px rgba(37,99,235,.22);cursor:pointer}#jav-quick-settings-popover .qs-toggle{position:relative;display:inline-block;width:36px;height:20px;flex:0 0 auto}#jav-quick-settings-popover .qs-toggle input{opacity:0;width:0;height:0}#jav-quick-settings-popover .qs-toggle-track{position:absolute;inset:0;border-radius:999px;background:#cbd5e1;cursor:pointer;transition:background .18s}#jav-quick-settings-popover .qs-toggle-track::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.22);transition:transform .18s}#jav-quick-settings-popover .qs-toggle input:checked+.qs-toggle-track{background:#2563eb}#jav-quick-settings-popover .qs-toggle input:checked+.qs-toggle-track::before{transform:translateX(14px)}#jav-quick-settings-popover .qs-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0}#jav-quick-settings-popover .qs-more{height:28px;padding:0 12px;border:1px solid #c7d2fe;border-radius:7px;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:800;cursor:pointer}#jav-quick-settings-popover .qs-more:hover{background:#e0e7ff;border-color:#a5b4fc}`);
+            injectStyle('jav-quick-settings-style', `#jav-quick-settings-popover{position:fixed;z-index:10000030;width:286px;padding:10px;border:1px solid rgba(203,213,225,.85);border-radius:10px;background:rgba(255,255,255,.985);color:#0f172a;box-shadow:0 12px 28px rgba(15,23,42,.16);backdrop-filter:blur(6px);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-sizing:border-box}#jav-quick-settings-popover *{box-sizing:border-box}#jav-quick-settings-popover .qs-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}#jav-quick-settings-popover .qs-title{font-size:13px;font-weight:800;color:#1e293b}#jav-quick-settings-popover .qs-site{margin-top:1px;font-size:11px;font-weight:650;color:#64748b}#jav-quick-settings-popover .qs-close{width:24px;height:24px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#64748b;cursor:pointer;line-height:1;font-size:14px}#jav-quick-settings-popover .qs-close:hover{color:#1d4ed8;border-color:#93c5fd;background:#eff6ff}#jav-quick-settings-popover .qs-row{display:grid;grid-template-columns:72px 1fr 42px;align-items:center;gap:9px;padding:4px 0;border:0;border-radius:0;background:transparent}#jav-quick-settings-popover .qs-row+.qs-row{margin-top:4px}#jav-quick-settings-popover .qs-detail-flex{display:none;margin-top:8px;padding-top:7px;border-top:1px solid #e2e8f0}#jav-quick-settings-popover .qs-detail-flex.is-visible{display:block}#jav-quick-settings-popover .qs-section-title{margin-bottom:3px;font-size:12px;font-weight:850;color:#1e293b}#jav-quick-settings-popover .qs-row.is-disabled{opacity:.48}#jav-quick-settings-popover .qs-row.is-disabled .qs-range{cursor:not-allowed;background:#e2e8f0}#jav-quick-settings-popover .qs-row.is-disabled .qs-range::-webkit-slider-thumb{background:#94a3b8;cursor:not-allowed}#jav-quick-settings-popover .qs-row.is-disabled .qs-range::-moz-range-thumb{background:#94a3b8;cursor:not-allowed}#jav-quick-settings-popover .qs-switch-grid{display:grid;grid-template-columns:1fr;gap:6px;margin-top:6px}#jav-quick-settings-popover .qs-switch-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0;border:0;border-radius:0;background:transparent}#jav-quick-settings-popover .qs-name{font-size:12px;font-weight:750;color:#334155;white-space:nowrap}#jav-quick-settings-popover .qs-value{display:grid;place-items:center;min-width:34px;height:22px;border-radius:999px;background:#fff;color:#1d4ed8;font-size:12px;font-weight:800;border:1px solid #dbeafe}#jav-quick-settings-popover .qs-range{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:999px;background:linear-gradient(90deg,#93c5fd 0%,#dbeafe 100%);outline:none}#jav-quick-settings-popover .qs-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;border:2px solid #fff;background:#2563eb;box-shadow:0 3px 8px rgba(37,99,235,.22);cursor:pointer}#jav-quick-settings-popover .qs-range::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:#2563eb;box-shadow:0 3px 8px rgba(37,99,235,.22);cursor:pointer}#jav-quick-settings-popover .qs-toggle{position:relative;display:inline-block;width:36px;height:20px;flex:0 0 auto}#jav-quick-settings-popover .qs-toggle input{opacity:0;width:0;height:0}#jav-quick-settings-popover .qs-toggle-track{position:absolute;inset:0;border-radius:999px;background:#cbd5e1;cursor:pointer;transition:background .18s}#jav-quick-settings-popover .qs-toggle-track::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.22);transition:transform .18s}#jav-quick-settings-popover .qs-toggle input:checked+.qs-toggle-track{background:#2563eb}#jav-quick-settings-popover .qs-toggle input:checked+.qs-toggle-track::before{transform:translateX(14px)}#jav-quick-settings-popover .qs-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0}#jav-quick-settings-popover .qs-more{height:28px;padding:0 12px;border:1px solid #c7d2fe;border-radius:7px;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:800;cursor:pointer}#jav-quick-settings-popover .qs-more:hover{background:#e0e7ff;border-color:#a5b4fc}`);
         }
         function positionPanel(panel, anchor) {
             const rect = anchor?.getBoundingClientRect?.();
@@ -845,7 +820,7 @@
             }
             const panel = document.createElement('div');
             panel.id = 'jav-quick-settings-popover';
-            panel.innerHTML =`<div class="qs-head"><div><div class="qs-title">快捷设置</div><div class="qs-site">${siteLabelMap[site] || '当前站点'}</div></div><button class="qs-close" type="button" title="关闭">×</button></div><div class="qs-row"><div class="qs-name">卡片列数</div><input class="qs-range" id="qs-columns" type="range" min="2" max="10" step="1"><span class="qs-value" id="qs-columns-value">5</span></div><div class="qs-row"><div class="qs-name">页面宽度</div><input class="qs-range" id="qs-zoom" type="range" min="60" max="100" step="1"><span class="qs-value" id="qs-zoom-value">100%</span></div><div class="qs-detail-flex" id="qs-detail-flex"><div class="qs-section-title">详情比例</div><div class="qs-row" data-detail-flex-row="cover"><div class="qs-name">封面</div><input class="qs-range" id="qs-detail-cover" type="range" min="50" max="200" step="5"><span class="qs-value" id="qs-detail-cover-value">1.0</span></div><div class="qs-row" data-detail-flex-row="info"><div class="qs-name">信息</div><input class="qs-range" id="qs-detail-info" type="range" min="50" max="200" step="5"><span class="qs-value" id="qs-detail-info-value">1.0</span></div><div class="qs-row" data-detail-flex-row="magnet"><div class="qs-name">磁力</div><input class="qs-range" id="qs-detail-magnet" type="range" min="50" max="200" step="5"><span class="qs-value" id="qs-detail-magnet-value">关闭</span></div></div><div class="qs-switch-grid"><div class="qs-switch-row"><div class="qs-name">115匹配</div><label class="qs-toggle"><input id="qs-pan115" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">瀑布流</div><label class="qs-toggle"><input id="qs-infinite-scroll" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">卡片特效</div><label class="qs-toggle"><input id="qs-card-fx" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">翻译标题</div><label class="qs-toggle"><input id="qs-title-translate" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">竖图模式</div><label class="qs-toggle"><input id="qs-portrait-cards" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">新标签打开页面</div><label class="qs-toggle"><input id="qs-list-open-new-tab" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">快捷预览图</div><label class="qs-toggle"><input id="qs-list-preview" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">预览图直显</div><label class="qs-toggle"><input id="qs-detail-preview-inline" type="checkbox"><span class="qs-toggle-track"></span></label></div></div><div class="qs-footer"><button class="qs-more" type="button">更多设置</button></div>`;
+            panel.innerHTML = `<div class="qs-head"><div><div class="qs-title">快捷设置</div><div class="qs-site"> ${siteLabelMap[site] || '当前站点'} </div></div><button class="qs-close" type="button" title="关闭">×</button></div><div class="qs-row"><div class="qs-name">卡片列数</div><input class="qs-range" id="qs-columns" type="range" min="2" max="10" step="1"><span class="qs-value" id="qs-columns-value">5</span></div><div class="qs-row"><div class="qs-name">页面宽度</div><input class="qs-range" id="qs-zoom" type="range" min="60" max="100" step="1"><span class="qs-value" id="qs-zoom-value">100%</span></div><div class="qs-detail-flex" id="qs-detail-flex"><div class="qs-section-title">详情比例</div><div class="qs-row" data-detail-flex-row="cover"><div class="qs-name">封面</div><input class="qs-range" id="qs-detail-cover" type="range" min="50" max="200" step="5"><span class="qs-value" id="qs-detail-cover-value">1.0</span></div><div class="qs-row" data-detail-flex-row="info"><div class="qs-name">信息</div><input class="qs-range" id="qs-detail-info" type="range" min="50" max="200" step="5"><span class="qs-value" id="qs-detail-info-value">1.0</span></div><div class="qs-row" data-detail-flex-row="magnet"><div class="qs-name">磁力</div><input class="qs-range" id="qs-detail-magnet" type="range" min="50" max="200" step="5"><span class="qs-value" id="qs-detail-magnet-value">关闭</span></div></div><div class="qs-switch-grid"><div class="qs-switch-row"><div class="qs-name">115匹配</div><label class="qs-toggle"><input id="qs-pan115" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">瀑布流</div><label class="qs-toggle"><input id="qs-infinite-scroll" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">卡片动画</div><label class="qs-toggle"><input id="qs-card-fx" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">封面悬浮大图</div><label class="qs-toggle"><input id="qs-cover-hover-preview" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">翻译标题</div><label class="qs-toggle"><input id="qs-title-translate" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">竖图模式</div><label class="qs-toggle"><input id="qs-portrait-cards" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">新标签打开页面</div><label class="qs-toggle"><input id="qs-list-open-new-tab" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">首页快捷查看</div><label class="qs-toggle"><input id="qs-list-preview" type="checkbox"><span class="qs-toggle-track"></span></label></div><div class="qs-switch-row"><div class="qs-name">预览图直显</div><label class="qs-toggle"><input id="qs-detail-preview-inline" type="checkbox"><span class="qs-toggle-track"></span></label></div></div><div class="qs-footer"><button class="qs-more" type="button">更多设置</button></div>`;
             document.body.appendChild(panel);
             const close = () => panel.remove();
             const columnsInput = panel.querySelector('#qs-columns');
@@ -855,6 +830,7 @@
             const pan115Input = panel.querySelector('#qs-pan115');
             const infiniteInput = panel.querySelector('#qs-infinite-scroll');
             const cardFxInput = panel.querySelector('#qs-card-fx');
+            const coverHoverPreviewInput = panel.querySelector('#qs-cover-hover-preview');
             const listPreviewInput = panel.querySelector('#qs-list-preview');
             const detailPreviewInput = panel.querySelector('#qs-detail-preview-inline');
             const titleTranslateInput = panel.querySelector('#qs-title-translate');
@@ -924,6 +900,10 @@
             Ui.bindCheckbox(cardFxInput, CFG.cardFx, checked => {
                 CFG.cardFx = checked;
                 Runtime.syncCardFx(checked);
+            });
+            Ui.bindCheckbox(coverHoverPreviewInput, CFG.coverHoverPreview, checked => {
+                CFG.coverHoverPreview = checked;
+                Runtime.syncCoverHoverPreview();
             });
             Ui.bindCheckbox(listPreviewInput, CFG.listPreviewQuick, checked => {
                 CFG.listPreviewQuick = checked;
@@ -1514,7 +1494,7 @@
             overlay.className = 'whatslink-overlay';
             const modal = document.createElement('section');
             modal.className = `whatslink-modal${shots.length ? '' : ' no-shots'}`;
-            modal.innerHTML =`<div class="whatslink-viewer"><div class="whatslink-stage"><button class="whatslink-nav whatslink-prev" type="button">‹</button><img class="whatslink-hero" alt="截图预览"><button class="whatslink-nav whatslink-next" type="button">›</button><div class="whatslink-counter"></div><div class="whatslink-empty"><div class="whatslink-empty-icon">?</div><div class="whatslink-empty-title">暂无截图</div><p class="whatslink-empty-text">WhatsLink 已返回资源基础信息，但没有可展示的截图。可以通过名称、大小和文件数量先做基础判断。</p></div></div><div class="whatslink-thumbs"></div></div><aside class="whatslink-info"><div class="whatslink-head"><div><div class="whatslink-kicker">磁力验车</div><h2 class="whatslink-title"></h2><span class="whatslink-tag"></span></div><button class="whatslink-close" type="button">×</button></div><div class="whatslink-meta"><div class="whatslink-metric"><b>${formatBytes(payload?.size)}</b><span>资源大小</span></div><div class="whatslink-metric"><b>${payload?.count ?? '-'}</b><span>文件数量</span></div><div class="whatslink-metric"><b>${resourceType}</b><span>资源结构</span></div><div class="whatslink-metric"><b>${shots.length}</b><span>截图数量</span></div><div class="whatslink-metric"><b>${payload?.error ? '异常':'无错误'}</b><span>接口状态</span></div></div><div class="whatslink-section"><h3>磁力链接</h3><div class="whatslink-magnet"></div></div><div class="whatslink-summary"><div class="whatslink-summary-card"><strong>验车结论</strong><p>${shots.length ? 'WhatsLink 已返回截图，优先用左侧大图确认内容是否匹配番号。':'当前没有截图，建议结合资源名称、大小和文件数量判断。'}</p></div></div></aside>`;
+            modal.innerHTML = `<div class="whatslink-viewer"><div class="whatslink-stage"><button class="whatslink-nav whatslink-prev" type="button">‹</button><img class="whatslink-hero" alt="截图预览"><button class="whatslink-nav whatslink-next" type="button">›</button><div class="whatslink-counter"></div><div class="whatslink-empty"><div class="whatslink-empty-icon">?</div><div class="whatslink-empty-title">暂无截图</div><p class="whatslink-empty-text">WhatsLink 已返回资源基础信息，但没有可展示的截图。可以通过名称、大小和文件数量先做基础判断。</p></div></div><div class="whatslink-thumbs"></div></div><aside class="whatslink-info"><div class="whatslink-head"><div><div class="whatslink-kicker">磁力验车</div><h2 class="whatslink-title"></h2><span class="whatslink-tag"></span></div><button class="whatslink-close" type="button">×</button></div><div class="whatslink-meta"><div class="whatslink-metric"><b> ${formatBytes(payload?.size)} </b><span>资源大小</span></div><div class="whatslink-metric"><b> ${payload?.count ?? '-'} </b><span>文件数量</span></div><div class="whatslink-metric"><b> ${resourceType} </b><span>资源结构</span></div><div class="whatslink-metric"><b> ${shots.length} </b><span>截图数量</span></div><div class="whatslink-metric"><b> ${payload?.error ? '异常' : '无错误'} </b><span>接口状态</span></div></div><div class="whatslink-section"><h3>磁力链接</h3><div class="whatslink-magnet"></div></div><div class="whatslink-summary"><div class="whatslink-summary-card"><strong>验车结论</strong><p> ${shots.length ? 'WhatsLink 已返回截图，优先用左侧大图确认内容是否匹配番号。' : '当前没有截图，建议结合资源名称、大小和文件数量判断。'} </p></div></div></aside>`;
             overlay.appendChild(modal);
             document.body.appendChild(overlay);
             modal.querySelector('.whatslink-title').textContent = payload?.name || '未知资源';
@@ -1533,7 +1513,7 @@
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'whatslink-thumb';
-                btn.innerHTML =`<img src="${url}" alt="截图${i + 1}">`;
+                btn.innerHTML = `<img src="${url}" alt="截图${i + 1}">`;
                 btn.addEventListener('click', () => { index = i; render(); });
                 thumbs.appendChild(btn);
             });
@@ -1582,11 +1562,7 @@
             sel.style.cssText = 'height:22px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;padding:1px 22px 1px 6px;min-width:84px;background:#fff;color:#172033;font-weight:650;';
             const labels = ENGINE_LABELS();
             Object.keys(allEngines).forEach(k => {
-                const op = document.createElement('option');
-                op.value = k;
-                op.textContent = labels[k] || k;
-                if (k === curKey) op.selected = true;
-                sel.appendChild(op);
+                sel.add(new Option(labels[k] || k, k, false, k === curKey));
             });
             const fitSelWidth = () => {
                 sel.style.width = '';
@@ -1643,7 +1619,7 @@
                 const emptyRow = document.createElement('tr');
                 const td = document.createElement('td');
                 td.colSpan = 4;
-                td.innerHTML =`无搜索结果<a href="${engineUrl}" target="_blank" style="color:red">前往查看</a>`;
+                td.innerHTML = `无搜索结果 <a href="${engineUrl}" target="_blank" style="color:red">前往查看</a>`;
                 const refresh = document.createElement('a');
                 refresh.href = '#';
                 refresh.textContent = ' 🔄 刷新';
@@ -1805,17 +1781,7 @@
         function createMagnetWidget(avid) {
             const wrapper = document.createElement('div');
             wrapper.className = 'jav-nong-wrapper';
-            wrapper.style.cssText = `
-                display: inline-block;
-                width: min(560px, 100%);
-                max-width: 100%;
-                box-sizing: border-box;
-                padding: 12px 12px 10px;
-                background: #fafafa;
-                border: 1px solid #ebebeb;
-                border-radius: 6px;
-                overflow: hidden;
-            `;
+            wrapper.style.cssText = `display:inline-block;width:min(560px,100%);max-width:100%;box-sizing:border-box;padding:12px 12px 10px;background:#fafafa;border:1px solid #ebebeb;border-radius:6px;overflow:hidden;`;
             const header = document.createElement('div');
             header.style.cssText = 'margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
             const title = document.createElement('span');
@@ -1837,7 +1803,7 @@
         document.querySelector('#javdb-api-login-overlay')?.remove();
         const overlay = document.createElement('div');
         overlay.id = 'javdb-api-login-overlay';
-        overlay.innerHTML =`<div class="javdb-api-login-panel"><div class="javdb-api-login-title">登录 JavDB</div><input class="javdb-api-login-input" id="javdb-api-login-account" type="text" autocomplete="username" placeholder="用户名 / 邮箱"><input class="javdb-api-login-input" id="javdb-api-login-password" type="password" autocomplete="current-password" placeholder="密码"><div class="javdb-api-login-actions"><button class="javdb-api-login-cancel" type="button">取消</button><button class="javdb-api-login-submit" type="button">登录</button></div></div>`;
+        overlay.innerHTML = `<div class="javdb-api-login-panel"><div class="javdb-api-login-title">登录 JavDB</div><input class="javdb-api-login-input" id="javdb-api-login-account" type="text" autocomplete="username" placeholder="用户名 / 邮箱"><input class="javdb-api-login-input" id="javdb-api-login-password" type="password" autocomplete="current-password" placeholder="密码"><div class="javdb-api-login-actions"><button class="javdb-api-login-cancel" type="button">取消</button><button class="javdb-api-login-submit" type="button">登录</button></div></div>`;
         document.body.appendChild(overlay);
         const close = () => overlay.remove();
         const submit = overlay.querySelector('.javdb-api-login-submit');
@@ -1876,7 +1842,7 @@
     function renderJavdbApiLoginRequired(status, message = 'Top250 需要登录 JavDB API。可使用 JavDB 账号密码登录一次，脚本会在本地保存授权。') {
         addJavdbApiLoginStyles();
         status.classList.add('is-error');
-        status.innerHTML =`<span>${message}</span><button class="javdb-api-login-inline" type="button">登录 JavDB</button>`;
+        status.innerHTML = `<span>${message}</span><button class="javdb-api-login-inline" type="button">登录 JavDB</button>`;
         status.querySelector('.javdb-api-login-inline')?.addEventListener('click', () => openJavdbApiLoginDialog());
     }
     const SiteJavBus = {
@@ -1925,7 +1891,7 @@
             });
             const settingsNav = document.createElement('ul');
             settingsNav.className = 'nav navbar-nav navbar-right javbus-top-settings-nav';
-            settingsNav.innerHTML =`<li><a href="javascript:void(0)" class="javbus-top-settings-btn" title="\u6253\u5f00\u8001\u53f8\u673a\u8bbe\u7f6e"><span class="glyphicon glyphicon-cog" style="font-size:12px;"></span><span class="hidden-md hidden-sm">\u8001\u53f8\u673a\u8bbe\u7f6e</span></a></li>`;
+            settingsNav.innerHTML = `<li><a href="javascript:void(0)" class="javbus-top-settings-btn" title="\u6253\u5f00\u8001\u53f8\u673a\u8bbe\u7f6e"><span class="glyphicon glyphicon-cog" style="font-size:12px;"></span><span class="hidden-md hidden-sm">\u8001\u53f8\u673a\u8bbe\u7f6e</span></a></li>`;
             settingsNav.querySelector('.javbus-top-settings-btn')?.addEventListener('click', e => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1936,9 +1902,7 @@
             } else {
                 navbar.appendChild(settingsNav);
             }
-            if (document.documentElement.dataset.laosijiJavbusTopSettingsStyle === '1') return;
-            document.documentElement.dataset.laosijiJavbusTopSettingsStyle = '1';
-            GM_addStyle(`#navbar .javbus-top-settings-btn{color:#2563eb!important;font-weight:700!important}#navbar .javbus-top-settings-btn:hover{color:#1d4ed8!important;background:rgba(37,99,235,.08)!important}`);
+            injectStyle('javbus-top-settings-style', `#navbar .javbus-top-settings-btn{color:#2563eb!important;font-weight:700!important}#navbar .javbus-top-settings-btn:hover{color:#1d4ed8!important;background:rgba(37,99,235,.08)!important}`);
         },
         _insertCopyButton(avid) {
             const infoCol = document.querySelector("div[class='col-md-3 info']");
@@ -1962,9 +1926,7 @@
         },
         _ensureJavdbReviewsStyle() {
             SiteJavDB._ensureApiMovieTabStyle?.();
-            if (document.documentElement.dataset.laosijiJavbusJavdbReviewsStyle === '1') return;
-            document.documentElement.dataset.laosijiJavbusJavdbReviewsStyle = '1';
-            GM_addStyle(`.javbus-javdb-reviews{margin:18px 0 24px!important;border:1px solid #e5e7eb!important;border-radius:6px!important;background:#fff!important;overflow:hidden!important;box-shadow:0 1px 2px rgba(15,23,42,.04)!important}.javbus-javdb-reviews-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;padding:10px 12px!important;border-bottom:1px solid #e5e7eb!important;background:#f8fafc!important;color:#1f2937!important;font-size:15px!important;font-weight:800!important}.javbus-javdb-reviews-toggle{display:inline-flex!important;align-items:center!important;gap:8px!important;padding:0!important;border:0!important;background:transparent!important;color:inherit!important;font:inherit!important;cursor:pointer!important}.javbus-javdb-reviews-toggle::before{content:"▸";color:#64748b;font-size:13px;transition:transform .16s ease}.javbus-javdb-reviews.is-expanded .javbus-javdb-reviews-toggle::before{transform:rotate(90deg)}.javbus-javdb-reviews-head a{color:#2563eb!important;font-size:12px!important;font-weight:800!important;text-decoration:none!important}.javbus-javdb-reviews-badge{display:inline-flex!important;align-items:center!important;height:20px!important;margin-left:8px!important;padding:0 7px!important;border:1px solid #bfdbfe!important;border-radius:999px!important;background:#eff6ff!important;color:#1d4ed8!important;font-size:11px!important;line-height:1!important;vertical-align:middle!important}.javbus-javdb-reviews-body .message,.javbus-javdb-reviews-body .message-body{margin:0!important;border:0!important;background:transparent!important;padding:0!important}.javbus-javdb-reviews-body[hidden]{display:none!important}.javbus-javdb-reviews-footer{padding:10px 0 12px!important;background:#fff!important}.javbus-javdb-reviews-collapse-bar{padding:10px 12px 0!important;margin-bottom:0!important}`);
+            injectStyle('javbus-javdb-reviews-style', `.javbus-javdb-reviews{margin:18px 0 24px!important;border:1px solid #e5e7eb!important;border-radius:6px!important;background:#fff!important;overflow:hidden!important;box-shadow:0 1px 2px rgba(15,23,42,.04)!important}.javbus-javdb-reviews-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;padding:10px 12px!important;border-bottom:1px solid #e5e7eb!important;background:#f8fafc!important;color:#1f2937!important;font-size:15px!important;font-weight:800!important}.javbus-javdb-reviews-toggle{display:inline-flex!important;align-items:center!important;gap:8px!important;padding:0!important;border:0!important;background:transparent!important;color:inherit!important;font:inherit!important;cursor:pointer!important}.javbus-javdb-reviews-toggle::before{content:"▸";color:#64748b;font-size:13px;transition:transform .16s ease}.javbus-javdb-reviews.is-expanded .javbus-javdb-reviews-toggle::before{transform:rotate(90deg)}.javbus-javdb-reviews-head a{color:#2563eb!important;font-size:12px!important;font-weight:800!important;text-decoration:none!important}.javbus-javdb-reviews-badge{display:inline-flex!important;align-items:center!important;height:20px!important;margin-left:8px!important;padding:0 7px!important;border:1px solid #bfdbfe!important;border-radius:999px!important;background:#eff6ff!important;color:#1d4ed8!important;font-size:11px!important;line-height:1!important;vertical-align:middle!important}.javbus-javdb-reviews-body .message,.javbus-javdb-reviews-body .message-body{margin:0!important;border:0!important;background:transparent!important;padding:0!important}.javbus-javdb-reviews-body[hidden]{display:none!important}.javbus-javdb-reviews-footer{padding:10px 0 12px!important;background:#fff!important}.javbus-javdb-reviews-collapse-bar{padding:10px 12px 0!important;margin-bottom:0!important}`);
         },
         _findRecommendHeading() {
             return [...document.querySelectorAll('h4')].find(h4 => {
@@ -2002,19 +1964,13 @@
             const panel = document.createElement('section');
             panel.className = 'javbus-javdb-reviews';
             panel.dataset.avid = avid;
-            panel.innerHTML =`<div class="javbus-javdb-reviews-head"><button type="button" class="javbus-javdb-reviews-toggle" aria-expanded="false">JavDB 短评<span class="javbus-javdb-reviews-badge" title="此区块已由 JAV 老司机脚本替换">老司机</span></button><a class="javbus-javdb-reviews-link" href="https://javdb.com/search?q= ${encodeURIComponent(avid)}" target="_blank" rel="noopener noreferrer">JavDB</a></div><div class="javbus-javdb-reviews-body" hidden><div class="javdb-api-tab-loading">正在读取短评...</div></div>`;
+            panel.innerHTML = `<div class="javbus-javdb-reviews-head"><button type="button" class="javbus-javdb-reviews-toggle" aria-expanded="false">JavDB 短评<span class="javbus-javdb-reviews-badge" title="此区块已由 JAV 老司机脚本替换">老司机</span></button><a class="javbus-javdb-reviews-link" href="https://javdb.com/search?q=${encodeURIComponent(avid)} " target="_blank" rel="noopener noreferrer">JavDB</a></div><div class="javbus-javdb-reviews-body" hidden><div class="javdb-api-tab-loading">正在读取短评...</div></div>`;
             heading.replaceWith(panel);
             if (this._isRecommendContainer(next)) next.remove();
             this._bindJavbusReviewLoadMore(panel);
         },
         _renderJavbusReviewFooter(hasMore, shownCount) {
-            return `
-                <div class="javdb-api-tab-footer javbus-javdb-reviews-footer">
-                ${hasMore
-                                ? `<button type="button" class="javdb-api-tab-load-more javbus-javdb-reviews-load-more" data-shown-count="${shownCount}" data-load-limit="${JAVDB_REVIEW_MORE_LIMIT}">加载更多短评</button>`
-                                : `<div class="javdb-api-tab-end">已加载全部短评</div>`}
-                </div>
-`;
+            return `<div class="javdb-api-tab-footer javbus-javdb-reviews-footer"> ${hasMore ? `<button type="button" class="javdb-api-tab-load-more javbus-javdb-reviews-load-more" data-shown-count="${shownCount}" data-load-limit="${JAVDB_REVIEW_MORE_LIMIT}">加载更多短评</button>` : `<div class="javdb-api-tab-end">已加载全部短评</div>`} </div>`;
         },
         _renderJavbusReviewCollapseBar() {
             return '<div class="javdb-api-review-collapse-bar javbus-javdb-reviews-collapse-bar"><button type="button" class="javdb-api-review-collapse javbus-javdb-reviews-collapse" data-javbus-reviews-collapse="1">收起短评</button></div>';
@@ -2022,17 +1978,7 @@
         _renderJavbusReviews(reviews, offset = 0, hasMore = false) {
             const list = Array.isArray(reviews) ? reviews.slice(0, JAVDB_REVIEW_MORE_LIMIT) : [];
             const items = list.length ? SiteJavDB._renderApiReviewItems(list, offset, JAVDB_REVIEW_MORE_LIMIT) : '<div class="javdb-api-tab-empty">暂无短评</div>';
-            return `
-                <article class="message video-panel">
-                    <div class="message-body">
-                ${this._renderJavbusReviewCollapseBar()}
-                <div class="javdb-api-tab-items">
-                ${items}
-                </div>
-                ${this._renderJavbusReviewFooter(hasMore, offset + list.length)}
-                </div>
-                </article>
-`;
+            return `<article class="message video-panel"><div class="message-body"> ${this._renderJavbusReviewCollapseBar()} <div class="javdb-api-tab-items"> ${items} </div> ${this._renderJavbusReviewFooter(hasMore, offset + list.length)} </div></article>`;
         },
         _bindJavbusReviewLoadMore(panel) {
             if (!panel || panel.dataset.reviewsLoadMoreBound === '1') return;
@@ -2079,7 +2025,7 @@
             try {
                 const movie = await Magnet.javdbApi.searchMovieByNumber(avid, { limit: 5 });
                 if (!movie?.id) {
-                    body.innerHTML =`<div class="javdb-api-tab-empty">JavDB 未找到 ${SiteJavDB._escapeHtml(avid)}的短评</div>`;
+                    body.innerHTML = `<div class="javdb-api-tab-empty">JavDB 未找到 ${SiteJavDB._escapeHtml(avid)} 的短评</div>`;
                     return;
                 }
                 const link = panel.querySelector('.javbus-javdb-reviews-link');
@@ -2093,7 +2039,7 @@
                     : '<div class="javdb-api-tab-empty">暂无短评</div>';
             } catch (err) {
                 errorLog('JavBus JavDB 短评读取失败:', err);
-                body.innerHTML =`<div class="javdb-api-tab-error">${SiteJavDB._escapeHtml(err.message || '短评读取失败')}</div>`;
+                body.innerHTML = `<div class="javdb-api-tab-error"> ${SiteJavDB._escapeHtml(err.message || '短评读取失败')} </div>`;
             }
         },
         async _loadMoreJavdbReviewsForJavbus(panel, btn) {
@@ -2378,9 +2324,7 @@
                     group.dataset.laosijiHiddenNativeLayout = '1';
                 }
             });
-            if (document.documentElement.dataset.laosijiJavdbNativeLayoutStyle === '1') return;
-            document.documentElement.dataset.laosijiJavdbNativeLayoutStyle = '1';
-            GM_addStyle(`.toolbar>.button-group[data-laosiji-hidden-native-layout="1"]{display:none!important}`);
+            injectStyle('javdb-native-layout-style', `.toolbar>.button-group[data-laosiji-hidden-native-layout="1"]{display:none!important}`);
         },
         _stripNativeLayoutParam(root = document) {
             try {
@@ -2401,9 +2345,7 @@
             });
         },
         _ensureDarkThemeStyle() {
-            if (document.documentElement.dataset.laosijiJavdbDarkStyle === '1') return;
-            document.documentElement.dataset.laosijiJavdbDarkStyle = '1';
-            GM_addStyle(`html[data-theme="dark"] .jav-card{background:#252525!important;border-color:#3f3f46!important;box-shadow:0 1px 4px rgba(0,0,0,.34)!important}html[data-theme="dark"] .jav-card:hover{border-color:rgba(96,165,250,.58)!important;box-shadow:0 12px 26px rgba(0,0,0,.38)!important}html[data-theme="dark"] .jav-card-link,html[data-theme="dark"] .javdb-card-grid .item .javdb-card-link.box{background:#252525!important;color:#8ab4ff!important}html[data-theme="dark"] .jav-card-link:visited{color:#c4a7ff!important}html[data-theme="dark"] .jav-card-cover,html[data-theme="dark"] .jav-card-image{background:#18181b!important;border-color:#3f3f46!important}html[data-theme="dark"] .javdb-card-score{color:#cbd5e1!important}html[data-theme="dark"] .javdb-card-meta{color:#94a3b8!important}html[data-theme="dark"] .javdb-card-tags .tag:not(.is-success):not(.is-info):not(.is-primary):not(.is-warning):not(.is-danger){background:#333333!important;color:#d1d5db!important}html[data-theme="dark"] .jav-nong-wrapper{background:transparent!important;color:#d1d5db!important}html[data-theme="dark"] #jav-nong-table{background:#2f2f2f!important;color:#d1d5db!important}html[data-theme="dark"] #jav-nong-table th,html[data-theme="dark"] #jav-nong-table td{background:#262626!important;border-color:#3f3f46!important;color:#d1d5db!important}html[data-theme="dark"] #jav-nong-table .nong-head-row th{background:#303030!important;color:#e5e7eb!important}html[data-theme="dark"] #jav-nong-table .nong-magnet-name>a{color:#8ab4ff!important}html[data-theme="dark"] #jav-nong-notice,html[data-theme="dark"] #jav-nong-refresh{color:#cbd5e1!important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] article.message.video-panel,html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] article.message.video-panel .message-body{background:#252525!important;border-color:#3f3f46!important;color:#e5e7eb!important}html[data-theme="dark"] .javdb-api-review,html[data-theme="dark"] .javdb-api-related{background:#252525!important;border-bottom-color:#3f3f46!important}html[data-theme="dark"] .javdb-api-review-head,html[data-theme="dark"] .javdb-api-related-head,html[data-theme="dark"] .javdb-api-review-content,html[data-theme="dark"] .javdb-api-related-desc{color:#e5e7eb!important}html[data-theme="dark"] .javdb-api-related-meta,html[data-theme="dark"] .javdb-api-tab-loading,html[data-theme="dark"] .javdb-api-tab-empty,html[data-theme="dark"] .javdb-api-tab-end{color:#cbd5e1!important}html[data-theme="dark"] .javdb-api-tab-error{color:#fb7185!important}html[data-theme="dark"] .javdb-api-review-toggle,html[data-theme="dark"] .javdb-api-review-collapse,html[data-theme="dark"] .javdb-api-tab-load-more{background:#2f3b4f!important;border-color:#4b5f80!important;color:#dbeafe!important}html[data-theme="dark"] .javdb-api-review-toggle::before{color:#93c5fd!important}html[data-theme="dark"] .javdb-api-tab-badge{background:#1e3a5f!important;border-color:#3b82f6!important;color:#dbeafe!important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .item{background:#252525!important;border-color:#3f3f46!important;color:#e5e7eb!important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .item.odd{background:#2a2a2a!important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .magnet-name a,html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links a{color:#8ab4ff!important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .meta,html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .date{color:#94a3b8!important}html[data-theme="dark"] .jav-stills-shell{background:#252525!important;border-color:#3f3f46!important;box-shadow:0 8px 18px rgba(0,0,0,.28)!important}html[data-theme="dark"] .jav-stills-rail>a,html[data-theme="dark"] .jav-stills-rail>.tile-item,html[data-theme="dark"] .jav-stills-rail>.preview-video-container{background:#1f2937!important;border-color:#4b5563!important;box-shadow:none!important}html[data-theme="dark"] .jav-stills-arrow{background:rgba(39,39,42,.92)!important;border-color:#52525b!important;color:#e5e7eb!important}html[data-theme="dark"] .jav-stills-arrow:hover{background:#303030!important;border-color:rgba(96,165,250,.58)!important}`);
+            injectStyle('javdb-dark-style', `html[data-theme="dark"] .jav-card{background:#252525!important;border-color:#3f3f46!important;box-shadow:0 1px 4px rgba(0,0,0,.34)!important}html[data-theme="dark"] .jav-card:hover{border-color:rgba(96,165,250,.58)!important;box-shadow:0 12px 26px rgba(0,0,0,.38)!important}html[data-theme="dark"] .jav-card-link,html[data-theme="dark"] .javdb-card-grid .item .javdb-card-link.box{background:#252525!important;color:#8ab4ff!important}html[data-theme="dark"] .jav-card-link:visited{color:#c4a7ff!important}html[data-theme="dark"] .jav-card-cover,html[data-theme="dark"] .jav-card-image{background:#18181b!important;border-color:#3f3f46!important}html[data-theme="dark"] .javdb-card-score{color:#cbd5e1!important}html[data-theme="dark"] .javdb-card-meta{color:#94a3b8!important}html[data-theme="dark"] .javdb-card-tags .tag:not(.is-success):not(.is-info):not(.is-primary):not(.is-warning):not(.is-danger){background:#333333!important;color:#d1d5db!important}html[data-theme="dark"] .jav-nong-wrapper{background:transparent!important;color:#d1d5db!important}html[data-theme="dark"] #jav-nong-table{background:#2f2f2f!important;color:#d1d5db!important}html[data-theme="dark"] #jav-nong-table th,html[data-theme="dark"] #jav-nong-table td{background:#262626!important;border-color:#3f3f46!important;color:#d1d5db!important}html[data-theme="dark"] #jav-nong-table .nong-head-row th{background:#303030!important;color:#e5e7eb!important}html[data-theme="dark"] #jav-nong-table .nong-magnet-name>a{color:#8ab4ff!important}html[data-theme="dark"] #jav-nong-notice,html[data-theme="dark"] #jav-nong-refresh{color:#cbd5e1!important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] article.message.video-panel,html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] article.message.video-panel .message-body{background:#252525!important;border-color:#3f3f46!important;color:#e5e7eb!important}html[data-theme="dark"] .javdb-api-review,html[data-theme="dark"] .javdb-api-related{background:#252525!important;border-bottom-color:#3f3f46!important}html[data-theme="dark"] .javdb-api-review-head,html[data-theme="dark"] .javdb-api-related-head,html[data-theme="dark"] .javdb-api-review-content,html[data-theme="dark"] .javdb-api-related-desc{color:#e5e7eb!important}html[data-theme="dark"] .javdb-api-related-meta,html[data-theme="dark"] .javdb-api-tab-loading,html[data-theme="dark"] .javdb-api-tab-empty,html[data-theme="dark"] .javdb-api-tab-end{color:#cbd5e1!important}html[data-theme="dark"] .javdb-api-tab-error{color:#fb7185!important}html[data-theme="dark"] .javdb-api-review-toggle,html[data-theme="dark"] .javdb-api-review-collapse,html[data-theme="dark"] .javdb-api-tab-load-more{background:#2f3b4f!important;border-color:#4b5f80!important;color:#dbeafe!important}html[data-theme="dark"] .javdb-api-review-toggle::before{color:#93c5fd!important}html[data-theme="dark"] .javdb-api-tab-badge{background:#1e3a5f!important;border-color:#3b82f6!important;color:#dbeafe!important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .item{background:#252525!important;border-color:#3f3f46!important;color:#e5e7eb!important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .item.odd{background:#2a2a2a!important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .magnet-name a,html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links a{color:#8ab4ff!important}html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .meta,html[data-theme="dark"] #tabs-container[data-laosiji-api-movie-tabs] .magnet-links .date{color:#94a3b8!important}html[data-theme="dark"] .jav-stills-shell{background:#252525!important;border-color:#3f3f46!important;box-shadow:0 8px 18px rgba(0,0,0,.28)!important}html[data-theme="dark"] .jav-stills-rail>a,html[data-theme="dark"] .jav-stills-rail>.tile-item,html[data-theme="dark"] .jav-stills-rail>.preview-video-container{background:#1f2937!important;border-color:#4b5563!important;box-shadow:none!important}html[data-theme="dark"] .jav-stills-arrow{background:rgba(39,39,42,.92)!important;border-color:#52525b!important;color:#e5e7eb!important}html[data-theme="dark"] .jav-stills-arrow:hover{background:#303030!important;border-color:rgba(96,165,250,.58)!important}`);
         },
         _dismissOver18Modal() {
             if (!this.match()) return;
@@ -2469,16 +2411,10 @@
         },
         _renderApiStars(score) {
             const value = Math.max(0, Math.min(5, parseInt(score, 10) || 0));
-            return `
-                <span class="score-stars">
-                ${Array.from({ length: 5 }, (_, index) => `<i class="icon-star${index < value ? '' : ' gray'}"></i>`).join('')}
-                </span>
-`;
+            return `<span class="score-stars"> ${Array.from({ length: 5 }, (_, index) => `<i class="icon-star${index < value ? '' : ' gray'}"></i>`).join('')} </span>`;
         },
         _ensureApiMovieTabStyle() {
-            if (document.documentElement.dataset.laosijiJavdbApiMovieTabStyle === '1') return;
-            document.documentElement.dataset.laosijiJavdbApiMovieTabStyle = '1';
-            GM_addStyle(`#tabs-container[data-laosiji-api-movie-tabs] .top-meta{display:none!important}.javdb-api-tab-loading,.javdb-api-tab-empty,.javdb-api-tab-error,.javdb-api-tab-end{padding:12px 14px!important;color:#64748b!important;font-size:13px!important;font-weight:700!important}.javdb-api-tab-error{color:#be123c!important}.javdb-api-review,.javdb-api-related{margin:0!important;padding:11px 12px!important;border-bottom:1px solid #edf2f7!important;background:#fff!important;word-break:break-word!important}.javdb-api-review-head,.javdb-api-related-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;flex-wrap:wrap!important;color:#334155!important;font-size:13px!important}.javdb-api-review-content,.javdb-api-related-desc{margin-top:7px!important;color:#1f2937!important;font-size:13px!important;line-height:1.65!important;white-space:normal!important}.javdb-api-related-meta{display:flex!important;gap:10px!important;flex-wrap:wrap!important;margin-top:7px!important;color:#64748b!important;font-size:12px!important}.javdb-api-tab-footer{padding:10px 0 0!important}.javdb-api-tab-load-more{width:100%!important;min-height:34px!important;border:1px solid #bfdbfe!important;border-radius:6px!important;background:#eff6ff!important;color:#1d4ed8!important;font-size:13px!important;font-weight:800!important;cursor:pointer!important}.javdb-api-review-toggle{width:100%!important;min-height:38px!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;border:1px solid #e2e8f0!important;border-radius:6px!important;background:#f8fafc!important;color:#334155!important;font-size:13px!important;font-weight:850!important;cursor:pointer!important}.javdb-api-review-toggle::before{content:"▸";color:#64748b;font-size:13px}.javdb-api-review-collapse-bar{display:flex!important;justify-content:flex-end!important;margin-bottom:8px!important}.javdb-api-review-collapse{min-height:28px!important;padding:0 10px!important;border:1px solid #e2e8f0!important;border-radius:6px!important;background:#f8fafc!important;color:#334155!important;font-size:12px!important;font-weight:800!important;cursor:pointer!important}.javdb-api-tab-badge-item{display:flex!important;align-items:center!important;margin-left:4px!important;pointer-events:auto!important}.javdb-api-tab-badge{margin-left:0!important;align-self:center!important;display:inline-flex!important;align-items:center!important;height:20px!important;padding:0 7px!important;border:1px solid #bfdbfe!important;border-radius:999px!important;background:#eff6ff!important;color:#1d4ed8!important;font-size:11px!important;font-weight:850!important;line-height:1!important;white-space:nowrap!important}`);
+            injectStyle('javdb-api-movie-tab-style', `#tabs-container[data-laosiji-api-movie-tabs] .top-meta{display:none!important}.javdb-api-tab-loading,.javdb-api-tab-empty,.javdb-api-tab-error,.javdb-api-tab-end{padding:12px 14px!important;color:#64748b!important;font-size:13px!important;font-weight:700!important}.javdb-api-tab-error{color:#be123c!important}.javdb-api-review,.javdb-api-related{margin:0!important;padding:11px 12px!important;border-bottom:1px solid #edf2f7!important;background:#fff!important;word-break:break-word!important}.javdb-api-review-head,.javdb-api-related-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;flex-wrap:wrap!important;color:#334155!important;font-size:13px!important}.javdb-api-review-content,.javdb-api-related-desc{margin-top:7px!important;color:#1f2937!important;font-size:13px!important;line-height:1.65!important;white-space:normal!important}.javdb-api-related-meta{display:flex!important;gap:10px!important;flex-wrap:wrap!important;margin-top:7px!important;color:#64748b!important;font-size:12px!important}.javdb-api-tab-footer{padding:10px 0 0!important}.javdb-api-tab-load-more{width:100%!important;min-height:34px!important;border:1px solid #bfdbfe!important;border-radius:6px!important;background:#eff6ff!important;color:#1d4ed8!important;font-size:13px!important;font-weight:800!important;cursor:pointer!important}.javdb-api-review-toggle{width:100%!important;min-height:38px!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;border:1px solid #e2e8f0!important;border-radius:6px!important;background:#f8fafc!important;color:#334155!important;font-size:13px!important;font-weight:850!important;cursor:pointer!important}.javdb-api-review-toggle::before{content:"▸";color:#64748b;font-size:13px}.javdb-api-review-collapse-bar{display:flex!important;justify-content:flex-end!important;margin-bottom:8px!important}.javdb-api-review-collapse{min-height:28px!important;padding:0 10px!important;border:1px solid #e2e8f0!important;border-radius:6px!important;background:#f8fafc!important;color:#334155!important;font-size:12px!important;font-weight:800!important;cursor:pointer!important}.javdb-api-tab-badge-item{display:flex!important;align-items:center!important;margin-left:4px!important;pointer-events:auto!important}.javdb-api-tab-badge{margin-left:0!important;align-self:center!important;display:inline-flex!important;align-items:center!important;height:20px!important;padding:0 7px!important;border:1px solid #bfdbfe!important;border-radius:999px!important;background:#eff6ff!important;color:#1d4ed8!important;font-size:11px!important;font-weight:850!important;line-height:1!important;white-space:nowrap!important}`);
         },
         _ensureApiMovieTabBadge() {
             const tabs = document.querySelector('.tabs.no-bottom');
@@ -2506,26 +2442,10 @@
             }
         },
         _renderApiTabLoading(text = '读取中...') {
-            return `
-                <article class="message video-panel">
-                    <div class="message-body">
-                        <div class="javdb-api-tab-loading">
-                ${this._escapeHtml(text)}
-                </div>
-                </div>
-                </article>
-`;
+            return `<article class="message video-panel"><div class="message-body"><div class="javdb-api-tab-loading"> ${this._escapeHtml(text)} </div></div></article>`;
         },
         _renderApiTabError(text) {
-            return `
-                <article class="message video-panel">
-                    <div class="message-body">
-                        <div class="javdb-api-tab-error">
-                ${this._escapeHtml(text || '读取失败')}
-                </div>
-                </div>
-                </article>
-`;
+            return `<article class="message video-panel"><div class="message-body"><div class="javdb-api-tab-error"> ${this._escapeHtml(text || '读取失败')} </div></div></article>`;
         },
         _renderApiReviewCollapsed() {
             return '<article class="message video-panel"><div class="message-body"><button type="button" class="javdb-api-review-toggle" data-laosiji-api-expand-reviews="1">展开短评</button></div></article>';
@@ -2534,13 +2454,7 @@
             return '<div class="javdb-api-review-collapse-bar"><button type="button" class="javdb-api-review-collapse" data-laosiji-api-collapse-reviews="1">收起短评</button></div>';
         },
         _renderApiTabFooter(tab, nextPage, hasNext, doneText, moreText, pageSize = 20, shownCount = 0, loadLimit = pageSize) {
-            return `
-                <div class="javdb-api-tab-footer">
-                ${hasNext
-                                ? `<button type="button" class="javdb-api-tab-load-more" data-laosiji-api-load-tab="${tab}" data-next-page="${nextPage}" data-page-size="${pageSize}" data-shown-count="${shownCount}" data-load-limit="${loadLimit}">${this._escapeHtml(moreText)}</button>`
-                                : `<div class="javdb-api-tab-end">${this._escapeHtml(doneText)}</div>`}
-                </div>
-`;
+            return `<div class="javdb-api-tab-footer"> ${hasNext ? `<button type="button" class="javdb-api-tab-load-more" data-laosiji-api-load-tab="${tab}" data-next-page="${nextPage}" data-page-size="${pageSize}" data-shown-count="${shownCount}" data-load-limit="${loadLimit}">${this._escapeHtml(moreText)}</button>` : `<div class="javdb-api-tab-end">${this._escapeHtml(doneText)}</div>`} </div>`;
         },
         _renderApiMagnetRows(magnets) {
             const list = Array.isArray(magnets) ? magnets : [];
@@ -2559,100 +2473,33 @@
                     item?.cnsub ? '<span class="tag is-warning is-small is-light">字幕</span>' : '',
                 ].filter(Boolean).join('');
                 const pikpak = item?.pikpak_url ? `<a class="button is-info is-small" href="${this._escapeHtml(item.pikpak_url)}" target="_blank" rel="noopener noreferrer">&nbsp;下載&nbsp;</a>` : '';
-                return `
-                    <div class="item columns is-desktop ${index % 2 === 0 ? 'odd' : ''}">
-                        <div class="magnet-name column is-four-fifths">
-                            <a href="${this._escapeHtml(magnet)}" title="右鍵點擊並選擇「複製鏈接地址」">
-                                <span class="name">${this._escapeHtml(name)}</span>
-                                ${meta ? `<br><span class="meta">${this._escapeHtml(meta)}</span>` : ''}${tags ? `<br><div class="tags">${tags}</div>` : ''}
-                            </a>
-                        </div>
-                        <div class="buttons column">
-                            <button class="button is-info is-small copy-to-clipboard" data-clipboard-text="${this._escapeHtml(magnet)}" type="button">&nbsp;複製&nbsp;</button>
-                            ${pikpak}
-                        </div>
-                        <div class="date column">
-                            <span class="time">${this._escapeHtml(this._formatApiDate(item?.created_at))}</span>
-                        </div>
-                    </div>
-`;
+                return `<div class="item columns is-desktop ${index % 2 === 0 ? 'odd' : ''}"><div class="magnet-name column is-four-fifths"><a href="${this._escapeHtml(magnet)}" title="右鍵點擊並選擇「複製鏈接地址」"><span class="name">${this._escapeHtml(name)}</span> ${meta ? `<br><span class="meta">${this._escapeHtml(meta)}</span>` : ''}${tags ? `<br><div class="tags">${tags}</div>` : ''} </a></div><div class="buttons column"><button class="button is-info is-small copy-to-clipboard" data-clipboard-text="${this._escapeHtml(magnet)}" type="button">&nbsp;複製&nbsp;</button> ${pikpak} </div><div class="date column"><span class="time">${this._escapeHtml(this._formatApiDate(item?.created_at))}</span></div></div>`;
             }).filter(Boolean).join('');
         },
         _renderApiMagnets(magnets) {
-            return `
-                <article class="message video-panel">
-                    <div class="message-body">
-                        <div id="magnets-content" class="magnet-links" data-laosiji-api-source="1">
-                ${this._renderApiMagnetRows(magnets)}
-                </div>
-                </div>
-                </article>
-`;
+            return `<article class="message video-panel"><div class="message-body"><div id="magnets-content" class="magnet-links" data-laosiji-api-source="1"> ${this._renderApiMagnetRows(magnets)} </div></div></article>`;
         },
         _renderApiReviewItems(reviews, offset = 0, limit = JAVDB_REVIEW_MORE_LIMIT) {
             const size = Math.max(1, parseInt(limit, 10) || JAVDB_REVIEW_MORE_LIMIT);
             const list = Array.isArray(reviews) ? reviews.slice(0, size) : [];
-            return list.map((item, index) => `
-                <div class="javdb-api-review">
-                    <div class="javdb-api-review-head">
-                        <span><strong>#${offset + index + 1}</strong> ${this._escapeHtml(item?.username || '匿名')}</span>
-                        <span>${this._renderApiStars(item?.score)} ${this._escapeHtml(this._formatApiDate(item?.created_at))} ${Number(item?.likes_count || 0) ? ` · 點讚:${this._escapeHtml(item.likes_count)}` : ''}</span>
-                    </div>
-                    <div class="javdb-api-review-content">${this._renderApiLinkedText(item?.content || '')}</div>
-                </div>
-            `).join('');
+            return list.map((item, index) => `<div class="javdb-api-review"><div class="javdb-api-review-head"><span><strong>#${offset + index + 1}</strong> ${this._escapeHtml(item?.username || '匿名')}</span><span>${this._renderApiStars(item?.score)} ${this._escapeHtml(this._formatApiDate(item?.created_at))} ${Number(item?.likes_count || 0) ? ` · 點讚:${this._escapeHtml(item.likes_count)}` : ''}</span></div><div class="javdb-api-review-content">${this._renderApiLinkedText(item?.content || '')}</div></div>`).join('');
         },
         _renderApiReviews(reviews, page, limit) {
             const list = Array.isArray(reviews) ? reviews.slice(0, limit) : [];
             const items = list.length ? this._renderApiReviewItems(list, (page - 1) * limit, limit) : '<div class="javdb-api-tab-empty">暂无短评</div>';
-            return `
-                <article class="message video-panel">
-                    <div class="message-body">
-                ${this._renderApiReviewCollapseBar()}
-                <div class="javdb-api-tab-items">
-                ${items}
-                </div>
-                ${this._renderApiTabFooter('reviews', page + 1, list.length >= limit, '已加载全部短评', '加载更多短评', limit, list.length, JAVDB_REVIEW_MORE_LIMIT)}
-                </div>
-                </article>
-`;
+            return `<article class="message video-panel"><div class="message-body"> ${this._renderApiReviewCollapseBar()} <div class="javdb-api-tab-items"> ${items} </div> ${this._renderApiTabFooter('reviews', page + 1, list.length >= limit, '已加载全部短评', '加载更多短评', limit, list.length, JAVDB_REVIEW_MORE_LIMIT)} </div></article>`;
         },
         _renderApiRelatedItems(lists, offset = 0) {
             const list = Array.isArray(lists) ? lists : [];
             return list.map((item, index) => {
                 const href = `/lists/${encodeURIComponent(item?.id || '')}`;
-                return `
-                    <div class="javdb-api-related">
-                        <div class="javdb-api-related-head">
-                            <span>
-                                <strong>#${offset + index + 1}</strong>
-                                <a href="${this._escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${this._escapeHtml(item?.name || '未命名清單')}</a>
-                            </span>
-                            <span>${this._escapeHtml(this._formatApiDate(item?.created_at))}</span>
-                        </div>
-                        ${item?.description ? `<div class="javdb-api-related-desc">${this._renderApiLinkedText(item.description)}</div>` : ''}
-                        <div class="javdb-api-related-meta">
-                            <span>影片:${this._escapeHtml(item?.movies_count ?? '-')}</span>
-                            <span>收藏:${this._escapeHtml(item?.collections_count ?? '-')}</span>
-                            <span>浏览:${this._escapeHtml(item?.views_count ?? '-')}</span>
-                        </div>
-                    </div>
-`;
+                return `<div class="javdb-api-related"><div class="javdb-api-related-head"><span><strong>#${offset + index + 1}</strong><a href="${this._escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${this._escapeHtml(item?.name || '未命名清單')}</a></span><span>${this._escapeHtml(this._formatApiDate(item?.created_at))}</span></div> ${item?.description ? `<div class="javdb-api-related-desc">${this._renderApiLinkedText(item.description)}</div>` : ''} <div class="javdb-api-related-meta"><span>影片:${this._escapeHtml(item?.movies_count ?? '-')}</span><span>收藏:${this._escapeHtml(item?.collections_count ?? '-')}</span><span>浏览:${this._escapeHtml(item?.views_count ?? '-')}</span></div></div>`;
             }).join('');
         },
         _renderApiRelatedLists(lists, page, limit) {
             const list = Array.isArray(lists) ? lists : [];
             const items = list.length ? this._renderApiRelatedItems(list, (page - 1) * limit) : '<div class="javdb-api-tab-empty">暂无相关清单</div>';
-            return `
-                <article class="message video-panel">
-                    <div class="message-body">
-                        <div class="javdb-api-tab-items">
-                ${items}
-                </div>
-                ${this._renderApiTabFooter('lists', page + 1, list.length >= limit, '已加载全部清单', '加载更多清单')}
-                </div>
-                </article>
-`;
+            return `<article class="message video-panel"><div class="message-body"><div class="javdb-api-tab-items"> ${items} </div> ${this._renderApiTabFooter('lists', page + 1, list.length >= limit, '已加载全部清单', '加载更多清单')} </div></article>`;
         },
         _setApiMovieTab(active) {
             const tabs = {
@@ -2820,9 +2667,7 @@
             reviewsPane.innerHTML = this._renderApiReviewCollapsed();
         },
         _ensurePaginationJumpStyle() {
-            if (document.documentElement.dataset.laosijiJavdbPaginationJumpStyle === '1') return;
-            document.documentElement.dataset.laosijiJavdbPaginationJumpStyle = '1';
-            GM_addStyle(`.javdb-pagination-jump{display:flex!important;align-items:center!important;gap:.25rem!important;margin:0!important;flex-wrap:nowrap!important}.pagination-list .javdb-pagination-jump-item{display:list-item!important;margin-left:.25rem!important}.javdb-pagination-jump .pagination-link{margin:0!important}.javdb-pagination-jump input.pagination-link{width:4.5em!important;min-width:4.5em!important;text-align:center!important;box-shadow:none!important;appearance:textfield!important}.javdb-pagination-jump input.pagination-link::-webkit-outer-spin-button,.javdb-pagination-jump input.pagination-link::-webkit-inner-spin-button{-webkit-appearance:none!important;margin:0!important}.javdb-pagination-jump button.pagination-link{cursor:pointer!important;font-weight:400!important}@media (max-width:640px){.pagination-list .javdb-pagination-jump-item{flex-basis:100%!important;margin-left:.25rem!important}}`);
+            injectStyle('javdb-pagination-jump-style', `.javdb-pagination-jump{display:flex!important;align-items:center!important;gap:.25rem!important;margin:0!important;flex-wrap:nowrap!important}.pagination-list .javdb-pagination-jump-item{display:list-item!important;margin-left:.25rem!important}.javdb-pagination-jump .pagination-link{margin:0!important}.javdb-pagination-jump input.pagination-link{width:4.5em!important;min-width:4.5em!important;text-align:center!important;box-shadow:none!important;appearance:textfield!important}.javdb-pagination-jump input.pagination-link::-webkit-outer-spin-button,.javdb-pagination-jump input.pagination-link::-webkit-inner-spin-button{-webkit-appearance:none!important;margin:0!important}.javdb-pagination-jump button.pagination-link{cursor:pointer!important;font-weight:400!important}@media (max-width:640px){.pagination-list .javdb-pagination-jump-item{flex-basis:100%!important;margin-left:.25rem!important}}`);
         },
         _paginationCurrentPage(nav) {
             const params = new URLSearchParams(location.search);
@@ -2848,7 +2693,7 @@
                 host.className = list ? 'javdb-pagination-jump-item' : 'javdb-pagination-jump-item pagination-link';
                 const form = document.createElement('form');
                 form.className = 'javdb-pagination-jump';
-                form.innerHTML =`<input class="pagination-link" type="number" min="1" step="1" inputmode="numeric" aria-label="跳转页码" placeholder="页码" value="${this._escapeHtml(this._paginationCurrentPage(nav))}"><button class="pagination-link" type="submit">跳转</button>`;
+                form.innerHTML = `<input class="pagination-link" type="number" min="1" step="1" inputmode="numeric" aria-label="跳转页码" placeholder="页码" value="${this._escapeHtml(this._paginationCurrentPage(nav))}"><button class="pagination-link" type="submit">跳转</button>`;
                 form.addEventListener('submit', e => {
                     e.preventDefault();
                     const input = form.querySelector('input');
@@ -2963,9 +2808,7 @@
         _hideScriptFc2AdvancedSearchBox() {
             if (!this._isScriptFc2AdvancedSearch()) return;
             document.documentElement.dataset.laosijiFc2AdvancedSearch = '1';
-            if (document.documentElement.dataset.laosijiFc2AdvancedSearchStyle === '1') return;
-            document.documentElement.dataset.laosijiFc2AdvancedSearchStyle = '1';
-            GM_addStyle(`html[data-laosiji-fc2-advanced-search="1"] h2.section-title,html[data-laosiji-fc2-advanced-search="1"] .section .container>.box,html[data-laosiji-fc2-advanced-search="1"] body>section>div>.box{display:none!important}`);
+            injectStyle('javdb-fc2-advanced-search-style', `html[data-laosiji-fc2-advanced-search="1"] h2.section-title,html[data-laosiji-fc2-advanced-search="1"] .section .container>.box,html[data-laosiji-fc2-advanced-search="1"] body>section>div>.box{display:none!important}`);
         },
         _fc2DetailShellUrlFromLink(link) {
             const movieId = this._movieIdFromJavdbHref(link?.getAttribute?.('href') || link?.href || '');
@@ -3060,9 +2903,7 @@
             };
         },
         _ensureApiRankingShellStyle() {
-            if (document.documentElement.dataset.laosijiJavdbApiShellStyle === '1') return;
-            document.documentElement.dataset.laosijiJavdbApiShellStyle = '1';
-            GM_addStyle(`.javdb-api-shell{margin-top:10px!important}.javdb-api-shell-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;margin:8px 0 12px!important;flex-wrap:wrap!important}.javdb-api-shell-title{font-size:18px!important;font-weight:850!important;color:#1e293b!important}.javdb-api-shell-toolbar,.javdb-api-shell-pagination{display:flex!important;align-items:center!important;gap:7px!important;flex-wrap:wrap!important}.javdb-api-shell-toolbar{margin:8px 0 12px!important}.javdb-api-shell-pagination{justify-content:center!important;margin:16px 0 8px!important}.javdb-api-shell-toolbar-group{display:flex!important;align-items:center!important;gap:7px!important;flex-wrap:wrap!important;width:100%!important}.javdb-api-shell-toolbar-label{color:#64748b!important;font-size:12px!important;font-weight:850!important;min-width:34px!important}.javdb-api-shell-toolbar a,.javdb-api-shell-pagination a,.javdb-api-shell-pagination span{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:30px!important;padding:5px 12px!important;border:1px solid #dbe3ef!important;border-radius:7px!important;background:#fff!important;color:#334155!important;font-size:12px!important;font-weight:800!important;text-decoration:none!important}.javdb-api-shell-toolbar a.is-active,.javdb-api-shell-pagination a.is-active{border-color:#60a5fa!important;background:#eff6ff!important;color:#1d4ed8!important}.javdb-api-shell-status{margin:10px 0!important;padding:10px 12px!important;border:1px solid #e2e8f0!important;border-radius:8px!important;background:#f8fafc!important;color:#475569!important;font-size:13px!important;font-weight:700!important}.javdb-api-shell-status.is-error{border-color:#fecaca!important;background:#fff1f2!important;color:#be123c!important}`);
+            injectStyle('javdb-api-shell-style', `.javdb-api-shell{margin-top:10px!important}.javdb-api-shell-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;margin:8px 0 12px!important;flex-wrap:wrap!important}.javdb-api-shell-title{font-size:18px!important;font-weight:850!important;color:#1e293b!important}.javdb-api-shell-toolbar,.javdb-api-shell-pagination{display:flex!important;align-items:center!important;gap:7px!important;flex-wrap:wrap!important}.javdb-api-shell-toolbar{margin:8px 0 12px!important}.javdb-api-shell-pagination{justify-content:center!important;margin:16px 0 8px!important}.javdb-api-shell-toolbar-group{display:flex!important;align-items:center!important;gap:7px!important;flex-wrap:wrap!important;width:100%!important}.javdb-api-shell-toolbar-label{color:#64748b!important;font-size:12px!important;font-weight:850!important;min-width:34px!important}.javdb-api-shell-toolbar a,.javdb-api-shell-pagination a,.javdb-api-shell-pagination span{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:30px!important;padding:5px 12px!important;border:1px solid #dbe3ef!important;border-radius:7px!important;background:#fff!important;color:#334155!important;font-size:12px!important;font-weight:800!important;text-decoration:none!important}.javdb-api-shell-toolbar a.is-active,.javdb-api-shell-pagination a.is-active{border-color:#60a5fa!important;background:#eff6ff!important;color:#1d4ed8!important}.javdb-api-shell-status{margin:10px 0!important;padding:10px 12px!important;border:1px solid #e2e8f0!important;border-radius:8px!important;background:#f8fafc!important;color:#475569!important;font-size:13px!important;font-weight:700!important}.javdb-api-shell-status.is-error{border-color:#fecaca!important;background:#fff1f2!important;color:#be123c!important}`);
         },
         _renderApiRankingToolbar(modeInfo) {
             if (modeInfo.mode === 'top') {
@@ -3076,9 +2917,7 @@
                 const categoryLinks = items.map(([category, label]) => {
                     const active = modeInfo.category === category;
                     const href = this._apiRankingShellUrl('top', { category, year: modeInfo.year, page: 1 });
-                    return `
-                        <a class="${active ? 'is-active' : ''}" href="${href}">${label}</a>
-`;
+                    return `<a class="${active ? 'is-active' : ''}" href="${href}">${label}</a>`;
                 }).join('');
                 const currentYear = new Date().getFullYear();
                 const allYearActive = !modeInfo.year;
@@ -3088,20 +2927,9 @@
                         const value = String(year);
                         const active = modeInfo.year === value;
                         const href = this._apiRankingShellUrl('top', { category: modeInfo.category, year: value, page: 1 });
-                        return `
-                            <a class="${active ? 'is-active' : ''}" href="${href}">${value}</a>
-`;
+                        return `<a class="${active ? 'is-active' : ''}" href="${href}">${value}</a>`;
                     }).join('');
-                return `
-                    <div class="javdb-api-shell-toolbar-group">
-                        <span class="javdb-api-shell-toolbar-label">分类</span>
-                    ${categoryLinks}
-                    </div>
-                    <div class="javdb-api-shell-toolbar-group">
-                        <span class="javdb-api-shell-toolbar-label">年份</span>
-                    ${allYearLink}${yearLinks}
-                    </div>
-`;
+                return `<div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">分类</span> ${categoryLinks} </div><div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">年份</span> ${allYearLink}${yearLinks} </div>`;
             }
             const items = [
                 ['daily', '日榜'],
@@ -3115,9 +2943,7 @@
                     filterBy: modeInfo.filterBy,
                     page: 1,
                 });
-                return `
-                    <a class="${active ? 'is-active' : ''}" href="${href}">${label}</a>
-`;
+                return `<a class="${active ? 'is-active' : ''}" href="${href}">${label}</a>`;
             }).join('');
             if (modeInfo.mode !== 'playback') return periodLinks;
             const filters = [
@@ -3130,20 +2956,9 @@
                     filterBy,
                     page: 1,
                 });
-                return `
-                    <a class="${active ? 'is-active' : ''}" href="${href}">${label}</a>
-`;
+                return `<a class="${active ? 'is-active' : ''}" href="${href}">${label}</a>`;
             }).join('');
-            return `
-                <div class="javdb-api-shell-toolbar-group">
-                    <span class="javdb-api-shell-toolbar-label">周期</span>
-                ${periodLinks}
-                </div>
-                <div class="javdb-api-shell-toolbar-group">
-                    <span class="javdb-api-shell-toolbar-label">排序</span>
-                ${filterLinks}
-                </div>
-`;
+            return `<div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">周期</span> ${periodLinks} </div><div class="javdb-api-shell-toolbar-group"><span class="javdb-api-shell-toolbar-label">排序</span> ${filterLinks} </div>`;
         },
         _renderApiRankingPagination(modeInfo, hasNext) {
             const page = modeInfo.page;
@@ -3159,11 +2974,7 @@
             const pages = modeInfo.mode === 'top'
                 ? [1, 2, 3, 4, 5].map(item => `<a class="${item === page ? 'is-active' : ''}" href="${href(item)}">${item}</a>`).join('')
                 : `<span>第 ${page} 页</span>`;
-            return `
-                <div class="javdb-api-shell-pagination">
-                ${page > 1 ? `<a href="${href(page - 1)}">上一页</a>` : ''}${pages}${hasNext ? `<a href="${href(page + 1)}">下一页</a>` : ''}
-                </div>
-`;
+            return `<div class="javdb-api-shell-pagination"> ${page > 1 ? `<a href="${href(page - 1)}">上一页</a>` : ''}${pages}${hasNext ? `<a href="${href(page + 1)}">下一页</a>` : ''} </div>`;
         },
         _renderApiRankingMovies(movies) {
             const updateCover = value => String(value || '').replace(/https:\/\/.*?\/rhe951l4q/g, 'https://c0.jdbstatic.com');
@@ -3180,38 +2991,16 @@
                 const href = /^FC2[-_]/i.test(String(item?.number || ''))
                     ? this._apiDetailShellUrl(item?.id || '')
                     : `/v/${this._escapeHtml(item?.id || '')}`;
-                return `
-                    <div class="item" data-javdb-api-shell-item="1">
-                        <a href="${this._escapeHtml(href)}" class="box" title="${this._escapeHtml(title)}">
-                            <div class="cover ">
-                                <img loading="lazy" src="${this._escapeHtml(updateCover(item?.cover_url || item?.thumb_url || ''))}" alt="">
-                            </div>
-                            <div class="video-title"><strong>${this._escapeHtml(item?.number || '')}</strong> ${this._escapeHtml(title)}</div>
-                            <div class="score">${score}</div>
-                            <div class="meta">${this._escapeHtml(item?.release_date || '')}</div>
-                            <div class="tags has-addons">${tags}</div>
-                        </a>
-                    </div>
-`;
+                return `<div class="item" data-javdb-api-shell-item="1"><a href="${this._escapeHtml(href)}" class="box" title="${this._escapeHtml(title)}"><div class="cover "><img loading="lazy" src="${this._escapeHtml(updateCover(item?.cover_url || item?.thumb_url || ''))}" alt=""></div><div class="video-title"><strong>${this._escapeHtml(item?.number || '')}</strong> ${this._escapeHtml(title)}</div><div class="score">${score}</div><div class="meta">${this._escapeHtml(item?.release_date || '')}</div><div class="tags has-addons">${tags}</div></a></div>`;
             }).join('');
         },
         _ensureApiDetailShellStyle() {
-            if (document.documentElement.dataset.laosijiJavdbApiDetailStyle === '1') return;
-            document.documentElement.dataset.laosijiJavdbApiDetailStyle = '1';
-            GM_addStyle(`.javdb-api-detail .movie-panel-info .value.tags{display:inline-flex!important;flex-wrap:wrap!important;gap:4px!important}`);
+            injectStyle('javdb-api-detail-style', `.javdb-api-detail .movie-panel-info .value.tags{display:inline-flex!important;flex-wrap:wrap!important;gap:4px!important}`);
         },
         _renderApiDetailField(label, value) {
             const text = Array.isArray(value) ? value.filter(Boolean).join(' / ') : String(value || '');
             if (!text) return '';
-            return `
-                <div class="panel-block">
-                    <strong>
-                ${this._escapeHtml(label)}
-                :</strong>&nbsp;<span class="value">
-                ${this._escapeHtml(text)}
-                </span>
-                </div>
-`;
+            return `<div class="panel-block"><strong> ${this._escapeHtml(label)} :</strong>&nbsp;<span class="value"> ${this._escapeHtml(text)} </span></div>`;
         },
         _renderApiDetailTags(items) {
             const list = Array.isArray(items) ? items : [];
@@ -3221,13 +3010,7 @@
                 return name ? `<span class="tag">${this._escapeHtml(name)}</span>` : '';
             }).filter(Boolean).join('');
             if (!tags) return '';
-            return `
-                <div class="panel-block">
-                    <strong>標籤:</strong>&nbsp;<span class="value tags">
-                ${tags}
-                </span>
-                </div>
-`;
+            return `<div class="panel-block"><strong>標籤:</strong>&nbsp;<span class="value tags"> ${tags} </span></div>`;
         },
         _renderApiDetailImages(images) {
             const list = Array.isArray(images) ? images : [];
@@ -3236,22 +3019,9 @@
                 const large = updateCover(item?.large_url || item?.url || item?.thumb_url || '');
                 const thumb = updateCover(item?.thumb_url || item?.large_url || item?.url || '');
                 if (!large || !thumb) return '';
-                return `
-                    <a class="tile-item" href="${this._escapeHtml(large)}" data-fancybox="gallery" data-caption="预览图${index + 1}">
-                        <img src="${this._escapeHtml(thumb)}" loading="lazy" alt="预览图${index + 1}">
-                    </a>
-`;
+                return `<a class="tile-item" href="${this._escapeHtml(large)}" data-fancybox="gallery" data-caption="预览图${index + 1}"><img src="${this._escapeHtml(thumb)}" loading="lazy" alt="预览图${index + 1}"></a>`;
             }).filter(Boolean).join('');
-            return html ? `
-                <div class="columns javdb-api-detail-preview-columns">
-                    <div class="column">
-                        <article class="message video-panel">
-                            <div class="message-body">
-                                <div class="tile-images preview-images">${html}</div>
-                            </div>
-                        </article>
-                    </div>
-                </div>` : '';
+            return html ? `<div class="columns javdb-api-detail-preview-columns"><div class="column"><article class="message video-panel"><div class="message-body"><div class="tile-images preview-images">${html}</div></div></article></div></div>` : '';
         },
         _renderApiDetailPage(movie) {
             const updateCover = value => String(value || '').replace(/https:\/\/.*?\/rhe951l4q/g, 'https://c0.jdbstatic.com');
@@ -3259,42 +3029,7 @@
             const title = movie?.origin_title || movie?.title || '';
             const actors = (Array.isArray(movie?.actors) ? movie.actors : []).map(item => item?.name || item).filter(Boolean);
             const cover = updateCover(movie?.cover_url || movie?.thumb_url || '');
-            return `
-                <div class="video-detail javdb-api-detail" data-javdb-api-detail="1">
-                    <h2 class="title is-4 javdb-api-detail-title">
-                        <strong>${this._escapeHtml(number)}</strong>
-                        <strong class="current-title">${this._escapeHtml(title)}</strong>
-                    </h2>
-                    <div class="video-meta-panel">
-                        <div class="columns is-desktop">
-                            <div class="column column-video-cover">
-                                <a data-fancybox="gallery" href="${this._escapeHtml(cover)}">
-                                    <img src="${this._escapeHtml(cover)}" class="video-cover" alt="${this._escapeHtml(title)}">
-                                </a>
-                            </div>
-                            <div class="column">
-                                <nav class="panel movie-panel-info">
-                                    <div class="panel-block first-block">
-                                        <strong>番號:</strong>&nbsp;<span class="value">${this._escapeHtml(number)}</span>&nbsp;<a class="button is-white copy-to-clipboard" title="複製番號" data-clipboard-text="${this._escapeHtml(number)}">
-                                            <span class="icon is-small"><i class="icon-copy"></i></span>
-                                        </a>
-                                    </div>
-                                    ${this._renderApiDetailField('標題', title)}
-                                    ${this._renderApiDetailField('日期', movie?.release_date)}
-                                    ${this._renderApiDetailField('時長', movie?.duration ? `${movie.duration} 分鐘` : '')}
-                                    ${this._renderApiDetailField('評分', movie?.score ? `${movie.score} / ${movie?.watched_count || 0} 人` : '')}
-                                    ${this._renderApiDetailField('片商', movie?.maker_name || movie?.publisher_name)}
-                                    ${this._renderApiDetailField('系列', movie?.series_name)}
-                                    ${this._renderApiDetailField('導演', movie?.director_name)}
-                                    ${this._renderApiDetailField('演員', actors)}
-                                    ${this._renderApiDetailTags(movie?.tags)}
-                                </nav>
-                            </div>
-                        </div>
-                    </div>
-                    ${this._renderApiDetailImages(movie?.preview_images)}
-                </div>
-`;
+            return `<div class="video-detail javdb-api-detail" data-javdb-api-detail="1"><h2 class="title is-4 javdb-api-detail-title"><strong>${this._escapeHtml(number)}</strong><strong class="current-title">${this._escapeHtml(title)}</strong></h2><div class="video-meta-panel"><div class="columns is-desktop"><div class="column column-video-cover"><a data-fancybox="gallery" href="${this._escapeHtml(cover)}"><img src="${this._escapeHtml(cover)}" class="video-cover" alt="${this._escapeHtml(title)}"></a></div><div class="column"><nav class="panel movie-panel-info"><div class="panel-block first-block"><strong>番號:</strong>&nbsp;<span class="value">${this._escapeHtml(number)}</span>&nbsp;<a class="button is-white copy-to-clipboard" title="複製番號" data-clipboard-text="${this._escapeHtml(number)}"><span class="icon is-small"><i class="icon-copy"></i></span></a></div> ${this._renderApiDetailField('標題', title)} ${this._renderApiDetailField('日期', movie?.release_date)} ${this._renderApiDetailField('時長', movie?.duration ? `${movie.duration} 分鐘` : '')} ${this._renderApiDetailField('評分', movie?.score ? `${movie.score} / ${movie?.watched_count || 0} 人` : '')} ${this._renderApiDetailField('片商', movie?.maker_name || movie?.publisher_name)} ${this._renderApiDetailField('系列', movie?.series_name)} ${this._renderApiDetailField('導演', movie?.director_name)} ${this._renderApiDetailField('演員', actors)} ${this._renderApiDetailTags(movie?.tags)} </nav></div></div></div> ${this._renderApiDetailImages(movie?.preview_images)} </div>`;
         },
         async _initApiDetailShellPage() {
             const modeInfo = this._getApiDetailShellMode();
@@ -3336,7 +3071,7 @@
                 : modeInfo.mode === 'playback'
                     ? '热播'
                     : 'FC2 排行榜';
-            container.innerHTML =`<div class="javdb-api-shell"><div class="javdb-api-shell-head"><div class="javdb-api-shell-title">${title}</div></div><div class="javdb-api-shell-toolbar">${this._renderApiRankingToolbar(modeInfo)}</div><div class="javdb-api-shell-status">正在加载 API 数据...</div><div class="movie-list h cols-4 vcols-8"></div><div class="javdb-api-shell-pagination-wrap"></div></div>`;
+            container.innerHTML = `<div class="javdb-api-shell"><div class="javdb-api-shell-head"><div class="javdb-api-shell-title"> ${title} </div></div><div class="javdb-api-shell-toolbar"> ${this._renderApiRankingToolbar(modeInfo)} </div><div class="javdb-api-shell-status">正在加载 API 数据...</div><div class="movie-list h cols-4 vcols-8"></div><div class="javdb-api-shell-pagination-wrap"></div></div>`;
             const status = container.querySelector('.javdb-api-shell-status');
             const list = container.querySelector('.movie-list');
             const pagination = container.querySelector('.javdb-api-shell-pagination-wrap');
@@ -3501,9 +3236,7 @@
             });
             const userMenu = navbarEnd.querySelector('a[href="/users/profile"]')?.closest('.navbar-item.has-dropdown');
             navbarEnd.insertBefore(btn, userMenu || null);
-            if (document.documentElement.dataset.laosijiJavdbTopSettingsStyle === '1') return;
-            document.documentElement.dataset.laosijiJavdbTopSettingsStyle = '1';
-            GM_addStyle(`#navbar-menu-user .javdb-top-settings-btn{color:#2563eb!important;font-weight:700!important}#navbar-menu-user .javdb-top-settings-btn:hover{color:#1d4ed8!important;background:rgba(37,99,235,.08)!important}`);
+            injectStyle('javdb-top-settings-style', `#navbar-menu-user .javdb-top-settings-btn{color:#2563eb!important;font-weight:700!important}#navbar-menu-user .javdb-top-settings-btn:hover{color:#1d4ed8!important;background:rgba(37,99,235,.08)!important}`);
         },
         _insertCopyButton(avid) {
             const infoPanel = document.querySelector('.movie-panel-info');
@@ -3733,7 +3466,7 @@
             const label = lang.startsWith('en') ? 'Site Nav' : lang.startsWith('ja') ? 'ナビ' : /tw|zh$/.test(lang) ? '站點導航' : '站点导航';
             const menu = document.createElement('span');
             menu.className = 'javlib-top-nav-menu';
-            menu.innerHTML =`<a class="javlib-top-nav-trigger" href="javascript:void(0)">${label}▾</a><div class="javlib-top-nav-dropdown" role="menu"></div>`;
+            menu.innerHTML = `<a class="javlib-top-nav-trigger" href="javascript:void(0)"> ${label} ▾</a><div class="javlib-top-nav-dropdown" role="menu"></div>`;
             menu.addEventListener('mousedown', e => {
                 if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
                     e.preventDefault();
@@ -3762,9 +3495,7 @@
             }
             if (!dropdown.children.length) return;
             advSearch.append(document.createTextNode(' '), menu);
-            if (document.documentElement.dataset.laosijiJavlibTopNavStyle === '1') return;
-            document.documentElement.dataset.laosijiJavlibTopNavStyle = '1';
-            GM_addStyle(`#leftmenu{display:none!important}#rightcolumn{margin:0!important;width:100%!important;float:none!important}#topmenu .advsearch{position:relative!important;white-space:nowrap!important}.javlib-top-nav-menu{position:relative!important;display:inline-block!important;vertical-align:middle!important;margin-left:8px!important;z-index:10010!important}.javlib-top-nav-trigger{display:inline-flex!important;align-items:center!important;height:24px!important;padding:0 10px!important;border:1px solid #93c5fd!important;border-radius:999px!important;background:#eff6ff!important;color:#1d4ed8!important;font-size:14px!important;font-weight:800!important;line-height:24px!important;text-decoration:none!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.82),0 3px 9px rgba(37,99,235,.12)!important}.javlib-top-nav-menu:hover .javlib-top-nav-trigger,.javlib-top-nav-menu:focus-within .javlib-top-nav-trigger{background:#dbeafe!important;border-color:#60a5fa!important;color:#1e40af!important}.javlib-top-nav-dropdown{position:absolute!important;top:100%!important;left:0!important;display:none!important;min-width:280px!important;max-width:min(560px,86vw)!important;padding:18px 10px 10px!important;border:1px solid #cbd5e1!important;border-radius:8px!important;background:linear-gradient(to bottom,rgba(255,255,255,0) 0,rgba(255,255,255,0) 8px,rgba(255,255,255,.98) 8px)!important;box-shadow:0 16px 36px rgba(15,23,42,.18)!important;box-sizing:border-box!important;white-space:normal!important;background-clip:padding-box!important}.javlib-top-nav-menu:hover .javlib-top-nav-dropdown,.javlib-top-nav-menu:focus-within .javlib-top-nav-dropdown{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important}.javlib-top-nav-title{margin-bottom:6px!important;color:#0f172a!important;font-size:14px!important;font-weight:900!important}.javlib-top-nav-links{display:grid!important;gap:4px!important}.javlib-top-nav-link{display:block!important;min-height:22px!important;padding:3px 7px!important;border-radius:6px!important;color:#2563eb!important;font-size:14px!important;line-height:1.35!important;text-decoration:none!important}.javlib-top-nav-link:hover{background:#eff6ff!important;color:#1d4ed8!important;text-decoration:none!important}@media (max-width:720px){.javlib-top-nav-menu:hover .javlib-top-nav-dropdown,.javlib-top-nav-menu:focus-within .javlib-top-nav-dropdown{grid-template-columns:1fr!important}}`);
+            injectStyle('javlib-top-nav-style', `#leftmenu{display:none!important}#rightcolumn{margin:0!important;width:100%!important;float:none!important}#topmenu .advsearch{position:relative!important;white-space:nowrap!important}.javlib-top-nav-menu{position:relative!important;display:inline-block!important;vertical-align:middle!important;margin-left:8px!important;z-index:10010!important}.javlib-top-nav-trigger{display:inline-flex!important;align-items:center!important;height:24px!important;padding:0 10px!important;border:1px solid #93c5fd!important;border-radius:999px!important;background:#eff6ff!important;color:#1d4ed8!important;font-size:14px!important;font-weight:800!important;line-height:24px!important;text-decoration:none!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.82),0 3px 9px rgba(37,99,235,.12)!important}.javlib-top-nav-menu:hover .javlib-top-nav-trigger,.javlib-top-nav-menu:focus-within .javlib-top-nav-trigger{background:#dbeafe!important;border-color:#60a5fa!important;color:#1e40af!important}.javlib-top-nav-dropdown{position:absolute!important;top:100%!important;left:0!important;display:none!important;min-width:280px!important;max-width:min(560px,86vw)!important;padding:18px 10px 10px!important;border:1px solid #cbd5e1!important;border-radius:8px!important;background:linear-gradient(to bottom,rgba(255,255,255,0) 0,rgba(255,255,255,0) 8px,rgba(255,255,255,.98) 8px)!important;box-shadow:0 16px 36px rgba(15,23,42,.18)!important;box-sizing:border-box!important;white-space:normal!important;background-clip:padding-box!important}.javlib-top-nav-menu:hover .javlib-top-nav-dropdown,.javlib-top-nav-menu:focus-within .javlib-top-nav-dropdown{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important}.javlib-top-nav-title{margin-bottom:6px!important;color:#0f172a!important;font-size:14px!important;font-weight:900!important}.javlib-top-nav-links{display:grid!important;gap:4px!important}.javlib-top-nav-link{display:block!important;min-height:22px!important;padding:3px 7px!important;border-radius:6px!important;color:#2563eb!important;font-size:14px!important;line-height:1.35!important;text-decoration:none!important}.javlib-top-nav-link:hover{background:#eff6ff!important;color:#1d4ed8!important;text-decoration:none!important}@media (max-width:720px){.javlib-top-nav-menu:hover .javlib-top-nav-dropdown,.javlib-top-nav-menu:focus-within .javlib-top-nav-dropdown{grid-template-columns:1fr!important}}`);
         },
         _insertTopSettingsButton() {
             const menu = document.querySelector('#topmenu .menutext, .menutext');
@@ -3786,9 +3517,7 @@
             } else {
                 menu.append(sep, btn);
             }
-            if (document.documentElement.dataset.laosijiJavlibTopSettingsStyle === '1') return;
-            document.documentElement.dataset.laosijiJavlibTopSettingsStyle = '1';
-            GM_addStyle(`#topmenu .menutext .javlib-top-settings-btn,.menutext .javlib-top-settings-btn{color:#2563eb!important;font-weight:700!important;text-decoration:none!important}#topmenu .menutext .javlib-top-settings-btn:hover,.menutext .javlib-top-settings-btn:hover{color:#1d4ed8!important;text-decoration:underline!important}`);
+            injectStyle('javlib-top-settings-style', `#topmenu .menutext .javlib-top-settings-btn,.menutext .javlib-top-settings-btn{color:#2563eb!important;font-weight:700!important;text-decoration:none!important}#topmenu .menutext .javlib-top-settings-btn:hover,.menutext .javlib-top-settings-btn:hover{color:#1d4ed8!important;text-decoration:underline!important}`);
         },
         _insertCopyButton(avid) {
             const codeEl = document.querySelector('#video_id .text');
@@ -4288,9 +4017,7 @@
     const StillsGallery = (() => {
         let activeViewerClose = null;
         function ensureStyle() {
-            if (document.documentElement.dataset.laosijiStillsGalleryStyle === '1') return;
-            document.documentElement.dataset.laosijiStillsGalleryStyle = '1';
-            GM_addStyle(`.jav-stills-shell{position:relative!important;width:100%!important;inline-size:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;margin:16px 0 18px!important;padding:12px 44px!important;border:1px solid #d9e2ec!important;border-radius:8px!important;background:#ffffff!important;box-shadow:0 8px 18px rgba(15,23,42,.06)!important;overflow:hidden!important}.jav-stills-stage{position:relative!important;width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;overflow:hidden!important}.jav-stills-rail{display:flex!important;flex-wrap:nowrap!important;align-items:stretch!important;gap:10px!important;width:100%!important;inline-size:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;margin:0!important;padding:2px 0 10px!important;overflow-x:auto!important;overflow-y:hidden!important;scroll-behavior:smooth!important;overscroll-behavior-inline:contain!important;scrollbar-width:thin!important;scrollbar-color:rgba(100,116,139,.44) transparent!important}.jav-stills-rail::-webkit-scrollbar{height:8px!important}.jav-stills-rail::-webkit-scrollbar-thumb{border-radius:999px!important;background:rgba(100,116,139,.36)!important}.jav-stills-rail::-webkit-scrollbar-track{background:transparent!important}.jav-stills-arrow{position:absolute!important;top:50%!important;z-index:3!important;display:grid!important;place-items:center!important;width:34px!important;height:42px!important;border:1px solid rgba(148,163,184,.42)!important;border-radius:8px!important;background:rgba(255,255,255,.92)!important;color:#172033!important;font-size:24px!important;line-height:1!important;font-weight:800!important;cursor:pointer!important;transform:translateY(-50%)!important;box-shadow:0 8px 18px rgba(15,23,42,.14)!important;transition:transform .18s ease,background .18s ease,border-color .18s ease!important;touch-action:manipulation!important}.jav-stills-arrow:hover{background:#ffffff!important;border-color:rgba(37,99,235,.45)!important;transform:translateY(-50%) scale(1.04)!important}.jav-stills-arrow-prev{left:8px!important}.jav-stills-arrow-next{right:8px!important}.jav-stills-rail>a,.jav-stills-rail>.tile-item,.jav-stills-rail>.preview-video-container{flex:0 0 auto!important;display:block!important;position:relative!important;width:172px!important;height:104px!important;margin:0!important;padding:0!important;border:1px solid rgba(148,163,184,.28)!important;border-radius:8px!important;background:#e2e8f0!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.45)!important;overflow:hidden!important;box-sizing:border-box!important;text-decoration:none!important}.jav-stills-rail img{display:block!important;width:100%!important;height:100%!important;max-width:none!important;object-fit:cover!important;object-position:center!important;border:0!important}.jav-stills-rail .photo-frame{width:100%!important;height:100%!important;margin:0!important;padding:0!important;box-sizing:border-box!important;overflow:hidden!important}.jav-stills-rail>video,.jav-stills-rail video[style*="display:none"],.jav-stills-rail video[style*="display:none"]{display:none!important;flex:0 0 auto!important}.jav-stills-javdb .preview-video-container span{position:absolute!important;left:8px!important;bottom:7px!important;z-index:2!important;padding:3px 7px!important;border-radius:6px!important;background:rgba(15,23,42,.68)!important;color:#ffffff!important;font-size:11px!important;line-height:1!important;font-weight:800!important}.jav-stills-javlib .jav-stills-rail>a{width:150px!important;height:100px!important}.javdb-stills-column-clean,.javdb-stills-panel-clean,.javdb-stills-panel-clean>.message-body,.javdb-stills-body-clean{width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important}.javdb-stills-column-clean{flex:1 1 0!important;overflow:hidden!important;padding-left:.75rem!important;padding-right:.75rem!important}.javdb-stills-panel-clean{margin:16px 0 18px!important}.jav-stills-javdb{width:auto!important;max-width:min(100%,calc(100vw - 34px))!important;max-inline-size:min(100%,calc(100vw - 34px))!important}.javdb-stills-panel-clean .jav-stills-shell{margin:0!important}.jav-stills-viewer{position:fixed!important;inset:0!important;z-index:2147483647!important;display:grid!important;grid-template-rows:auto minmax(0,1fr) auto!important;background:rgba(8,13,25,.9)!important;backdrop-filter:blur(5px)!important;color:#ffffff!important;cursor:zoom-out!important}.jav-stills-viewer-top{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;min-height:54px!important;padding:12px 16px!important;box-sizing:border-box!important;pointer-events:none!important}.jav-stills-viewer-count{min-width:64px!important;padding:6px 10px!important;border-radius:8px!important;background:rgba(15,23,42,.72)!important;color:#e5edf8!important;font-size:13px!important;font-weight:800!important;text-align:center!important;pointer-events:auto!important}.jav-stills-viewer-close,.jav-stills-viewer-nav{display:grid!important;place-items:center!important;border:1px solid rgba(226,232,240,.22)!important;background:rgba(15,23,42,.72)!important;color:#ffffff!important;cursor:pointer!important;box-shadow:0 12px 26px rgba(0,0,0,.24)!important;touch-action:manipulation!important}.jav-stills-viewer-close{width:38px!important;height:38px!important;border-radius:10px!important;font-size:24px!important;line-height:1!important;pointer-events:auto!important}.jav-stills-viewer-close:hover,.jav-stills-viewer-nav:hover{background:rgba(30,41,59,.88)!important;border-color:rgba(255,255,255,.36)!important}.jav-stills-viewer-body{position:relative!important;display:grid!important;place-items:center!important;min-width:0!important;min-height:0!important;padding:0 68px!important;box-sizing:border-box!important;overflow:auto!important}.jav-stills-viewer-img{display:block!important;max-width:100%!important;max-height:calc(100vh - 118px)!important;width:auto!important;height:auto!important;object-fit:contain!important;border-radius:6px!important;background:#111827!important;box-shadow:0 18px 46px rgba(0,0,0,.45)!important;cursor:zoom-in!important}.jav-stills-viewer-img.is-zoomed{max-width:none!important;max-height:none!important;cursor:zoom-out!important}.jav-stills-viewer-nav{position:fixed!important;top:50%!important;z-index:2147483647!important;width:44px!important;height:58px!important;border-radius:12px!important;font-size:30px!important;line-height:1!important;transform:translateY(-50%)!important}.jav-stills-viewer-prev{left:18px!important}.jav-stills-viewer-next{right:18px!important}.jav-stills-viewer-caption{min-height:42px!important;padding:9px 18px 16px!important;box-sizing:border-box!important;color:rgba(226,232,240,.86)!important;font-size:13px!important;line-height:1.45!important;text-align:center!important;pointer-events:none!important}@media (max-width:720px){.jav-stills-shell{padding:10px 40px!important}.jav-stills-rail>a,.jav-stills-rail>.tile-item,.jav-stills-rail>.preview-video-container{width:150px!important;height:92px!important}.jav-stills-javlib .jav-stills-rail>a{width:138px!important;height:92px!important}.jav-stills-viewer-body{padding:0 52px!important}.jav-stills-viewer-nav{width:38px!important;height:52px!important}.jav-stills-viewer-prev{left:8px!important}.jav-stills-viewer-next{right:8px!important}}`);
+            injectStyle('jav-stills-gallery-style', `.jav-stills-shell{position:relative!important;width:100%!important;inline-size:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;margin:16px 0 18px!important;padding:12px 44px!important;border:1px solid #d9e2ec!important;border-radius:8px!important;background:#ffffff!important;box-shadow:0 8px 18px rgba(15,23,42,.06)!important;overflow:hidden!important}.jav-stills-stage{position:relative!important;width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;overflow:hidden!important}.jav-stills-rail{display:flex!important;flex-wrap:nowrap!important;align-items:stretch!important;gap:10px!important;width:100%!important;inline-size:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;margin:0!important;padding:2px 0 10px!important;overflow-x:auto!important;overflow-y:hidden!important;scroll-behavior:smooth!important;overscroll-behavior-inline:contain!important;scrollbar-width:thin!important;scrollbar-color:rgba(100,116,139,.44) transparent!important}.jav-stills-rail::-webkit-scrollbar{height:8px!important}.jav-stills-rail::-webkit-scrollbar-thumb{border-radius:999px!important;background:rgba(100,116,139,.36)!important}.jav-stills-rail::-webkit-scrollbar-track{background:transparent!important}.jav-stills-arrow{position:absolute!important;top:50%!important;z-index:3!important;display:grid!important;place-items:center!important;width:34px!important;height:42px!important;border:1px solid rgba(148,163,184,.42)!important;border-radius:8px!important;background:rgba(255,255,255,.92)!important;color:#172033!important;font-size:24px!important;line-height:1!important;font-weight:800!important;cursor:pointer!important;transform:translateY(-50%)!important;box-shadow:0 8px 18px rgba(15,23,42,.14)!important;transition:transform .18s ease,background .18s ease,border-color .18s ease!important;touch-action:manipulation!important}.jav-stills-arrow:hover{background:#ffffff!important;border-color:rgba(37,99,235,.45)!important;transform:translateY(-50%) scale(1.04)!important}.jav-stills-arrow-prev{left:8px!important}.jav-stills-arrow-next{right:8px!important}.jav-stills-rail>a,.jav-stills-rail>.tile-item,.jav-stills-rail>.preview-video-container{flex:0 0 auto!important;display:block!important;position:relative!important;width:172px!important;height:104px!important;margin:0!important;padding:0!important;border:1px solid rgba(148,163,184,.28)!important;border-radius:8px!important;background:#e2e8f0!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.45)!important;overflow:hidden!important;box-sizing:border-box!important;text-decoration:none!important}.jav-stills-rail img{display:block!important;width:100%!important;height:100%!important;max-width:none!important;object-fit:cover!important;object-position:center!important;border:0!important}.jav-stills-rail .photo-frame{width:100%!important;height:100%!important;margin:0!important;padding:0!important;box-sizing:border-box!important;overflow:hidden!important}.jav-stills-rail>video,.jav-stills-rail video[style*="display:none"],.jav-stills-rail video[style*="display:none"]{display:none!important;flex:0 0 auto!important}.jav-stills-javdb .preview-video-container span{position:absolute!important;left:8px!important;bottom:7px!important;z-index:2!important;padding:3px 7px!important;border-radius:6px!important;background:rgba(15,23,42,.68)!important;color:#ffffff!important;font-size:11px!important;line-height:1!important;font-weight:800!important}.jav-stills-javlib .jav-stills-rail>a{width:150px!important;height:100px!important}.javdb-stills-column-clean,.javdb-stills-panel-clean,.javdb-stills-panel-clean>.message-body,.javdb-stills-body-clean{width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important}.javdb-stills-column-clean{flex:1 1 0!important;overflow:hidden!important;padding-left:.75rem!important;padding-right:.75rem!important}.javdb-stills-panel-clean{margin:16px 0 18px!important}.jav-stills-javdb{width:auto!important;max-width:min(100%,calc(100vw - 34px))!important;max-inline-size:min(100%,calc(100vw - 34px))!important}.javdb-stills-panel-clean .jav-stills-shell{margin:0!important}.jav-stills-viewer{position:fixed!important;inset:0!important;z-index:2147483647!important;display:grid!important;grid-template-rows:auto minmax(0,1fr) auto!important;background:rgba(8,13,25,.9)!important;backdrop-filter:blur(5px)!important;color:#ffffff!important;cursor:zoom-out!important}.jav-stills-viewer-top{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;min-height:54px!important;padding:12px 16px!important;box-sizing:border-box!important;pointer-events:none!important}.jav-stills-viewer-count{min-width:64px!important;padding:6px 10px!important;border-radius:8px!important;background:rgba(15,23,42,.72)!important;color:#e5edf8!important;font-size:13px!important;font-weight:800!important;text-align:center!important;pointer-events:auto!important}.jav-stills-viewer-close,.jav-stills-viewer-nav{display:grid!important;place-items:center!important;border:1px solid rgba(226,232,240,.22)!important;background:rgba(15,23,42,.72)!important;color:#ffffff!important;cursor:pointer!important;box-shadow:0 12px 26px rgba(0,0,0,.24)!important;touch-action:manipulation!important}.jav-stills-viewer-close{width:38px!important;height:38px!important;border-radius:10px!important;font-size:24px!important;line-height:1!important;pointer-events:auto!important}.jav-stills-viewer-close:hover,.jav-stills-viewer-nav:hover{background:rgba(30,41,59,.88)!important;border-color:rgba(255,255,255,.36)!important}.jav-stills-viewer-body{position:relative!important;display:grid!important;place-items:center!important;min-width:0!important;min-height:0!important;padding:0 68px!important;box-sizing:border-box!important;overflow:auto!important}.jav-stills-viewer-img{display:block!important;max-width:100%!important;max-height:calc(100vh - 118px)!important;width:auto!important;height:auto!important;object-fit:contain!important;border-radius:6px!important;background:#111827!important;box-shadow:0 18px 46px rgba(0,0,0,.45)!important;cursor:zoom-in!important}.jav-stills-viewer-img.is-zoomed{max-width:none!important;max-height:none!important;cursor:zoom-out!important}.jav-stills-viewer-nav{position:fixed!important;top:50%!important;z-index:2147483647!important;width:44px!important;height:58px!important;border-radius:12px!important;font-size:30px!important;line-height:1!important;transform:translateY(-50%)!important}.jav-stills-viewer-prev{left:18px!important}.jav-stills-viewer-next{right:18px!important}.jav-stills-viewer-caption{min-height:42px!important;padding:9px 18px 16px!important;box-sizing:border-box!important;color:rgba(226,232,240,.86)!important;font-size:13px!important;line-height:1.45!important;text-align:center!important;pointer-events:none!important}@media (max-width:720px){.jav-stills-shell{padding:10px 40px!important}.jav-stills-rail>a,.jav-stills-rail>.tile-item,.jav-stills-rail>.preview-video-container{width:150px!important;height:92px!important}.jav-stills-javlib .jav-stills-rail>a{width:138px!important;height:92px!important}.jav-stills-viewer-body{padding:0 52px!important}.jav-stills-viewer-nav{width:38px!important;height:52px!important}.jav-stills-viewer-prev{left:8px!important}.jav-stills-viewer-next{right:8px!important}}`);
         }
         function scrollRail(rail, dir) {
             const maxLeft = Math.max(0, rail.scrollWidth - rail.clientWidth);
@@ -4518,7 +4245,7 @@
     function mainRun() {
         SiteManager.initCurrent();
     }
-    GM_addStyle(`.preview-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2147483647;display:flex;overflow:auto;cursor:zoom-out;backdrop-filter:blur(5px)}.preview-img{border-radius:4px;margin:auto;cursor:zoom-in;max-width:95vw;max-height:95vh;object-fit:contain;display:block;box-shadow:0 0 20px rgba(0,0,0,0.5)}.preview-img.zoomed{max-width:none;max-height:none;cursor:zoom-out}a:focus:not(:focus-visible),button:focus:not(:focus-visible),[role="button"]:focus:not(:focus-visible),input[type="button"]:focus:not(:focus-visible),input[type="submit"]:focus:not(:focus-visible){outline:none!important}.jav-jump-btn-group{margin-top:8px;margin-bottom:4px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}.emby-fix{width:100%!important;flex-basis:100%!important;clear:both!important;margin-top:8px!important;margin-bottom:4px!important}.mini-switch{width:40px;height:20px;appearance:none;background:#e0e0e0;border-radius:20px;position:relative;cursor:pointer;outline:none;transition:background 0.2s}.mini-switch:checked{background:#4CAF50}.mini-switch::before{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:white;top:2px;left:2px;transition:left 0.2s}.mini-switch:checked::before{left:calc(100% - 18px)}@keyframes btnSlideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}.jav-jump-btn-group a{transition:background .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;animation:btnSlideIn 0.3s ease-out}.jav-jump-btn-group a:hover{background:var(--jav-btn-hover-bg,#f8fafc)!important;transform:translateY(-1px)!important;filter:none!important;box-shadow:0 5px 14px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.76)!important;text-decoration:none!important}@keyframes menuFadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}.search-menu{position:relative;display:inline-block;border-radius:4px}.search-main-btn{padding-right:28px!important}.search-toggle-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:16px;height:16px;padding:0!important;margin:0!important;display:inline-flex!important;align-items:center;justify-content:center;flex-shrink:0;font-size:10px!important;line-height:1;opacity:1;background:color-mix(in srgb,var(--jav-btn-accent,#64748b) 18%,#ffffff)!important;color:inherit!important;border:1px solid color-mix(in srgb,var(--jav-btn-accent,#64748b) 26%,#ffffff)!important;border-radius:999px!important;box-shadow:0 1px 2px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.7)!important;cursor:pointer}.search-toggle-btn:hover{filter:none;background:color-mix(in srgb,var(--jav-btn-accent,#64748b) 26%,#ffffff)!important}.search-toggle-btn .search-arrow{display:inline-block;transform:translateY(-1px);pointer-events:none}.search-submenu{position:absolute;top:calc(100% + 4px);left:0;display:none;flex-direction:column;gap:4px;padding:4px;background:rgba(255,255,255,0.95);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:10000;min-width:120px;backdrop-filter:blur(5px)}.search-submenu.is-open{display:flex}.search-submenu a{transition:all 0.2s ease;box-shadow:0 2px 4px rgba(0,0,0,0.1)!important}.search-submenu a:hover{transform:translateX(5px) scale(1.02);filter:brightness(1.1)}.jav-pan115-badge{display:inline-flex;align-items:center;justify-content:center;min-width:58px;height:22px!important;padding:0 7px;margin-right:6px;position:static!important;top:auto!important;transform:none!important;border-radius:6px;background:#bbf7d0;border:1px solid #22c55e;color:#065f46;font-size:12px!important;font-weight:800;line-height:22px!important;text-decoration:none;box-sizing:border-box;vertical-align:middle;box-shadow:inset 0 1px 0 rgba(255,255,255,0.72)}.jav-pan115-badge:hover{background:#86efac;color:#064e3b;text-decoration:none;box-shadow:0 4px 12px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.76)}span.jav-pan115-badge{cursor:pointer}.jav-infinite-sentinel{width:100%;padding:14px 0;color:#64748b;font-size:13px;font-weight:700;text-align:center;clear:both}.jav-infinite-sentinel.is-loading{color:#2563eb}.jav-infinite-sentinel.is-done{color:#94a3b8}.jav-infinite-sentinel.is-error{color:#dc2626;cursor:pointer}.preview-toolbar{position:fixed;top:20px;right:20px;display:flex;gap:8px;z-index:2147483648;background:rgba(30,30,30,0.75);backdrop-filter:blur(10px);padding:6px 12px;border-radius:30px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 6px 18px rgba(0,0,0,0.25)}.preview-btn{border:none;color:#eee;font-size:13px;font-weight:450;cursor:pointer;padding:6px 14px;border-radius:24px;transition:all 0.2s ease;display:inline-flex;align-items:center;gap:6px;background:rgba(100,100,120,0.3);border:1px solid rgba(255,255,255,0.05);box-shadow:0 2px 4px rgba(0,0,0,0.1);letter-spacing:0.2px}.preview-btn:hover{background:rgba(140,140,160,0.4);transform:translateY(-2px);box-shadow:0 6px 12px rgba(0,0,0,0.2)}.preview-btn.javfree.active{background:#2ecc71;color:white;border-color:rgba(255,255,255,0.3);box-shadow:0 0 16px rgba(46,204,113,0.6);font-weight:500}.preview-btn.javstore.active{background:#e74c3c;color:white;border-color:rgba(255,255,255,0.3);box-shadow:0 0 16px rgba(231,76,60,0.6);font-weight:500}.preview-btn.action{background:rgba(100,100,120,0.3)}.preview-btn.action:hover{background:rgba(140,140,160,0.5)}.preview-btn:active{transform:translateY(0);box-shadow:0 2px 4px rgba(0,0,0,0.15)}.trailer-overlay{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:34px;background:radial-gradient(circle at 50% 18%,rgba(56,189,248,0.16),transparent 32%),linear-gradient(180deg,rgba(5,7,12,0.88),rgba(0,0,0,0.96));backdrop-filter:blur(16px) saturate(0.85);cursor:default}.trailer-modal{width:min(1120px,94vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;color:#f8fafc;background:#05070c;border:1px solid rgba(255,255,255,0.12);border-radius:8px;box-shadow:0 30px 80px rgba(0,0,0,0.68),0 0 0 1px rgba(255,255,255,0.04) inset;cursor:default;animation:trailerFadeIn .18s ease-out}@keyframes trailerFadeIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}.trailer-header{position:absolute;top:0;left:0;right:0;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px 34px;background:linear-gradient(180deg,rgba(0,0,0,0.66),rgba(0,0,0,0));border:0;pointer-events:none;opacity:1;transition:opacity .18s ease,transform .18s ease}.trailer-title{min-width:0;display:flex;align-items:center;gap:10px;font:700 15px/1.3 Arial,"Microsoft YaHei",sans-serif;pointer-events:auto}.trailer-code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.4px}.trailer-source{flex-shrink:0;padding:3px 9px;border-radius:999px;color:rgba(255,255,255,0.82);background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);font-size:12px;font-weight:500;backdrop-filter:blur(12px)}.jav-player-close{width:34px;height:34px;border:0;border-radius:50%;color:#fff;background:rgba(255,255,255,0.14);cursor:pointer;font-size:18px;line-height:34px;pointer-events:auto;box-shadow:0 8px 20px rgba(0,0,0,0.22);transition:transform .15s ease,background .15s ease,box-shadow .15s ease}.jav-player-close:hover{transform:scale(1.08);background:rgba(248,113,113,0.34);box-shadow:0 10px 24px rgba(0,0,0,0.28)}.trailer-screen{position:relative;aspect-ratio:16 / 9;width:100%;max-height:82vh;overflow:hidden;background:radial-gradient(circle at center,rgba(31,41,55,.75),#000 62%),#000}.trailer-screen:fullscreen{width:100vw;height:100vh;max-height:none;aspect-ratio:auto;display:flex;align-items:center;justify-content:center;background:#000}.trailer-screen:-webkit-full-screen{width:100vw;height:100vh;max-height:none;aspect-ratio:auto;display:flex;align-items:center;justify-content:center;background:#000}.trailer-screen::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,0.52),rgba(0,0,0,0) 30%),linear-gradient(0deg,rgba(0,0,0,0.62),rgba(0,0,0,0) 36%)}.trailer-screen.is-iframe::before{display:none}.trailer-screen video,.trailer-screen iframe{position:absolute;inset:0;width:100%;height:100%;display:block;border:0;background:#000;object-fit:contain}.trailer-volume-indicator{position:absolute;top:62px;right:26px;z-index:5;color:#f8fafc;font:750 24px/1 Arial,"Microsoft YaHei",sans-serif;text-shadow:0 2px 8px rgba(0,0,0,0.82);opacity:0;pointer-events:none;transition:opacity .14s ease}.trailer-volume-indicator.is-visible{opacity:1}.trailer-fallback-status{position:absolute;left:18px;top:58px;z-index:5;max-width:min(520px,calc(100% - 36px));padding:7px 10px;border-radius:8px;color:rgba(255,255,255,0.9);background:rgba(10,14,22,0.68);border:1px solid rgba(255,255,255,0.16);box-shadow:0 12px 28px rgba(0,0,0,0.28);backdrop-filter:blur(14px);font:12px/1.45 Arial,"Microsoft YaHei",sans-serif;opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .16s ease,transform .16s ease}.trailer-fallback-status.is-visible{opacity:1;transform:translateY(0)}.trailer-quality-bar{display:flex;align-items:center;gap:8px;padding:0;background:transparent;border:none;border-radius:0;backdrop-filter:none}.trailer-quality-select{min-width:78px;max-width:140px;height:30px;padding:0 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.12);color:#f8fafc;outline:none;font-size:12px;line-height:28px;text-align:center;text-align-last:center;appearance:none;cursor:pointer}.trailer-quality-select option{background:#0b1020;color:#f8fafc}.trailer-footer{position:absolute;left:16px;right:16px;bottom:16px;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;color:rgba(255,255,255,0.78);background:rgba(10,14,22,0.62);border:1px solid rgba(255,255,255,0.16);border-radius:8px;box-shadow:0 18px 40px rgba(0,0,0,0.32);backdrop-filter:blur(16px) saturate(1.08);font:12px/1.4 Arial,"Microsoft YaHei",sans-serif;opacity:1;transform:translateY(0);transition:opacity .18s ease,transform .18s ease}.trailer-screen.is-controls-hidden{cursor:none}.trailer-screen.is-controls-hidden .trailer-header{opacity:0;transform:translateY(-8px);pointer-events:none}.trailer-screen.is-controls-hidden .trailer-footer{opacity:0;transform:translateY(10px);pointer-events:none}.trailer-control-left,.trailer-control-right{display:flex;align-items:center;gap:9px;min-width:0}.trailer-control-left{flex:1 1 auto}.trailer-control-right{flex:0 0 auto}.trailer-control-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;padding:0;border:0;border-radius:999px;color:#fff;background:rgba(255,255,255,0.14);cursor:pointer;font:700 13px/1 Arial,"Microsoft YaHei",sans-serif;transition:background .15s ease,transform .15s ease}.trailer-control-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px)}.trailer-volume-wrap{position:relative;display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center}.trailer-volume-wrap::before{content:"";position:absolute;left:50%;bottom:100%;width:46px;height:18px;transform:translateX(-50%)}.trailer-volume-popover{position:absolute;left:50%;bottom:calc(100% + 10px);width:36px;height:126px;display:flex;align-items:center;justify-content:center;padding:12px 0;border-radius:999px;background:rgba(10,14,22,0.76);border:1px solid rgba(255,255,255,0.16);box-shadow:0 14px 32px rgba(0,0,0,0.34);backdrop-filter:blur(16px) saturate(1.08);opacity:0;pointer-events:none;transform:translate(-50%,6px);transition:opacity .15s ease,transform .15s ease}.trailer-volume-wrap:hover .trailer-volume-popover{opacity:1;pointer-events:auto;transform:translate(-50%,0)}.trailer-volume-rail{position:absolute;left:50%;top:16px;bottom:16px;width:4px;transform:translateX(-50%);border-radius:999px;background:rgba(255,255,255,0.32);pointer-events:none}.trailer-volume-fill{position:absolute;left:0;right:0;bottom:0;height:var(--volume-percent,35%);border-radius:999px;background:#38bdf8}.trailer-volume-thumb{position:absolute;left:50%;bottom:var(--volume-percent,35%);width:16px;height:16px;transform:translate(-50%,50%);border-radius:50%;background:#38bdf8;border:2px solid rgba(255,255,255,0.92);box-shadow:0 2px 8px rgba(0,0,0,0.38)}.trailer-volume-slider{position:absolute;top:10px;bottom:10px;left:50%;width:16px;height:calc(100% - 20px);margin:0;transform:translateX(-50%);appearance:none;-webkit-appearance:none;writing-mode:vertical-lr;direction:rtl;background:transparent;cursor:pointer}.trailer-volume-slider::-webkit-slider-runnable-track{width:100%;height:100%;background:transparent}.trailer-volume-slider::-moz-range-track{width:100%;height:100%;background:transparent}.trailer-volume-slider::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:16px;background:transparent;border:0;box-shadow:none}.trailer-volume-slider::-moz-range-thumb{width:24px;height:16px;background:transparent;border:0;box-shadow:none}.trailer-time{flex:0 0 auto;min-width:36px;color:rgba(255,255,255,0.78);font:11px/1.3 Arial,"Microsoft YaHei",sans-serif;white-space:nowrap;text-align:center}.trailer-progress{flex:1 1 160px;min-width:120px;height:4px;margin:0;border-radius:999px;accent-color:#38bdf8;cursor:pointer}.jav-jump-toast{position:fixed;left:50%;top:72px;z-index:2147483647;display:flex;align-items:flex-start;gap:12px;width:min(420px,calc(100vw - 32px));padding:14px 16px;color:#f8fafc;background:rgba(15,23,42,0.94);border:1px solid rgba(148,163,184,0.28);border-left:4px solid #38bdf8;border-radius:12px;box-shadow:0 18px 44px rgba(0,0,0,0.34),0 0 0 1px rgba(255,255,255,0.04) inset;backdrop-filter:blur(14px) saturate(1.1);font-family:Arial,"Microsoft YaHei",sans-serif;transform:translate(-50%,-12px);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}.jav-jump-toast.show{opacity:1;transform:translate(-50%,0)}.jav-jump-toast.hide{opacity:0;transform:translate(-50%,-12px)}.jav-jump-toast-icon{flex:0 0 auto;width:24px;height:24px;border-radius:999px;color:#082f49;background:#7dd3fc;font-size:16px;font-weight:800;line-height:24px;text-align:center}.jav-jump-toast-title{margin:0 0 4px;font-size:14px;font-weight:700;line-height:1.35}.jav-jump-toast-message{margin:0;color:#cbd5e1;font-size:13px;line-height:1.45}@media (max-width:720px){.trailer-overlay{padding:12px}.trailer-modal{width:100%;border-radius:8px}.trailer-header{padding:12px 12px 30px}.trailer-title{gap:7px;font-size:13px}.trailer-source{max-width:42vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.trailer-footer{left:8px;right:8px;bottom:8px;flex-direction:column;align-items:stretch;gap:7px;padding:8px}.trailer-control-left,.trailer-control-right{width:100%;justify-content:center}.trailer-progress{min-width:80px}.jav-jump-toast{top:18px;width:calc(100vw - 24px);padding:13px 14px}}`);
+    GM_addStyle(`.preview-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2147483647;display:flex;overflow:auto;cursor:zoom-out;backdrop-filter:blur(5px)}.preview-img{border-radius:4px;margin:auto;cursor:zoom-in;max-width:95vw;max-height:95vh;object-fit:contain;display:block;box-shadow:0 0 20px rgba(0,0,0,0.5)}.preview-img.zoomed{max-width:none;max-height:none;cursor:zoom-out}a:focus:not(:focus-visible),button:focus:not(:focus-visible),[role="button"]:focus:not(:focus-visible),input[type="button"]:focus:not(:focus-visible),input[type="submit"]:focus:not(:focus-visible){outline:none!important}.jav-jump-btn-group{margin-top:8px;margin-bottom:4px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}.emby-fix{width:100%!important;flex-basis:100%!important;clear:both!important;margin-top:8px!important;margin-bottom:4px!important}.mini-switch{width:40px;height:20px;appearance:none;background:#e0e0e0;border-radius:20px;position:relative;cursor:pointer;outline:none;transition:background 0.2s}.mini-switch:checked{background:#4CAF50}.mini-switch::before{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:white;top:2px;left:2px;transition:left 0.2s}.mini-switch:checked::before{left:calc(100% - 18px)}@keyframes btnSlideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}.jav-jump-btn-group a{transition:background .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;animation:btnSlideIn 0.3s ease-out}.jav-jump-btn-group a:hover{background:var(--jav-btn-hover-bg,#f8fafc)!important;transform:translateY(-1px)!important;filter:none!important;box-shadow:0 5px 14px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.76)!important;text-decoration:none!important}@keyframes menuFadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}.search-menu{position:relative;display:inline-block;border-radius:4px}.search-main-btn{padding-right:28px!important}.search-toggle-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:16px;height:16px;padding:0!important;margin:0!important;display:inline-flex!important;align-items:center;justify-content:center;flex-shrink:0;font-size:10px!important;line-height:1;opacity:1;background:color-mix(in srgb,var(--jav-btn-accent,#64748b) 18%,#ffffff)!important;color:inherit!important;border:1px solid color-mix(in srgb,var(--jav-btn-accent,#64748b) 26%,#ffffff)!important;border-radius:999px!important;box-shadow:0 1px 2px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.7)!important;cursor:pointer}.search-toggle-btn:hover{filter:none;background:color-mix(in srgb,var(--jav-btn-accent,#64748b) 26%,#ffffff)!important}.search-toggle-btn .search-arrow{display:inline-block;transform:translateY(-1px);pointer-events:none}.search-submenu{position:absolute;top:calc(100%+4px);left:0;display:none;flex-direction:column;gap:4px;padding:4px;background:rgba(255,255,255,0.95);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:10000;min-width:120px;backdrop-filter:blur(5px)}.search-submenu.is-open{display:flex}.search-submenu a{transition:all 0.2s ease;box-shadow:0 2px 4px rgba(0,0,0,0.1)!important}.search-submenu a:hover{transform:translateX(5px) scale(1.02);filter:brightness(1.1)}.jav-pan115-badge{display:inline-flex;align-items:center;justify-content:center;min-width:58px;height:22px!important;padding:0 7px;margin-right:6px;position:static!important;top:auto!important;transform:none!important;border-radius:6px;background:#bbf7d0;border:1px solid #22c55e;color:#065f46;font-size:12px!important;font-weight:800;line-height:22px!important;text-decoration:none;box-sizing:border-box;vertical-align:middle;box-shadow:inset 0 1px 0 rgba(255,255,255,0.72)}.jav-pan115-badge:hover{background:#86efac;color:#064e3b;text-decoration:none;box-shadow:0 4px 12px rgba(15,23,42,0.12),inset 0 1px 0 rgba(255,255,255,0.76)}span.jav-pan115-badge{cursor:pointer}.jav-infinite-sentinel{width:100%;padding:14px 0;color:#64748b;font-size:13px;font-weight:700;text-align:center;clear:both}.jav-infinite-sentinel.is-loading{color:#2563eb}.jav-infinite-sentinel.is-done{color:#94a3b8}.jav-infinite-sentinel.is-error{color:#dc2626;cursor:pointer}.preview-toolbar{position:fixed;top:20px;right:20px;display:flex;gap:8px;z-index:2147483648;background:rgba(30,30,30,0.75);backdrop-filter:blur(10px);padding:6px 12px;border-radius:30px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 6px 18px rgba(0,0,0,0.25)}.preview-btn{border:none;color:#eee;font-size:13px;font-weight:450;cursor:pointer;padding:6px 14px;border-radius:24px;transition:all 0.2s ease;display:inline-flex;align-items:center;gap:6px;background:rgba(100,100,120,0.3);border:1px solid rgba(255,255,255,0.05);box-shadow:0 2px 4px rgba(0,0,0,0.1);letter-spacing:0.2px}.preview-btn:hover{background:rgba(140,140,160,0.4);transform:translateY(-2px);box-shadow:0 6px 12px rgba(0,0,0,0.2)}.preview-btn.javfree.active{background:#2ecc71;color:white;border-color:rgba(255,255,255,0.3);box-shadow:0 0 16px rgba(46,204,113,0.6);font-weight:500}.preview-btn.javstore.active{background:#e74c3c;color:white;border-color:rgba(255,255,255,0.3);box-shadow:0 0 16px rgba(231,76,60,0.6);font-weight:500}.preview-btn.action{background:rgba(100,100,120,0.3)}.preview-btn.action:hover{background:rgba(140,140,160,0.5)}.preview-btn:active{transform:translateY(0);box-shadow:0 2px 4px rgba(0,0,0,0.15)}.trailer-overlay{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:34px;background:radial-gradient(circle at 50% 18%,rgba(56,189,248,0.16),transparent 32%),linear-gradient(180deg,rgba(5,7,12,0.88),rgba(0,0,0,0.96));backdrop-filter:blur(16px) saturate(0.85);cursor:default}.trailer-modal{width:min(1120px,94vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;color:#f8fafc;background:#05070c;border:1px solid rgba(255,255,255,0.12);border-radius:8px;box-shadow:0 30px 80px rgba(0,0,0,0.68),0 0 0 1px rgba(255,255,255,0.04) inset;cursor:default;animation:trailerFadeIn .18s ease-out}@keyframes trailerFadeIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}.trailer-header{position:absolute;top:0;left:0;right:0;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px 34px;background:linear-gradient(180deg,rgba(0,0,0,0.66),rgba(0,0,0,0));border:0;pointer-events:none;opacity:1;transition:opacity .18s ease,transform .18s ease}.trailer-title{min-width:0;display:flex;align-items:center;gap:10px;font:700 15px/1.3 Arial,"Microsoft YaHei",sans-serif;pointer-events:auto}.trailer-code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.4px}.trailer-source{flex-shrink:0;padding:3px 9px;border-radius:999px;color:rgba(255,255,255,0.82);background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);font-size:12px;font-weight:500;backdrop-filter:blur(12px)}.jav-player-close{width:34px;height:34px;border:0;border-radius:50%;color:#fff;background:rgba(255,255,255,0.14);cursor:pointer;font-size:18px;line-height:34px;pointer-events:auto;box-shadow:0 8px 20px rgba(0,0,0,0.22);transition:transform .15s ease,background .15s ease,box-shadow .15s ease}.jav-player-close:hover{transform:scale(1.08);background:rgba(248,113,113,0.34);box-shadow:0 10px 24px rgba(0,0,0,0.28)}.trailer-screen{position:relative;aspect-ratio:16 / 9;width:100%;max-height:82vh;overflow:hidden;background:radial-gradient(circle at center,rgba(31,41,55,.75),#000 62%),#000}.trailer-screen:fullscreen{width:100vw;height:100vh;max-height:none;aspect-ratio:auto;display:flex;align-items:center;justify-content:center;background:#000}.trailer-screen:-webkit-full-screen{width:100vw;height:100vh;max-height:none;aspect-ratio:auto;display:flex;align-items:center;justify-content:center;background:#000}.trailer-screen::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,0.52),rgba(0,0,0,0) 30%),linear-gradient(0deg,rgba(0,0,0,0.62),rgba(0,0,0,0) 36%)}.trailer-screen.is-iframe::before{display:none}.trailer-screen video,.trailer-screen iframe{position:absolute;inset:0;width:100%;height:100%;display:block;border:0;background:#000;object-fit:contain}.trailer-volume-indicator{position:absolute;top:62px;right:26px;z-index:5;color:#f8fafc;font:750 24px/1 Arial,"Microsoft YaHei",sans-serif;text-shadow:0 2px 8px rgba(0,0,0,0.82);opacity:0;pointer-events:none;transition:opacity .14s ease}.trailer-volume-indicator.is-visible{opacity:1}.trailer-fallback-status{position:absolute;left:18px;top:58px;z-index:5;max-width:min(520px,calc(100% - 36px));padding:7px 10px;border-radius:8px;color:rgba(255,255,255,0.9);background:rgba(10,14,22,0.68);border:1px solid rgba(255,255,255,0.16);box-shadow:0 12px 28px rgba(0,0,0,0.28);backdrop-filter:blur(14px);font:12px/1.45 Arial,"Microsoft YaHei",sans-serif;opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .16s ease,transform .16s ease}.trailer-fallback-status.is-visible{opacity:1;transform:translateY(0)}.trailer-quality-bar{display:flex;align-items:center;gap:8px;padding:0;background:transparent;border:none;border-radius:0;backdrop-filter:none}.trailer-quality-select{min-width:78px;max-width:140px;height:30px;padding:0 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.12);color:#f8fafc;outline:none;font-size:12px;line-height:28px;text-align:center;text-align-last:center;appearance:none;cursor:pointer}.trailer-quality-select option{background:#0b1020;color:#f8fafc}.trailer-footer{position:absolute;left:16px;right:16px;bottom:16px;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;color:rgba(255,255,255,0.78);background:rgba(10,14,22,0.62);border:1px solid rgba(255,255,255,0.16);border-radius:8px;box-shadow:0 18px 40px rgba(0,0,0,0.32);backdrop-filter:blur(16px) saturate(1.08);font:12px/1.4 Arial,"Microsoft YaHei",sans-serif;opacity:1;transform:translateY(0);transition:opacity .18s ease,transform .18s ease}.trailer-screen.is-controls-hidden{cursor:none}.trailer-screen.is-controls-hidden .trailer-header{opacity:0;transform:translateY(-8px);pointer-events:none}.trailer-screen.is-controls-hidden .trailer-footer{opacity:0;transform:translateY(10px);pointer-events:none}.trailer-control-left,.trailer-control-right{display:flex;align-items:center;gap:9px;min-width:0}.trailer-control-left{flex:1 1 auto}.trailer-control-right{flex:0 0 auto}.trailer-control-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;padding:0;border:0;border-radius:999px;color:#fff;background:rgba(255,255,255,0.14);cursor:pointer;font:700 13px/1 Arial,"Microsoft YaHei",sans-serif;transition:background .15s ease,transform .15s ease}.trailer-control-btn:hover{background:rgba(255,255,255,0.24);transform:translateY(-1px)}.trailer-volume-wrap{position:relative;display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center}.trailer-volume-wrap::before{content:"";position:absolute;left:50%;bottom:100%;width:46px;height:18px;transform:translateX(-50%)}.trailer-volume-popover{position:absolute;left:50%;bottom:calc(100%+10px);width:36px;height:126px;display:flex;align-items:center;justify-content:center;padding:12px 0;border-radius:999px;background:rgba(10,14,22,0.76);border:1px solid rgba(255,255,255,0.16);box-shadow:0 14px 32px rgba(0,0,0,0.34);backdrop-filter:blur(16px) saturate(1.08);opacity:0;pointer-events:none;transform:translate(-50%,6px);transition:opacity .15s ease,transform .15s ease}.trailer-volume-wrap:hover .trailer-volume-popover{opacity:1;pointer-events:auto;transform:translate(-50%,0)}.trailer-volume-rail{position:absolute;left:50%;top:16px;bottom:16px;width:4px;transform:translateX(-50%);border-radius:999px;background:rgba(255,255,255,0.32);pointer-events:none}.trailer-volume-fill{position:absolute;left:0;right:0;bottom:0;height:var(--volume-percent,35%);border-radius:999px;background:#38bdf8}.trailer-volume-thumb{position:absolute;left:50%;bottom:var(--volume-percent,35%);width:16px;height:16px;transform:translate(-50%,50%);border-radius:50%;background:#38bdf8;border:2px solid rgba(255,255,255,0.92);box-shadow:0 2px 8px rgba(0,0,0,0.38)}.trailer-volume-slider{position:absolute;top:10px;bottom:10px;left:50%;width:16px;height:calc(100% - 20px);margin:0;transform:translateX(-50%);appearance:none;-webkit-appearance:none;writing-mode:vertical-lr;direction:rtl;background:transparent;cursor:pointer}.trailer-volume-slider::-webkit-slider-runnable-track{width:100%;height:100%;background:transparent}.trailer-volume-slider::-moz-range-track{width:100%;height:100%;background:transparent}.trailer-volume-slider::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:16px;background:transparent;border:0;box-shadow:none}.trailer-volume-slider::-moz-range-thumb{width:24px;height:16px;background:transparent;border:0;box-shadow:none}.trailer-time{flex:0 0 auto;min-width:36px;color:rgba(255,255,255,0.78);font:11px/1.3 Arial,"Microsoft YaHei",sans-serif;white-space:nowrap;text-align:center}.trailer-progress{flex:1 1 160px;min-width:120px;height:4px;margin:0;border-radius:999px;accent-color:#38bdf8;cursor:pointer}.jav-jump-toast{position:fixed;left:50%;top:72px;z-index:2147483647;display:flex;align-items:flex-start;gap:12px;width:min(420px,calc(100vw - 32px));padding:14px 16px;color:#f8fafc;background:rgba(15,23,42,0.94);border:1px solid rgba(148,163,184,0.28);border-left:4px solid #38bdf8;border-radius:12px;box-shadow:0 18px 44px rgba(0,0,0,0.34),0 0 0 1px rgba(255,255,255,0.04) inset;backdrop-filter:blur(14px) saturate(1.1);font-family:Arial,"Microsoft YaHei",sans-serif;transform:translate(-50%,-12px);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}.jav-jump-toast.show{opacity:1;transform:translate(-50%,0)}.jav-jump-toast.hide{opacity:0;transform:translate(-50%,-12px)}.jav-jump-toast-icon{flex:0 0 auto;width:24px;height:24px;border-radius:999px;color:#082f49;background:#7dd3fc;font-size:16px;font-weight:800;line-height:24px;text-align:center}.jav-jump-toast-title{margin:0 0 4px;font-size:14px;font-weight:700;line-height:1.35}.jav-jump-toast-message{margin:0;color:#cbd5e1;font-size:13px;line-height:1.45}@media (max-width:720px){.trailer-overlay{padding:12px}.trailer-modal{width:100%;border-radius:8px}.trailer-header{padding:12px 12px 30px}.trailer-title{gap:7px;font-size:13px}.trailer-source{max-width:42vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.trailer-footer{left:8px;right:8px;bottom:8px;flex-direction:column;align-items:stretch;gap:7px;padding:8px}.trailer-control-left,.trailer-control-right{width:100%;justify-content:center}.trailer-progress{min-width:80px}.jav-jump-toast{top:18px;width:calc(100vw - 24px);padding:13px 14px}}`);
     const Utils = {
         normalizeCode(code) {
             const raw = String(code || '').trim();
@@ -4749,18 +4476,11 @@
             loadImg(imgUrl, source);
             const toolbar = document.createElement('div');
             toolbar.className = 'preview-toolbar';
-            toolbar.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                display: flex;
-                gap: 12px;
-                z-index: 2147483648;
-            `;
+            toolbar.style.cssText = `position:fixed;top:20px;right:20px;display:flex;gap:12px;z-index:2147483648;`;
             const createButton = (text, icon, className, onClick) => {
                 const btn = document.createElement('button');
                 btn.className = `preview-btn ${className}`;
-                btn.innerHTML =`${icon}${text}`;
+                btn.innerHTML = `${icon}${text}`;
                 btn.onclick = onClick;
                 return btn;
             };
@@ -4843,7 +4563,7 @@
             header.className = 'trailer-header';
             const title = document.createElement('div');
             title.className = 'trailer-title';
-            title.innerHTML =`<span>🎞️</span><span class="trailer-code">${code}</span><span class="trailer-source">${source}</span>`;
+            title.innerHTML = `<span>🎞️</span><span class="trailer-code"> ${code} </span><span class="trailer-source"> ${source} </span>`;
             const sourceBadge = title.querySelector('.trailer-source');
             const closeBtn = document.createElement('button');
             closeBtn.className = 'jav-player-close';
@@ -5476,10 +5196,7 @@
                     select.value = key;
                 };
                 sortedKeys.forEach(key => {
-                    const opt = document.createElement('option');
-                    opt.value = key;
-                    opt.textContent = qualityLabels[key] || key;
-                    select.appendChild(opt);
+                    select.add(new Option(qualityLabels[key] || key, key));
                 });
                 select.addEventListener('change', async () => {
                     const key = select.value;
@@ -5926,71 +5643,142 @@
         }
     };
     const ListPreview = (() => {
-        let styleReady = false;
+        let magnetOverlay = null;
+        const ACTIONS = [
+            { key: 'magnet', name: 'magnet', title: '磁力', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" class="tool-svg" viewBox="0 0 1000 1000"><path d="M420 80c-160 18-300 88-410 200v210h230V300c55-45 120-72 200-80h140v-140H420zM760 80v140h140V80H760zM10 510v210c110 112 250 182 410 200h160V780H440c-80-8-145-35-200-80V510H10zM760 780v140h140V780H760z"/></svg>' },
+            { key: 'trailer', name: 'trailer', title: '预告片', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" class="tool-svg" viewBox="0 0 16 16"><path d="M2 2.8A1.8 1.8 0 0 1 3.8 1h8.4A1.8 1.8 0 0 1 14 2.8v10.4a1.8 1.8 0 0 1-1.8 1.8H3.8A1.8 1.8 0 0 1 2 13.2V2.8zm1 1.7h10V2.8a.8.8 0 0 0-.8-.8H3.8a.8.8 0 0 0-.8.8v1.7zm10 1H3v5h10v-5zm0 6H3v1.7c0 .44.36.8.8.8h8.4c.44 0 .8-.36.8-.8v-1.7zM6.4 6.45a.45.45 0 0 1 .47.02l2.35 1.35a.45.45 0 0 1 0 .78L6.87 9.95A.45.45 0 0 1 6.2 9.56V6.84c0-.17.08-.32.2-.39z"/></svg>' },
+            { key: 'preview', name: 'picture', title: '预览图', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" class="tool-svg" viewBox="0 0 16 16"><path d="M6 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"></path><path d="M2 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2H2zm12 1a1 1 0 0 1 1 1v6.5l-3.78-1.95a.5.5 0 0 0-.57.1l-3.71 3.7-2.66-1.77a.5.5 0 0 0-.63.06L1 12V3a1 1 0 0 1 1-1h12z"></path></svg>' },
+        ];
         function enabled() {
             return GM_getValue('list_preview_quick_enabled', true);
         }
         function ensureStyle() {
-            if (styleReady) return;
-            styleReady = true;
-            GM_addStyle(`.jav-card-cover{position:relative!important}.jav-list-preview-btn{position:absolute;right:8px;bottom:8px;z-index:3;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.28);border-radius:999px;background:rgba(15,23,42,.56);color:#fff;backdrop-filter:blur(8px);box-shadow:0 4px 12px rgba(0,0,0,.24);cursor:pointer;user-select:none;transition:transform .16s ease,background .16s ease,border-color .16s ease,box-shadow .16s ease}.jav-list-preview-btn:hover{transform:translateY(-1px) scale(1.04);background:rgba(37,99,235,.78);border-color:rgba(255,255,255,.42);box-shadow:0 8px 18px rgba(15,23,42,.28)}.jav-list-preview-btn:active{transform:scale(.96)}.jav-list-preview-btn:focus-visible{outline:2px solid rgba(191,219,254,.95);outline-offset:2px}.jav-list-preview-icon{width:16px;height:16px;display:block;background-repeat:no-repeat;background-position:center;background-size:contain;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z'/%3E%3Ccircle cx='12' cy='12' r='2.9'/%3E%3C/svg%3E");opacity:.96}`);
+            injectStyle('jav-list-preview-style', `.jav-card-quick-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:5px!important;flex:0 0 auto!important;margin-left:auto!important}.jav-card-quick-btn{width:26px;height:26px;display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 24px!important;border:0!important;border-radius:4px!important;background:transparent!important;color:#64748b!important;box-shadow:none!important;fill:currentColor!important;line-height:1!important;text-decoration:none!important;cursor:pointer!important;user-select:none!important;opacity:.74!important;transition:transform .14s ease,color .14s ease,opacity .14s ease!important}.jav-card-quick-btn:hover{transform:translateY(-1px)!important;background:transparent!important;color:#2563eb!important;opacity:1!important}.jav-card-quick-btn:active{transform:scale(.96)!important}.jav-card-quick-btn:focus-visible{outline:2px solid rgba(37,99,235,.35)!important;outline-offset:2px!important}.jav-card-quick-btn .tool-svg{width:20px!important;height:20px!important;display:block!important;fill:currentColor!important}.javbus-card-title .item-tag,.javdb-card-tags,.javlib-card-footer{align-items:center!important}.javbus-card-title .item-tag,.javdb-card-tags{display:flex!important}.javlib-card-footer .jav-card-quick-actions{margin-left:auto!important}html.jav-card-portrait-mode .javdb-card-meta{display:flex!important;align-items:center!important;gap:6px!important}.jav-card-magnet-overlay{position:fixed;inset:0;z-index:10000035;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.58);backdrop-filter:blur(5px)}.jav-card-magnet-panel{width:min(760px,94vw);max-height:86vh;display:flex;flex-direction:column;overflow:hidden;border-radius:10px;background:#fff;box-shadow:0 24px 70px rgba(15,23,42,.38)}.jav-card-magnet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid #e5e7eb}.jav-card-magnet-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111827;font-size:15px;font-weight:850}.jav-card-magnet-close{width:30px;height:30px;border:0;border-radius:7px;background:#f1f5f9;color:#334155;font-size:22px;line-height:1;cursor:pointer}.jav-card-magnet-body{padding:12px;overflow:auto}.jav-card-magnet-body .jav-nong-wrapper{width:100%!important;display:block!important;box-sizing:border-box!important}`);
         }
         function isListPage() {
             return !SiteManager.isDetailPage();
         }
+        function cardSite(card) {
+            if (card?.classList?.contains('javbus-grid-card')) return 'javbus';
+            if (card?.classList?.contains('javdb-grid-card')) return 'javdb';
+            if (card?.classList?.contains('javlib-grid-card')) return 'javlib';
+            return CardColumns.detectCurrentSite();
+        }
+        function targetSlot(card) {
+            const site = cardSite(card);
+            if (site === 'javbus') return card.querySelector('.item-tag');
+            if (site === 'javdb') {
+                return PortraitCards.effective('javdb')
+                    ? card.querySelector('.javdb-card-meta, .meta')
+                    : card.querySelector('.javdb-card-tags, .tags.has-addons, .tags');
+            }
+            if (site === 'javlib') {
+                const title = card.querySelector('.javlib-card-title, .title');
+                let footer = title?.querySelector('.javlib-card-footer');
+                if (!footer && title) {
+                    footer = document.createElement('span');
+                    footer.className = 'javlib-card-footer';
+                    title.appendChild(footer);
+                }
+                return footer;
+            }
+            return null;
+        }
+        function closeMagnetPopup() {
+            magnetOverlay?.remove();
+            magnetOverlay = null;
+        }
+        function openMagnetPopup(code) {
+            if (!code) return;
+            closeMagnetPopup();
+            ensureStyle();
+            const overlay = document.createElement('div');
+            overlay.className = 'jav-card-magnet-overlay';
+            overlay.innerHTML = `<div class="jav-card-magnet-panel" role="dialog" aria-modal="true"><div class="jav-card-magnet-head"><div class="jav-card-magnet-title">磁力 ${code}</div><button class="jav-card-magnet-close" type="button">×</button></div><div class="jav-card-magnet-body"></div></div>`;
+            overlay.addEventListener('click', e => {
+                if (e.target === overlay) closeMagnetPopup();
+            });
+            overlay.querySelector('.jav-card-magnet-close')?.addEventListener('click', closeMagnetPopup);
+            overlay.querySelector('.jav-card-magnet-body')?.appendChild(Magnet.createMagnetWidget(code));
+            document.body.appendChild(overlay);
+            magnetOverlay = overlay;
+        }
+        async function runAction(action, code, btn) {
+            if (!code || btn.dataset.loading === '1') return;
+            if (action === 'magnet') {
+                openMagnetPopup(code);
+                return;
+            }
+            btn.dataset.loading = '1';
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '.72';
+            try {
+                if (action === 'trailer') await Trailer.show(code);
+                else await Thumbnail.show(code);
+            } finally {
+                delete btn.dataset.loading;
+                btn.style.pointerEvents = '';
+                btn.style.opacity = '';
+            }
+        }
+        function createButton(meta, code, card) {
+            const btn = document.createElement('span');
+            btn.className = `tool-span jav-card-quick-btn jav-card-quick-${meta.key}`;
+            btn.setAttribute('name', meta.name);
+            btn.setAttribute('avid', code);
+            btn.dataset.action = meta.key;
+            btn.dataset.code = code;
+            btn.title = `${meta.title} ${code}`;
+            btn.innerHTML = meta.svg;
+            btn.setAttribute('role', 'button');
+            btn.tabIndex = 0;
+            const handler = e => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation?.();
+                runAction(meta.key, btn.dataset.code || SiteManager.getCardCode(card), btn);
+            };
+            btn.addEventListener('click', handler, true);
+            btn.addEventListener('keydown', e => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                handler(e);
+            }, true);
+            return btn;
+        }
         function attachToCard(card) {
             if (!card) return;
-            const cover = SiteManager.getCardCover(card);
-            if (!cover) return;
-            const existing = cover.querySelector('.jav-list-preview-btn');
+            card.querySelectorAll('.jav-list-preview-btn').forEach(el => el.remove());
+            const existing = card.querySelector('.jav-card-quick-actions');
             if (!enabled()) {
                 existing?.remove();
                 return;
             }
             const code = SiteManager.getCardCode(card);
-            if (!code) {
+            const slot = targetSlot(card);
+            if (!code || !slot) {
                 existing?.remove();
                 return;
             }
             if (existing) {
                 existing.dataset.code = code;
-                existing.title = `预览图 ${code}`;
+                existing.querySelectorAll('.jav-card-quick-btn').forEach(btn => {
+                    const meta = ACTIONS.find(item => item.key === btn.dataset.action);
+                    btn.setAttribute('avid', code);
+                    btn.dataset.code = code;
+                    if (meta) btn.title = `${meta.title} ${code}`;
+                });
+                if (existing.parentNode !== slot) slot.appendChild(existing);
                 return;
             }
-            const btn = document.createElement('span');
-            btn.className = 'jav-list-preview-btn';
-            btn.dataset.code = code;
-            btn.setAttribute('role', 'button');
-            btn.tabIndex = 0;
-            btn.title = `预览图 ${code}`;
-            btn.innerHTML = '<span class="jav-list-preview-icon" aria-hidden="true"></span>';
-            const openPreview = async e => {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation?.();
-                if (btn.dataset.loading === '1') return;
-                const targetCode = btn.dataset.code || SiteManager.getCardCode(card);
-                if (!targetCode) return;
-                btn.dataset.loading = '1';
-                btn.style.pointerEvents = 'none';
-                btn.style.opacity = '.72';
-                try {
-                    await Thumbnail.show(targetCode);
-                } finally {
-                    delete btn.dataset.loading;
-                    btn.style.pointerEvents = '';
-                    btn.style.opacity = '';
-                }
-            };
-            btn.addEventListener('click', openPreview, true);
-            btn.addEventListener('keydown', e => {
-                if (e.key !== 'Enter' && e.key !== ' ') return;
-                openPreview(e);
-            }, true);
-            cover.appendChild(btn);
+            const actions = document.createElement('span');
+            actions.className = 'toolbar-b jav-card-quick-actions';
+            actions.dataset.code = code;
+            ACTIONS.forEach(meta => actions.appendChild(createButton(meta, code, card)));
+            slot.appendChild(actions);
         }
         function removeAll() {
-            document.querySelectorAll('.jav-list-preview-btn').forEach(el => el.remove());
+            document.querySelectorAll('.jav-card-quick-actions, .jav-list-preview-btn').forEach(el => el.remove());
+            closeMagnetPopup();
         }
         function sync() {
             if (!isListPage()) {
@@ -6004,20 +5792,153 @@
             }
             SiteManager.getListCards().forEach(attachToCard);
         }
-        return { sync, removeAll, attach: attachToCard };
+        return { sync, removeAll, attach: attachToCard, closeMagnetPopup };
     })();
     Core.expose('__LAOSIJI_LIST_PREVIEW__', ListPreview);
+    const CoverHoverPreview = (() => {
+        let active = false;
+        let timer = null;
+        let popup = null;
+        let lastEvent = null;
+        const titleStore = new Map();
+        function enabled() {
+            return !!CFG.coverHoverPreview && !SiteManager.isDetailPage();
+        }
+        function ensureStyle() {
+            injectStyle('jav-cover-hover-preview-style', `.jav-cover-hover-preview{position:fixed;z-index:2147483000;pointer-events:none;padding:4px;border-radius:6px;background:rgba(15,23,42,.84);box-shadow:0 18px 42px rgba(15,23,42,.34);opacity:0;transform:translateY(4px);transition:opacity .12s ease,transform .12s ease}.jav-cover-hover-preview.is-visible{opacity:1;transform:translateY(0)}.jav-cover-hover-preview img{display:block;width:auto;border-radius:4px;object-fit:contain;background:#0f172a}`);
+        }
+        function clearTimer() {
+            if (!timer) return;
+            clearTimeout(timer);
+            timer = null;
+        }
+        function hide() {
+            clearTimer();
+            popup?.remove();
+            popup = null;
+            lastEvent = null;
+            restoreTitles();
+        }
+        function coverFromEvent(target) {
+            const cover = target?.closest?.('.jav-card-cover');
+            if (!cover || !cover.closest?.('.jav-card')) return null;
+            return cover;
+        }
+        function imageSrc(cover) {
+            const img = cover?.querySelector?.('img[src]');
+            if (!img) return '';
+            return img.dataset.laosijiLandscapeSrc ||
+                img.dataset.laosijiCoverSrc ||
+                img.currentSrc ||
+                img.src ||
+                '';
+        }
+        function titleTargets(cover) {
+            return [
+                cover,
+                cover?.querySelector?.('img[title]'),
+                cover?.closest?.('a[title]'),
+                cover?.closest?.('.jav-card')?.querySelector?.('a[title]'),
+            ].filter(Boolean);
+        }
+        function suppressTitles(cover) {
+            titleTargets(cover).forEach(el => {
+                if (!el.hasAttribute?.('title') || titleStore.has(el)) return;
+                titleStore.set(el, el.getAttribute('title') || '');
+                el.removeAttribute('title');
+            });
+        }
+        function restoreTitles() {
+            titleStore.forEach((title, el) => {
+                el.setAttribute('title', title);
+            });
+            titleStore.clear();
+        }
+        function position(box, event = lastEvent) {
+            if (!box || !event) return;
+            const gap = 16;
+            const rect = box.getBoundingClientRect();
+            let left = event.clientX + gap;
+            let top = event.clientY + gap;
+            if (left + rect.width > window.innerWidth - 8) left = event.clientX - rect.width - gap;
+            if (top + rect.height > window.innerHeight - 8) top = window.innerHeight - rect.height - 8;
+            if (top < 8) top = 8;
+            if (left < 8) left = 8;
+            box.style.left = `${Math.round(left)}px`;
+            box.style.top = `${Math.round(top)}px`;
+        }
+        function show(src, event) {
+            if (!src || !active) return;
+            ensureStyle();
+            popup?.remove();
+            const box = document.createElement('div');
+            const img = document.createElement('img');
+            box.className = 'jav-cover-hover-preview';
+            img.decoding = 'async';
+            img.loading = 'eager';
+            img.src = src;
+            img.addEventListener('load', () => {
+                position(box, event);
+                requestAnimationFrame(() => box.classList.add('is-visible'));
+            }, { once: true });
+            img.addEventListener('error', hide, { once: true });
+            box.appendChild(img);
+            document.body.appendChild(box);
+            popup = box;
+            position(box, event);
+        }
+        function onOver(event) {
+            if (!enabled()) return;
+            const cover = coverFromEvent(event.target);
+            if (!cover) return;
+            const src = imageSrc(cover);
+            if (!src) return;
+            suppressTitles(cover);
+            lastEvent = event;
+            clearTimer();
+            timer = setTimeout(() => show(src, lastEvent), 500);
+        }
+        function onMove(event) {
+            if (!popup && !timer) return;
+            lastEvent = event;
+            if (popup) position(popup, event);
+        }
+        function onOut(event) {
+            const cover = coverFromEvent(event.target);
+            if (!cover) return;
+            const next = event.relatedTarget;
+            if (next && cover.contains(next)) return;
+            hide();
+        }
+        function sync() {
+            const shouldEnable = enabled();
+            if (shouldEnable === active) {
+                if (!shouldEnable) hide();
+                return;
+            }
+            active = shouldEnable;
+            if (active) {
+                document.addEventListener('mouseover', onOver, true);
+                document.addEventListener('mousemove', onMove, true);
+                document.addEventListener('mouseout', onOut, true);
+            } else {
+                document.removeEventListener('mouseover', onOver, true);
+                document.removeEventListener('mousemove', onMove, true);
+                document.removeEventListener('mouseout', onOut, true);
+                hide();
+            }
+        }
+        return { sync, hide };
+    })();
+    Core.expose('__LAOSIJI_COVER_HOVER_PREVIEW__', CoverHoverPreview);
     const DetailPreviewInline = (() => {
-        let styleReady = false;
         let lastToken = 0;
         let state = { code: '', status: '' };
         function enabled() {
             return GM_getValue('detail_preview_inline_enabled', true);
         }
         function ensureStyle() {
-            if (styleReady) return;
-            styleReady = true;
-            GM_addStyle(`.jav-nong-slot.has-detail-preview-inline{display:flex!important;align-items:flex-start!important;gap:12px!important;overflow:visible!important}.jav-detail-preview-standalone{display:flex!important;align-items:flex-start!important;gap:12px!important;min-width:0!important;align-self:flex-start!important;overflow:visible!important}.row.movie>.jav-detail-preview-standalone{flex:0 0 180px!important}.jav-flex-container>.jav-detail-preview-standalone{flex:0 0 180px!important}#video_jacket_info tr>.jav-detail-preview-standalone{flex:0 0 180px!important;min-width:160px!important;vertical-align:top!important}.javlib-nong-slot.has-detail-preview-inline{width:100%!important}.jav-nong-slot.has-detail-preview-inline .jav-nong-wrapper{flex:1 1 auto!important;min-width:0!important}.javlib-nong-slot.has-detail-preview-inline>div:not(.jav-detail-preview-wrap){flex:1 1 0!important;min-width:0!important;display:block!important}.javlib-nong-slot.has-detail-preview-inline>.jav-detail-preview-wrap{flex:0 0 180px!important;width:180px!important;max-width:180px!important;min-width:160px!important;height:480px!important;max-height:480px!important;overflow:hidden!important;display:block!important}.jav-detail-preview-wrap{flex:0 0 180px;width:180px;max-width:180px;min-width:150px;align-self:flex-start;position:relative;box-sizing:border-box;overflow:hidden}.jav-detail-preview-inline{display:block;width:100%;height:auto;max-width:100%;max-height:480px;object-fit:contain;border-radius:6px;cursor:zoom-in}.javlib-nong-slot.has-detail-preview-inline .jav-detail-preview-inline{width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important}.jav-detail-preview-loading{position:absolute;inset:0;display:grid;place-items:center;color:#475569;font-size:12px;font-weight:700;white-space:nowrap;pointer-events:none}@media (max-width:900px){.jav-nong-slot.has-detail-preview-inline{flex-wrap:wrap!important}.jav-detail-preview-standalone{flex-basis:100%!important}.jav-detail-preview-wrap{flex-basis:100%;width:100%;max-width:100%}.jav-detail-preview-inline{max-width:100%;max-height:480px;margin:0 auto}.javlib-nong-slot.has-detail-preview-inline>.jav-detail-preview-wrap{flex-basis:100%!important;width:100%!important;max-width:100%!important;height:480px!important;max-height:480px!important}}`);
+            injectStyle('jav-detail-preview-inline-style', `.jav-nong-slot.has-detail-preview-inline{display:flex!important;align-items:flex-start!important;gap:12px!important;overflow:visible!important}.jav-detail-preview-standalone{display:flex!important;align-items:flex-start!important;gap:12px!important;min-width:0!important;align-self:flex-start!important;overflow:visible!important}.row.movie>.jav-detail-preview-standalone{flex:0 0 180px!important}.jav-flex-container>.jav-detail-preview-standalone{flex:0 0 180px!important}#video_jacket_info tr>.jav-detail-preview-standalone{flex:0 0 180px!important;min-width:160px!important;vertical-align:top!important}.javlib-nong-slot.has-detail-preview-inline{width:100%!important}.jav-nong-slot.has-detail-preview-inline .jav-nong-wrapper{flex:1 1 auto!important;min-width:0!important}.javlib-nong-slot.has-detail-preview-inline>div:not(.jav-detail-preview-wrap){flex:1 1 0!important;min-width:0!important;display:block!important}.javlib-nong-slot.has-detail-preview-inline>.jav-detail-preview-wrap{flex:0 0 180px!important;width:180px!important;max-width:180px!important;min-width:160px!important;height:480px!important;max-height:480px!important;overflow:hidden!important;display:block!important}.jav-detail-preview-wrap{flex:0 0 180px;width:180px;max-width:180px;min-width:150px;align-self:flex-start;position:relative;box-sizing:border-box;overflow:hidden}.jav-detail-preview-inline{display:block;width:100%;height:auto;max-width:100%;max-height:480px;object-fit:contain;border-radius:6px;cursor:zoom-in}.javlib-nong-slot.has-detail-preview-inline .jav-detail-preview-inline{width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important}.jav-detail-preview-loading{position:absolute;inset:0;display:grid;place-items:center;color:#475569;font-size:12px;font-weight:700;white-space:nowrap;pointer-events:none}@media (max-width:900px){.jav-nong-slot.has-detail-preview-inline{flex-wrap:wrap!important}.jav-detail-preview-standalone{flex-basis:100%!important}.jav-detail-preview-wrap{flex-basis:100%;width:100%;max-width:100%}.jav-detail-preview-inline{max-width:100%;max-height:480px;margin:0 auto}.javlib-nong-slot.has-detail-preview-inline>.jav-detail-preview-wrap{flex-basis:100%!important;width:100%!important;max-width:100%!important;height:480px!important;max-height:480px!important}}`);
         }
         function remove() {
             SiteManager.clearDetailPreviewInline();
@@ -6293,7 +6214,7 @@
         async fromJavxyCcCd(id, rawCode = '', options = {}) {
             const query = String(id || rawCode || '').trim();
             if (!query) {
-                this.debug('Javxy ????????');
+                this.debug('Javxy 跳过：查询词为空');
                 return null;
             }
             const $j = (a, k) => a.map(v => String.fromCharCode(v ^ k)).join('');
@@ -6307,7 +6228,7 @@
                 if (Array.isArray(options.prefer) && options.prefer.length) params.set($j([99,97,118,117,118,97], 19), options.prefer.join(','));
                 if (Array.isArray(options.source) && options.source.length) params.set($j([24,4,30,25,8,14], 107), options.source.join(','));
                 const apiUrl = (endpoint.protocol || $j([116,104,104,108,111], 28)) + '://' + endpoint.host + '/' + $j([21,19,0,8,13,4,19,18], 97) + '/' + encodeURIComponent(query) + '?' + params;
-                this.debug('Javxy API', { query, apiUrl, endpoint: endpoint.label });
+                this.debug('Javxy \u8bf7\u6c42 API', { query, apiUrl, endpoint: endpoint.label });
                 const r = await this.request(apiUrl, {
                     timeout: 15000,
                     headers: {
@@ -6316,42 +6237,42 @@
                     }
                 });
                 if (!r) {
-                    this.debug('Javxy API ????????????', { endpoint: endpoint.label });
+                    this.debug('Javxy API 网络失败，尝试下一个节点', { endpoint: endpoint.label });
                     continue;
                 }
                 if (r.status >= 500 || r.status === 0) {
-                    this.debug('Javxy API ????????????', { endpoint: endpoint.label, status: r.status });
+                    this.debug('Javxy API 服务异常，尝试下一个节点', { endpoint: endpoint.label, status: r.status });
                     continue;
                 }
                 if ([401, 403, 429].includes(r.status)) {
-                    this.debug('Javxy API ??????????????', { endpoint: endpoint.label, status: r.status });
+                    this.debug('Javxy API 被拒绝或限流，尝试下一个节点', { endpoint: endpoint.label, status: r.status });
                     continue;
                 }
                 if (r.status < 200 || r.status >= 400) {
-                    this.debug('Javxy API ????????', { endpoint: endpoint.label, status: r.status });
+                    this.debug('Javxy API 无结果，停止查询', { endpoint: endpoint.label, status: r.status });
                     return null;
                 }
                 if (!r.responseText) {
-                    this.debug('Javxy API ?????????', { endpoint: endpoint.label, status: r.status });
+                    this.debug('Javxy API 响应为空，停止查询', { endpoint: endpoint.label, status: r.status });
                     return null;
                 }
                 let data;
                 try {
                     data = JSON.parse(r.responseText);
                 } catch {
-                    this.debug('Javxy JSON ????????????', { endpoint: endpoint.label });
+                    this.debug('Javxy JSON 解析失败，尝试下一个节点', { endpoint: endpoint.label });
                     continue;
                 }
                 const trailerUrl = String(data?.trailer || '').trim();
                 if (!trailerUrl) {
-                    this.debug('Javxy ? trailer ???????', { endpoint: endpoint.label, keys: Object.keys(data || {}) });
+                    this.debug('Javxy 无 trailer 字段，停止查询', { endpoint: endpoint.label, keys: Object.keys(data || {}) });
                     return null;
                 }
                 const qualityMap = data?.qualities && typeof data.qualities === 'object' ? data.qualities : {};
                 const quality = data?.quality && qualityMap[data.quality] ? data.quality : this.selectHighestQuality(qualityMap);
                 const sourceBase = this.javxySourceLabels[data?.source] || `Javxy | ${data?.source || 'dmm'}`;
                 const source = sourceBase;
-                this.debug('Javxy ????', { endpoint: endpoint.label, source: data?.source, quality, qualities: Object.keys(qualityMap) });
+                this.debug('Javxy 返回结果', { endpoint: endpoint.label, source: data?.source, quality, qualities: Object.keys(qualityMap) });
                 const resultType = String(data?.type || '').trim() || 'video';
                 return this.result(qualityMap[quality] || trailerUrl, source, resultType, {
                     qualities: qualityMap,
@@ -7038,11 +6959,8 @@
     Core.expose('__LAOSIJI_JUMP_SITES__', JumpSites);
     const TitleTranslate = (() => {
         const CACHE_PREFIX = 'title_translate_pa_v1_';
-        let styleReady = false;
         function ensureStyle() {
-            if (styleReady) return;
-            styleReady = true;
-            GM_addStyle(`.jav-title-translation{margin:6px 0 8px!important;padding:7px 10px!important;border-left:3px solid #60a5fa!important;background:#eff6ff!important;color:#1e3a8a!important;font-size:20px!important;font-weight:700!important;line-height:1.5!important;word-break:break-word!important;border-radius:0 6px 6px 0!important}.jav-title-translation.is-loading{color:#64748b!important;background:#f8fafc!important;border-left-color:#cbd5e1!important}.jav-title-translation.is-error{color:#be123c!important;background:#fff1f2!important;border-left-color:#fb7185!important}#video_title .jav-title-translation{margin-right:72px!important}`);
+            injectStyle('jav-title-translate-style', `.jav-title-translation{margin:6px 0 8px!important;padding:7px 10px!important;border-left:3px solid #60a5fa!important;background:#eff6ff!important;color:#1e3a8a!important;font-size:20px!important;font-weight:700!important;line-height:1.5!important;word-break:break-word!important;border-radius:0 6px 6px 0!important}.jav-title-translation.is-loading{color:#64748b!important;background:#f8fafc!important;border-left-color:#cbd5e1!important}.jav-title-translation.is-error{color:#be123c!important;background:#fff1f2!important;border-left-color:#fb7185!important}#video_title .jav-title-translation{margin-right:72px!important}`);
         }
         function escapeRegExp(value) {
             return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -7310,15 +7228,7 @@
             addTrailerBtn(trailerCode, btnGroup);
             addPreviewBtn(code, btnGroup);
             addSettingsBtn(btnGroup);
-            btnGroup.style.cssText = `
-                margin: 10px 0 6px 0;
-                display: flex;
-                flex-wrap: wrap;
-                gap: 8px;
-                align-items: center;
-                position: relative;
-                z-index: 9999;
-            `;
+            btnGroup.style.cssText = `margin:10px 0 6px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center;position:relative;z-index:9999;`;
             placeJumpButtonGroup(site, titleElem, btnGroup);
         } else {
             addNyaaBtn(code, btnGroup);
@@ -7468,7 +7378,7 @@
         sanitizeSnapshotItem(item) {
             if (!item) return null;
             const clone = item.cloneNode(true);
-            clone.querySelectorAll('.emby-badge, .emby-btn, .emby-button-group, .emby-javlibrary-list-badge').forEach(el => el.remove());
+            clone.querySelectorAll('.emby-badge, .emby-btn, .emby-button-group, .emby-javlibrary-list-badge, .jav-card-quick-actions, .jav-list-preview-btn').forEach(el => el.remove());
             clone.querySelectorAll('a[href]').forEach(anchor => {
                 anchor.querySelectorAll('a[href]').forEach(child => child.replaceWith(...child.childNodes));
             });
@@ -7685,6 +7595,7 @@
                 listOpenNewTab = true,
                 portraitCards = true,
                 stillsGallery = true,
+                coverHoverPreview = true,
             } = options;
             if (jump) JumpButtons.render();
             if (listPreview) ListPreview.sync();
@@ -7692,6 +7603,7 @@
             if (portraitCards) PortraitCards.apply();
             if (detailPreview) DetailPreviewInline.sync();
             if (stillsGallery) StillsGallery.sync();
+            if (coverHoverPreview) CoverHoverPreview.sync();
             if (pan115) schedulePan115ListBadges();
             if (infiniteScroll) InfiniteScroll.init();
             if (titleTranslate) TitleTranslate.sync();
@@ -7708,6 +7620,7 @@
             ListPreview.sync();
             ListOpenNewTab.sync();
             PortraitCards.apply();
+            CoverHoverPreview.sync();
             schedulePan115ListBadges();
         },
         syncPan115(enabled = Pan115.enabled()) {
@@ -7723,6 +7636,9 @@
         syncListPreview() {
             ListPreview.sync();
         },
+        syncCoverHoverPreview() {
+            CoverHoverPreview.sync();
+        },
         syncDetailPreview() {
             DetailPreviewInline.sync();
         },
@@ -7734,6 +7650,7 @@
         },
         syncPortraitCards(enabled = CFG.portraitCards) {
             PortraitCards.set(enabled);
+            ListPreview.sync();
         },
         syncCardFx(enabled = CFG.cardFx) {
             CardFx.apply(enabled);
@@ -7741,11 +7658,8 @@
     };
     Core.expose('__LAOSIJI_RUNTIME__', Runtime);
     const CardFx = (() => {
-        let styleReady = false;
         function ensureStyle() {
-            if (styleReady) return;
-            styleReady = true;
-            GM_addStyle(`html[data-laosiji-card-fx="off"] .jav-card{transition:none!important;will-change:auto!important;transform:none!important}html[data-laosiji-card-fx="off"] .jav-card:hover{transform:none!important;box-shadow:0 1px 4px rgba(15,23,42,.08)!important;border-color:rgba(148,163,184,.35)!important}.jav-card{content-visibility:auto;contain-intrinsic-size:auto 320px}.jav-card-cover .jav-card-image{transition:transform .22s ease,opacity .18s ease!important}.jav-card-cover:hover .jav-card-image{transform:scale(1.06)!important}`);
+            injectStyle('jav-card-fx-style', `html[data-laosiji-card-fx="off"] .jav-card{transition:none!important;will-change:auto!important;transform:none!important}html[data-laosiji-card-fx="off"] .jav-card:hover{transform:none!important;box-shadow:0 1px 4px rgba(15,23,42,.08)!important;border-color:rgba(148,163,184,.35)!important}.jav-card{content-visibility:auto;contain-intrinsic-size:auto 320px}.jav-card-cover .jav-card-image{transition:opacity .18s ease!important;transform:none!important;will-change:auto!important}html[data-laosiji-card-fx="off"] .jav-card-cover .jav-card-image{transition:transform .22s ease,opacity .18s ease!important}html[data-laosiji-card-fx="off"] .jav-card-cover:hover .jav-card-image,html[data-laosiji-card-fx="off"] .jav-card-link:hover .jav-card-image,html[data-laosiji-card-fx="off"] .jav-card:hover .jav-card-image{transform:scale(1.06)!important}html:not([data-laosiji-card-fx="off"]) .jav-card-cover:hover .jav-card-image,html:not([data-laosiji-card-fx="off"]) .jav-card-link:hover .jav-card-image,html:not([data-laosiji-card-fx="off"]) .jav-card:hover .jav-card-image,html:not([data-laosiji-card-fx="off"]) .movie-list .javdb-grid-card .box:hover .cover img,html:not([data-laosiji-card-fx="off"]) .movies .javdb-grid-card .box:hover .cover img,html:not([data-laosiji-card-fx="off"]) .grid .javdb-grid-card .box:hover .cover img{transform:none!important}`);
         }
         function apply(enabled = CFG.cardFx) {
             ensureStyle();
