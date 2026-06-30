@@ -4,7 +4,7 @@
 // @description  Load image from cover/screenshot links.
 // @description:zh-CN  从封面/截图链接加载图片并显示。基于York Wang 0.9.8版本自用修改, 添加更多站点支持
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=sukebei.nyaa.si
-// @version      2.0.4
+// @version      2.0.5
 // @license      MIT
 // @author       ZiPenOk
 // @include      /^https://(?:[^/]+\.)?nyaa\.[^/]+/.*$/
@@ -14,6 +14,7 @@
 // @include      /^https://(?:[^/]+\.)?dmm\.[^/]+/.*$/
 // @include      /^https://(?:[^/]+\.)?javtenshi\.[^/]+/.*$/
 // @include      /^https://(?:[^/]+\.)?3xplanet\.[^/]+/.*$/
+// @include      /^https://(?:[^/]+\.)?4up\.pics/.*$/
 // @include      /^https://(?:[^/]+\.)?xpic\.[^/]+/.*$/
 // @include      /^https://(?:[^/]+\.)?imgrock\.[^/]+/.*$/
 // @include      /^https://(?:[^/]+\.)?picrok\.[^/]+/.*$/
@@ -92,7 +93,7 @@
 // @include      /^https://(?:[^/]+\.)?imgo\.[^/]+/.*$/
 // @include      /^https://(?:[^/]+\.)?sht-link\.[^/]+/.*$/
 // @include      /^https://(?:[^/]+\.)?shentai-anime\.[^/]+/.*$/
-// @include      /^https://(?:[^/]+\.)?4up\.[^/]+/.*$/
+
 // @run-at       document-end
 // @grant        unsafeWindow
 // @grant        GM_xmlhttpRequest
@@ -190,6 +191,30 @@
         return match ? match[1] : null
     }
 
+    const getMetaRefreshUrl = (html, base) => {
+        if(!html) return null
+
+        const match = html.match(/<meta[^>]+http-equiv=["']?refresh["']?[^>]+content=["'][^"']*url=(.+?)["']/i)
+        if(!match) return null
+
+        const url = match[1].trim().replace(/^['"]|['"]$/g, '')
+        return toAbsoluteUrl(url, base)
+    }
+
+    const parseStorageImage = (html, base) => {
+        if(!html) return null
+
+        const doc = new DOMParser().parseFromString(html, 'text/html')
+        const img = doc.querySelector('.fileviewer-file img') ||
+                    doc.querySelector('#fileOriginalModal img')
+        const src = img && toAbsoluteUrl(img.getAttribute('src'), base)
+        if(src) return src
+
+        const match = html.match(/<img[^>]+src=["'](https?:\/\/[^"']+\/Application\/storage\/app\/public\/uploads\/users\/[^"']+)["']/i) ||
+                      html.match(/<img[^>]+src=["']((?:\/upload)?\/Application\/storage\/app\/public\/uploads\/users\/[^"']+)["']/i)
+        return match ? toAbsoluteUrl(match[1], base) : null
+    }
+
     addHandler(/^https?:\/\/(hentai-covers\.site)\/image\/\w+/, null, async (url, callback) => {
         callback(await doGet(url, /id="image-main" src="(.+?)"/))
     })
@@ -207,6 +232,21 @@
     })
     addHandler(/^https?:\/\/(iwtf1\.caching\.ovh|i\.postimg\.cc|i\.imgur\.com|cdn\.faleno\.net|img169\.com|qpic\.ws|img\.blr844\.com|3xplanetimg2\.com|pics4you\.net|www\.javbus\.com|\w+\.turboimg\.net|cctv123456\.com|images\d\.imagebam\.com|files\.catbox\.moe|tezimg\.campus-av\.com|i\.97p\.org|(\w+\.)+steamstatic\.com|pics\.dmm\.co\.jp)(\/[\w-]+)+\.(jpg|png|gif)$/, null, (url, callback) => {
         callback(url)
+    })
+    addHandler(/^https?:\/\/(?:[^\/]+\.)?4up\.pics(?:\/[\w-]+)?\/[\w.-]+\.(jpg|png|gif|webp)$/i, callback => {
+        const src = parseStorageImage(document.documentElement.innerHTML, document.location.href)
+        if(src) {
+            callback(src)
+        }
+    }, async (url, callback) => {
+        let html = await doGetHtml(url)
+        const redirect = getMetaRefreshUrl(html, url)
+        if(redirect) {
+            html = await doGetHtml(redirect)
+            url = redirect
+        }
+        const src = parseStorageImage(html, url)
+        if(src) callback(src)
     })
     addHandler(/^https?:\/\/(javtenshi\.com|3xplanet\.net|3xplanet\.com)\/viewimage\/\d+\.html/, null, async (url, callback) => {
         callback(await doGet(url, /scale\(this\);" src="(.+)/))
@@ -361,15 +401,6 @@
             btn && btn.click()
         }
     })
-    addHandler(/^https?:\/\/[\w-]+\.4up\.pics(\/[\w-]+)+/, null, async (url, callback) => {
-        const enUrl = url.replace(/^(https?:\/\/[^\/]+)\//, '$1/en/')
-        const html = await doGetHtml(enUrl)
-        if (!html) return
-        const match = html.match(/Application\/storage\/app\/public\/uploads\/users\/[\w\/.-]+\.(?:jpg|jpeg|png|gif|webp)/i)
-        if (!match) return
-        const domainMatch = url.match(/^(https?:\/\/[^\/]+)/)
-        if (domainMatch) callback(`${domainMatch[1]}/${match[0]}`)
-    })
     addHandler(/^https?:\/\/(imgair\.net|imgfrost\.net|imgblaze\.net)(\/\w+)$/, callback => {
         unsafeWindow.wuLu && unsafeWindow.wuLu()
         const img = document.querySelector('#newImgE')
@@ -404,6 +435,7 @@
     const imageHosts = [
         '1minx\\.[a-z]+',
         '3minx\\.[a-z]+',
+        '4up\\.pics',
         '4fuk\\.[a-z]+',
         '555fap\\.[a-z]+',
         'ai18\\.[a-z]+',
@@ -443,7 +475,7 @@
         'sht-link\\.[a-z]+',
         'sweetie-fox\\.[a-z]+',
         'xcamcovid\\.[a-z]+',
-        'xxpics\\.[a-z]+',
+        'xxpics\\.[a-z]+', 
         'shentai-anime\\.[a-z]+'
     ];
 
