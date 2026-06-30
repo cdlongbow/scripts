@@ -4,7 +4,7 @@
 // @description  Load image from cover/screenshot links.
 // @description:zh-CN  从封面/截图链接加载图片并显示。基于York Wang 0.9.8版本自用修改, 添加更多站点支持
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=sukebei.nyaa.si
-// @version      2.0.3
+// @version      2.0.4
 // @license      MIT
 // @author       ZiPenOk
 // @include      /^https://(?:[^/]+\.)?nyaa\.[^/]+/.*$/
@@ -93,10 +93,10 @@
 // @include      /^https://(?:[^/]+\.)?sht-link\.[^/]+/.*$/
 // @include      /^https://(?:[^/]+\.)?shentai-anime\.[^/]+/.*$/
 // @include      /^https://(?:[^/]+\.)?4up\.[^/]+/.*$/
-
 // @run-at       document-end
 // @grant        unsafeWindow
 // @grant        GM_xmlhttpRequest
+// @connect      *
 // @supportURL   https://github.com/ZiPenOk/scripts/issues
 // @homepageURL  https://github.com/ZiPenOk/scripts
 // @downloadURL  https://raw.githubusercontent.com/ZiPenOk/scripts/main/sukebei_Thumbnail.js
